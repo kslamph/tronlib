@@ -1,0 +1,9 @@
+[submodule "reference/documentation-en"]
+	path = reference/documentation-en
+	url = https://github.com/tronprotocol/documentation-en.git
+[submodule "reference/googleapis"]
+	path = reference/googleapis
+	url = https://github.com/googleapis/googleapis.git
+[submodule "reference/protocol"]
+	path = reference/protocol
+	url = https://github.com/tronprotocol/protocol.git
