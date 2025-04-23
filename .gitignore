@@ -1,0 +1,5 @@
+.VSCodeCounter/
+/doc/
+.aider*
+.env
+node_modules/
