@@ -30,3 +30,5 @@ first class trc-20 contracts interaction
 ```go
 
 ```
+
+to generate pb go files, run scripts/proto-gen.sh from any folder
