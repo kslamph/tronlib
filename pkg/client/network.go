@@ -7,36 +7,54 @@ import (
 	"github.com/kslamph/tronlib/pb/core"
 )
 
-func (c *Client) GetBlockByNum(blockNumber int64) (*core.Block, error) {
-	block, err := c.wallet.GetBlockByNum(context.Background(), &api.NumberMessage{
+//BLOCK
+
+// GetBlockByNum returns a block by its number. it contains tron contract data
+func (c *Client) GetBlockByNum(blockNumber int64) (*api.BlockExtention, error) {
+	block, err := c.wallet.GetBlockByNum2(context.Background(), &api.NumberMessage{
 		Num: blockNumber,
 	})
 
-	if err != nil {
-		return nil, err
-	}
-
-	return block, nil
+	return block, err
 }
 
+// GetBlockById returns a block by its ID. it contains smart contract log
 func (c *Client) GetTransactionInfoByBlockNum(blockNumber int64) (*api.TransactionInfoList, error) {
 	txInfo, err := c.wallet.GetTransactionInfoByBlockNum(context.Background(), &api.NumberMessage{
 		Num: blockNumber,
 	})
 
-	if err != nil {
-		return nil, err
-	}
-
-	return txInfo, nil
+	return txInfo, err
 }
 
-func (c *Client) GetNowBlock() (*core.Block, error) {
-	block, err := c.wallet.GetNowBlock(context.Background(), &api.EmptyMessage{})
+func (c *Client) GetNowBlock() (*api.BlockExtention, error) {
+	block, err := c.wallet.GetNowBlock2(context.Background(), &api.EmptyMessage{})
 
-	if err != nil {
-		return nil, err
-	}
+	return block, err
+}
 
-	return block, nil
+//TRANSACTION
+
+func (c *Client) GetTransactionById(txId string) (*core.Transaction, error) {
+	tx, err := c.wallet.GetTransactionById(context.Background(), &api.BytesMessage{
+		Value: []byte(txId),
+	})
+
+	return tx, err
+}
+
+func (c *Client) GetTransactionInfoById(txId string) (*core.TransactionInfo, error) {
+	txInfo, err := c.wallet.GetTransactionInfoById(context.Background(), &api.BytesMessage{
+		Value: []byte(txId),
+	})
+
+	return txInfo, err
+}
+
+// NETWORK PARAMETERS
+
+func (c *Client) GetChainParameters() (*core.ChainParameters, error) {
+	chainParams, err := c.wallet.GetChainParameters(context.Background(), &api.EmptyMessage{})
+
+	return chainParams, err
 }
