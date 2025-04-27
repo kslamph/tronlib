@@ -2,14 +2,20 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"math/rand"
+	"net"
 	"sync"
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/status"
 
 	"github.com/kslamph/tronlib/pb/api"
@@ -28,49 +34,98 @@ type Client struct {
 }
 
 // NewClient creates a new Tron client with the given options
+// NewClient creates a new Tron client with the given options
 func NewClient(ctx context.Context, opts *ClientOptions) (*Client, error) {
 	if err := opts.validate(); err != nil {
 		return nil, fmt.Errorf("invalid options: %w", err)
 	}
 
+	// Shuffle endpoints for random initial order
+	shuffled := make([]string, len(opts.Endpoints))
+	copy(shuffled, opts.Endpoints)
+	rand.Shuffle(len(shuffled), func(i, j int) {
+		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+	})
+
 	client := &Client{
 		opts:      opts,
-		endpoints: opts.Endpoints,
-		current:   rand.Intn(len(opts.Endpoints)), // Start with random endpoint
+		endpoints: shuffled,
+		current:   0,
 	}
 
-	// Establish initial connection
-	if err := client.connect(ctx); err != nil {
-		return nil, fmt.Errorf("failed to establish initial connection: %w", err)
+	fmt.Printf("Endpoints will be tried in random order:\n")
+	for i, ep := range shuffled {
+		fmt.Printf("%d. %s\n", i+1, ep)
 	}
 
-	return client, nil
+	// Try each endpoint until one works
+	var lastErr error
+	for i := 0; i < len(opts.Endpoints); i++ {
+		select {
+		case <-ctx.Done():
+			if lastErr != nil {
+				return nil, fmt.Errorf("connection attempts aborted: %w (last error: %v)", ctx.Err(), lastErr)
+			}
+			return nil, fmt.Errorf("connection attempts aborted: %w", ctx.Err())
+		default:
+			connCtx, cancel := context.WithTimeout(ctx, opts.Timeout)
+			fmt.Printf("Attempting initial connection to %s...\n", opts.Endpoints[client.current])
+
+			err := client.connect(connCtx)
+			if err != nil {
+				lastErr = err
+				fmt.Printf("Failed to connect to %s: %v\n", opts.Endpoints[client.current], err)
+				cancel()
+				client.current = (client.current + 1) % len(opts.Endpoints)
+				time.Sleep(50 * time.Millisecond) // Brief pause before next attempt
+				continue
+			}
+
+			cancel()
+			fmt.Printf("Successfully established initial connection to %s\n", opts.Endpoints[client.current])
+			return client, nil
+		}
+	}
+
+	return nil, fmt.Errorf("failed to establish initial connection to any endpoint (tried %d endpoints), last error: %w",
+		len(opts.Endpoints), lastErr)
 }
 
-// connect establishes a gRPC connection to the current endpoint
+// connect establishes a gRPC connection to the specified endpoint
+// This is an internal method used by both NewClient and reconnect
 func (c *Client) connect(ctx context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Close existing connection if any
+	endpoint := c.endpoints[c.current]
+
+	// Ensure any existing connection is properly cleaned up
 	if c.conn != nil {
-		c.conn.Close()
+		if state := c.conn.GetState(); state != connectivity.Shutdown {
+			c.conn.Close()
+		}
+		c.conn = nil
+		c.wallet = nil
 	}
 
-	// Create connection with timeout
-	ctx, cancel := context.WithTimeout(ctx, c.opts.Timeout)
-	defer cancel()
+	fmt.Printf("Establishing connection to endpoint: %s\n", endpoint)
 
-	conn, err := grpc.DialContext(
-		ctx,
-		c.endpoints[c.current],
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultServiceConfig(`{"loadBalancingPolicy":"round_robin"}`),
-	)
+	// Attempt to establish new connection
+	conn, err := c.connectWithNewClient(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to connect to %s: %w", c.endpoints[c.current], err)
+		return fmt.Errorf("failed to connect to %s: %w", endpoint, err)
 	}
 
+	// Verify connection state
+	state := conn.GetState()
+	if state != connectivity.Ready && state != connectivity.Idle {
+		conn.Close()
+		return fmt.Errorf("connection established but in unusable state: %v", state)
+	}
+
+	fmt.Printf("Successfully connected to %s (state: %v)\n", endpoint, state)
+
+	// Update client state with new connection
 	c.conn = conn
 	c.wallet = api.NewWalletClient(conn)
 
@@ -78,21 +133,44 @@ func (c *Client) connect(ctx context.Context) error {
 }
 
 // reconnect attempts to establish a new connection to the specified endpoint
-func (c *Client) reconnect(ctx context.Context, endpoint string) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+// This is used by executeWithFailover to handle connection failures and endpoint switching
+// It ensures proper cleanup of existing connections and maintains endpoint indexing
+// func (c *Client) reconnect(ctx context.Context, endpoint string) error {
+// 	c.mu.Lock()
+// 	defer c.mu.Unlock()
 
-	// Find endpoint index
-	for i, ep := range c.endpoints {
-		if ep == endpoint {
-			c.current = i
-			break
-		}
-	}
+// 	// Clean up existing connection
+// 	if c.conn != nil {
+// 		if state := c.conn.GetState(); state != connectivity.Shutdown {
+// 			c.conn.Close()
+// 		}
+// 		c.conn = nil
+// 		c.wallet = nil
+// 	}
 
-	return c.connect(ctx)
-}
+// 	// Update current endpoint index
+// 	found := false
+// 	for i, ep := range c.endpoints {
+// 		if ep == endpoint {
+// 			c.current = i
+// 			found = true
+// 			break
+// 		}
+// 	}
+// 	if !found {
+// 		return fmt.Errorf("invalid endpoint: %s", endpoint)
+// 	}
 
+// 	// Attempt connection with new endpoint
+// 	err := c.connect(ctx)
+// 	if err != nil {
+// 		return fmt.Errorf("failed to reconnect to %s: %w", endpoint, err)
+// 	}
+
+// 	return nil
+// }
+
+// Close closes the client connection
 // Close closes the client connection
 func (c *Client) Close() error {
 	c.mu.Lock()
@@ -108,44 +186,113 @@ func (c *Client) Close() error {
 func (c *Client) executeWithFailover(ctx context.Context, op func(context.Context) error) error {
 	var lastErr error
 	attempts := 0
+	maxAttempts := c.opts.RetryConfig.MaxAttempts
 
-	for attempts <= c.opts.RetryConfig.MaxAttempts {
-		err := op(ctx)
-		if err == nil {
-			return nil
+	for attempts <= maxAttempts {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("operation cancelled: %w", ctx.Err())
+		default:
+			currentEndpoint := c.endpoints[c.current]
+
+			if attempts > 0 {
+				c.applyBackoff(attempts - 1)
+				fmt.Printf("\nRetry attempt %d/%d using endpoint: %s\n",
+					attempts+1, maxAttempts+1, currentEndpoint)
+			}
+
+			// Check connection state
+			if c.conn != nil {
+				state := c.conn.GetState()
+				if state != connectivity.Ready && state != connectivity.Idle {
+					fmt.Printf("Connection to %s is %v, will reconnect\n",
+						currentEndpoint, state)
+					c.conn.Close()
+					c.conn = nil
+				}
+			}
+
+			// Establish connection if needed
+			if c.conn == nil {
+				fmt.Printf("Establishing connection to %s\n", currentEndpoint)
+				connCtx, cancel := context.WithTimeout(ctx, c.opts.Timeout)
+				err := c.connect(connCtx)
+				cancel()
+
+				if err != nil {
+					lastErr = err
+					attempts++
+
+					nextEndpoint := c.getNextEndpoint() // Random next endpoint
+					fmt.Printf("Connection failed: %v\nWill try endpoint: %s\n",
+						err, nextEndpoint)
+					continue
+				}
+			}
+
+			// Execute operation with timeout
+			opCtx, cancel := context.WithTimeout(ctx, c.opts.Timeout)
+			err := op(opCtx)
+			cancel()
+
+			if err == nil {
+				if attempts > 0 {
+					fmt.Printf("Operation succeeded after %d retries on %s\n",
+						attempts, currentEndpoint)
+				}
+				return nil
+			}
+
+			lastErr = err
+			attempts++
+
+			if attempts > maxAttempts {
+				return fmt.Errorf("all attempts exhausted (%d/%d), last error: %w",
+					attempts, maxAttempts+1, lastErr)
+			}
+
+			// Check if error is retryable
+			if !c.isRetryableError(err) {
+				return fmt.Errorf("non-retryable error on %s: %w",
+					currentEndpoint, err)
+			}
+
+			// Get next endpoint (random selection)
+			nextEndpoint := c.getNextEndpoint()
+			fmt.Printf("Will retry on endpoint: %s\n", nextEndpoint)
 		}
-
-		lastErr = err
-		attempts++
-
-		// If we've exhausted all attempts, return the last error
-		if attempts > c.opts.RetryConfig.MaxAttempts {
-			return fmt.Errorf("all attempts failed, last error: %w", lastErr)
-		}
-
-		// Check if error is retryable
-		if !c.isRetryableError(err) {
-			return err
-		}
-
-		// Try next endpoint
-		endpoint := c.getNextEndpoint()
-		if err := c.reconnect(ctx, endpoint); err != nil {
-			continue
-		}
-
-		// Apply backoff before retry
-		c.applyBackoff(attempts - 1) // -1 because attempts is 1-based
 	}
 
-	return fmt.Errorf("all attempts failed, last error: %w", lastErr)
+	return fmt.Errorf("all endpoints tried (%d attempts), last error: %w",
+		attempts, lastErr)
 }
 
-// getNextEndpoint returns the next endpoint to try
+// getNextEndpoint returns a randomly selected endpoint, excluding the current one
 func (c *Client) getNextEndpoint() string {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	// If we only have one endpoint, return it
+	if len(c.endpoints) == 1 {
+		return c.endpoints[0]
+	}
+
+	// Create a list of available indices excluding current
+	available := make([]int, 0, len(c.endpoints)-1)
+	for i := range c.endpoints {
+		if i != c.current {
+			available = append(available, i)
+		}
+	}
+
+	// Randomly select from available endpoints
+	if len(available) > 0 {
+		nextIndex := available[rand.Intn(len(available))]
+		c.current = nextIndex
+		return c.endpoints[nextIndex]
+	}
+
+	// Fallback: if somehow we have no available endpoints, wrap around
 	c.current = (c.current + 1) % len(c.endpoints)
 	return c.endpoints[c.current]
 }
@@ -163,25 +310,86 @@ func (c *Client) applyBackoff(attempt int) {
 
 // isRetryableError checks if an error should trigger a retry
 func (c *Client) isRetryableError(err error) bool {
-	// Check if the error is a gRPC status error
-	st, ok := status.FromError(err)
-	if !ok {
-		// Not a gRPC error, might be a connection error during Dial.
-		// Consider context deadline exceeded or other net errors if needed,
-		// but Unavailable usually covers transient connection issues post-dial.
-		// For simplicity, we'll primarily rely on gRPC codes for now.
-		// A more robust implementation could check for specific net error types.
+	if err == nil {
 		return false
 	}
 
-	// Retry on Unavailable status code, which often indicates transient network issues
-	// or the server being temporarily down.
-	return st.Code() == codes.Unavailable
+	// First check for context and network errors as they're most common
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		fmt.Printf("Context error, will retry on another endpoint: %v\n", err)
+		return true
+	}
+
+	// Handle gRPC status codes
+	if st, ok := status.FromError(err); ok {
+		switch st.Code() {
+		case codes.Unavailable,
+			codes.DeadlineExceeded,
+			codes.Unknown,
+			codes.Aborted,
+			codes.DataLoss:
+			// These are typically transient issues that warrant retry
+			fmt.Printf("Retryable gRPC error (code=%v): %v\n", st.Code(), st.Message())
+			return true
+
+		case codes.ResourceExhausted:
+			// Rate limiting - worth retrying on another endpoint
+			fmt.Printf("Rate limit hit, will retry on another endpoint: %v\n", st.Message())
+			return true
+
+		case codes.Internal,
+			codes.FailedPrecondition:
+			// These might be temporary issues
+			fmt.Printf("Potentially retryable gRPC error (code=%v): %v\n", st.Code(), st.Message())
+			return true
+
+		case codes.InvalidArgument,
+			codes.NotFound,
+			codes.AlreadyExists,
+			codes.PermissionDenied,
+			codes.Unauthenticated,
+			codes.OutOfRange,
+			codes.Unimplemented:
+			// These are definitely not retryable
+			fmt.Printf("Non-retryable gRPC error (code=%v): %v\n", st.Code(), st.Message())
+			return false
+
+		default:
+			// Log unknown codes but treat them as retryable
+			fmt.Printf("Unknown gRPC error code %v, will retry: %v\n", st.Code(), st.Message())
+			return true
+		}
+	}
+
+	// Handle network errors
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		msg := "Network error"
+		if netErr.Timeout() {
+			msg = "Network timeout"
+		}
+		if netErr.Temporary() {
+			msg = "Temporary network error"
+		}
+		fmt.Printf("%s, will retry: %v\n", msg, err)
+		return true
+	}
+
+	// Handle connection closed
+	if errors.Is(err, io.EOF) {
+		fmt.Printf("Connection closed unexpectedly, will retry\n")
+		return true
+	}
+
+	fmt.Printf("Unknown error type, treating as non-retryable: %v\n", err)
+	return false
 }
 
 // CreateTransaction2 creates a new transaction using the v2 API
 func (c *Client) BuildTransaction(contract interface{}) (*api.TransactionExtention, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), c.opts.Timeout)
+	defer cancel()
+
 	apiExt := &api.TransactionExtention{}
 	err := c.executeWithFailover(ctx, func(ctx context.Context) error {
 		var err error
@@ -216,7 +424,9 @@ func (c *Client) BuildTransaction(contract interface{}) (*api.TransactionExtenti
 
 // BroadcastTransaction broadcasts a signed transaction to the network
 func (c *Client) BroadcastTransaction(tx *core.Transaction) (*api.Return, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), c.opts.Timeout)
+	defer cancel()
+
 	var result *api.Return
 	err := c.executeWithFailover(ctx, func(ctx context.Context) error {
 		var err error
@@ -227,4 +437,42 @@ func (c *Client) BroadcastTransaction(tx *core.Transaction) (*api.Return, error)
 		return nil, fmt.Errorf("failed to broadcast transaction: %v", err)
 	}
 	return result, nil
+}
+
+func (c *Client) connectWithNewClient(ctx context.Context) (*grpc.ClientConn, error) {
+	// Configure connection parameters with timeouts and backoff
+	connectParams := grpc.ConnectParams{
+		Backoff: backoff.Config{
+			BaseDelay:  100 * time.Millisecond,
+			Multiplier: 1.6,
+			Jitter:     0.2,
+			MaxDelay:   c.opts.RetryConfig.MaxBackoff,
+		},
+		MinConnectTimeout: c.opts.Timeout,
+	}
+
+	// Configure keepalive parameters
+	kp := keepalive.ClientParameters{
+		Time:                15 * time.Second,
+		Timeout:             3 * time.Second,
+		PermitWithoutStream: true,
+	}
+
+	target := c.endpoints[c.current]
+
+	// Use DialContext with the provided context and make it blocking
+	dialOpts := []grpc.DialOption{
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultServiceConfig(`{"loadBalancingPolicy":"round_robin"}`),
+		grpc.WithConnectParams(connectParams),
+		grpc.WithKeepaliveParams(kp),
+		grpc.WithBlock(), // Make connection establishment blocking
+	}
+
+	conn, err := grpc.DialContext(ctx, target, dialOpts...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to %s: %w", target, err)
+	}
+
+	return conn, nil
 }

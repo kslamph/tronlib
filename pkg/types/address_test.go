@@ -71,7 +71,7 @@ func TestAddressConversion(t *testing.T) {
 					return
 				}
 
-				if got := addr.Hex(); got[2:] != tt.hex {
+				if got := addr.Hex(); got != tt.hex {
 					t.Errorf("ToHex() = %v, want %v", got[2:], tt.hex)
 				}
 			}
