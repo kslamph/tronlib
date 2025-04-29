@@ -53,11 +53,6 @@ func NewClient(ctx context.Context, opts *ClientOptions) (*Client, error) {
 		current:   0,
 	}
 
-	fmt.Printf("Endpoints will be tried in random order:\n")
-	for i, ep := range shuffled {
-		fmt.Printf("%d. %s\n", i+1, ep)
-	}
-
 	// Try each endpoint until one works
 	var lastErr error
 	for i := 0; i < len(opts.Endpoints); i++ {
@@ -69,12 +64,11 @@ func NewClient(ctx context.Context, opts *ClientOptions) (*Client, error) {
 			return nil, fmt.Errorf("connection attempts aborted: %w", ctx.Err())
 		default:
 			connCtx, cancel := context.WithTimeout(ctx, opts.Timeout)
-			fmt.Printf("Attempting initial connection to %s...\n", opts.Endpoints[client.current])
 
 			err := client.connect(connCtx)
 			if err != nil {
 				lastErr = err
-				fmt.Printf("Failed to connect to %s: %v\n", opts.Endpoints[client.current], err)
+
 				cancel()
 				client.current = (client.current + 1) % len(opts.Endpoints)
 				time.Sleep(50 * time.Millisecond) // Brief pause before next attempt
@@ -82,7 +76,7 @@ func NewClient(ctx context.Context, opts *ClientOptions) (*Client, error) {
 			}
 
 			cancel()
-			fmt.Printf("Successfully established initial connection to %s\n", opts.Endpoints[client.current])
+
 			return client, nil
 		}
 	}
@@ -108,8 +102,6 @@ func (c *Client) connect(ctx context.Context) error {
 		c.wallet = nil
 	}
 
-	fmt.Printf("Establishing connection to endpoint: %s\n", endpoint)
-
 	// Attempt to establish new connection
 	conn, err := c.connectWithNewClient(ctx)
 	if err != nil {
@@ -122,8 +114,6 @@ func (c *Client) connect(ctx context.Context) error {
 		conn.Close()
 		return fmt.Errorf("connection established but in unusable state: %v", state)
 	}
-
-	fmt.Printf("Successfully connected to %s (state: %v)\n", endpoint, state)
 
 	// Update client state with new connection
 	c.conn = conn
@@ -197,16 +187,14 @@ func (c *Client) executeWithFailover(ctx context.Context, op func(context.Contex
 
 			if attempts > 0 {
 				c.applyBackoff(attempts - 1)
-				fmt.Printf("\nRetry attempt %d/%d using endpoint: %s\n",
-					attempts+1, maxAttempts+1, currentEndpoint)
+
 			}
 
 			// Check connection state
 			if c.conn != nil {
 				state := c.conn.GetState()
 				if state != connectivity.Ready && state != connectivity.Idle {
-					fmt.Printf("Connection to %s is %v, will reconnect\n",
-						currentEndpoint, state)
+
 					c.conn.Close()
 					c.conn = nil
 				}
@@ -214,7 +202,6 @@ func (c *Client) executeWithFailover(ctx context.Context, op func(context.Contex
 
 			// Establish connection if needed
 			if c.conn == nil {
-				fmt.Printf("Establishing connection to %s\n", currentEndpoint)
 				connCtx, cancel := context.WithTimeout(ctx, c.opts.Timeout)
 				err := c.connect(connCtx)
 				cancel()
@@ -223,9 +210,6 @@ func (c *Client) executeWithFailover(ctx context.Context, op func(context.Contex
 					lastErr = err
 					attempts++
 
-					nextEndpoint := c.getNextEndpoint() // Random next endpoint
-					fmt.Printf("Connection failed: %v\nWill try endpoint: %s\n",
-						err, nextEndpoint)
 					continue
 				}
 			}
@@ -236,10 +220,7 @@ func (c *Client) executeWithFailover(ctx context.Context, op func(context.Contex
 			cancel()
 
 			if err == nil {
-				if attempts > 0 {
-					fmt.Printf("Operation succeeded after %d retries on %s\n",
-						attempts, currentEndpoint)
-				}
+				// Operation succeeded
 				return nil
 			}
 
@@ -258,8 +239,7 @@ func (c *Client) executeWithFailover(ctx context.Context, op func(context.Contex
 			}
 
 			// Get next endpoint (random selection)
-			nextEndpoint := c.getNextEndpoint()
-			fmt.Printf("Will retry on endpoint: %s\n", nextEndpoint)
+
 		}
 	}
 
@@ -316,7 +296,7 @@ func (c *Client) isRetryableError(err error) bool {
 
 	// First check for context and network errors as they're most common
 	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
-		fmt.Printf("Context error, will retry on another endpoint: %v\n", err)
+
 		return true
 	}
 
@@ -329,18 +309,18 @@ func (c *Client) isRetryableError(err error) bool {
 			codes.Aborted,
 			codes.DataLoss:
 			// These are typically transient issues that warrant retry
-			fmt.Printf("Retryable gRPC error (code=%v): %v\n", st.Code(), st.Message())
+			// fmt.Printf("Retryable gRPC error (code=%v): %v\n", st.Code(), st.Message())
 			return true
 
 		case codes.ResourceExhausted:
 			// Rate limiting - worth retrying on another endpoint
-			fmt.Printf("Rate limit hit, will retry on another endpoint: %v\n", st.Message())
+			// fmt.Printf("Rate limit hit, will retry on another endpoint: %v\n", st.Message())
 			return true
 
 		case codes.Internal,
 			codes.FailedPrecondition:
 			// These might be temporary issues
-			fmt.Printf("Potentially retryable gRPC error (code=%v): %v\n", st.Code(), st.Message())
+			// fmt.Printf("Potentially retryable gRPC error (code=%v): %v\n", st.Code(), st.Message())
 			return true
 
 		case codes.InvalidArgument,
@@ -351,12 +331,12 @@ func (c *Client) isRetryableError(err error) bool {
 			codes.OutOfRange,
 			codes.Unimplemented:
 			// These are definitely not retryable
-			fmt.Printf("Non-retryable gRPC error (code=%v): %v\n", st.Code(), st.Message())
+			// fmt.Printf("Non-retryable gRPC error (code=%v): %v\n", st.Code(), st.Message())
 			return false
 
 		default:
 			// Log unknown codes but treat them as retryable
-			fmt.Printf("Unknown gRPC error code %v, will retry: %v\n", st.Code(), st.Message())
+			// fmt.Printf("Unknown gRPC error code %v, will retry: %v\n", st.Code(), st.Message())
 			return true
 		}
 	}
@@ -364,24 +344,16 @@ func (c *Client) isRetryableError(err error) bool {
 	// Handle network errors
 	var netErr net.Error
 	if errors.As(err, &netErr) {
-		msg := "Network error"
-		if netErr.Timeout() {
-			msg = "Network timeout"
-		}
-		if netErr.Temporary() {
-			msg = "Temporary network error"
-		}
-		fmt.Printf("%s, will retry: %v\n", msg, err)
 		return true
 	}
 
 	// Handle connection closed
 	if errors.Is(err, io.EOF) {
-		fmt.Printf("Connection closed unexpectedly, will retry\n")
+		// fmt.Printf("Connection closed unexpectedly, will retry\n")
 		return true
 	}
 
-	fmt.Printf("Unknown error type, treating as non-retryable: %v\n", err)
+	// fmt.Printf("Unknown error type, treating as non-retryable: %v\n", err)
 	return false
 }
 
