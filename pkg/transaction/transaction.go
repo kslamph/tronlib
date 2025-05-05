@@ -41,16 +41,19 @@ func (tx *Transaction) SetExpiration(seconds int64) {
 		tx.txExtension.GetTransaction().RawData.Expiration = time.Now().UnixMilli() + seconds*1000
 	}
 }
+func (tx *Transaction) Sign(signer *types.Account) error {
+	return tx.MultiSign(signer, 2)
+}
 
 // Sign signs the transaction with the sender's private key
-func (tx *Transaction) Sign(signer *types.Account) error {
+func (tx *Transaction) MultiSign(signer *types.Account, permissionID int32) error {
 
 	if tx.txExtension.GetTransaction() == nil {
 		return fmt.Errorf("no transaction to sign")
 	}
 
 	// Sign the transaction using the account's private key
-	signedTx, err := signer.Sign(tx.txExtension.GetTransaction())
+	signedTx, err := signer.MultiSign(tx.txExtension.GetTransaction(), permissionID)
 	if err != nil {
 		return fmt.Errorf("failed to sign transaction: %v", err)
 	}

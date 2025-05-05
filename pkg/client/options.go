@@ -11,6 +11,10 @@ type ClientOptions struct {
 	ApiKey      string        // For rate limiting/auth if needed
 	Timeout     time.Duration // Request timeout
 	RetryConfig *RetryConfig  // Retry configuration
+
+	// Worker configuration
+	PriorityWorkers int           // Number of workers dedicated to priority tasks (default: 3)
+	RateLimit       time.Duration // Minimum time between requests to same endpoint (default: 500ms)
 }
 
 // RetryConfig contains configuration for retry behavior
@@ -25,8 +29,10 @@ type RetryConfig struct {
 // DefaultOptions returns a ClientOptions with sensible defaults
 func DefaultOptions() *ClientOptions {
 	return &ClientOptions{
-		Endpoints: []string{"grpc.trongrid.io:50051"},
-		Timeout:   10 * time.Second,
+		Endpoints:       []string{"grpc.trongrid.io:50051"},
+		Timeout:         10 * time.Second,
+		PriorityWorkers: 3,                      // Default 3 priority workers
+		RateLimit:       500 * time.Millisecond, // Default 500ms rate limit
 		RetryConfig: &RetryConfig{
 			MaxAttempts:    2, // Will try 3 times total (initial + 2 retries)
 			InitialBackoff: time.Second,
@@ -68,6 +74,14 @@ func (o *ClientOptions) validate() error {
 
 	if o.RetryConfig.BackoffFactor <= 0 {
 		return fmt.Errorf("backoff factor must be positive")
+	}
+
+	if o.PriorityWorkers < 0 {
+		return fmt.Errorf("priority workers cannot be negative")
+	}
+
+	if o.RateLimit < 0 {
+		return fmt.Errorf("rate limit duration cannot be negative")
 	}
 
 	return nil

@@ -117,11 +117,14 @@ func (a *Account) PrivateKeyHex() string {
 func (a *Account) PublicKey() *ecdsa.PublicKey {
 	return a.pubKey
 }
+func (a *Account) Sign(tx *core.Transaction) (*core.Transaction, error) {
+	return a.MultiSign(tx, 2)
+}
 
 // Sign signs the given transaction with the account's private key
-func (a *Account) Sign(tx *core.Transaction) (*core.Transaction, error) {
+func (a *Account) MultiSign(tx *core.Transaction, permissionID int32) (*core.Transaction, error) {
 	// Set permission ID for active permission
-	tx.GetRawData().GetContract()[0].PermissionId = 2
+	tx.GetRawData().GetContract()[0].PermissionId = permissionID
 
 	// Marshal raw data for signing
 	rawData, err := proto.Marshal(tx.GetRawData())

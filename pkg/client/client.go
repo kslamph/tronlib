@@ -23,6 +23,34 @@ import (
 )
 
 // Client represents a Tron network client
+// RateLimiter tracks the last call time for each endpoint
+type RateLimiter struct {
+	lastCall map[string]time.Time
+	mu       sync.Mutex
+}
+
+// NewRateLimiter creates a new rate limiter
+func NewRateLimiter() *RateLimiter {
+	return &RateLimiter{
+		lastCall: make(map[string]time.Time),
+	}
+}
+
+// CheckAndUpdate checks if enough time has passed since the last call and updates the timestamp
+func (r *RateLimiter) CheckAndUpdate(endpoint string, minGap time.Duration) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	now := time.Now()
+	lastTime, exists := r.lastCall[endpoint]
+
+	if !exists || now.Sub(lastTime) >= minGap {
+		r.lastCall[endpoint] = now
+		return true
+	}
+	return false
+}
+
 type Client struct {
 	conn   *grpc.ClientConn
 	opts   *ClientOptions
@@ -31,6 +59,10 @@ type Client struct {
 	endpoints []string     // List of available endpoints
 	mu        sync.RWMutex // Protects current connection state
 	current   int          // Current endpoint index
+
+	rateLimiter *RateLimiter                     // Rate limiter for API calls
+	backlogChan chan func(context.Context) error // Channel for backlog tasks
+	workerWg    sync.WaitGroup                   // WaitGroup for tracking workers
 }
 
 // NewClient creates a new Tron client with the given options
@@ -48,10 +80,22 @@ func NewClient(ctx context.Context, opts *ClientOptions) (*Client, error) {
 	})
 
 	client := &Client{
-		opts:      opts,
-		endpoints: shuffled,
-		current:   0,
+		opts:        opts,
+		endpoints:   shuffled,
+		current:     0,
+		rateLimiter: NewRateLimiter(),
+		backlogChan: make(chan func(context.Context) error, 1000), // Buffer size for backlog
 	}
+
+	// Start priority workers
+	for i := 0; i < opts.PriorityWorkers; i++ {
+		client.workerWg.Add(1)
+		go client.priorityWorker()
+	}
+
+	// Start backlog worker (uses remaining CPU capacity)
+	client.workerWg.Add(1)
+	go client.backlogWorker()
 
 	// Try each endpoint until one works
 	var lastErr error
@@ -167,6 +211,12 @@ func (c *Client) Close() error {
 	defer c.mu.Unlock()
 
 	if c.conn != nil {
+		// Signal all workers to stop
+		for i := 0; i < c.opts.PriorityWorkers+1; i++ { // +1 for backlog worker
+			c.backlogChan <- nil
+		}
+		c.workerWg.Wait()    // Wait for workers to finish
+		close(c.backlogChan) // Close channel after all workers are done
 		return c.conn.Close()
 	}
 	return nil
@@ -184,6 +234,13 @@ func (c *Client) executeWithFailover(ctx context.Context, op func(context.Contex
 			return fmt.Errorf("operation cancelled: %w", ctx.Err())
 		default:
 			currentEndpoint := c.endpoints[c.current]
+
+			// Check rate limit
+			if !c.rateLimiter.CheckAndUpdate(currentEndpoint, c.opts.RateLimit) {
+				// If rate limited, try next endpoint
+				c.current = (c.current + 1) % len(c.endpoints)
+				continue
+			}
 
 			if attempts > 0 {
 				c.applyBackoff(attempts - 1)
@@ -353,8 +410,46 @@ func (c *Client) isRetryableError(err error) bool {
 		return true
 	}
 
-	// fmt.Printf("Unknown error type, treating as non-retryable: %v\n", err)
+	// Unknown error type, treating as non-retryable
 	return false
+}
+
+// priorityWorker handles high-priority tasks
+func (c *Client) priorityWorker() {
+	defer c.workerWg.Done()
+
+	for task := range c.backlogChan {
+		if task == nil {
+			return
+		}
+
+		ctx := context.Background()
+		if err := task(ctx); err != nil {
+			// Log error but continue processing
+			fmt.Printf("Priority worker error: %v\n", err)
+		}
+	}
+}
+
+// backlogWorker processes backlog tasks using remaining CPU capacity
+func (c *Client) backlogWorker() {
+	defer c.workerWg.Done()
+
+	for task := range c.backlogChan {
+		if task == nil {
+			return
+		}
+
+		// Process backlog tasks with a background context
+		ctx := context.Background()
+		if err := task(ctx); err != nil {
+			// Log error but continue processing
+			fmt.Printf("Backlog worker error: %v\n", err)
+		}
+
+		// Small sleep to prevent CPU saturation
+		time.Sleep(10 * time.Millisecond)
+	}
 }
 
 // CreateTransaction2 creates a new transaction using the v2 API
