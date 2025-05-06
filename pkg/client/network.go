@@ -67,20 +67,20 @@ func (c *Client) GetNowBlock() (*api.BlockExtention, error) {
 }
 
 // TRANSACTION
-func (c *Client) WaitForTransactionInfo(txId string, timeout int) (*core.Transaction, error) {
+func (c *Client) WaitForTransactionInfo(txId string, timeout int) (*core.TransactionInfo, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
 	defer cancel()
-	var tx *core.Transaction
+	var tx *core.TransactionInfo
 	deadline := time.Now().Add(time.Duration(timeout) * time.Second)
 	hashBytes, err := hex.DecodeString(txId)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode transaction ID: %v", err)
 	}
-	for time.Now().Before(deadline) && tx == nil {
+	for time.Now().Before(deadline) && tx.GetBlockNumber() == 0 {
 		err := c.executeWithFailover(ctx, func(ctx context.Context) error {
 			var err error
 
-			tx, err = c.wallet.GetTransactionById(ctx, &api.BytesMessage{
+			tx, err = c.wallet.GetTransactionInfoById(ctx, &api.BytesMessage{
 				Value: hashBytes,
 			})
 			return err
@@ -88,8 +88,8 @@ func (c *Client) WaitForTransactionInfo(txId string, timeout int) (*core.Transac
 		if err != nil {
 			return nil, fmt.Errorf("failed to wait for transaction info: %v", err)
 		}
+		time.Sleep(1 * time.Second)
 	}
-
 	return tx, nil
 }
 
