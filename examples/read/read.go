@@ -92,4 +92,20 @@ func main() {
 	fmt.Printf("Total time: %v\n", time.Since(start))
 	fmt.Printf("Query time: %v\n", time.Since(queryStart))
 
+	rcp, err := client.WaitForTransactionInfo("41fee269a29af3604c4082c48ae372d860170745b1b7dbb92425ac01b52dc7dd", 1)
+	if err != nil {
+		log.Fatalf("Failed to get transaction info: %v", err)
+	}
+	fmt.Printf("\nTransaction Information:\n")
+	fmt.Printf("====================\n")
+	fmt.Println(rcp)
+	fmt.Println(rcp.GetRet()) // This will trigger a failover if the first endpoint is down
+
+	rcp2, err := client.GetTransactionInfoById("41fee269a29af3604c4082c48ae372d860170745b1b7dbb92425ac01b52dc7dd")
+	if err != nil {
+		log.Fatalf("Failed to get transaction info: %v", err)
+	}
+	fmt.Printf("\nTransaction Information:\n")
+	fmt.Printf("====================\n")
+	fmt.Println(rcp2)
 }

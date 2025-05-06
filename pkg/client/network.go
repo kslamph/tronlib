@@ -2,7 +2,9 @@ package client
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
+	"time"
 
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
@@ -64,17 +66,45 @@ func (c *Client) GetNowBlock() (*api.BlockExtention, error) {
 	return block, nil
 }
 
-//TRANSACTION
+// TRANSACTION
+func (c *Client) WaitForTransactionInfo(txId string, timeout int) (*core.Transaction, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
+	defer cancel()
+	var tx *core.Transaction
+	deadline := time.Now().Add(time.Duration(timeout) * time.Second)
+	hashBytes, err := hex.DecodeString(txId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode transaction ID: %v", err)
+	}
+	for time.Now().Before(deadline) && tx == nil {
+		err := c.executeWithFailover(ctx, func(ctx context.Context) error {
+			var err error
+
+			tx, err = c.wallet.GetTransactionById(ctx, &api.BytesMessage{
+				Value: hashBytes,
+			})
+			return err
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to wait for transaction info: %v", err)
+		}
+	}
+
+	return tx, nil
+}
 
 func (c *Client) GetTransactionById(txId string) (*core.Transaction, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.opts.Timeout)
 	defer cancel()
-
+	hashBytes, err := hex.DecodeString(txId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode transaction ID: %v", err)
+	}
 	var tx *core.Transaction
-	err := c.executeWithFailover(ctx, func(ctx context.Context) error {
+	err = c.executeWithFailover(ctx, func(ctx context.Context) error {
 		var err error
 		tx, err = c.wallet.GetTransactionById(ctx, &api.BytesMessage{
-			Value: []byte(txId),
+			Value: hashBytes,
 		})
 		return err
 	})
@@ -87,12 +117,15 @@ func (c *Client) GetTransactionById(txId string) (*core.Transaction, error) {
 func (c *Client) GetTransactionInfoById(txId string) (*core.TransactionInfo, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.opts.Timeout)
 	defer cancel()
-
+	hashBytes, err := hex.DecodeString(txId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode transaction ID: %v", err)
+	}
 	var txInfo *core.TransactionInfo
-	err := c.executeWithFailover(ctx, func(ctx context.Context) error {
+	err = c.executeWithFailover(ctx, func(ctx context.Context) error {
 		var err error
 		txInfo, err = c.wallet.GetTransactionInfoById(ctx, &api.BytesMessage{
-			Value: []byte(txId),
+			Value: hashBytes,
 		})
 		return err
 	})
