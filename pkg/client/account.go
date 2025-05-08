@@ -7,57 +7,59 @@ import (
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/types"
+	"google.golang.org/grpc"
 )
 
-func (c *Client) GetAccount(account *types.Address) (*core.Account, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), c.opts.Timeout)
-	defer cancel()
+func (c *TronClient) GetAccount(account *types.Address) (*core.Account, error) {
 	var acc *core.Account
-	err := c.executeWithFailover(ctx, func(ctx context.Context) error {
-		var err error
-		acc, err = c.wallet.GetAccount(ctx, &core.Account{
+
+	result, err := c.ExecuteWithClient(func(ctx context.Context, conn *grpc.ClientConn) (interface{}, error) {
+		walletClient := api.NewWalletClient(conn)
+		return walletClient.GetAccount(ctx, &core.Account{
 			Address: account.Bytes(),
 		})
-		return err
 	})
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to get account: %v", err)
 	}
+
+	acc = result.(*core.Account)
 	return acc, nil
 }
 
-func (c *Client) GetAccountNet(account *types.Address) (*api.AccountNetMessage, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), c.opts.Timeout)
-	defer cancel()
-
+func (c *TronClient) GetAccountNet(account *types.Address) (*api.AccountNetMessage, error) {
 	var accNet *api.AccountNetMessage
-	err := c.executeWithFailover(ctx, func(ctx context.Context) error {
-		var err error
-		accNet, err = c.wallet.GetAccountNet(ctx, &core.Account{
+
+	result, err := c.ExecuteWithClient(func(ctx context.Context, conn *grpc.ClientConn) (interface{}, error) {
+		walletClient := api.NewWalletClient(conn)
+		return walletClient.GetAccountNet(ctx, &core.Account{
 			Address: account.Bytes(),
 		})
-		return err
 	})
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to get account net: %v", err)
 	}
+
+	accNet = result.(*api.AccountNetMessage)
 	return accNet, nil
 }
 
-func (c *Client) GetAccountResource(account *types.Address) (*api.AccountResourceMessage, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), c.opts.Timeout)
-	defer cancel()
-
+func (c *TronClient) GetAccountResource(account *types.Address) (*api.AccountResourceMessage, error) {
 	var accRes *api.AccountResourceMessage
-	err := c.executeWithFailover(ctx, func(ctx context.Context) error {
-		var err error
-		accRes, err = c.wallet.GetAccountResource(ctx, &core.Account{
+
+	result, err := c.ExecuteWithClient(func(ctx context.Context, conn *grpc.ClientConn) (interface{}, error) {
+		walletClient := api.NewWalletClient(conn)
+		return walletClient.GetAccountResource(ctx, &core.Account{
 			Address: account.Bytes(),
 		})
-		return err
 	})
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to get account resource: %v", err)
 	}
+
+	accRes = result.(*api.AccountResourceMessage)
 	return accRes, nil
 }

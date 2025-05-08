@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -14,22 +13,23 @@ import (
 	"github.com/kslamph/tronlib/pkg/types"
 )
 
-func createClient() (*client.Client, error) {
-	// Initialize client with options
-	opts := &client.ClientOptions{
-		Endpoints: []string{"grpc.shasta.trongrid.io:50051"},
-		Timeout:   10 * time.Second,
-		RetryConfig: &client.RetryConfig{
-			MaxAttempts:    2, // Will try 3 times total (initial + 2 retries)
-			InitialBackoff: time.Second,
-			MaxBackoff:     10 * time.Second,
-			BackoffFactor:  2.0,
+func createClient() (*client.TronClient, error) {
+	// Initialize client with configuration
+	config := client.ClientConfig{
+		Nodes: []client.NodeConfig{
+			{
+				Address:   "grpc.shasta.trongrid.io:50051",
+				RateLimit: client.RateLimit{Times: 100, Window: time.Minute},
+			},
 		},
+		TimeoutMs:          10000, // 10 second timeout
+		CooldownPeriod:     1 * time.Minute,
+		MetricsWindowSize:  3,
+		BestNodePercentage: 90,
 	}
 
 	// Create client
-	ctx := context.Background()
-	client, err := client.NewClient(ctx, opts)
+	client, err := client.NewTronClient(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create client: %w", err)
 	}
@@ -54,7 +54,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Initialize client with options
+	// Initialize client
 	client, err := createClient()
 	if err != nil {
 		log.Fatalf("Failed to create client: %v", err)
@@ -82,8 +82,6 @@ func main() {
 	// Create new transaction
 	tx := transaction.NewTransaction(client, senderAccount)
 
-	// Transfer 1 TRX (1_000_000 SUN = 1 TRX)
-
 	// Execute the transaction based on the command flag
 	log.Printf("Executing command: %s\n", *command)
 	switch *command {
@@ -96,12 +94,12 @@ func main() {
 	case "freeze1":
 		// Freeze 1 TRX for Energy (ResourceCode 1)
 		err = tx.Freeze(senderAccount.Address(), 1_000_000, 1)
-
 	case "unfreeze0":
-		// Unfreeze Energy (ResourceCode 1) - Ensure you have frozen first
-		err = tx.Unfreeze(senderAccount.Address(), 1_000_000, 0) // ResourceCode 1 for Energy
+		// Unfreeze Bandwidth (ResourceCode 0)
+		err = tx.Unfreeze(senderAccount.Address(), 1_000_000, 0)
 	case "unfreeze1":
-		err = tx.Unfreeze(senderAccount.Address(), 1_000_000, 1) // ResourceCode 1 for Energy
+		// Unfreeze Energy (ResourceCode 1)
+		err = tx.Unfreeze(senderAccount.Address(), 1_000_000, 1)
 	case "delegate0":
 		// Delegate 1 TRX Bandwidth (ResourceCode 0)
 		err = tx.Delegate(senderAccount.Address(), receiverAddr, 1_000_000, 0)
@@ -109,11 +107,11 @@ func main() {
 		// Delegate 1 TRX Energy (ResourceCode 1)
 		err = tx.Delegate(senderAccount.Address(), receiverAddr, 1_000_000, 1)
 	case "reclaim0":
-		// Reclaim delegated Bandwidth (ResourceCode 0) - Ensure you have delegated first
+		// Reclaim delegated Bandwidth (ResourceCode 0)
 		err = tx.Reclaim(senderAccount.Address(), receiverAddr, 1_000_000, 0)
 	case "reclaim1":
-		// Reclaim delegated Energy (ResourceCode 1) - Ensure you have delegated first
-		err = tx.Reclaim(senderAccount.Address(), receiverAddr, 1_000_000, 1) // ResourceCode 1 for Energy
+		// Reclaim delegated Energy (ResourceCode 1)
+		err = tx.Reclaim(senderAccount.Address(), receiverAddr, 1_000_000, 1)
 	default:
 		log.Fatalf("Invalid command: %s. Use transfer, freeze, unfreeze, delegate0, delegate1, reclaim0, or reclaim1.", *command)
 	}
@@ -124,8 +122,8 @@ func main() {
 
 	// Set transaction parameters
 	tx.SetFeelimit(10_000_000) // 10 TRX
-	tx.SetExpiration(30)       // default is 60 seconds
-	// time.Sleep(2 * time.Second) //expired transaction should failed when broadcast
+	tx.SetExpiration(30)       // 30 seconds
+
 	// Sign transaction
 	err = tx.Sign(senderAccount)
 	if err != nil {
@@ -146,4 +144,16 @@ func main() {
 	if receipt.Message != "" {
 		fmt.Printf("Message: %s\n", receipt.Message)
 	}
+
+	// Wait for transaction confirmation
+	rcp, err := client.WaitForTransactionInfo(receipt.TxID, 10)
+	if err != nil {
+		log.Fatalf("Failed to get transaction info: %v", err)
+	}
+	fmt.Printf("\nTransaction Information:\n")
+	fmt.Printf("====================\n")
+	fmt.Println(rcp)
+
+	fmt.Println(time.Now().Format(time.RFC3339))
+	fmt.Println(time.Unix(rcp.BlockTimeStamp/1000, 0).Format(time.RFC3339))
 }

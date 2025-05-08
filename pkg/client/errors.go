@@ -33,13 +33,6 @@ func (e *TronError) Error() string {
 	return sb.String()
 }
 
-// shouldRetry determines if an error should trigger a retry
-func (c *Client) shouldRetry(err error) bool {
-
-	// TODO: Implement retry logic
-	return false
-}
-
 // NewTronError creates a new TronError
 func NewTronError(code ErrorCode, message string, cause error) *TronError {
 	return &TronError{

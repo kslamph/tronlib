@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"time"
@@ -14,40 +13,55 @@ func main() {
 	start := time.Now()
 	fmt.Printf("Starting TRON account query at %v\n\n", start.Format(time.RFC3339))
 
-	// Initialize client with options
-	opts := &client.ClientOptions{
-		Endpoints: []string{
-			"grpc.trongrid.io:50055",        // Invalid port to trigger failover
-			"grpc.nile.trongrid.io:50055",   // Invalid port to trigger failover
-			"5.5.6.9:50051",                 // Invalid IP to trigger failover
-			"grpc.shasta.trongrid.io:50051", // Primary testnet
+	// Initialize client with configuration
+	config := client.ClientConfig{
+		Nodes: []client.NodeConfig{
+			{
+				Address:   "3.225.171.164:50051",
+				RateLimit: client.RateLimit{Times: 100, Window: time.Minute},
+			},
+			{
+				Address:   "grpc.trongrid.io:50051",
+				RateLimit: client.RateLimit{Times: 100, Window: time.Minute},
+			},
+			{
+				Address:   "grpc.trongrid.io:50055",
+				RateLimit: client.RateLimit{Times: 100, Window: time.Minute},
+			},
+			{
+				Address:   "grpc.nile.trongrid.io:50055",
+				RateLimit: client.RateLimit{Times: 100, Window: time.Minute},
+			},
+			{
+				Address:   "5.5.6.9:50051",
+				RateLimit: client.RateLimit{Times: 100, Window: time.Minute},
+			},
+			{
+				Address:   "grpc.shasta.trongrid.io:50051",
+				RateLimit: client.RateLimit{Times: 100, Window: time.Minute},
+			},
 		},
-		Timeout: 1 * time.Second, // Very aggressive timeout for quick failover
-		RetryConfig: &client.RetryConfig{
-			MaxAttempts:    5,                      // Will try all endpoints
-			InitialBackoff: 10 * time.Millisecond,  // Minimal initial wait
-			MaxBackoff:     100 * time.Millisecond, // Keep backoff short
-			BackoffFactor:  1.2,                    // Gentle increase
-		},
+		CooldownPeriod:     1 * time.Minute,
+		MetricsWindowSize:  3,
+		BestNodePercentage: 90,
+		TimeoutMs:          1000, // 1 second timeout for RPC calls
 	}
 
 	fmt.Printf("Connection Settings:\n")
 	fmt.Printf("-------------------\n")
-	fmt.Printf("Operation timeout: %v\n", opts.Timeout)
-	fmt.Printf("Max retry attempts: %d\n", opts.RetryConfig.MaxAttempts)
-	fmt.Printf("Initial backoff: %v\n", opts.RetryConfig.InitialBackoff)
-	fmt.Printf("Max backoff: %v\n", opts.RetryConfig.MaxBackoff)
+	fmt.Printf("Cooldown period: %v\n", config.CooldownPeriod)
+	fmt.Printf("Metrics window size: %d\n", config.MetricsWindowSize)
+	fmt.Printf("Best node percentage: %d%%\n", config.BestNodePercentage)
+	fmt.Printf("RPC timeout: %d ms\n", config.TimeoutMs)
 
-	fmt.Printf("\nConfigured Endpoints:\n")
+	fmt.Printf("\nConfigured Nodes:\n")
 	fmt.Printf("--------------------\n")
-	for i, endpoint := range opts.Endpoints {
-		fmt.Printf("%d. %s\n", i+1, endpoint)
+	for i, node := range config.Nodes {
+		fmt.Printf("%d. %s (Rate limit: %d per %v)\n", i+1, node.Address, node.RateLimit.Times, node.RateLimit.Window)
 	}
 
-	// Create client with tight overall timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	client, err := client.NewClient(ctx, opts)
+	// Create client
+	client, err := client.NewTronClient(config)
 	if err != nil {
 		log.Fatalf("Failed to create client: %v", err)
 	}
@@ -58,12 +72,8 @@ func main() {
 		log.Fatalf("Failed to create receiver address: %v", err)
 	}
 
-	// Get account with timeout
-	// ctx, cancel = context.WithTimeout(context.Background(), 3*time.Second)
-	// defer cancel()
-
 	fmt.Printf("\nQuerying account information...\n")
-	fmt.Printf("This operation will timeout after %v and try next endpoint\n", opts.Timeout)
+	fmt.Printf("This operation will automatically retry with different nodes if needed\n")
 	queryStart := time.Now()
 	ac, err := client.GetAccount(addr)
 	if err != nil {
@@ -92,20 +102,16 @@ func main() {
 	fmt.Printf("Total time: %v\n", time.Since(start))
 	fmt.Printf("Query time: %v\n", time.Since(queryStart))
 
-	rcp, err := client.WaitForTransactionInfo("41fee269a29af3604c4082c48ae372d860170745b1b7dbb92425ac01b52dc7dd", 1)
+	// Query transaction info with 5 second timeout
+	txId := "41fee269a29af3604c4082c48ae372d860170745b1b7dbb92425ac01b52dc7dd"
+	fmt.Printf("\nQuerying transaction %s...\n", txId)
+	txInfo, err := client.GetTransactionInfoById(txId)
 	if err != nil {
-		log.Fatalf("Failed to get transaction info: %v", err)
+		log.Printf("Failed to get transaction info: %v\n", err)
+	} else {
+		fmt.Printf("\nTransaction Information:\n")
+		fmt.Printf("====================\n")
+		fmt.Printf("Block Number: %d\n", txInfo.GetBlockNumber())
+		fmt.Printf("Result: %v\n", txInfo.GetResult())
 	}
-	fmt.Printf("\nTransaction Information:\n")
-	fmt.Printf("====================\n")
-	fmt.Println(rcp)
-	fmt.Println(rcp.GetRet()) // This will trigger a failover if the first endpoint is down
-
-	rcp2, err := client.GetTransactionInfoById("41fee269a29af3604c4082c48ae372d860170745b1b7dbb92425ac01b52dc7dd")
-	if err != nil {
-		log.Fatalf("Failed to get transaction info: %v", err)
-	}
-	fmt.Printf("\nTransaction Information:\n")
-	fmt.Printf("====================\n")
-	fmt.Println(rcp2)
 }

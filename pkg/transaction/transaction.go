@@ -1,6 +1,7 @@
 package transaction
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -9,19 +10,20 @@ import (
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pkg/client"
 	"github.com/kslamph/tronlib/pkg/types"
+	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 )
 
 // Transaction represents a Tron transaction with its extension data
 type Transaction struct {
-	client        *client.Client
+	client        *client.TronClient
 	senderAccount *types.Account
 	txExtension   *api.TransactionExtention
 	receipt       *Receipt
 }
 
 // NewTransaction creates a new transaction instance
-func NewTransaction(client *client.Client, sender *types.Account) *Transaction {
+func NewTransaction(client *client.TronClient, sender *types.Account) *Transaction {
 	return &Transaction{
 		client:        client,
 		senderAccount: sender,
@@ -41,13 +43,13 @@ func (tx *Transaction) SetExpiration(seconds int64) {
 		tx.txExtension.GetTransaction().RawData.Expiration = time.Now().UnixMilli() + seconds*1000
 	}
 }
+
 func (tx *Transaction) Sign(signer *types.Account) error {
 	return tx.MultiSign(signer, 2)
 }
 
 // Sign signs the transaction with the sender's private key
 func (tx *Transaction) MultiSign(signer *types.Account, permissionID int32) error {
-
 	if tx.txExtension.GetTransaction() == nil {
 		return fmt.Errorf("no transaction to sign")
 	}
@@ -71,11 +73,15 @@ func (tx *Transaction) Broadcast() error {
 		return fmt.Errorf("no transaction to broadcast")
 	}
 
-	resp, err := tx.client.BroadcastTransaction(tx.txExtension.GetTransaction())
+	result, err := tx.client.ExecuteWithClient(func(ctx context.Context, conn *grpc.ClientConn) (interface{}, error) {
+		walletClient := api.NewWalletClient(conn)
+		return walletClient.BroadcastTransaction(ctx, tx.txExtension.GetTransaction())
+	})
 	if err != nil {
 		return fmt.Errorf("failed to broadcast transaction: %v", err)
 	}
 
+	resp := result.(*api.Return)
 	if !resp.GetResult() {
 		return fmt.Errorf("broadcast failed: %s", string(resp.GetMessage()))
 	}
@@ -100,8 +106,8 @@ func (tx *Transaction) UpdateTxID() error {
 	tx.txExtension.Txid = rawDataSHA256[:]
 	return nil
 }
-func (tx *Transaction) GetTxID() string {
 
+func (tx *Transaction) GetTxID() string {
 	if tx.txExtension != nil {
 		return hex.EncodeToString(tx.txExtension.GetTxid())
 	}
