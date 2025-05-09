@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"math/rand"
 	"net"
 	"sync"
@@ -66,8 +65,8 @@ type TronNodeStatus struct {
 	mu                sync.RWMutex
 }
 
-// TronClient manages connections to multiple Tron nodes
-type TronClient struct {
+// Client manages connections to multiple Tron nodes
+type Client struct {
 	nodes              []*TronNodeStatus
 	cooldownPeriod     time.Duration
 	metricsWindowSize  int
@@ -135,8 +134,8 @@ func initializeNode(nodeConfig NodeConfig) *TronNodeStatus {
 	return node
 }
 
-// NewTronClient creates a new TronClient with the provided configuration
-func NewTronClient(config ClientConfig) (*TronClient, error) {
+// NewClient creates a new TronClient with the provided configuration
+func NewClient(config ClientConfig) (*Client, error) {
 	if len(config.Nodes) == 0 {
 		return nil, errors.New("at least one node must be configured")
 	}
@@ -161,7 +160,7 @@ func NewTronClient(config ClientConfig) (*TronClient, error) {
 		timeoutMs = DefaultTimeoutMs
 	}
 
-	client := &TronClient{
+	client := &Client{
 		nodes:              make([]*TronNodeStatus, 0, len(config.Nodes)),
 		cooldownPeriod:     cooldownPeriod,
 		metricsWindowSize:  metricsWindowSize,
@@ -206,7 +205,7 @@ func NewTronClient(config ClientConfig) (*TronClient, error) {
 }
 
 // manageConnections periodically checks and manages connections to all nodes
-func (c *TronClient) manageConnections() {
+func (c *Client) manageConnections() {
 	ticker := time.NewTicker(DefaultInitialReconnectInterval)
 	defer ticker.Stop()
 
@@ -284,7 +283,7 @@ func (c *TronClient) manageConnections() {
 }
 
 // selectNode chooses the appropriate node for the next request
-func (c *TronClient) selectNode() (*TronNodeStatus, error) {
+func (c *Client) selectNode() (*TronNodeStatus, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -346,15 +345,13 @@ func (c *TronClient) selectNode() (*TronNodeStatus, error) {
 	}
 
 	if useBestNode && bestNode != nil {
-		log.Printf("Using best performing node: %s (Avg response time: %v)\n", bestNode.address, bestNode.avgResponseTime)
 		return bestNode, nil
 	}
-	log.Printf("Using random node from available nodes\n")
 	return availableNodes[rand.Intn(len(availableNodes))], nil
 }
 
 // getConnection returns a gRPC connection to a selected node
-func (c *TronClient) getConnection() (*grpc.ClientConn, *TronNodeStatus, error) {
+func (c *Client) getConnection() (*grpc.ClientConn, *TronNodeStatus, error) {
 	node, err := c.selectNode()
 	if err != nil {
 		return nil, nil, err
@@ -380,7 +377,7 @@ func (c *TronClient) getConnection() (*grpc.ClientConn, *TronNodeStatus, error) 
 }
 
 // updateNodeMetrics updates the response time metrics for a node
-func (c *TronClient) updateNodeMetrics(node *TronNodeStatus, duration time.Duration, err error) {
+func (c *Client) updateNodeMetrics(node *TronNodeStatus, duration time.Duration, err error) {
 	node.mu.Lock()
 	defer node.mu.Unlock()
 
@@ -421,7 +418,7 @@ func (c *TronClient) updateNodeMetrics(node *TronNodeStatus, duration time.Durat
 }
 
 // Close closes all connections to Tron nodes
-func (c *TronClient) Close() {
+func (c *Client) Close() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -436,29 +433,68 @@ func (c *TronClient) Close() {
 }
 
 // BuildTransaction creates a new transaction using the provided contract
-func (c *TronClient) BuildTransaction(contract interface{}) (*api.TransactionExtention, error) {
-	result, err := c.ExecuteWithClient(func(ctx context.Context, conn *grpc.ClientConn) (interface{}, error) {
-		walletClient := api.NewWalletClient(conn)
-		switch v := contract.(type) {
-		case *core.TransferContract:
-			return walletClient.CreateTransaction2(ctx, v)
-		case *core.TriggerSmartContract:
-			return walletClient.TriggerConstantContract(ctx, v)
-		case *core.FreezeBalanceV2Contract:
-			return walletClient.FreezeBalanceV2(ctx, v)
-		case *core.UnfreezeBalanceV2Contract:
-			return walletClient.UnfreezeBalanceV2(ctx, v)
-		case *core.DelegateResourceContract:
-			return walletClient.DelegateResource(ctx, v)
-		case *core.UnDelegateResourceContract:
-			return walletClient.UnDelegateResource(ctx, v)
-		case *core.WithdrawExpireUnfreezeContract:
-			return walletClient.WithdrawExpireUnfreeze(ctx, v)
-		default:
-			return nil, fmt.Errorf("unsupported contract type: %T", contract)
-		}
-	})
+// BuildTransaction creates a new transaction using the provided contract
+func (c *Client) BuildTransaction(contract interface{}) (*api.TransactionExtention, error) {
+	var execFunc func(ctx context.Context, conn *grpc.ClientConn) (interface{}, error)
 
+	walletClientFunc := func(ctx context.Context, conn *grpc.ClientConn, specificCall func(ctx context.Context, client api.WalletClient) (interface{}, error)) (interface{}, error) {
+		client := api.NewWalletClient(conn)
+		return specificCall(ctx, client)
+	}
+
+	switch v := contract.(type) {
+	case *core.TransferContract:
+		execFunc = func(ctx context.Context, conn *grpc.ClientConn) (interface{}, error) {
+			return walletClientFunc(ctx, conn, func(ctx context.Context, client api.WalletClient) (interface{}, error) {
+				return client.CreateTransaction2(ctx, v)
+			})
+		}
+	case *core.TriggerSmartContract:
+		execFunc = func(ctx context.Context, conn *grpc.ClientConn) (interface{}, error) {
+			return walletClientFunc(ctx, conn, func(ctx context.Context, client api.WalletClient) (interface{}, error) {
+				return client.TriggerConstantContract(ctx, v)
+			})
+		}
+	case *core.FreezeBalanceV2Contract:
+
+		execFunc = func(ctx context.Context, conn *grpc.ClientConn) (interface{}, error) {
+			return walletClientFunc(ctx, conn, func(ctx context.Context, client api.WalletClient) (interface{}, error) {
+				return client.FreezeBalanceV2(ctx, v)
+			})
+		}
+	case *core.UnfreezeBalanceV2Contract:
+
+		execFunc = func(ctx context.Context, conn *grpc.ClientConn) (interface{}, error) {
+			return walletClientFunc(ctx, conn, func(ctx context.Context, client api.WalletClient) (interface{}, error) {
+				return client.UnfreezeBalanceV2(ctx, v)
+			})
+		}
+	case *core.DelegateResourceContract:
+
+		execFunc = func(ctx context.Context, conn *grpc.ClientConn) (interface{}, error) {
+			return walletClientFunc(ctx, conn, func(ctx context.Context, client api.WalletClient) (interface{}, error) {
+				return client.DelegateResource(ctx, v)
+			})
+		}
+	case *core.UnDelegateResourceContract:
+
+		execFunc = func(ctx context.Context, conn *grpc.ClientConn) (interface{}, error) {
+			return walletClientFunc(ctx, conn, func(ctx context.Context, client api.WalletClient) (interface{}, error) {
+				return client.UnDelegateResource(ctx, v)
+			})
+		}
+	case *core.WithdrawExpireUnfreezeContract:
+
+		execFunc = func(ctx context.Context, conn *grpc.ClientConn) (interface{}, error) {
+			return walletClientFunc(ctx, conn, func(ctx context.Context, client api.WalletClient) (interface{}, error) {
+				return client.WithdrawExpireUnfreeze(ctx, v)
+			})
+		}
+	default:
+		return nil, fmt.Errorf("unsupported contract type: %T", contract)
+	}
+
+	result, err := c.ExecuteWithClient(execFunc)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build transaction: %v", err)
 	}
@@ -467,7 +503,7 @@ func (c *TronClient) BuildTransaction(contract interface{}) (*api.TransactionExt
 }
 
 // ExecuteWithClient executes a function with a gRPC client connection
-func (c *TronClient) ExecuteWithClient(fn func(ctx context.Context, conn *grpc.ClientConn) (interface{}, error)) (interface{}, error) {
+func (c *Client) ExecuteWithClient(fn func(ctx context.Context, conn *grpc.ClientConn) (any, error)) (any, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
 	defer cancel()
 
@@ -479,7 +515,7 @@ func (c *TronClient) ExecuteWithClient(fn func(ctx context.Context, conn *grpc.C
 	start := time.Now()
 	result, err := fn(ctx, conn)
 	duration := time.Since(start)
-
+	// log.Printf("Executed %s, duration %v, node %s", fn, duration, node.address)
 	go c.updateNodeMetrics(node, duration, err)
 
 	return result, err

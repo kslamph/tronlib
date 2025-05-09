@@ -12,7 +12,7 @@ import (
 )
 
 // GetBlockByNum returns a block by its number. it contains tron contract data
-func (c *TronClient) GetBlockByNum(blockNumber int64) (*api.BlockExtention, error) {
+func (c *Client) GetBlockByNum(blockNumber int64) (*api.BlockExtention, error) {
 	var block *api.BlockExtention
 
 	result, err := c.ExecuteWithClient(func(ctx context.Context, conn *grpc.ClientConn) (interface{}, error) {
@@ -31,7 +31,7 @@ func (c *TronClient) GetBlockByNum(blockNumber int64) (*api.BlockExtention, erro
 }
 
 // GetTransactionInfoByBlockNum returns transaction info for a block.
-func (c *TronClient) GetTransactionInfoByBlockNum(blockNumber int64) (*api.TransactionInfoList, error) {
+func (c *Client) GetTransactionInfoByBlockNum(blockNumber int64) (*api.TransactionInfoList, error) {
 	var txInfo *api.TransactionInfoList
 
 	result, err := c.ExecuteWithClient(func(ctx context.Context, conn *grpc.ClientConn) (interface{}, error) {
@@ -49,7 +49,7 @@ func (c *TronClient) GetTransactionInfoByBlockNum(blockNumber int64) (*api.Trans
 	return txInfo, nil
 }
 
-func (c *TronClient) GetNowBlock() (*api.BlockExtention, error) {
+func (c *Client) GetNowBlock() (*api.BlockExtention, error) {
 	var block *api.BlockExtention
 
 	result, err := c.ExecuteWithClient(func(ctx context.Context, conn *grpc.ClientConn) (interface{}, error) {
@@ -65,7 +65,7 @@ func (c *TronClient) GetNowBlock() (*api.BlockExtention, error) {
 	return block, nil
 }
 
-func (c *TronClient) WaitForTransactionInfo(txId string, timeoutSeconds int) (*core.TransactionInfo, error) {
+func (c *Client) WaitForTransactionInfo(txId string, timeoutSeconds int) (*core.TransactionInfo, error) {
 	hashBytes, err := hex.DecodeString(txId)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode transaction ID: %v", err)
@@ -97,7 +97,7 @@ func (c *TronClient) WaitForTransactionInfo(txId string, timeoutSeconds int) (*c
 	return nil, fmt.Errorf("transaction not found after %d seconds", timeoutSeconds)
 }
 
-func (c *TronClient) GetTransactionById(txId string) (*core.Transaction, error) {
+func (c *Client) GetTransactionById(txId string) (*core.Transaction, error) {
 	hashBytes, err := hex.DecodeString(txId)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode transaction ID: %v", err)
@@ -118,7 +118,7 @@ func (c *TronClient) GetTransactionById(txId string) (*core.Transaction, error) 
 	return tx, nil
 }
 
-func (c *TronClient) GetTransactionInfoById(txId string) (*core.TransactionInfo, error) {
+func (c *Client) GetTransactionInfoById(txId string) (*core.TransactionInfo, error) {
 	hashBytes, err := hex.DecodeString(txId)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode transaction ID: %v", err)
@@ -139,7 +139,7 @@ func (c *TronClient) GetTransactionInfoById(txId string) (*core.TransactionInfo,
 	return txInfo, nil
 }
 
-func (c *TronClient) GetChainParameters() (*core.ChainParameters, error) {
+func (c *Client) GetChainParameters() (*core.ChainParameters, error) {
 	var chainParams *core.ChainParameters
 
 	result, err := c.ExecuteWithClient(func(ctx context.Context, conn *grpc.ClientConn) (interface{}, error) {

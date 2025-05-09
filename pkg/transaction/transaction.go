@@ -16,14 +16,14 @@ import (
 
 // Transaction represents a Tron transaction with its extension data
 type Transaction struct {
-	client        *client.TronClient
+	client        *client.Client
 	senderAccount *types.Account
 	txExtension   *api.TransactionExtention
 	receipt       *Receipt
 }
 
 // NewTransaction creates a new transaction instance
-func NewTransaction(client *client.TronClient, sender *types.Account) *Transaction {
+func NewTransaction(client *client.Client, sender *types.Account) *Transaction {
 	return &Transaction{
 		client:        client,
 		senderAccount: sender,

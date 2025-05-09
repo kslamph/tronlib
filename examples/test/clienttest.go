@@ -12,7 +12,7 @@ import (
 func main() {
 	// Initialize client with configuration
 
-	tronClient, err := client.NewTronClient(client.DefaultClientConfig())
+	tronClient, err := client.NewClient(client.DefaultClientConfig())
 	if err != nil {
 		log.Fatalf("Failed to create client: %v", err)
 	}

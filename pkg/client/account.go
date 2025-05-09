@@ -10,10 +10,10 @@ import (
 	"google.golang.org/grpc"
 )
 
-func (c *TronClient) GetAccount(account *types.Address) (*core.Account, error) {
+func (c *Client) GetAccount(account *types.Address) (*core.Account, error) {
 	var acc *core.Account
 
-	result, err := c.ExecuteWithClient(func(ctx context.Context, conn *grpc.ClientConn) (interface{}, error) {
+	result, err := c.ExecuteWithClient(func(ctx context.Context, conn *grpc.ClientConn) (any, error) {
 		walletClient := api.NewWalletClient(conn)
 		return walletClient.GetAccount(ctx, &core.Account{
 			Address: account.Bytes(),
@@ -28,7 +28,7 @@ func (c *TronClient) GetAccount(account *types.Address) (*core.Account, error) {
 	return acc, nil
 }
 
-func (c *TronClient) GetAccountNet(account *types.Address) (*api.AccountNetMessage, error) {
+func (c *Client) GetAccountNet(account *types.Address) (*api.AccountNetMessage, error) {
 	var accNet *api.AccountNetMessage
 
 	result, err := c.ExecuteWithClient(func(ctx context.Context, conn *grpc.ClientConn) (interface{}, error) {
@@ -46,7 +46,7 @@ func (c *TronClient) GetAccountNet(account *types.Address) (*api.AccountNetMessa
 	return accNet, nil
 }
 
-func (c *TronClient) GetAccountResource(account *types.Address) (*api.AccountResourceMessage, error) {
+func (c *Client) GetAccountResource(account *types.Address) (*api.AccountResourceMessage, error) {
 	var accRes *api.AccountResourceMessage
 
 	result, err := c.ExecuteWithClient(func(ctx context.Context, conn *grpc.ClientConn) (interface{}, error) {

@@ -13,7 +13,7 @@ import (
 	"github.com/kslamph/tronlib/pkg/types"
 )
 
-func createClient() (*client.TronClient, error) {
+func createClient() (*client.Client, error) {
 	// Initialize client with configuration
 	config := client.ClientConfig{
 		Nodes: []client.NodeConfig{
@@ -29,7 +29,7 @@ func createClient() (*client.TronClient, error) {
 	}
 
 	// Create client
-	client, err := client.NewTronClient(config)
+	client, err := client.NewClient(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create client: %w", err)
 	}

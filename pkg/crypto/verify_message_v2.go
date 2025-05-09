@@ -2,7 +2,6 @@ package crypto
 
 import (
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -55,8 +54,8 @@ func VerifyMessageV2(address string, message string, hexSignature string) (bool,
 	// 7. Get the address from the recovered public key.
 	recoveredAddress := crypto.PubkeyToAddress(*recoveredPublicKey)
 
-	log.Println("recoveredAddress", mustEthhexToTronhex(recoveredAddress.Hex()))
-	log.Println("hexAddr", addr.Hex())
+	// log.Println("recoveredAddress", mustEthhexToTronhex(recoveredAddress.Hex()))
+	// log.Println("hexAddr", addr.Hex())
 	// 8. Compare the recovered address with the provided address.
 	return strings.EqualFold(mustEthhexToTronhex(recoveredAddress.Hex()), addr.Hex()), nil
 }

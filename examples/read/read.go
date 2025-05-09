@@ -61,7 +61,7 @@ func main() {
 	}
 
 	// Create client
-	client, err := client.NewTronClient(config)
+	client, err := client.NewClient(config)
 	if err != nil {
 		log.Fatalf("Failed to create client: %v", err)
 	}
