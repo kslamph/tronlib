@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"log"
+
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
 	"google.golang.org/grpc"
@@ -122,13 +124,13 @@ func initializeNode(nodeConfig NodeConfig) *TronNodeStatus {
 		// Verify connection with a simple call
 		if verifyErr := verifyConnection(ctx, conn); verifyErr == nil {
 			node.conn = conn
-			fmt.Printf("Successfully connected to node: %s\n", node.address)
+			// fmt.Printf("Successfully connected to node: %s\n", node.address)
 		} else {
 			conn.Close()
-			fmt.Printf("Failed to verify connection to node %s: %v\n", node.address, verifyErr)
+			// fmt.Printf("Failed to verify connection to node %s: %v\n", node.address, verifyErr)
 		}
 	} else {
-		fmt.Printf("Failed to connect to node %s: %v\n", node.address, err)
+		log.Printf("[WARN] %v\n", err)
 	}
 
 	return node
@@ -193,9 +195,9 @@ func NewClient(config ClientConfig) (*Client, error) {
 		client.nodes = append(client.nodes, node)
 	}
 
-	fmt.Printf("Successfully connected to %d/%d nodes\n", connectedNodes, len(config.Nodes))
+	log.Printf("[INFO] Successfully Connected to %d/%d nodes\n", connectedNodes, len(config.Nodes)) // fmt.Printf("Successfully connected to %d/%d nodes\n", connectedNodes, len(config.Nodes))
 	if connectedNodes == 0 {
-		fmt.Println("Warning: No nodes were initially available. Will continue trying in background.")
+		log.Println("[WARN] No nodes were initially available. Will continue trying in background.")
 	}
 
 	// Start the connection management goroutine
@@ -223,7 +225,7 @@ func (c *Client) manageConnections() {
 			// Check if cooldown period is over
 			if node.inCooldown && now.After(node.cooldownUntil) {
 				node.inCooldown = false
-				fmt.Printf("Node cooldown period ended: %s\n", node.address)
+				log.Printf("[INFO] Node cooldown period ended: %s\n", node.address)
 			}
 
 			// Reset rate limiting window if needed
@@ -255,14 +257,14 @@ func (c *Client) manageConnections() {
 					if verifyErr := verifyConnection(ctx, conn); verifyErr == nil {
 						node.conn = conn
 						node.reconnectInterval = DefaultInitialReconnectInterval // Reset interval on success
-						fmt.Printf("Reconnected to node: %s\n", node.address)
+						log.Printf("Reconnected to node: %s\n", node.address)
 						success = true
 					} else {
 						conn.Close()
-						fmt.Printf("Failed to verify reconnection to node %s: %v\n", node.address, verifyErr)
+						log.Printf("[WARN] Failed to verify reconnection to node %s: %v\n", node.address, verifyErr)
 					}
 				} else {
-					fmt.Printf("Failed to reconnect to node %s: %v\n", node.address, err)
+					log.Printf("[WARN] Failed to reconnect to node %s: %v\n", node.address, err)
 				}
 				cancel()
 
@@ -393,7 +395,7 @@ func (c *Client) updateNodeMetrics(node *TronNodeStatus, duration time.Duration,
 			if errCode == 4 || errCode == 8 || errCode == 14 {
 				node.inCooldown = true
 				node.cooldownUntil = time.Now().Add(c.cooldownPeriod)
-				fmt.Printf("Node placed in cooldown due to error (%s): %s (%v)\n", errCode.String(), node.address, err)
+				log.Printf("[WARN] Node placed in cooldown due to error (%s): %s (%v)\n", errCode.String(), node.address, err)
 			}
 		}
 		// For other errors (non-gRPC or gRPC errors not triggering cooldown), we still apply the 400ms penalty
