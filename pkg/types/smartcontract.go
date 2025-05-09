@@ -1,4 +1,4 @@
-package smartcontract
+package types
 
 import (
 	"encoding/hex"
@@ -11,12 +11,56 @@ import (
 	eABI "github.com/ethereum/go-ethereum/accounts/abi"
 	eCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/kslamph/tronlib/pb/core"
-	"github.com/kslamph/tronlib/pkg/types"
 	"golang.org/x/crypto/sha3"
 )
 
+// Contract represents a smart contract interface
+type Contract struct {
+	ABI          *core.SmartContract_ABI
+	Address      string
+	AddressBytes []byte
+}
+
 // Param list
 type Param map[string]interface{}
+
+// NewContract creates a new contract instance
+func NewContract(abi string, address string) (*Contract, error) {
+	if abi == "" {
+		return nil, fmt.Errorf("empty ABI string")
+	}
+	if address == "" {
+		return nil, fmt.Errorf("empty contract address")
+	}
+	decodedABI, err := decodeABI(abi)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode ABI: %v", err)
+	}
+
+	// Convert address to bytes
+	addr, err := NewAddress(address)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse address: %v", err)
+	}
+
+	return &Contract{
+		ABI:          decodedABI,
+		Address:      address,
+		AddressBytes: addr.Bytes(),
+	}, nil
+}
+
+func NewContractFromABI(abi *core.SmartContract_ABI, address string) (*Contract, error) {
+	addr, err := NewAddress(address)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse address: %v", err)
+	}
+	return &Contract{
+		ABI:          abi,
+		Address:      address,
+		AddressBytes: addr.Bytes(),
+	}, nil
+}
 
 // GetInputsParser returns input method parser arguments for the given method
 func (c *Contract) GetInputsParser(method string) ([]Param, error) {
@@ -97,50 +141,6 @@ func Pack(method string, params []Param) ([]byte, error) {
 	return append(methodID, packed...), nil
 }
 
-// Contract represents a smart contract interface
-type Contract struct {
-	ABI          *core.SmartContract_ABI
-	Address      string
-	AddressBytes []byte
-}
-
-// NewContract creates a new contract instance
-func NewContract(abi string, address string) (*Contract, error) {
-	if abi == "" {
-		return nil, fmt.Errorf("empty ABI string")
-	}
-	if address == "" {
-		return nil, fmt.Errorf("empty contract address")
-	}
-	decodedABI, err := decodeABI(abi)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode ABI: %v", err)
-	}
-	// Convert address to bytes
-	addr, err := types.NewAddress(address)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse address: %v", err)
-	}
-
-	return &Contract{
-		ABI:          decodedABI,
-		Address:      address,
-		AddressBytes: addr.Bytes(),
-	}, nil
-}
-
-func NewContractFromABI(abi *core.SmartContract_ABI, address string) (*Contract, error) {
-	addr, err := types.NewAddress(address)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse address: %v", err)
-	}
-	return &Contract{
-		ABI:          abi,
-		Address:      address,
-		AddressBytes: addr.Bytes(),
-	}, nil
-}
-
 // ContractTrigger creates contract call data
 func (c *Contract) ContractTrigger(method string, params ...interface{}) ([]byte, error) {
 	if method == "" {
@@ -194,15 +194,13 @@ func (c *Contract) ContractTrigger(method string, params ...interface{}) ([]byte
 						if !ok {
 							return nil, fmt.Errorf("invalid address in array at index %d", j)
 						}
-						// Handle both hex strings and Tron addresses
 						if strings.HasPrefix(addrStr, "0x") {
 							addresses[j] = eCommon.HexToAddress(addrStr)
 						} else {
-							tronAddr, err := types.NewAddress(addrStr)
+							tronAddr, err := NewAddress(addrStr)
 							if err != nil {
 								return nil, fmt.Errorf("invalid Tron address at index %d: %v", j, err)
 							}
-							// Take last 20 bytes of Tron address for Ethereum compatibility
 							addresses[j] = eCommon.BytesToAddress(tronAddr.Bytes()[1:])
 						}
 					}
@@ -238,47 +236,26 @@ func (c *Contract) ContractTrigger(method string, params ...interface{}) ([]byte
 						return nil, fmt.Errorf("address parameter must be a string")
 					}
 
-					// If it's a hex string without 0x prefix (like from queryAddress.Bytes())
 					if !strings.HasPrefix(addrStr, "0x") && !strings.HasPrefix(addrStr, "T") {
 						decoded, err := hex.DecodeString(addrStr)
 						if err != nil {
 							return nil, fmt.Errorf("invalid hex string for address: %v", err)
 						}
 						if len(decoded) > 20 {
-							// Take last 20 bytes if it's a Tron address (21 bytes)
 							decoded = decoded[len(decoded)-20:]
 						}
 						param[typeName] = eCommon.BytesToAddress(decoded)
 					} else if strings.HasPrefix(addrStr, "T") {
-						// Handle Tron address format
-						tronAddr, err := types.NewAddress(addrStr)
+						tronAddr, err := NewAddress(addrStr)
 						if err != nil {
 							return nil, fmt.Errorf("invalid Tron address: %v", err)
 						}
-						// Take last 20 bytes of Tron address for Ethereum compatibility
 						param[typeName] = eCommon.BytesToAddress(tronAddr.Bytes()[1:])
 					} else {
-						// Handle regular Ethereum hex address
 						param[typeName] = eCommon.HexToAddress(addrStr)
 					}
 
 				case "uint256", "uint128", "uint64", "uint32", "uint16", "uint8":
-					switch v := paramValue.(type) {
-					case string:
-						n, ok := new(big.Int).SetString(v, 0)
-						if !ok {
-							return nil, fmt.Errorf("invalid number string: %s", v)
-						}
-						param[typeName] = n
-					case float64:
-						param[typeName] = new(big.Int).SetInt64(int64(v))
-					case int64:
-						param[typeName] = new(big.Int).SetInt64(v)
-					default:
-						param[typeName] = paramValue
-					}
-
-				case "int256", "int128", "int64", "int32", "int16", "int8":
 					switch v := paramValue.(type) {
 					case string:
 						n, ok := new(big.Int).SetString(v, 0)
@@ -329,122 +306,7 @@ func (c *Contract) ContractTrigger(method string, params ...interface{}) ([]byte
 		}
 	}
 
-	// Pack the parameters
 	return Pack(method, abiParams)
-}
-
-// decodeABI decodes the ABI string into a core.SmartContract_ABI object
-func decodeABI(abi string) (*core.SmartContract_ABI, error) {
-	if abi == "" {
-		return nil, fmt.Errorf("empty ABI string")
-	}
-
-	var abiData []map[string]interface{}
-	if err := json.Unmarshal([]byte(abi), &abiData); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal ABI: %v", err)
-	}
-
-	contractABI := &core.SmartContract_ABI{
-		Entrys: make([]*core.SmartContract_ABI_Entry, 0),
-	}
-
-	for _, entry := range abiData {
-		abiEntry := &core.SmartContract_ABI_Entry{}
-
-		// Set entry name
-		if name, ok := entry["name"].(string); ok {
-			abiEntry.Name = name
-		}
-
-		// Set entry type
-		if type_, ok := entry["type"].(string); ok {
-			switch type_ {
-			case "function":
-				abiEntry.Type = core.SmartContract_ABI_Entry_Function
-			case "constructor":
-				abiEntry.Type = core.SmartContract_ABI_Entry_Constructor
-			case "event":
-				abiEntry.Type = core.SmartContract_ABI_Entry_Event
-			case "fallback":
-				abiEntry.Type = core.SmartContract_ABI_Entry_Fallback
-			default:
-				abiEntry.Type = core.SmartContract_ABI_Entry_UnknownEntryType
-			}
-		}
-
-		// Parse inputs
-		if inputs, ok := entry["inputs"].([]interface{}); ok {
-			abiEntry.Inputs = make([]*core.SmartContract_ABI_Entry_Param, 0)
-			for _, input := range inputs {
-				inputMap, ok := input.(map[string]interface{})
-				if !ok {
-					continue
-				}
-
-				param := &core.SmartContract_ABI_Entry_Param{}
-				if name, ok := inputMap["name"].(string); ok {
-					param.Name = name
-				}
-				if type_, ok := inputMap["type"].(string); ok {
-					param.Type = type_
-				}
-				if indexed, ok := inputMap["indexed"].(bool); ok {
-					param.Indexed = indexed
-				}
-				abiEntry.Inputs = append(abiEntry.Inputs, param)
-			}
-		}
-
-		// Parse outputs
-		if outputs, ok := entry["outputs"].([]interface{}); ok {
-			abiEntry.Outputs = make([]*core.SmartContract_ABI_Entry_Param, 0)
-			for _, output := range outputs {
-				outputMap, ok := output.(map[string]interface{})
-				if !ok {
-					continue
-				}
-
-				param := &core.SmartContract_ABI_Entry_Param{}
-				if name, ok := outputMap["name"].(string); ok {
-					param.Name = name
-				}
-				if type_, ok := outputMap["type"].(string); ok {
-					param.Type = type_
-				}
-				if indexed, ok := outputMap["indexed"].(bool); ok {
-					param.Indexed = indexed
-				}
-				abiEntry.Outputs = append(abiEntry.Outputs, param)
-			}
-		}
-
-		// Set other fields
-		if payable, ok := entry["payable"].(bool); ok {
-			abiEntry.Payable = payable
-		}
-
-		if stateMutability, ok := entry["stateMutability"].(string); ok {
-			switch stateMutability {
-			case "pure":
-				abiEntry.StateMutability = core.SmartContract_ABI_Entry_Pure
-			case "view":
-				abiEntry.StateMutability = core.SmartContract_ABI_Entry_View
-			case "nonpayable":
-				abiEntry.StateMutability = core.SmartContract_ABI_Entry_Nonpayable
-			case "payable":
-				abiEntry.StateMutability = core.SmartContract_ABI_Entry_Payable
-			default:
-				abiEntry.StateMutability = core.SmartContract_ABI_Entry_UnknownMutabilityType
-			}
-		}
-		if constant, ok := entry["constant"].(bool); ok {
-			abiEntry.Constant = constant
-		}
-
-		contractABI.Entrys = append(contractABI.Entrys, abiEntry)
-	}
-
-	return contractABI, nil
 }
 
 // DecodeResult decodes the contract call result bytes
@@ -495,29 +357,124 @@ func decodeValue(data []byte, param Param) (interface{}, error) {
 		case "uint256", "uint128", "uint64", "uint32", "uint16", "uint8":
 			return new(big.Int).SetBytes(data), nil
 
-		case "int256", "int128", "int64", "int32", "int16", "int8":
-			value := new(big.Int).SetBytes(data)
-			if value.Bit(len(data)*8-1) == 1 {
-				// Handle negative numbers
-				value.Sub(value, new(big.Int).Lsh(big.NewInt(1), uint(len(data)*8)))
-			}
-			return value, nil
-
-		case "bool":
-			if len(data) == 1 {
-				return data[0] == 1, nil
-			}
-			return false, fmt.Errorf("invalid bool length")
-
 		case "string":
 			return string(data), nil
 
-		case "bytes", "bytes32", "bytes16", "bytes8":
-			return data, nil
+		case "bool":
+			return len(data) > 0 && data[0] != 0, nil
 
 		default:
-			return nil, fmt.Errorf("unsupported type: %s", typeName)
+			return data, nil
 		}
 	}
 	return nil, fmt.Errorf("no type specified in param")
+}
+
+// decodeABI decodes the ABI string into a core.SmartContract_ABI object
+func decodeABI(abi string) (*core.SmartContract_ABI, error) {
+	if abi == "" {
+		return nil, fmt.Errorf("empty ABI string")
+	}
+
+	var abiData []map[string]interface{}
+	if err := json.Unmarshal([]byte(abi), &abiData); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal ABI: %v", err)
+	}
+
+	contractABI := &core.SmartContract_ABI{
+		Entrys: make([]*core.SmartContract_ABI_Entry, 0),
+	}
+
+	for _, entry := range abiData {
+		abiEntry := &core.SmartContract_ABI_Entry{}
+
+		if name, ok := entry["name"].(string); ok {
+			abiEntry.Name = name
+		}
+
+		if type_, ok := entry["type"].(string); ok {
+			switch type_ {
+			case "function":
+				abiEntry.Type = core.SmartContract_ABI_Entry_Function
+			case "constructor":
+				abiEntry.Type = core.SmartContract_ABI_Entry_Constructor
+			case "event":
+				abiEntry.Type = core.SmartContract_ABI_Entry_Event
+			case "fallback":
+				abiEntry.Type = core.SmartContract_ABI_Entry_Fallback
+			default:
+				abiEntry.Type = core.SmartContract_ABI_Entry_UnknownEntryType
+			}
+		}
+
+		if inputs, ok := entry["inputs"].([]interface{}); ok {
+			abiEntry.Inputs = make([]*core.SmartContract_ABI_Entry_Param, 0)
+			for _, input := range inputs {
+				inputMap, ok := input.(map[string]interface{})
+				if !ok {
+					continue
+				}
+
+				param := &core.SmartContract_ABI_Entry_Param{}
+				if name, ok := inputMap["name"].(string); ok {
+					param.Name = name
+				}
+				if type_, ok := inputMap["type"].(string); ok {
+					param.Type = type_
+				}
+				if indexed, ok := inputMap["indexed"].(bool); ok {
+					param.Indexed = indexed
+				}
+				abiEntry.Inputs = append(abiEntry.Inputs, param)
+			}
+		}
+
+		if outputs, ok := entry["outputs"].([]interface{}); ok {
+			abiEntry.Outputs = make([]*core.SmartContract_ABI_Entry_Param, 0)
+			for _, output := range outputs {
+				outputMap, ok := output.(map[string]interface{})
+				if !ok {
+					continue
+				}
+
+				param := &core.SmartContract_ABI_Entry_Param{}
+				if name, ok := outputMap["name"].(string); ok {
+					param.Name = name
+				}
+				if type_, ok := outputMap["type"].(string); ok {
+					param.Type = type_
+				}
+				if indexed, ok := outputMap["indexed"].(bool); ok {
+					param.Indexed = indexed
+				}
+				abiEntry.Outputs = append(abiEntry.Outputs, param)
+			}
+		}
+
+		if payable, ok := entry["payable"].(bool); ok {
+			abiEntry.Payable = payable
+		}
+
+		if stateMutability, ok := entry["stateMutability"].(string); ok {
+			switch stateMutability {
+			case "pure":
+				abiEntry.StateMutability = core.SmartContract_ABI_Entry_Pure
+			case "view":
+				abiEntry.StateMutability = core.SmartContract_ABI_Entry_View
+			case "nonpayable":
+				abiEntry.StateMutability = core.SmartContract_ABI_Entry_Nonpayable
+			case "payable":
+				abiEntry.StateMutability = core.SmartContract_ABI_Entry_Payable
+			default:
+				abiEntry.StateMutability = core.SmartContract_ABI_Entry_UnknownMutabilityType
+			}
+		}
+		if constant, ok := entry["constant"].(bool); ok {
+			abiEntry.Constant = constant
+		}
+
+		contractABI.Entrys = append(contractABI.Entrys, abiEntry)
+	}
+
+	return contractABI, nil
 }

@@ -4,12 +4,11 @@ import (
 	"fmt"
 
 	"github.com/kslamph/tronlib/pb/core"
-	"github.com/kslamph/tronlib/pkg/smartcontract"
 	"github.com/kslamph/tronlib/pkg/types"
 )
 
 // TriggerSmartContract triggers a smart contract call
-func (tx *Transaction) TriggerSmartContract(contract *smartcontract.Contract, ownerAddress *types.Address, data []byte, callValue int64) error {
+func (tx *Transaction) TriggerSmartContract(contract *types.Contract, ownerAddress *types.Address, data []byte, callValue int64) error {
 	if tx.txExtension.GetTransaction() != nil {
 		return fmt.Errorf("transaction already created")
 	}
