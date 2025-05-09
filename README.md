@@ -28,32 +28,55 @@ first class trc-20 contracts interaction
 ## Usage
 
 This SDK provides a simple and intuitive way to interact with the Tron blockchain. Here are the main features demonstrated below:
-- Client initialization with retry and timeout configurations
+- Client initialization with robust connection management (multiple nodes, health checks, failover, cooldowns) and timeout configuration.
 - Account and address management
 - Reading account information from the blockchain
 - Transferring TRX between addresses
 - Managing resources (Bandwidth/Energy) through freeze/unfreeze/delegate operations
 
 ```go
-// Initialize client with options
-opts := &client.ClientOptions{
-    Endpoints: []string{"grpc.shasta.trongrid.io:50051"},
-    Timeout:   10 * time.Second,
-    RetryConfig: &client.RetryConfig{
-        MaxAttempts:    2,
-        InitialBackoff: time.Second,
-        MaxBackoff:     10 * time.Second,
-        BackoffFactor:  2.0,
-    },
-}
+// Initialize client
+// The client manages connections to multiple Tron nodes, handles health checks,
+// failover, rate limiting, and node selection based on performance.
 
-// Create client
-ctx := context.Background()
-client, err := client.NewClient(ctx, opts)
+// Option 1: Default Configuration (connects to a list of Tron MainNet nodes)
+// This uses predefined MainNet nodes and default settings for timeout, cooldown, etc.
+// Ensure "github.com/kslamph/tronlib/pkg/client" and "log" are imported.
+tronClient, err := client.NewClient(client.DefaultClientConfig()) // Renamed 'client' to 'tronClient'
 if err != nil {
-    log.Fatalf("Failed to create client: %v", err)
+	log.Fatalf("Failed to create client: %v", err)
 }
-defer client.Close()
+defer tronClient.Close() // Use tronClient
+
+// Option 2: Custom Configuration (Example shown commented out)
+// You can customize nodes, timeouts, rate limits, and other parameters.
+// Import "time" for duration values if customizing.
+/*
+// Example for connecting to Shasta TestNet nodes:
+shastaConfig := client.ClientConfig{
+	Nodes: client.ShastaNodes(), // Helper function for default Shasta node(s)
+	// To use specific nodes (e.g., a single Shasta node or your private node):
+	// Nodes: []client.NodeConfig{
+	// 	{
+	// 		Address: "grpc.shasta.trongrid.io:50051",
+	// 		// Optional: configure rate limit for this node
+	// 		RateLimit: client.RateLimit{Times: 5, Window: 1 * time.Second},
+	// 	},
+	// 	// {Address: "another.node.example.com:50051", RateLimit: client.DefaultRateLimit()},
+	// },
+	TimeoutMs:          10000,                  // e.g., 10 seconds for gRPC calls
+	CooldownPeriod:     30 * time.Second,       // Time a node stays in cooldown after certain errors
+	BestNodePercentage: 80,                     // % of requests to route to the best performing node
+	// MetricsWindowSize:  5,                   // Default is 3 (requests for avg response time)
+}
+tronClientCustom, err := client.NewClient(shastaConfig) // or your customConfig
+if err != nil {
+	log.Fatalf("Failed to create custom client: %v", err)
+}
+defer tronClientCustom.Close()
+
+// Use tronClient (from Option 1) or tronClientCustom (from Option 2) for subsequent operations.
+*/
 
 // Create accounts and addresses
 senderAccount, err := types.NewAccountFromPrivateKey(privateKey)
@@ -67,13 +90,13 @@ if err != nil {
 }
 
 // Read account information
-account, err := client.GetAccount(receiverAddr)
+account, err := tronClient.GetAccount(receiverAddr)
 if err != nil {
     log.Fatalf("Failed to get account: %v", err)
 }
 
 // Transfer TRX
-tx := transaction.NewTransaction(client, senderAccount)
+tx := transaction.NewTransaction(tronClient, senderAccount)
 err = tx.TransferTRX(senderAccount.Address(), receiverAddr, 1_000_000) // 1 TRX = 1_000_000 SUN
 if err != nil {
     log.Fatalf("Failed to create transfer transaction: %v", err)
