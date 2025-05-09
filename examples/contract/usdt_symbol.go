@@ -71,7 +71,7 @@ func main() {
 	fmt.Printf("Allowance: %v\n", allowance)
 
 	// Example: Check balance
-	balance, err := contract.BalanceOf(OwnerAddress)
+	balance, err := contract.BalanceOf(queryAddress.String())
 	if err != nil {
 		log.Fatalf("Failed to get balance: %v", err)
 	}
