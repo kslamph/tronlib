@@ -65,6 +65,12 @@ func (c *Client) GetNowBlock() (*api.BlockExtention, error) {
 	return block, nil
 }
 
+// WaitForTransactionInfo waits for a transaction to be confirmed by checking its info.
+// User can use *core.TransactionInfo.Result to check the transaction result.
+// *core.TransactionInfo.Result is a int32
+// 0 = success
+// 1 = failed
+// when error occurs, the transaction status should be considered as unknown
 func (c *Client) WaitForTransactionInfo(txId string, timeoutSeconds int) (*core.TransactionInfo, error) {
 	hashBytes, err := hex.DecodeString(txId)
 	if err != nil {

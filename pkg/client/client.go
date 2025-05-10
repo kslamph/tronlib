@@ -454,7 +454,7 @@ func (c *Client) BuildTransaction(contract interface{}) (*api.TransactionExtenti
 	case *core.TriggerSmartContract:
 		execFunc = func(ctx context.Context, conn *grpc.ClientConn) (interface{}, error) {
 			return walletClientFunc(ctx, conn, func(ctx context.Context, client api.WalletClient) (interface{}, error) {
-				return client.TriggerConstantContract(ctx, v)
+				return client.TriggerContract(ctx, v)
 			})
 		}
 	case *core.FreezeBalanceV2Contract:
@@ -492,6 +492,12 @@ func (c *Client) BuildTransaction(contract interface{}) (*api.TransactionExtenti
 				return client.WithdrawExpireUnfreeze(ctx, v)
 			})
 		}
+	case *core.WithdrawBalanceContract:
+		execFunc = func(ctx context.Context, conn *grpc.ClientConn) (interface{}, error) {
+			return walletClientFunc(ctx, conn, func(ctx context.Context, client api.WalletClient) (interface{}, error) {
+				return client.WithdrawBalance2(ctx, v)
+			})
+		}
 	default:
 		return nil, fmt.Errorf("unsupported contract type: %T", contract)
 	}
@@ -509,16 +515,51 @@ func (c *Client) ExecuteWithClient(fn func(ctx context.Context, conn *grpc.Clien
 	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
 	defer cancel()
 
-	conn, node, err := c.getConnection()
-	if err != nil {
-		return nil, err
+	var lastErr error
+	retryDelay := 100 * time.Millisecond // Initial retry delay
+	maxRetryDelay := 1 * time.Second     // Maximum retry delay
+
+	for {
+		select {
+		case <-ctx.Done():
+			if lastErr != nil {
+				return nil, lastErr
+			}
+			return nil, ctx.Err()
+		default:
+			conn, node, err := c.getConnection()
+			if err != nil {
+				if err == ErrAllNodesUnavailable {
+					lastErr = err
+					// Exponential backoff with jitter
+					jitter := time.Duration(rand.Int63n(int64(retryDelay) / 2))
+					time.Sleep(retryDelay + jitter)
+
+					// Increase retry delay for next attempt
+					retryDelay *= 2
+					if retryDelay > maxRetryDelay {
+						retryDelay = maxRetryDelay
+					}
+					continue
+				}
+				return nil, err
+			}
+
+			start := time.Now()
+			result, err := fn(ctx, conn)
+			duration := time.Since(start)
+			go c.updateNodeMetrics(node, duration, err)
+
+			if err != nil {
+				lastErr = err
+				// If it's a rate limit error, retry
+				if err == ErrRateLimitExceeded {
+					time.Sleep(retryDelay)
+					continue
+				}
+				return nil, err
+			}
+			return result, nil
+		}
 	}
-
-	start := time.Now()
-	result, err := fn(ctx, conn)
-	duration := time.Since(start)
-	// log.Printf("Executed %s, duration %v, node %s", fn, duration, node.address)
-	go c.updateNodeMetrics(node, duration, err)
-
-	return result, err
 }

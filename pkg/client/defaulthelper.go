@@ -67,7 +67,7 @@ func DefaultClientConfig() ClientConfig {
 }
 func DefaultRateLimit() RateLimit {
 	return RateLimit{
-		Times:  4,
+		Times:  5,
 		Window: DefaultRateLimitWindow,
 	}
 }

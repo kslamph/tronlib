@@ -12,9 +12,10 @@ import (
 )
 
 const (
-	AddressPrefix     = "41" // TRON address prefix in hex
-	AddressLength     = 21   // Raw address length in bytes (1 byte prefix + 20 bytes address)
-	TRONAddressLength = 34   // TRON base58 address length
+	AddressPrefix     = "41"                                 // TRON address prefix in hex
+	AddressLength     = 21                                   // Raw address length in bytes (1 byte prefix + 20 bytes address)
+	TRONAddressLength = 34                                   // TRON base58 address length
+	BlackHoleAddress  = "T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb" // Black hole address prefix in hex
 )
 
 // Address represents a Tron address that can be stored in different formats

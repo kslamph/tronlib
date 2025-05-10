@@ -141,8 +141,8 @@ func Pack(method string, params []Param) ([]byte, error) {
 	return append(methodID, packed...), nil
 }
 
-// ContractTrigger creates contract call data
-func (c *Contract) ContractTrigger(method string, params ...interface{}) ([]byte, error) {
+// EncodeInput creates contract call data
+func (c *Contract) EncodeInput(method string, params ...interface{}) ([]byte, error) {
 	if method == "" {
 		return nil, fmt.Errorf("empty method name")
 	}

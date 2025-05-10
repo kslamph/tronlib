@@ -1,6 +1,8 @@
 package transaction
 
 import (
+	"fmt"
+
 	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/types"
 )
@@ -9,56 +11,61 @@ import (
 
 // FreezeForBandwidth creates a freeze for bandwidth transaction
 // resource code int32, 0 = bandwidth, 1 = energy, 2 = tronpower
-func (tx *Transaction) Freeze(from *types.Address, amount int64, resource core.ResourceCode) error {
+func (tx *Transaction) Freeze(amount int64, resource core.ResourceCode) *Transaction {
 	contract := &core.FreezeBalanceV2Contract{
-		OwnerAddress:  from.Bytes(),
+		OwnerAddress:  tx.owner.Bytes(),
 		FrozenBalance: amount,
 		Resource:      resource,
 	}
 	// Call BuildTransaction to get TransactionExtention
 	txExt, err := tx.client.BuildTransaction(contract)
 	if err != nil {
-		return err
+		tx.receipt.Err = fmt.Errorf("failed to build transaction: %v", err)
+		return tx
 	}
 
 	tx.txExtension = txExt
-
-	return nil
+	tx.SetDefaultOptions()
+	return tx
 }
 
 // FreezeForEnergy creates a freeze for energy transaction resource code int32, 0 = bandwidth, 1 = energy, 2 = tronpower
-func (tx *Transaction) Unfreeze(from *types.Address, amount int64, resource core.ResourceCode) error {
+func (tx *Transaction) Unfreeze(amount int64, resource core.ResourceCode) *Transaction {
 	contract := &core.UnfreezeBalanceV2Contract{
-		OwnerAddress:    from.Bytes(),
+		OwnerAddress:    tx.owner.Bytes(),
 		UnfreezeBalance: amount,
 		Resource:        resource,
 	}
 	txExt, err := tx.client.BuildTransaction(contract)
 	if err != nil {
-		return err
+		tx.receipt.Err = fmt.Errorf("failed to build transaction: %v", err)
+		return tx
 	}
 	tx.txExtension = txExt
-	return nil
+	tx.SetDefaultOptions()
+	return tx
 }
 
-func (tx *Transaction) Delegate(from, to *types.Address, amount int64, resource core.ResourceCode) error {
+func (tx *Transaction) Delegate(receiver *types.Address, amount int64, resource core.ResourceCode) *Transaction {
 	contract := &core.DelegateResourceContract{
-		OwnerAddress:    from.Bytes(),
-		ReceiverAddress: to.Bytes(),
+		OwnerAddress:    tx.owner.Bytes(),
+		ReceiverAddress: receiver.Bytes(),
 		Balance:         amount,
 		Resource:        resource,
 	}
 	txExt, err := tx.client.BuildTransaction(contract)
 	if err != nil {
-		return err
+		tx.receipt.Err = fmt.Errorf("failed to build transaction: %v", err)
+		return tx
 	}
 	tx.txExtension = txExt
-	return nil
+	tx.SetDefaultOptions()
+	return tx
 }
 
-func (tx *Transaction) DelegateWithLock(from, to *types.Address, amount int64, resource core.ResourceCode, blocksToLock int64) error {
+func (tx *Transaction) DelegateWithLock(from, to *types.Address, amount int64, resource core.ResourceCode, blocksToLock int64) *Transaction {
 	contract := &core.DelegateResourceContract{
-		OwnerAddress:    from.Bytes(),
+		OwnerAddress:    from.Bytes(), // Note: The original Freeze uses tx.owner.Bytes(). Assuming 'from' is intended here.
 		ReceiverAddress: to.Bytes(),
 		Balance:         amount,
 		Resource:        resource,
@@ -67,42 +74,60 @@ func (tx *Transaction) DelegateWithLock(from, to *types.Address, amount int64, r
 	}
 	txExt, err := tx.client.BuildTransaction(contract)
 	if err != nil {
-		return err
+		tx.receipt.Err = fmt.Errorf("failed to build transaction: %v", err)
+		return tx
 	}
 	tx.txExtension = txExt
-	return nil
+	tx.SetDefaultOptions()
+	return tx
 }
 
-func (tx *Transaction) Reclaim(from, to *types.Address, amount int64, resource core.ResourceCode) error {
+func (tx *Transaction) Reclaim(from, to *types.Address, amount int64, resource core.ResourceCode) *Transaction {
 	contract := &core.UnDelegateResourceContract{
-		OwnerAddress:    from.Bytes(),
+		OwnerAddress:    from.Bytes(), // Note: The original Freeze uses tx.owner.Bytes(). Assuming 'from' is intended here.
 		ReceiverAddress: to.Bytes(),
 		Balance:         amount,
 		Resource:        resource,
 	}
 	txExt, err := tx.client.BuildTransaction(contract)
 	if err != nil {
-		return err
+		tx.receipt.Err = fmt.Errorf("failed to build transaction: %v", err)
+		return tx
 	}
 	tx.txExtension = txExt
-	return nil
+	tx.SetDefaultOptions()
+	return tx
 }
 
 func (tx *Transaction) Vote() {
 }
 func (tx *Transaction) Unvote() {
 }
-func (tx *Transaction) Withdraw(from *types.Address) error {
+func (tx *Transaction) Withdraw(from *types.Address) *Transaction {
 	contract := &core.WithdrawExpireUnfreezeContract{
-		OwnerAddress: from.Bytes(),
+		OwnerAddress: from.Bytes(), // Note: The original Freeze uses tx.owner.Bytes(). Assuming 'from' is intended here.
 	}
 	txExt, err := tx.client.BuildTransaction(contract)
 	if err != nil {
-		return err
+		tx.receipt.Err = fmt.Errorf("failed to build transaction: %v", err)
+		return tx
 	}
 	tx.txExtension = txExt
-	return nil
+	tx.SetDefaultOptions()
+	return tx
 }
 
-func (tx *Transaction) ClaimReward() {
+func (tx *Transaction) ClaimReward(from *types.Address) *Transaction {
+	contract := &core.WithdrawBalanceContract{
+		OwnerAddress: from.Bytes(), // Note: The original Freeze uses tx.owner.Bytes(). Assuming 'from' is intended here.
+	}
+
+	txExt, err := tx.client.BuildTransaction(contract)
+	if err != nil {
+		tx.receipt.Err = fmt.Errorf("failed to build transaction: %v", err)
+		return tx
+	}
+	tx.txExtension = txExt
+	tx.SetDefaultOptions()
+	return tx
 }

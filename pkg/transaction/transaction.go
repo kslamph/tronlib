@@ -14,90 +14,194 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+const (
+	// DefaultFeeLimit is the default fee limit for transactions
+	DefaultFeeLimit = 100_000_000
+	// DefaultExpiration is the default expiration time in seconds
+	DefaultExpiration = 60
+)
+
 // Transaction represents a Tron transaction with its extension data
 type Transaction struct {
-	client        *client.Client
-	senderAccount *types.Account
-	txExtension   *api.TransactionExtention
-	receipt       *Receipt
+	client      *client.Client
+	owner       *types.Address
+	txExtension *api.TransactionExtention
+	receipt     *Receipt
+}
+
+// Receipt represents a transaction receipt
+type Receipt struct {
+	TxID    string
+	Result  bool
+	Message string
+	Err     error
 }
 
 // NewTransaction creates a new transaction instance
-func NewTransaction(client *client.Client, sender *types.Account) *Transaction {
+func NewTransaction(client *client.Client) *Transaction {
+	blackHoleAddr, _ := types.NewAddress(types.BlackHoleAddress)
 	return &Transaction{
-		client:        client,
-		senderAccount: sender,
+		client: client,
+		owner:  blackHoleAddr,
+		receipt: &Receipt{
+			TxID:    "",
+			Result:  false,
+			Message: "",
+			Err:     nil},
 	}
+}
+
+func (tx *Transaction) SetOwner(owner *types.Address) *Transaction {
+	if tx.receipt.Err != nil {
+		return tx
+	}
+	tx.owner = owner
+	return tx
 }
 
 // SetFeelimit sets the fee limit for the transaction
-func (tx *Transaction) SetFeelimit(limit int64) {
+func (tx *Transaction) SetFeelimit(limit int64) *Transaction {
+	if tx.receipt.Err != nil {
+		return tx
+	}
+	if limit <= 0 {
+		limit = DefaultFeeLimit
+	}
 	if tx.txExtension.GetTransaction() != nil {
 		tx.txExtension.GetTransaction().RawData.FeeLimit = limit
 	}
+	return tx
 }
 
 // SetExpiration sets the expiration time in seconds from now
-func (tx *Transaction) SetExpiration(seconds int64) {
+func (tx *Transaction) SetExpiration(seconds int64) *Transaction {
+	if tx.receipt.Err != nil {
+		return tx
+	}
+	if seconds <= 0 {
+		seconds = DefaultExpiration
+	}
+	// Set the expiration time in milliseconds
+	// Note: Tron uses milliseconds for expiration
+	// and the default is 60 seconds
+	// so we multiply by 1000 to convert to milliseconds
 	if tx.txExtension.GetTransaction() != nil {
 		tx.txExtension.GetTransaction().RawData.Expiration = time.Now().UnixMilli() + seconds*1000
 	}
+	return tx
 }
 
-func (tx *Transaction) Sign(signer *types.Account) error {
+func (tx *Transaction) SetError(err error) *Transaction {
+	tx.receipt.Err = err
+	return tx
+}
+
+func (tx *Transaction) Sign(signer *types.Account) *Transaction {
+	if tx.receipt.Err != nil {
+		return tx
+	}
 	return tx.MultiSign(signer, 2)
 }
 
 // Sign signs the transaction with the sender's private key
-func (tx *Transaction) MultiSign(signer *types.Account, permissionID int32) error {
+func (tx *Transaction) MultiSign(signer *types.Account, permissionID int32) *Transaction {
+
+	if tx.receipt.Err != nil {
+		return tx
+	}
+
 	if tx.txExtension.GetTransaction() == nil {
-		return fmt.Errorf("no transaction to sign")
+		tx.receipt.Err = fmt.Errorf("no transaction to sign")
+		return tx
 	}
 
 	// Sign the transaction using the account's private key
 	signedTx, err := signer.MultiSign(tx.txExtension.GetTransaction(), permissionID)
 	if err != nil {
-		return fmt.Errorf("failed to sign transaction: %v", err)
+		tx.receipt.Err = fmt.Errorf("failed to sign transaction: %v", err)
+		return tx
 	}
 
 	tx.txExtension.Transaction = signedTx
-	if err := tx.UpdateTxID(); err != nil {
-		return err
+	if err := tx.updateTxID(); err != nil {
+		tx.receipt.Err = fmt.Errorf("failed to update transaction ID: %v", err)
+		return tx
 	}
-	return nil
+	return tx
 }
 
 // Broadcast broadcasts the signed transaction to the network
-func (tx *Transaction) Broadcast() error {
-	if tx.txExtension.GetTransaction() == nil {
-		return fmt.Errorf("no transaction to broadcast")
+func (tx *Transaction) Broadcast() *Transaction {
+	if tx.receipt.Err != nil {
+		return tx // Return early if there's already an error
 	}
 
-	result, err := tx.client.ExecuteWithClient(func(ctx context.Context, conn *grpc.ClientConn) (interface{}, error) {
+	if tx.txExtension.GetTransaction() == nil {
+		tx.receipt.Err = fmt.Errorf("broadcast failed: no transaction to broadcast")
+		return tx
+	}
+
+	// Ensure Txid is set before broadcasting. This is crucial if the transaction
+	// wasn't signed (e.g. if Broadcast is called for estimation purposes, though less common).
+	// Sign already calls updateTxID.
+	if len(tx.txExtension.GetTxid()) == 0 {
+		if err := tx.updateTxID(); err != nil {
+			tx.receipt.Err = fmt.Errorf("failed to update transaction ID before broadcast: %v", err)
+			return tx
+		}
+	}
+	// Preserve the TxID that was set either by signing or by updateTxID
+	finalTxID := hex.EncodeToString(tx.txExtension.GetTxid())
+
+	result, grpcErr := tx.client.ExecuteWithClient(func(ctx context.Context, conn *grpc.ClientConn) (interface{}, error) {
 		walletClient := api.NewWalletClient(conn)
 		return walletClient.BroadcastTransaction(ctx, tx.txExtension.GetTransaction())
 	})
-	if err != nil {
-		return fmt.Errorf("failed to broadcast transaction: %v", err)
+
+	// Initialize receipt fields that are certain
+	tx.receipt.TxID = finalTxID // Use the finalTxID captured before broadcast
+
+	if grpcErr != nil {
+		tx.receipt.Result = false
+		tx.receipt.Message = fmt.Sprintf("gRPC call to BroadcastTransaction failed: %v", grpcErr)
+		// If there was no prior error, set this as the error. Otherwise, append.
+		if tx.receipt.Err == nil {
+			tx.receipt.Err = fmt.Errorf(tx.receipt.Message)
+		} else {
+			tx.receipt.Err = fmt.Errorf("%w; additionally, %s", tx.receipt.Err, tx.receipt.Message)
+		}
+		return tx
 	}
 
 	resp := result.(*api.Return)
+	tx.receipt.Result = resp.GetResult()
+	tx.receipt.Message = string(resp.GetMessage())
+
 	if !resp.GetResult() {
-		return fmt.Errorf("broadcast failed: %s", string(resp.GetMessage()))
+		chainError := fmt.Errorf("transaction broadcast to chain failed: %s", string(resp.GetMessage()))
+		if tx.receipt.Err == nil {
+			tx.receipt.Err = chainError
+		} else {
+			// Append chain error to existing error
+			tx.receipt.Err = fmt.Errorf("%w; additionally, %s", tx.receipt.Err, chainError.Error())
+		}
 	}
+	// If resp.GetResult() is true and tx.receipt.Err was nil, it remains nil (success)
 
-	// Store receipt info
-	tx.receipt = &Receipt{
-		TxID:    tx.GetTxID(),
-		Result:  resp.GetResult(),
-		Message: string(resp.GetMessage()),
-	}
+	return tx
+}
 
-	return nil
+// GetReceipt returns the transaction receipt
+func (tx *Transaction) GetReceipt() *Receipt {
+	return tx.receipt
+}
+
+func (tx *Transaction) GetError() error {
+	return tx.receipt.Err
 }
 
 // GetTxID returns the transaction ID in hex format
-func (tx *Transaction) UpdateTxID() error {
+func (tx *Transaction) updateTxID() error {
 	rawData, err := proto.Marshal(tx.txExtension.GetTransaction().RawData)
 	if err != nil {
 		return fmt.Errorf("failed to marshal raw data: %v", err)
@@ -107,21 +211,15 @@ func (tx *Transaction) UpdateTxID() error {
 	return nil
 }
 
-func (tx *Transaction) GetTxID() string {
-	if tx.txExtension != nil {
-		return hex.EncodeToString(tx.txExtension.GetTxid())
+func (tx *Transaction) SetDefaultOptions() *Transaction {
+	if tx.receipt.Err != nil {
+		return tx
 	}
-	return ""
-}
-
-// GetReceipt returns the transaction receipt
-func (tx *Transaction) GetReceipt() *Receipt {
-	return tx.receipt
-}
-
-// Receipt represents a transaction receipt
-type Receipt struct {
-	TxID    string
-	Result  bool
-	Message string
+	if tx.txExtension.GetTransaction() != nil {
+		tx.txExtension.GetTransaction().RawData.Expiration = time.Now().UnixMilli() + DefaultExpiration*1000
+		tx.txExtension.GetTransaction().RawData.FeeLimit = DefaultFeeLimit
+		return tx
+	}
+	tx.receipt.Err = fmt.Errorf("no transaction to set default options")
+	return tx
 }

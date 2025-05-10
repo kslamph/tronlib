@@ -39,7 +39,7 @@ func NewTRC20Contract(address string, client *client.Client) (*TRC20Contract, er
 
 // Name returns the name of the token
 func (t *TRC20Contract) Name() (string, error) {
-	data, err := t.ContractTrigger("name")
+	data, err := t.EncodeInput("name")
 	if err != nil {
 		return "", fmt.Errorf("failed to create name call: %v", err)
 	}
@@ -65,7 +65,7 @@ func (t *TRC20Contract) Name() (string, error) {
 // Symbol returns the symbol of the token (cached)
 func (t *TRC20Contract) Symbol() (string, error) {
 	t.symbolOnce.Do(func() {
-		data, err := t.ContractTrigger("symbol")
+		data, err := t.EncodeInput("symbol")
 		if err != nil {
 			t.symbolErr = fmt.Errorf("failed to create symbol call: %v", err)
 			return
@@ -98,7 +98,7 @@ func (t *TRC20Contract) Symbol() (string, error) {
 // Decimals returns the number of decimals used to format token amounts (cached)
 func (t *TRC20Contract) Decimals() (uint8, error) {
 	t.decimalsOnce.Do(func() {
-		data, err := t.ContractTrigger("decimals")
+		data, err := t.EncodeInput("decimals")
 		if err != nil {
 			t.decimalsErr = fmt.Errorf("failed to create decimals call: %v", err)
 			return
@@ -130,7 +130,7 @@ func (t *TRC20Contract) Decimals() (uint8, error) {
 
 // TotalSupply returns the total token supply as decimal
 func (t *TRC20Contract) TotalSupply() (decimal.Decimal, error) {
-	data, err := t.ContractTrigger("totalSupply")
+	data, err := t.EncodeInput("totalSupply")
 	if err != nil {
 		return decimal.Zero, fmt.Errorf("failed to create totalSupply call: %v", err)
 	}
@@ -161,7 +161,7 @@ func (t *TRC20Contract) TotalSupply() (decimal.Decimal, error) {
 
 // BalanceOf returns the account balance of another account with address as decimal
 func (t *TRC20Contract) BalanceOf(address string) (decimal.Decimal, error) {
-	data, err := t.ContractTrigger("balanceOf", address)
+	data, err := t.EncodeInput("balanceOf", address)
 	if err != nil {
 		return decimal.Zero, fmt.Errorf("failed to create balanceOf call: %v", err)
 	}
@@ -190,45 +190,9 @@ func (t *TRC20Contract) BalanceOf(address string) (decimal.Decimal, error) {
 	return decimal.NewFromBigInt(decoded.(*big.Int), -int32(decimals)), nil
 }
 
-// Transfer transfers tokens to a specified address
-func (t *TRC20Contract) Transfer(to string, amount decimal.Decimal) ([]byte, error) {
-	decimals, err := t.Decimals()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get decimals: %v", err)
-	}
-
-	// Convert decimal amount to big.Int with proper decimals
-	rawAmount := amount.Shift(int32(decimals)).BigInt()
-	return t.ContractTrigger("transfer", to, rawAmount)
-}
-
-// TransferFrom transfers tokens from one address to another
-func (t *TRC20Contract) TransferFrom(from, to string, amount decimal.Decimal) ([]byte, error) {
-	decimals, err := t.Decimals()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get decimals: %v", err)
-	}
-
-	// Convert decimal amount to big.Int with proper decimals
-	rawAmount := amount.Shift(int32(decimals)).BigInt()
-	return t.ContractTrigger("transferFrom", from, to, rawAmount)
-}
-
-// Approve allows spender to withdraw from your account multiple times up to the amount
-func (t *TRC20Contract) Approve(spender string, amount decimal.Decimal) ([]byte, error) {
-	decimals, err := t.Decimals()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get decimals: %v", err)
-	}
-
-	// Convert decimal amount to big.Int with proper decimals
-	rawAmount := amount.Shift(int32(decimals)).BigInt()
-	return t.ContractTrigger("approve", spender, rawAmount)
-}
-
 // Allowance returns the amount which spender is still allowed to withdraw from owner
 func (t *TRC20Contract) Allowance(owner, spender string) (decimal.Decimal, error) {
-	data, err := t.ContractTrigger("allowance", owner, spender)
+	data, err := t.EncodeInput("allowance", owner, spender)
 	if err != nil {
 		return decimal.Zero, fmt.Errorf("failed to create allowance call: %v", err)
 	}

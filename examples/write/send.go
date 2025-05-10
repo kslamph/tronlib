@@ -68,7 +68,7 @@ func main() {
 	}
 
 	// Create sender account from private key
-	senderAccount, err := types.NewAccountFromPrivateKey(privateKey)
+	ownerAccount, err := types.NewAccountFromPrivateKey(privateKey)
 	if err != nil {
 		log.Fatalf("Failed to create sender account: %v", err)
 	}
@@ -80,65 +80,63 @@ func main() {
 	}
 
 	// Create new transaction
-	tx := transaction.NewTransaction(client, senderAccount)
+	// Create new transaction
+	tx := transaction.NewTransaction(client).SetOwner(ownerAccount.Address())
 
 	// Execute the transaction based on the command flag
 	log.Printf("Executing command: %s\n", *command)
 	switch *command {
 	case "transfer":
 		// Transfer 1 TRX (1_000_000 SUN = 1 TRX)
-		err = tx.TransferTRX(senderAccount.Address(), receiverAddr, 1_000_000)
+		tx.TransferTRX(receiverAddr, 1_000_000)
 	case "freeze0":
 		// Freeze 1 TRX for Bandwidth (ResourceCode 0)
-		err = tx.Freeze(senderAccount.Address(), 1_000_000, 0)
+		tx.Freeze(1_000_000, 0)
 	case "freeze1":
 		// Freeze 1 TRX for Energy (ResourceCode 1)
-		err = tx.Freeze(senderAccount.Address(), 1_000_000, 1)
+		tx.Freeze(1_000_000, 1)
 	case "unfreeze0":
 		// Unfreeze Bandwidth (ResourceCode 0)
-		err = tx.Unfreeze(senderAccount.Address(), 1_000_000, 0)
+		tx.Unfreeze(1_000_000, 0)
 	case "unfreeze1":
 		// Unfreeze Energy (ResourceCode 1)
-		err = tx.Unfreeze(senderAccount.Address(), 1_000_000, 1)
+		tx.Unfreeze(1_000_000, 1)
 	case "delegate0":
 		// Delegate 1 TRX Bandwidth (ResourceCode 0)
-		err = tx.Delegate(senderAccount.Address(), receiverAddr, 1_000_000, 0)
+		tx.Delegate(receiverAddr, 1_000_000, 0)
 	case "delegate1":
 		// Delegate 1 TRX Energy (ResourceCode 1)
-		err = tx.Delegate(senderAccount.Address(), receiverAddr, 1_000_000, 1)
+		tx.Delegate(receiverAddr, 1_000_000, 1)
 	case "reclaim0":
 		// Reclaim delegated Bandwidth (ResourceCode 0)
-		err = tx.Reclaim(senderAccount.Address(), receiverAddr, 1_000_000, 0)
+		tx.Reclaim(ownerAccount.Address(), receiverAddr, 1_000_000, 0)
 	case "reclaim1":
 		// Reclaim delegated Energy (ResourceCode 1)
-		err = tx.Reclaim(senderAccount.Address(), receiverAddr, 1_000_000, 1)
+		tx.Reclaim(ownerAccount.Address(), receiverAddr, 1_000_000, 1)
 	default:
 		log.Fatalf("Invalid command: %s. Use transfer, freeze, unfreeze, delegate0, delegate1, reclaim0, or reclaim1.", *command)
 	}
 
-	if err != nil {
-		log.Fatalf("Failed to create transaction for command '%s': %v", *command, err)
+	if tx.GetReceipt().Err != nil {
+		log.Fatalf("Failed to create transaction for command '%s': %v", *command, tx.GetReceipt().Err)
 	}
 
 	// Set transaction parameters
-	tx.SetFeelimit(10_000_000) // 10 TRX
-	tx.SetExpiration(30)       // 30 seconds
+	// 30 seconds
+	// tx.SetExpiration(60)
 
-	// Sign transaction
-	err = tx.Sign(senderAccount)
-	if err != nil {
-		log.Fatalf("Failed to sign transaction: %v", err)
-	}
+	// Sign and Broadcast transaction
+	tx.Sign(ownerAccount).Broadcast()
 
-	// Broadcast transaction
-	err = tx.Broadcast()
-	if err != nil {
-		log.Fatalf("Failed to broadcast transaction: %v", err)
-	}
+	// if tx.GetReceipt().Err != nil {
+	// 	log.Fatalf("Failed to sign or broadcast transaction: %v", tx.GetReceipt().Err)
+	// }
 
 	// Get receipt
 	receipt := tx.GetReceipt()
-	fmt.Printf("Transaction successful!\n")
+	if receipt.Err != nil {
+		log.Fatalf("Failed to get transaction receipt: %v", receipt.Err)
+	}
 	fmt.Printf("Transaction ID: %s\n", receipt.TxID)
 	fmt.Printf("Result: %v\n", receipt.Result)
 	if receipt.Message != "" {
@@ -154,6 +152,4 @@ func main() {
 	fmt.Printf("====================\n")
 	fmt.Println(rcp)
 
-	fmt.Println(time.Now().Format(time.RFC3339))
-	fmt.Println(time.Unix(rcp.BlockTimeStamp/1000, 0).Format(time.RFC3339))
 }

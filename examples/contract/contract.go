@@ -42,19 +42,19 @@ func main() {
 	// Get token information using ContractTrigger
 
 	// Get symbol
-	symbolData, err := contract.ContractTrigger("symbol")
+	symbolData, err := contract.EncodeInput("symbol")
 	if err != nil {
 		log.Fatalf("Failed to create symbol call: %v", err)
 	}
 
 	// Get decimals
-	decimalsData, err := contract.ContractTrigger("decimals")
+	decimalsData, err := contract.EncodeInput("decimals")
 	if err != nil {
 		log.Fatalf("Failed to create decimals call: %v", err)
 	}
 
 	// Get name
-	nameData, err := contract.ContractTrigger("name")
+	nameData, err := contract.EncodeInput("name")
 	if err != nil {
 		log.Fatalf("Failed to create name call: %v", err)
 	}
@@ -71,13 +71,13 @@ func main() {
 	}
 
 	// Get allowance
-	allowanceData, err := contract.ContractTrigger("allowance", queryAddress.String(), spenderAddr.String())
+	allowanceData, err := contract.EncodeInput("allowance", queryAddress.String(), spenderAddr.String())
 	if err != nil {
 		log.Fatalf("Failed to create allowance call: %v", err)
 	}
 
 	// Get balance
-	balanceData, err := contract.ContractTrigger("balanceOf", queryAddress.String())
+	balanceData, err := contract.EncodeInput("balanceOf", queryAddress.String())
 	if err != nil {
 		log.Fatalf("Failed to create balance call: %v", err)
 	}
