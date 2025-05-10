@@ -80,15 +80,16 @@ func main() {
 	transferto, _ := types.NewAddress("TSGkU4jYbYCosYFtrVSYMWGhatFjgSRfnq")
 	ownerAccount, _ := types.NewAccountFromPrivateKey("f8c6f45b2aa8b68ab5f3910bdeb5239428b731618113e2881f46e374bf796b02")
 
-	tx := contract.Transfer(ownerAccount.Address().String(), transferto.String(), decimal.NewFromInt(1234)).
+	receipt := contract.Transfer(ownerAccount.Address().String(), transferto.String(), decimal.NewFromInt(1234)).
 		Sign(ownerAccount).
-		Broadcast()
+		Broadcast().
+		GetReceipt()
 
-	if tx.GetError() != nil {
-		log.Println(tx.GetReceipt().Err)
+	if receipt.Err != nil {
+		log.Fatalf("Failed to transfer tokens: %v", receipt.Err)
 	}
-	// Get receipt
-	receipt := tx.GetReceipt()
+	// Err is nil, meaning the broadcast was successful
+
 	fmt.Printf("Transaction ID: %s\n", receipt.TxID)
 	fmt.Printf("Result: %v\n", receipt.Result)
 	if receipt.Message != "" {
@@ -96,12 +97,11 @@ func main() {
 	}
 
 	// Wait for transaction confirmation
-	rcp, err := tronClient.WaitForTransactionInfo(receipt.TxID, 9)
-
+	confirmation, err := tronClient.WaitForTransactionInfo(receipt.TxID, 9)
 	if err != nil {
 		log.Fatalf("Failed to get transaction info: %v", err)
 	}
 	fmt.Printf("\nTransaction Information:\n")
 	fmt.Printf("====================\n")
-	fmt.Println("tx result", rcp.Result)
+	fmt.Println("tx result", confirmation.Result)
 }

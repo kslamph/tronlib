@@ -125,18 +125,12 @@ func main() {
 	// 30 seconds
 	// tx.SetExpiration(60)
 
-	// Sign and Broadcast transaction
-	tx.Sign(ownerAccount).Broadcast()
-
-	// if tx.GetReceipt().Err != nil {
-	// 	log.Fatalf("Failed to sign or broadcast transaction: %v", tx.GetReceipt().Err)
-	// }
-
 	// Get receipt
-	receipt := tx.GetReceipt()
+	receipt := tx.Sign(ownerAccount).Broadcast().GetReceipt()
 	if receipt.Err != nil {
-		log.Fatalf("Failed to get transaction receipt: %v", receipt.Err)
+		log.Fatalf("Transaction failed: %v", receipt.Err)
 	}
+	//Err is nil, meaning broadcast was successful
 	fmt.Printf("Transaction ID: %s\n", receipt.TxID)
 	fmt.Printf("Result: %v\n", receipt.Result)
 	if receipt.Message != "" {
@@ -144,12 +138,12 @@ func main() {
 	}
 
 	// Wait for transaction confirmation
-	rcp, err := client.WaitForTransactionInfo(receipt.TxID, 10)
+	confirmation, err := client.WaitForTransactionInfo(receipt.TxID, 10)
 	if err != nil {
 		log.Fatalf("Failed to get transaction info: %v", err)
 	}
 	fmt.Printf("\nTransaction Information:\n")
 	fmt.Printf("====================\n")
-	fmt.Println(rcp)
+	fmt.Println(confirmation)
 
 }
