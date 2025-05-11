@@ -109,10 +109,10 @@ func main() {
 		tx.Delegate(receiverAddr, 1_000_000, 1)
 	case "reclaim0":
 		// Reclaim delegated Bandwidth (ResourceCode 0)
-		tx.Reclaim(ownerAccount.Address(), receiverAddr, 1_000_000, 0)
+		tx.Reclaim(receiverAddr, 1_000_000, 0)
 	case "reclaim1":
 		// Reclaim delegated Energy (ResourceCode 1)
-		tx.Reclaim(ownerAccount.Address(), receiverAddr, 1_000_000, 1)
+		tx.Reclaim(receiverAddr, 1_000_000, 1)
 	default:
 		log.Fatalf("Invalid command: %s. Use transfer, freeze, unfreeze, delegate0, delegate1, reclaim0, or reclaim1.", *command)
 	}

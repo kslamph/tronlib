@@ -63,9 +63,9 @@ func (tx *Transaction) Delegate(receiver *types.Address, amount int64, resource 
 	return tx
 }
 
-func (tx *Transaction) DelegateWithLock(from, to *types.Address, amount int64, resource core.ResourceCode, blocksToLock int64) *Transaction {
+func (tx *Transaction) DelegateWithLock(to *types.Address, amount int64, resource core.ResourceCode, blocksToLock int64) *Transaction {
 	contract := &core.DelegateResourceContract{
-		OwnerAddress:    from.Bytes(), // Note: The original Freeze uses tx.owner.Bytes(). Assuming 'from' is intended here.
+		OwnerAddress:    tx.owner.Bytes(), // Note: The original Freeze uses tx.owner.Bytes(). Assuming 'from' is intended here.
 		ReceiverAddress: to.Bytes(),
 		Balance:         amount,
 		Resource:        resource,
@@ -82,9 +82,9 @@ func (tx *Transaction) DelegateWithLock(from, to *types.Address, amount int64, r
 	return tx
 }
 
-func (tx *Transaction) Reclaim(from, to *types.Address, amount int64, resource core.ResourceCode) *Transaction {
+func (tx *Transaction) Reclaim(to *types.Address, amount int64, resource core.ResourceCode) *Transaction {
 	contract := &core.UnDelegateResourceContract{
-		OwnerAddress:    from.Bytes(), // Note: The original Freeze uses tx.owner.Bytes(). Assuming 'from' is intended here.
+		OwnerAddress:    tx.owner.Bytes(), // Note: The original Freeze uses tx.owner.Bytes(). Assuming 'from' is intended here.
 		ReceiverAddress: to.Bytes(),
 		Balance:         amount,
 		Resource:        resource,
@@ -103,9 +103,9 @@ func (tx *Transaction) Vote() {
 }
 func (tx *Transaction) Unvote() {
 }
-func (tx *Transaction) Withdraw(from *types.Address) *Transaction {
+func (tx *Transaction) Withdraw() *Transaction {
 	contract := &core.WithdrawExpireUnfreezeContract{
-		OwnerAddress: from.Bytes(), // Note: The original Freeze uses tx.owner.Bytes(). Assuming 'from' is intended here.
+		OwnerAddress: tx.owner.Bytes(), // Note: The original Freeze uses tx.owner.Bytes(). Assuming 'from' is intended here.
 	}
 	txExt, err := tx.client.BuildTransaction(contract)
 	if err != nil {
@@ -117,9 +117,9 @@ func (tx *Transaction) Withdraw(from *types.Address) *Transaction {
 	return tx
 }
 
-func (tx *Transaction) ClaimReward(from *types.Address) *Transaction {
+func (tx *Transaction) ClaimReward() *Transaction {
 	contract := &core.WithdrawBalanceContract{
-		OwnerAddress: from.Bytes(), // Note: The original Freeze uses tx.owner.Bytes(). Assuming 'from' is intended here.
+		OwnerAddress: tx.owner.Bytes(), // Note: The original Freeze uses tx.owner.Bytes(). Assuming 'from' is intended here.
 	}
 
 	txExt, err := tx.client.BuildTransaction(contract)
