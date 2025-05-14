@@ -24,7 +24,7 @@ const (
 	TronMessagePrefix = "\x19TRON Signed Message:\n"
 )
 
-// Account represents a Tron account with its private key
+// Account represents a Tron account with its private key and implements the Signer interface
 type Account struct {
 	address *Address
 	privKey *ecdsa.PrivateKey

@@ -506,8 +506,13 @@ func (c *Client) BuildTransaction(contract interface{}) (*api.TransactionExtenti
 	if err != nil {
 		return nil, fmt.Errorf("failed to build transaction: %v", err)
 	}
+	if result.(*api.TransactionExtention).Result.Result {
+		return result.(*api.TransactionExtention), nil
+	} else {
+		return nil, fmt.Errorf("failed to build transaction: %v", result.(*api.TransactionExtention).Result)
+	}
 
-	return result.(*api.TransactionExtention), nil
+	// return result.(*api.TransactionExtention), nil
 }
 
 // ExecuteWithClient executes a function with a gRPC client connection

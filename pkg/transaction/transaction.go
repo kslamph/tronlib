@@ -96,16 +96,16 @@ func (tx *Transaction) SetError(err error) *Transaction {
 	return tx
 }
 
-func (tx *Transaction) Sign(signer *types.Account) *Transaction {
+// Sign signs the transaction with the signer
+func (tx *Transaction) Sign(signer types.Signer) *Transaction {
 	if tx.receipt.Err != nil {
 		return tx
 	}
 	return tx.MultiSign(signer, 2)
 }
 
-// Sign signs the transaction with the sender's private key
-func (tx *Transaction) MultiSign(signer *types.Account, permissionID int32) *Transaction {
-
+// MultiSign signs the transaction with the specified permission ID
+func (tx *Transaction) MultiSign(signer types.Signer, permissionID int32) *Transaction {
 	if tx.receipt.Err != nil {
 		return tx
 	}
@@ -115,7 +115,7 @@ func (tx *Transaction) MultiSign(signer *types.Account, permissionID int32) *Tra
 		return tx
 	}
 
-	// Sign the transaction using the account's private key
+	// Sign the transaction using the signer
 	signedTx, err := signer.MultiSign(tx.txExtension.GetTransaction(), permissionID)
 	if err != nil {
 		tx.receipt.Err = fmt.Errorf("failed to sign transaction: %v", err)
@@ -141,9 +141,7 @@ func (tx *Transaction) Broadcast() *Transaction {
 		return tx
 	}
 
-	// Ensure Txid is set before broadcasting. This is crucial if the transaction
-	// wasn't signed (e.g. if Broadcast is called for estimation purposes, though less common).
-	// Sign already calls updateTxID.
+	// Ensure Txid is set before broadcasting
 	if len(tx.txExtension.GetTxid()) == 0 {
 		if err := tx.updateTxID(); err != nil {
 			tx.receipt.Err = fmt.Errorf("failed to update transaction ID before broadcast: %v", err)
@@ -200,7 +198,7 @@ func (tx *Transaction) GetError() error {
 	return tx.receipt.Err
 }
 
-// GetTxID returns the transaction ID in hex format
+// updateTxID updates the transaction ID
 func (tx *Transaction) updateTxID() error {
 	rawData, err := proto.Marshal(tx.txExtension.GetTransaction().RawData)
 	if err != nil {

@@ -58,6 +58,11 @@ func (tx *Transaction) Delegate(receiver *types.Address, amount int64, resource 
 		tx.receipt.Err = fmt.Errorf("failed to build transaction: %v", err)
 		return tx
 	}
+	// fmt.Println(txExt.Result.Result)
+	if !txExt.Result.Result {
+		tx.receipt.Err = fmt.Errorf("failed to build transaction: %v", txExt.Result)
+		return tx
+	}
 	tx.txExtension = txExt
 	tx.SetDefaultOptions()
 	return tx
