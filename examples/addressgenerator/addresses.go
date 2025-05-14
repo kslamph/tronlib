@@ -6,9 +6,10 @@ import (
 	"log"
 	"os"        // For file creation
 	"os/signal" // For graceful shutdown
-	"runtime"   // For CPU profiling
-	"sync"      // For WaitGroup
-	"syscall"   // For OS signals
+
+	// For CPU profiling
+	"sync"    // For WaitGroup
+	"syscall" // For OS signals
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/mr-tron/base58"
@@ -46,7 +47,7 @@ func main() {
 	var wg sync.WaitGroup
 	done := make(chan struct{}) // Channel to signal goroutines to stop
 
-	numWorkers := runtime.NumCPU() * 2
+	numWorkers := 2
 	log.Printf("Starting %d worker goroutines...\n", numWorkers)
 
 	for i := 0; i < numWorkers; i++ {
