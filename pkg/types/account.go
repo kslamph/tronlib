@@ -49,12 +49,12 @@ func NewAccountFromPrivateKey(hexPrivKey string) (*Account, error) {
 }
 
 // NewAccountFromHDWallet creates an Account from HD wallet path
-func NewAccountFromHDWallet(mnemonic string, path string) (*Account, error) {
+func NewAccountFromHDWallet(mnemonic string, passphrase string, path string) (*Account, error) {
 	if path == "" {
 		path = "m/44'/195'/0'/0/0" // Default BIP44 path for TRON
 	}
 
-	wallet, err := hdwallet.NewFromMnemonic(mnemonic)
+	wallet, err := hdwallet.NewFromMnemonic(mnemonic, passphrase)
 	if err != nil {
 		return nil, fmt.Errorf("invalid mnemonic: %w", err)
 	}

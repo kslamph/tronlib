@@ -124,7 +124,7 @@ func TestAccountFromHDWallet(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			account, err := NewAccountFromHDWallet(tt.mnemonic, tt.path)
+			account, err := NewAccountFromHDWallet(tt.mnemonic, "", tt.path)
 			if tt.wantError {
 				if err == nil {
 					t.Errorf("NewAccountFromHDWallet() expected error for mnemonic %s and path %s", tt.mnemonic, tt.path)

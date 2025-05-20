@@ -225,7 +225,7 @@ func (c *Client) manageConnections() {
 			// Check if cooldown period is over
 			if node.inCooldown && now.After(node.cooldownUntil) {
 				node.inCooldown = false
-				log.Printf("[INFO] Node cooldown period ended: %s\n", node.address)
+				// log.Printf("[INFO] Node cooldown period ended: %s\n", node.address)
 			}
 
 			// Reset rate limiting window if needed
@@ -395,7 +395,7 @@ func (c *Client) updateNodeMetrics(node *TronNodeStatus, duration time.Duration,
 			if errCode == 4 || errCode == 8 || errCode == 14 {
 				node.inCooldown = true
 				node.cooldownUntil = time.Now().Add(c.cooldownPeriod)
-				log.Printf("[WARN] Node placed in cooldown due to error (%s): %s (%v)\n", errCode.String(), node.address, err)
+				// log.Printf("[WARN] Node placed in cooldown due to error (%s): %s (%v)\n", errCode.String(), node.address, err)
 			}
 		}
 		// For other errors (non-gRPC or gRPC errors not triggering cooldown), we still apply the 400ms penalty
