@@ -16,10 +16,10 @@ func main() {
 	// Initialize client with configuration
 	config := client.ClientConfig{
 		Nodes: []client.NodeConfig{
-			{
-				Address:   "3.225.171.164:50051",
-				RateLimit: client.RateLimit{Times: 100, Window: time.Minute},
-			},
+			// {
+			// 	Address:   "3.225.171.164:50051",
+			// 	RateLimit: client.RateLimit{Times: 100, Window: time.Minute},
+			// },
 			{
 				Address:   "grpc.trongrid.io:50051",
 				RateLimit: client.RateLimit{Times: 100, Window: time.Minute},

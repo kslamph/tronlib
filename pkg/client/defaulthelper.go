@@ -27,7 +27,7 @@ const (
 
 func MainNodes() []NodeConfig {
 	return []NodeConfig{
-		{Address: "3.225.171.164:50051", RateLimit: DefaultRateLimit()},
+		// {Address: "3.225.171.164:50051", RateLimit: DefaultRateLimit()},
 		{Address: "52.53.189.99:50051", RateLimit: DefaultRateLimit()},
 		{Address: "18.196.99.16:50051", RateLimit: DefaultRateLimit()},
 		{Address: "34.253.187.192:50051", RateLimit: DefaultRateLimit()},
@@ -53,6 +53,12 @@ func MainNodes() []NodeConfig {
 func ShastaNodes() []NodeConfig {
 	return []NodeConfig{
 		{Address: "grpc.shasta.trongrid.io:50051", RateLimit: DefaultRateLimit()},
+	}
+}
+
+func NileNodes() []NodeConfig {
+	return []NodeConfig{
+		{Address: "grpc.nile.trongrid.io:50051", RateLimit: DefaultRateLimit()},
 	}
 }
 

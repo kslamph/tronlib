@@ -83,6 +83,27 @@ func NewAddressFromHex(hexAddr string) (*Address, error) {
 	}, nil
 }
 
+func NewAddressFromEVMHex(hexAddr string) (*Address, error) {
+	// Remove 0x prefix if present
+	hexAddr = strings.TrimPrefix(strings.ToLower(hexAddr), "0x")
+
+	if len(hexAddr) != 40 { // 40 hex chars
+		return nil, fmt.Errorf("invalid hex address length: expected 40, got %d", len(hexAddr))
+	}
+
+	hexAddr = AddressPrefix + hexAddr // Add TRON prefix
+
+	// Decode hex string
+	decoded, err := hex.DecodeString(hexAddr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid hex encoding: %w", err)
+	}
+
+	return &Address{
+		bytesAddr: decoded,
+	}, nil
+}
+
 // NewAddressFromBytes creates an Address from bytes
 func NewAddressFromBytes(byteAddress []byte) (*Address, error) {
 	if len(byteAddress) != AddressLength {

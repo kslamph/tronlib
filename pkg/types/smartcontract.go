@@ -309,6 +309,150 @@ func (c *Contract) EncodeInput(method string, params ...interface{}) ([]byte, er
 	return Pack(method, abiParams)
 }
 
+// DecodedInput represents the decoded input data
+type DecodedInput struct {
+	Method     string                  `json:"method"`
+	Parameters []DecodedInputParameter `json:"parameters"`
+}
+
+// DecodedInputParameter represents a decoded parameter
+type DecodedInputParameter struct {
+	Name  string      `json:"name"`
+	Type  string      `json:"type"`
+	Value interface{} `json:"value"`
+}
+
+// DecodeInputData decodes the contract input data and returns method signature and parameters
+func (c *Contract) DecodeInputData(data []byte) (*DecodedInput, error) {
+	if len(data) < 4 {
+		return nil, fmt.Errorf("input data too short, need at least 4 bytes for method signature")
+	}
+
+	// Extract method signature (first 4 bytes)
+	methodSig := data[:4]
+
+	// Find matching method in ABI by comparing method signatures
+	var matchedEntry *core.SmartContract_ABI_Entry
+	var methodSignature string
+
+	for _, entry := range c.ABI.Entrys {
+		if entry.Type != core.SmartContract_ABI_Entry_Function {
+			continue
+		}
+
+		// Build method signature string
+		inputs := make([]string, len(entry.Inputs))
+		for i, input := range entry.Inputs {
+			inputs[i] = input.Type
+		}
+		methodSigStr := fmt.Sprintf("%s(%s)", entry.Name, strings.Join(inputs, ","))
+
+		// Calculate method ID
+		hasher := sha3.NewLegacyKeccak256()
+		hasher.Write([]byte(methodSigStr))
+		calculatedSig := hasher.Sum(nil)[:4]
+
+		// Compare signatures
+		if hex.EncodeToString(calculatedSig) == hex.EncodeToString(methodSig) {
+			matchedEntry = entry
+			methodSignature = methodSigStr
+			break
+		}
+	}
+
+	if matchedEntry == nil {
+		return &DecodedInput{
+			Method:     fmt.Sprintf("unknown(0x%s)", hex.EncodeToString(methodSig)),
+			Parameters: []DecodedInputParameter{},
+		}, nil
+	}
+
+	// If no parameters, return method signature only
+	if len(matchedEntry.Inputs) == 0 {
+		return &DecodedInput{
+			Method:     methodSignature,
+			Parameters: []DecodedInputParameter{},
+		}, nil
+	}
+
+	// Decode parameters
+	paramData := data[4:]
+
+	// Create ethereum ABI arguments for decoding
+	args := make([]eABI.Argument, len(matchedEntry.Inputs))
+	for i, input := range matchedEntry.Inputs {
+		abiType, err := eABI.NewType(input.Type, "", nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create ABI type for %s: %v", input.Type, err)
+		}
+		args[i] = eABI.Argument{
+			Name: input.Name,
+			Type: abiType,
+		}
+	}
+
+	// Unpack the parameters
+	values, err := eABI.Arguments(args).Unpack(paramData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unpack parameters: %v", err)
+	}
+
+	// Build decoded parameters
+	parameters := make([]DecodedInputParameter, len(matchedEntry.Inputs))
+	for i, input := range matchedEntry.Inputs {
+		var value interface{}
+		if i < len(values) {
+			value = formatDecodedValue(values[i], input.Type)
+		}
+
+		parameters[i] = DecodedInputParameter{
+			Name:  input.Name,
+			Type:  input.Type,
+			Value: value,
+		}
+	}
+
+	return &DecodedInput{
+		Method:     methodSignature,
+		Parameters: parameters,
+	}, nil
+}
+
+// formatDecodedValue formats the decoded value based on its type
+func formatDecodedValue(value interface{}, paramType string) interface{} {
+	switch paramType {
+	case "address":
+		if addr, ok := value.(eCommon.Address); ok {
+			return addr.Hex()
+		}
+		return value
+	case "uint256", "uint128", "uint64", "uint32", "uint16", "uint8":
+		if bigInt, ok := value.(*big.Int); ok {
+			return bigInt.String()
+		}
+		return value
+	case "bytes", "bytes32", "bytes16", "bytes8":
+		if bytes, ok := value.([]byte); ok {
+			return hex.EncodeToString(bytes)
+		}
+		return value
+	default:
+		// Handle array types
+		if strings.HasSuffix(paramType, "[]") {
+			baseType := strings.TrimSuffix(paramType, "[]")
+			if reflect.TypeOf(value).Kind() == reflect.Slice {
+				slice := reflect.ValueOf(value)
+				result := make([]interface{}, slice.Len())
+				for i := 0; i < slice.Len(); i++ {
+					result[i] = formatDecodedValue(slice.Index(i).Interface(), baseType)
+				}
+				return result
+			}
+		}
+		return value
+	}
+}
+
 // DecodeResult decodes the contract call result bytes
 func (c *Contract) DecodeResult(method string, result [][]byte) (interface{}, error) {
 	if len(result) == 0 {
