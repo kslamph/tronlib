@@ -1,43 +1,51 @@
 package client
 
 import (
+	"context"
 	"fmt"
-	"strings"
+
+	"github.com/kslamph/tronlib/pb/api"
 )
 
-// ErrorCode represents different types of errors that can occur
-type ErrorCode int
+// Common error handling helpers to reduce code duplication
 
-const (
-	ErrNetwork ErrorCode = iota
-	ErrValidation
-	ErrTransaction
-	ErrContract
-	ErrAuthentication
-	ErrResourceExhausted
-)
-
-// TronError represents an error from the Tron network
-type TronError struct {
-	Code    ErrorCode
-	Message string
-	Cause   error
+// ensureConnectionWithError is a helper that wraps connection errors with context
+func (c *Client) ensureConnectionWithError(operation string) error {
+	if err := c.ensureConnection(); err != nil {
+		return fmt.Errorf("connection error for %s: %v", operation, err)
+	}
+	return nil
 }
 
-func (e *TronError) Error() string {
-	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("[%d] %s", e.Code, e.Message))
-	if e.Cause != nil {
-		sb.WriteString(fmt.Sprintf(": %v", e.Cause))
+// validateTransactionResult checks the common result pattern
+func validateTransactionResult(result *api.TransactionExtention, operation string) error {
+	if result == nil {
+		return fmt.Errorf("nil result for %s", operation)
 	}
-	return sb.String()
+	if !result.Result.Result {
+		return fmt.Errorf("failed to create %s transaction: %v", operation, result.Result)
+	}
+	return nil
 }
 
-// NewTronError creates a new TronError
-func NewTronError(code ErrorCode, message string, cause error) *TronError {
-	return &TronError{
-		Code:    code,
-		Message: message,
-		Cause:   cause,
+// grpcCallWrapper wraps common gRPC call patterns
+func (c *Client) grpcCallWrapper(operation string, call func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error)) (*api.TransactionExtention, error) {
+	if err := c.ensureConnectionWithError(operation); err != nil {
+		return nil, err
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
+	defer cancel()
+
+	client := api.NewWalletClient(c.conn)
+	result, err := call(client, ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create %s transaction: %v", operation, err)
+	}
+
+	if err := validateTransactionResult(result, operation); err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }

@@ -10,7 +10,6 @@ import (
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pkg/client"
 	"github.com/kslamph/tronlib/pkg/types"
-	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -151,10 +150,20 @@ func (tx *Transaction) Broadcast() *Transaction {
 	// Preserve the TxID that was set either by signing or by updateTxID
 	finalTxID := hex.EncodeToString(tx.txExtension.GetTxid())
 
-	result, grpcErr := tx.client.ExecuteWithClient(func(ctx context.Context, conn *grpc.ClientConn) (interface{}, error) {
-		walletClient := api.NewWalletClient(conn)
-		return walletClient.BroadcastTransaction(ctx, tx.txExtension.GetTransaction())
-	})
+	// Get connection (handles reconnection transparently)
+	conn, err := tx.client.GetConnection()
+	if err != nil {
+		tx.receipt.Result = false
+		tx.receipt.Message = fmt.Sprintf("connection error: %v", err)
+		tx.receipt.Err = err
+		return tx
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	client := api.NewWalletClient(conn)
+	resp, grpcErr := client.BroadcastTransaction(ctx, tx.txExtension.GetTransaction())
 
 	// Initialize receipt fields that are certain
 	tx.receipt.TxID = finalTxID // Use the finalTxID captured before broadcast
@@ -170,8 +179,6 @@ func (tx *Transaction) Broadcast() *Transaction {
 		}
 		return tx
 	}
-
-	resp := result.(*api.Return)
 	tx.receipt.Result = resp.GetResult()
 	tx.receipt.Message = string(resp.GetMessage())
 

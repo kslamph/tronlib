@@ -10,7 +10,9 @@ import (
 )
 
 func main() {
-	client, err := client.NewClient(client.DefaultClientConfig())
+	client, err := client.NewClient(client.ClientConfig{
+		NodeAddress: "grpc.trongrid.io:50051",
+	})
 	if err != nil {
 		log.Fatalf("Failed to create client: %v", err)
 	}

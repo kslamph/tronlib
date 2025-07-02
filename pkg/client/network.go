@@ -8,61 +8,66 @@ import (
 
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
-	"google.golang.org/grpc"
 )
 
 // GetBlockByNum returns a block by its number. it contains tron contract data
 func (c *Client) GetBlockByNum(blockNumber int64) (*api.BlockExtention, error) {
-	var block *api.BlockExtention
+	if err := c.ensureConnection(); err != nil {
+		return nil, fmt.Errorf("connection error: %v", err)
+	}
 
-	result, err := c.ExecuteWithClient(func(ctx context.Context, conn *grpc.ClientConn) (interface{}, error) {
-		walletClient := api.NewWalletClient(conn)
-		return walletClient.GetBlockByNum2(ctx, &api.NumberMessage{
-			Num: blockNumber,
-		})
+	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
+	defer cancel()
+
+	client := api.NewWalletClient(c.conn)
+	result, err := client.GetBlockByNum2(ctx, &api.NumberMessage{
+		Num: blockNumber,
 	})
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get block by number: %v", err)
 	}
 
-	block = result.(*api.BlockExtention)
-	return block, nil
+	return result, nil
 }
 
 // GetTransactionInfoByBlockNum returns transaction info for a block.
 func (c *Client) GetTransactionInfoByBlockNum(blockNumber int64) (*api.TransactionInfoList, error) {
-	var txInfo *api.TransactionInfoList
+	if err := c.ensureConnection(); err != nil {
+		return nil, fmt.Errorf("connection error: %v", err)
+	}
 
-	result, err := c.ExecuteWithClient(func(ctx context.Context, conn *grpc.ClientConn) (interface{}, error) {
-		walletClient := api.NewWalletClient(conn)
-		return walletClient.GetTransactionInfoByBlockNum(ctx, &api.NumberMessage{
-			Num: blockNumber,
-		})
+	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
+	defer cancel()
+
+	client := api.NewWalletClient(c.conn)
+	result, err := client.GetTransactionInfoByBlockNum(ctx, &api.NumberMessage{
+		Num: blockNumber,
 	})
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get transaction info by block number: %v", err)
 	}
 
-	txInfo = result.(*api.TransactionInfoList)
-	return txInfo, nil
+	return result, nil
 }
 
 func (c *Client) GetNowBlock() (*api.BlockExtention, error) {
-	var block *api.BlockExtention
+	if err := c.ensureConnection(); err != nil {
+		return nil, fmt.Errorf("connection error: %v", err)
+	}
 
-	result, err := c.ExecuteWithClient(func(ctx context.Context, conn *grpc.ClientConn) (interface{}, error) {
-		walletClient := api.NewWalletClient(conn)
-		return walletClient.GetNowBlock2(ctx, &api.EmptyMessage{})
-	})
+	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
+	defer cancel()
+
+	client := api.NewWalletClient(c.conn)
+	result, err := client.GetNowBlock2(ctx, &api.EmptyMessage{})
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get current block: %v", err)
 	}
 
-	block = result.(*api.BlockExtention)
-	return block, nil
+	return result, nil
 }
 
 // WaitForTransactionInfo waits for a transaction to be confirmed by checking its info.
@@ -78,23 +83,25 @@ func (c *Client) WaitForTransactionInfo(txId string, timeoutSeconds int) (*core.
 	}
 
 	deadline := time.Now().Add(time.Duration(timeoutSeconds) * time.Second)
-	var tx *core.TransactionInfo
 
 	for time.Now().Before(deadline) {
-		result, err := c.ExecuteWithClient(func(ctx context.Context, conn *grpc.ClientConn) (interface{}, error) {
-			walletClient := api.NewWalletClient(conn)
-			return walletClient.GetTransactionInfoById(ctx, &api.BytesMessage{
-				Value: hashBytes,
-			})
+		if err := c.ensureConnection(); err != nil {
+			return nil, fmt.Errorf("connection error: %v", err)
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
+		client := api.NewWalletClient(c.conn)
+		result, err := client.GetTransactionInfoById(ctx, &api.BytesMessage{
+			Value: hashBytes,
 		})
+		cancel()
 
 		if err != nil {
 			return nil, fmt.Errorf("failed to wait for transaction info: %v", err)
 		}
 
-		tx = result.(*core.TransactionInfo)
-		if tx.GetBlockNumber() != 0 {
-			return tx, nil
+		if result.GetBlockNumber() != 0 {
+			return result, nil
 		}
 
 		time.Sleep(time.Second)
@@ -109,19 +116,23 @@ func (c *Client) GetTransactionById(txId string) (*core.Transaction, error) {
 		return nil, fmt.Errorf("failed to decode transaction ID: %v", err)
 	}
 
-	result, err := c.ExecuteWithClient(func(ctx context.Context, conn *grpc.ClientConn) (interface{}, error) {
-		walletClient := api.NewWalletClient(conn)
-		return walletClient.GetTransactionById(ctx, &api.BytesMessage{
-			Value: hashBytes,
-		})
+	if err := c.ensureConnection(); err != nil {
+		return nil, fmt.Errorf("connection error: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
+	defer cancel()
+
+	client := api.NewWalletClient(c.conn)
+	result, err := client.GetTransactionById(ctx, &api.BytesMessage{
+		Value: hashBytes,
 	})
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get transaction by ID: %v", err)
 	}
 
-	tx := result.(*core.Transaction)
-	return tx, nil
+	return result, nil
 }
 
 func (c *Client) GetTransactionInfoById(txId string) (*core.TransactionInfo, error) {
@@ -130,33 +141,39 @@ func (c *Client) GetTransactionInfoById(txId string) (*core.TransactionInfo, err
 		return nil, fmt.Errorf("failed to decode transaction ID: %v", err)
 	}
 
-	result, err := c.ExecuteWithClient(func(ctx context.Context, conn *grpc.ClientConn) (interface{}, error) {
-		walletClient := api.NewWalletClient(conn)
-		return walletClient.GetTransactionInfoById(ctx, &api.BytesMessage{
-			Value: hashBytes,
-		})
+	if err := c.ensureConnection(); err != nil {
+		return nil, fmt.Errorf("connection error: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
+	defer cancel()
+
+	client := api.NewWalletClient(c.conn)
+	result, err := client.GetTransactionInfoById(ctx, &api.BytesMessage{
+		Value: hashBytes,
 	})
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get transaction info by ID: %v", err)
 	}
 
-	txInfo := result.(*core.TransactionInfo)
-	return txInfo, nil
+	return result, nil
 }
 
 func (c *Client) GetChainParameters() (*core.ChainParameters, error) {
-	var chainParams *core.ChainParameters
+	if err := c.ensureConnection(); err != nil {
+		return nil, fmt.Errorf("connection error: %v", err)
+	}
 
-	result, err := c.ExecuteWithClient(func(ctx context.Context, conn *grpc.ClientConn) (interface{}, error) {
-		walletClient := api.NewWalletClient(conn)
-		return walletClient.GetChainParameters(ctx, &api.EmptyMessage{})
-	})
+	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
+	defer cancel()
+
+	client := api.NewWalletClient(c.conn)
+	result, err := client.GetChainParameters(ctx, &api.EmptyMessage{})
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain parameters: %v", err)
 	}
 
-	chainParams = result.(*core.ChainParameters)
-	return chainParams, nil
+	return result, nil
 }

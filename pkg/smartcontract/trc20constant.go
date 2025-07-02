@@ -37,58 +37,62 @@ func NewTRC20Contract(address string, client *client.Client) (*TRC20Contract, er
 	}, nil
 }
 
-// Name returns the name of the token
-func (t *TRC20Contract) Name() (string, error) {
-	data, err := t.EncodeInput("name")
+// getContractOwnerAddress is a helper method to parse the contract address
+func (t *TRC20Contract) getContractOwnerAddress() (*types.Address, error) {
+	return types.NewAddress(t.Address)
+}
+
+// callConstantMethod is a helper to reduce repetitive constant method calling pattern
+func (t *TRC20Contract) callConstantMethod(method string, params ...interface{}) (interface{}, error) {
+	data, err := t.EncodeInput(method, params...)
 	if err != nil {
-		return "", fmt.Errorf("failed to create name call: %v", err)
+		return nil, fmt.Errorf("failed to create %s call: %v", method, err)
 	}
 
-	ownerAddr, err := types.NewAddress(t.Address)
+	ownerAddr, err := t.getContractOwnerAddress()
 	if err != nil {
-		return "", fmt.Errorf("failed to parse owner address: %v", err)
+		return nil, fmt.Errorf("failed to parse owner address: %v", err)
 	}
 
 	result, err := t.client.TriggerConstantSmartContract(t.Contract, ownerAddr, data)
 	if err != nil {
-		return "", fmt.Errorf("failed to call name: %v", err)
+		return nil, fmt.Errorf("failed to call %s: %v", method, err)
 	}
 
-	decoded, err := t.DecodeResult("name", result)
+	decoded, err := t.DecodeResult(method, result)
 	if err != nil {
-		return "", fmt.Errorf("failed to decode name result: %v", err)
+		return nil, fmt.Errorf("failed to decode %s result: %v", method, err)
 	}
 
+	return decoded, nil
+}
+
+// convertToDecimal converts a big.Int result to decimal with proper precision
+func (t *TRC20Contract) convertToDecimal(value *big.Int) (decimal.Decimal, error) {
+	decimals, err := t.Decimals()
+	if err != nil {
+		return decimal.Zero, fmt.Errorf("failed to get decimals: %v", err)
+	}
+	return decimal.NewFromBigInt(value, -int32(decimals)), nil
+}
+
+// Name returns the name of the token
+func (t *TRC20Contract) Name() (string, error) {
+	decoded, err := t.callConstantMethod("name")
+	if err != nil {
+		return "", err
+	}
 	return decoded.(string), nil
 }
 
 // Symbol returns the symbol of the token (cached)
 func (t *TRC20Contract) Symbol() (string, error) {
 	t.symbolOnce.Do(func() {
-		data, err := t.EncodeInput("symbol")
+		decoded, err := t.callConstantMethod("symbol")
 		if err != nil {
-			t.symbolErr = fmt.Errorf("failed to create symbol call: %v", err)
+			t.symbolErr = err
 			return
 		}
-
-		ownerAddr, err := types.NewAddress(t.Address)
-		if err != nil {
-			t.symbolErr = fmt.Errorf("failed to parse owner address: %v", err)
-			return
-		}
-
-		result, err := t.client.TriggerConstantSmartContract(t.Contract, ownerAddr, data)
-		if err != nil {
-			t.symbolErr = fmt.Errorf("failed to call symbol: %v", err)
-			return
-		}
-
-		decoded, err := t.DecodeResult("symbol", result)
-		if err != nil {
-			t.symbolErr = fmt.Errorf("failed to decode symbol result: %v", err)
-			return
-		}
-
 		t.symbolCache = decoded.(string)
 	})
 
@@ -98,30 +102,11 @@ func (t *TRC20Contract) Symbol() (string, error) {
 // Decimals returns the number of decimals used to format token amounts (cached)
 func (t *TRC20Contract) Decimals() (uint8, error) {
 	t.decimalsOnce.Do(func() {
-		data, err := t.EncodeInput("decimals")
+		decoded, err := t.callConstantMethod("decimals")
 		if err != nil {
-			t.decimalsErr = fmt.Errorf("failed to create decimals call: %v", err)
+			t.decimalsErr = err
 			return
 		}
-
-		ownerAddr, err := types.NewAddress(t.Address)
-		if err != nil {
-			t.decimalsErr = fmt.Errorf("failed to parse owner address: %v", err)
-			return
-		}
-
-		result, err := t.client.TriggerConstantSmartContract(t.Contract, ownerAddr, data)
-		if err != nil {
-			t.decimalsErr = fmt.Errorf("failed to call decimals: %v", err)
-			return
-		}
-
-		decoded, err := t.DecodeResult("decimals", result)
-		if err != nil {
-			t.decimalsErr = fmt.Errorf("failed to decode decimals result: %v", err)
-			return
-		}
-
 		t.decimalsCache = uint8(decoded.(*big.Int).Uint64())
 	})
 
@@ -130,93 +115,27 @@ func (t *TRC20Contract) Decimals() (uint8, error) {
 
 // TotalSupply returns the total token supply as decimal
 func (t *TRC20Contract) TotalSupply() (decimal.Decimal, error) {
-	data, err := t.EncodeInput("totalSupply")
+	decoded, err := t.callConstantMethod("totalSupply")
 	if err != nil {
-		return decimal.Zero, fmt.Errorf("failed to create totalSupply call: %v", err)
+		return decimal.Zero, err
 	}
-
-	ownerAddr, err := types.NewAddress(t.Address)
-	if err != nil {
-		return decimal.Zero, fmt.Errorf("failed to parse owner address: %v", err)
-	}
-
-	result, err := t.client.TriggerConstantSmartContract(t.Contract, ownerAddr, data)
-	if err != nil {
-		return decimal.Zero, fmt.Errorf("failed to call totalSupply: %v", err)
-	}
-
-	decoded, err := t.DecodeResult("totalSupply", result)
-	if err != nil {
-		return decimal.Zero, fmt.Errorf("failed to decode totalSupply result: %v", err)
-	}
-
-	decimals, err := t.Decimals()
-	if err != nil {
-		return decimal.Zero, fmt.Errorf("failed to get decimals: %v", err)
-	}
-
-	// Convert big.Int to decimal and adjust for decimals
-	return decimal.NewFromBigInt(decoded.(*big.Int), -int32(decimals)), nil
+	return t.convertToDecimal(decoded.(*big.Int))
 }
 
 // BalanceOf returns the account balance of another account with address as decimal
 func (t *TRC20Contract) BalanceOf(address string) (decimal.Decimal, error) {
-	data, err := t.EncodeInput("balanceOf", address)
+	decoded, err := t.callConstantMethod("balanceOf", address)
 	if err != nil {
-		return decimal.Zero, fmt.Errorf("failed to create balanceOf call: %v", err)
+		return decimal.Zero, err
 	}
-
-	ownerAddr, err := types.NewAddress(t.Address)
-	if err != nil {
-		return decimal.Zero, fmt.Errorf("failed to parse owner address: %v", err)
-	}
-
-	result, err := t.client.TriggerConstantSmartContract(t.Contract, ownerAddr, data)
-	if err != nil {
-		return decimal.Zero, fmt.Errorf("failed to call balanceOf: %v", err)
-	}
-
-	decoded, err := t.DecodeResult("balanceOf", result)
-	if err != nil {
-		return decimal.Zero, fmt.Errorf("failed to decode balanceOf result: %v", err)
-	}
-
-	decimals, err := t.Decimals()
-	if err != nil {
-		return decimal.Zero, fmt.Errorf("failed to get decimals: %v", err)
-	}
-
-	// Convert big.Int to decimal and adjust for decimals
-	return decimal.NewFromBigInt(decoded.(*big.Int), -int32(decimals)), nil
+	return t.convertToDecimal(decoded.(*big.Int))
 }
 
 // Allowance returns the amount which spender is still allowed to withdraw from owner
 func (t *TRC20Contract) Allowance(owner, spender string) (decimal.Decimal, error) {
-	data, err := t.EncodeInput("allowance", owner, spender)
+	decoded, err := t.callConstantMethod("allowance", owner, spender)
 	if err != nil {
-		return decimal.Zero, fmt.Errorf("failed to create allowance call: %v", err)
+		return decimal.Zero, err
 	}
-
-	ownerAddr, err := types.NewAddress(t.Address)
-	if err != nil {
-		return decimal.Zero, fmt.Errorf("failed to parse owner address: %v", err)
-	}
-
-	result, err := t.client.TriggerConstantSmartContract(t.Contract, ownerAddr, data)
-	if err != nil {
-		return decimal.Zero, fmt.Errorf("failed to call allowance: %v", err)
-	}
-
-	decoded, err := t.DecodeResult("allowance", result)
-	if err != nil {
-		return decimal.Zero, fmt.Errorf("failed to decode allowance result: %v", err)
-	}
-
-	decimals, err := t.Decimals()
-	if err != nil {
-		return decimal.Zero, fmt.Errorf("failed to get decimals: %v", err)
-	}
-
-	// Convert big.Int to decimal and adjust for decimals
-	return decimal.NewFromBigInt(decoded.(*big.Int), -int32(decimals)), nil
+	return t.convertToDecimal(decoded.(*big.Int))
 }

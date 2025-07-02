@@ -117,6 +117,9 @@ func (a *Account) PrivateKeyHex() string {
 func (a *Account) PublicKey() *ecdsa.PublicKey {
 	return a.pubKey
 }
+
+// Sign signs the given transaction with the account's private key
+// This is a wrapper for the MultiSign function with permission ID 2 (active permission)
 func (a *Account) Sign(tx *core.Transaction) (*core.Transaction, error) {
 	return a.MultiSign(tx, 2)
 }

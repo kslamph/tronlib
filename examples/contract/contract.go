@@ -27,7 +27,9 @@ const (
 
 func main() {
 	// Create client connection
-	c, err := client.NewClient(client.DefaultClientConfig())
+	c, err := client.NewClient(client.ClientConfig{
+		NodeAddress: NetworkEndpoint,
+	})
 	if err != nil {
 		log.Fatalf("Failed to create client: %v", err)
 	}

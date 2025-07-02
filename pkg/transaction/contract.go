@@ -3,7 +3,6 @@ package transaction
 import (
 	"fmt"
 
-	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/types"
 )
 
@@ -12,22 +11,16 @@ func (tx *Transaction) TriggerSmartContract(contract *types.Contract, data []byt
 	if tx.receipt.Err != nil {
 		return tx // Return early if there's already an error
 	}
-	// The check for tx.txExtension.GetTransaction() != nil is removed.
-	// If BuildTransaction is called on an already built tx, it should ideally handle it or error out.
-	// Or, the client should ensure a fresh tx object or reset it if reusing.
 
-	// Create trigger smart contract message
-	trigger := &core.TriggerSmartContract{
-		OwnerAddress:    tx.owner.Bytes(), // Use internal owner
-		ContractAddress: contract.AddressBytes,
-		Data:            data,
-		CallValue:       callValue,
-	}
-
-	// Call BuildTransaction to get TransactionExtention
-	txExt, err := tx.client.BuildTransaction(trigger)
+	// Call the specific client method for smart contract transactions
+	txExt, err := tx.client.CreateTriggerSmartContractTransaction(
+		tx.owner.Bytes(),
+		contract.AddressBytes,
+		data,
+		callValue,
+	)
 	if err != nil {
-		tx.receipt.Err = fmt.Errorf("failed to build TriggerSmartContract transaction: %v", err)
+		tx.receipt.Err = fmt.Errorf("failed to create smart contract transaction: %v", err)
 		return tx
 	}
 

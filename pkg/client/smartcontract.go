@@ -7,7 +7,6 @@ import (
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/types"
-	"google.golang.org/grpc"
 )
 
 func (c *Client) NewContractFromAddress(address *types.Address) (*types.Contract, error) {
@@ -15,27 +14,34 @@ func (c *Client) NewContractFromAddress(address *types.Address) (*types.Contract
 		return nil, fmt.Errorf("failed to get contract: contract address is nil")
 	}
 
-	result, err := c.ExecuteWithClient(func(ctx context.Context, conn *grpc.ClientConn) (interface{}, error) {
-		walletClient := api.NewWalletClient(conn)
-		return walletClient.GetContract(ctx, &api.BytesMessage{
-			Value: address.Bytes(),
-		})
+	if err := c.ensureConnection(); err != nil {
+		return nil, fmt.Errorf("connection error: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
+	defer cancel()
+
+	client := api.NewWalletClient(c.conn)
+	result, err := client.GetContract(ctx, &api.BytesMessage{
+		Value: address.Bytes(),
 	})
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get contract: %v", err)
 	}
 
-	contract := result.(*core.SmartContract)
-
-	if contract.Abi == nil {
+	if result.Abi == nil {
 		return nil, fmt.Errorf("failed to get contract: contract ABI is nil")
 	}
 
-	return types.NewContractFromABI(contract.Abi, address.String())
+	return types.NewContractFromABI(result.Abi, address.String())
 }
 
 func (c *Client) TriggerConstantSmartContract(contract *types.Contract, ownerAddress *types.Address, data []byte) ([][]byte, error) {
+	if err := c.ensureConnection(); err != nil {
+		return nil, fmt.Errorf("connection error: %v", err)
+	}
+
 	// Create trigger smart contract message
 	trigger := &core.TriggerSmartContract{
 		OwnerAddress:    ownerAddress.Bytes(),
@@ -43,15 +49,15 @@ func (c *Client) TriggerConstantSmartContract(contract *types.Contract, ownerAdd
 		Data:            data,
 	}
 
-	result, err := c.ExecuteWithClient(func(ctx context.Context, conn *grpc.ClientConn) (interface{}, error) {
-		walletClient := api.NewWalletClient(conn)
-		return walletClient.TriggerConstantContract(ctx, trigger)
-	})
+	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
+	defer cancel()
+
+	client := api.NewWalletClient(c.conn)
+	result, err := client.TriggerConstantContract(ctx, trigger)
 
 	if err != nil {
 		return nil, err
 	}
 
-	txExt := result.(*api.TransactionExtention)
-	return txExt.GetConstantResult(), nil
+	return result.GetConstantResult(), nil
 }

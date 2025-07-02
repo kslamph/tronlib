@@ -15,16 +15,8 @@ import (
 func createClient() (*client.Client, error) {
 	// Initialize client with configuration
 	config := client.ClientConfig{
-		Nodes: []client.NodeConfig{
-			{
-				Address:   "grpc.shasta.trongrid.io:50051", // Shasta testnet
-				RateLimit: client.RateLimit{Times: 100, Window: time.Minute},
-			},
-		},
-		TimeoutMs:          10000, // 10 second timeout
-		CooldownPeriod:     1 * time.Minute,
-		MetricsWindowSize:  3,
-		BestNodePercentage: 90,
+		NodeAddress: "grpc.shasta.trongrid.io:50051",
+		Timeout:     10 * time.Second, // 10 second timeout
 	}
 
 	// Create client

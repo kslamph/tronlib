@@ -16,9 +16,8 @@ const (
 
 func main() {
 	// Create client connection
-	nodes := client.ShastaNodes()
 	tronClient, err := client.NewClient(client.ClientConfig{
-		Nodes: nodes,
+		NodeAddress: "grpc.shasta.trongrid.io:50051",
 	})
 	if err != nil {
 		log.Fatalf("Failed to create client: %v", err)

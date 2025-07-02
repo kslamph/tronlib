@@ -22,6 +22,7 @@ const (
 type Address struct {
 	base58Addr string
 	bytesAddr  []byte
+	validated  bool // Private field to track if address was properly constructed
 }
 
 // NewAddress creates an Address from a base58 string
@@ -55,6 +56,7 @@ func NewAddress(base58Addr string) (*Address, error) {
 
 	return &Address{
 		base58Addr: base58Addr,
+		validated:  true,
 	}, nil
 }
 
@@ -80,6 +82,7 @@ func NewAddressFromHex(hexAddr string) (*Address, error) {
 
 	return &Address{
 		bytesAddr: decoded,
+		validated: true,
 	}, nil
 }
 
@@ -101,6 +104,7 @@ func NewAddressFromEVMHex(hexAddr string) (*Address, error) {
 
 	return &Address{
 		bytesAddr: decoded,
+		validated: true,
 	}, nil
 }
 
@@ -116,11 +120,52 @@ func NewAddressFromBytes(byteAddress []byte) (*Address, error) {
 
 	return &Address{
 		bytesAddr: byteAddress,
+		validated: true,
 	}, nil
+}
+
+// MustNewAddress is a wrapper for NewAddress that panics if the address is invalid
+func MustNewAddress(base58Addr string) *Address {
+	addr, err := NewAddress(base58Addr)
+	if err != nil {
+		panic(err)
+	}
+	return addr
+}
+
+// MustNewAddressFromHex is a wrapper for NewAddressFromHex that panics if the address is invalid
+func MustNewAddressFromHex(hexAddr string) *Address {
+	addr, err := NewAddressFromHex(hexAddr)
+	if err != nil {
+		panic(err)
+	}
+	return addr
+}
+
+// MustNewAddressFromEVMHex is a wrapper for NewAddressFromEVMHex that panics if the address is invalid
+func MustNewAddressFromEVMHex(hexAddr string) *Address {
+	addr, err := NewAddressFromEVMHex(hexAddr)
+	if err != nil {
+		panic(err)
+	}
+	return addr
+}
+
+// MustNewAddressFromBytes is a wrapper for NewAddressFromBytes that panics if the address is invalid
+func MustNewAddressFromBytes(byteAddress []byte) *Address {
+	addr, err := NewAddressFromBytes(byteAddress)
+	if err != nil {
+		panic(err)
+	}
+	return addr
 }
 
 // GetBase58Addr returns the base58 representation of the address
 func (a *Address) GetBase58Addr() (string, error) {
+	if !a.validated {
+		return "", errors.New("address must be created using NewAddress* methods")
+	}
+
 	if a.base58Addr != "" {
 		return a.base58Addr, nil
 	}
@@ -146,6 +191,10 @@ func (a *Address) GetBase58Addr() (string, error) {
 
 // GetBytes returns the raw bytes of the address
 func (a *Address) GetBytes() ([]byte, error) {
+	if !a.validated {
+		return nil, errors.New("address must be created using NewAddress* methods")
+	}
+
 	if a.bytesAddr != nil {
 		return a.bytesAddr, nil
 	}
@@ -171,6 +220,9 @@ func (a *Address) GetBytes() ([]byte, error) {
 
 // GetHex returns the hex string representation with 0x prefix
 func (a *Address) GetHex() (string, error) {
+	if !a.validated {
+		return "", errors.New("address must be created using NewAddress* methods")
+	}
 	bytes, err := a.GetBytes()
 	if err != nil {
 		return "", err
@@ -180,6 +232,9 @@ func (a *Address) GetHex() (string, error) {
 
 // String returns the base58 representation
 func (a *Address) String() string {
+	if !a.validated {
+		return "<address must be created using NewAddress* methods>"
+	}
 	addr, err := a.GetBase58Addr()
 	if err != nil {
 		return "<invalid address>"
@@ -189,6 +244,9 @@ func (a *Address) String() string {
 
 // Bytes returns the raw bytes of the address
 func (a *Address) Bytes() []byte {
+	if !a.validated {
+		return nil
+	}
 	bytes, err := a.GetBytes()
 	if err != nil {
 		return nil
@@ -198,6 +256,9 @@ func (a *Address) Bytes() []byte {
 
 // Hex returns the hex string representation with 0x prefix
 func (a *Address) Hex() string {
+	if !a.validated {
+		return "<address must be created using NewAddress* methods>"
+	}
 	hex, err := a.GetHex()
 	if err != nil {
 		return "<invalid address>"
