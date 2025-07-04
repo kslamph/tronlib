@@ -29,13 +29,10 @@ func validateTransactionResult(result *api.TransactionExtention, operation strin
 }
 
 // grpcCallWrapper wraps common gRPC call patterns
-func (c *Client) grpcCallWrapper(operation string, call func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error)) (*api.TransactionExtention, error) {
+func (c *Client) grpcCallWrapper(operation string, ctx context.Context, call func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error)) (*api.TransactionExtention, error) {
 	if err := c.ensureConnectionWithError(operation); err != nil {
 		return nil, err
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
-	defer cancel()
 
 	client := api.NewWalletClient(c.conn)
 	result, err := call(client, ctx)

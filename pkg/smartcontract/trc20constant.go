@@ -1,6 +1,7 @@
 package smartcontract
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"sync"
@@ -43,7 +44,7 @@ func (t *TRC20Contract) getContractOwnerAddress() (*types.Address, error) {
 }
 
 // callConstantMethod is a helper to reduce repetitive constant method calling pattern
-func (t *TRC20Contract) callConstantMethod(method string, params ...interface{}) (interface{}, error) {
+func (t *TRC20Contract) callConstantMethod(ctx context.Context, method string, params ...interface{}) (interface{}, error) {
 	data, err := t.EncodeInput(method, params...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create %s call: %v", method, err)
@@ -54,7 +55,7 @@ func (t *TRC20Contract) callConstantMethod(method string, params ...interface{})
 		return nil, fmt.Errorf("failed to parse owner address: %v", err)
 	}
 
-	result, err := t.client.TriggerConstantSmartContract(t.Contract, ownerAddr, data)
+	result, err := t.client.TriggerConstantSmartContract(ctx, t.Contract, ownerAddr, data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call %s: %v", method, err)
 	}
@@ -68,8 +69,8 @@ func (t *TRC20Contract) callConstantMethod(method string, params ...interface{})
 }
 
 // convertToDecimal converts a big.Int result to decimal with proper precision
-func (t *TRC20Contract) convertToDecimal(value *big.Int) (decimal.Decimal, error) {
-	decimals, err := t.Decimals()
+func (t *TRC20Contract) convertToDecimal(ctx context.Context, value *big.Int) (decimal.Decimal, error) {
+	decimals, err := t.Decimals(ctx)
 	if err != nil {
 		return decimal.Zero, fmt.Errorf("failed to get decimals: %v", err)
 	}
@@ -77,8 +78,8 @@ func (t *TRC20Contract) convertToDecimal(value *big.Int) (decimal.Decimal, error
 }
 
 // Name returns the name of the token
-func (t *TRC20Contract) Name() (string, error) {
-	decoded, err := t.callConstantMethod("name")
+func (t *TRC20Contract) Name(ctx context.Context) (string, error) {
+	decoded, err := t.callConstantMethod(ctx, "name")
 	if err != nil {
 		return "", err
 	}
@@ -86,9 +87,9 @@ func (t *TRC20Contract) Name() (string, error) {
 }
 
 // Symbol returns the symbol of the token (cached)
-func (t *TRC20Contract) Symbol() (string, error) {
+func (t *TRC20Contract) Symbol(ctx context.Context) (string, error) {
 	t.symbolOnce.Do(func() {
-		decoded, err := t.callConstantMethod("symbol")
+		decoded, err := t.callConstantMethod(ctx, "symbol")
 		if err != nil {
 			t.symbolErr = err
 			return
@@ -100,9 +101,9 @@ func (t *TRC20Contract) Symbol() (string, error) {
 }
 
 // Decimals returns the number of decimals used to format token amounts (cached)
-func (t *TRC20Contract) Decimals() (uint8, error) {
+func (t *TRC20Contract) Decimals(ctx context.Context) (uint8, error) {
 	t.decimalsOnce.Do(func() {
-		decoded, err := t.callConstantMethod("decimals")
+		decoded, err := t.callConstantMethod(ctx, "decimals")
 		if err != nil {
 			t.decimalsErr = err
 			return
@@ -114,28 +115,28 @@ func (t *TRC20Contract) Decimals() (uint8, error) {
 }
 
 // TotalSupply returns the total token supply as decimal
-func (t *TRC20Contract) TotalSupply() (decimal.Decimal, error) {
-	decoded, err := t.callConstantMethod("totalSupply")
+func (t *TRC20Contract) TotalSupply(ctx context.Context) (decimal.Decimal, error) {
+	decoded, err := t.callConstantMethod(ctx, "totalSupply")
 	if err != nil {
 		return decimal.Zero, err
 	}
-	return t.convertToDecimal(decoded.(*big.Int))
+	return t.convertToDecimal(ctx, decoded.(*big.Int))
 }
 
 // BalanceOf returns the account balance of another account with address as decimal
-func (t *TRC20Contract) BalanceOf(address string) (decimal.Decimal, error) {
-	decoded, err := t.callConstantMethod("balanceOf", address)
+func (t *TRC20Contract) BalanceOf(ctx context.Context, address string) (decimal.Decimal, error) {
+	decoded, err := t.callConstantMethod(ctx, "balanceOf", address)
 	if err != nil {
 		return decimal.Zero, err
 	}
-	return t.convertToDecimal(decoded.(*big.Int))
+	return t.convertToDecimal(ctx, decoded.(*big.Int))
 }
 
 // Allowance returns the amount which spender is still allowed to withdraw from owner
-func (t *TRC20Contract) Allowance(owner, spender string) (decimal.Decimal, error) {
-	decoded, err := t.callConstantMethod("allowance", owner, spender)
+func (t *TRC20Contract) Allowance(ctx context.Context, owner, spender string) (decimal.Decimal, error) {
+	decoded, err := t.callConstantMethod(ctx, "allowance", owner, spender)
 	if err != nil {
 		return decimal.Zero, err
 	}
-	return t.convertToDecimal(decoded.(*big.Int))
+	return t.convertToDecimal(ctx, decoded.(*big.Int))
 }

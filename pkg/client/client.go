@@ -102,8 +102,8 @@ func (c *Client) Close() {
 // Transaction creation methods
 
 // CreateTransferTransaction creates a TRX transfer transaction
-func (c *Client) CreateTransferTransaction(ownerAddress, toAddress []byte, amount int64) (*api.TransactionExtention, error) {
-	return c.grpcCallWrapper("transfer", func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
+func (c *Client) CreateTransferTransaction(ctx context.Context, ownerAddress, toAddress []byte, amount int64) (*api.TransactionExtention, error) {
+	return c.grpcCallWrapper("transfer", ctx, func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
 		return client.CreateTransaction2(ctx, &core.TransferContract{
 			OwnerAddress: ownerAddress,
 			ToAddress:    toAddress,
@@ -113,8 +113,8 @@ func (c *Client) CreateTransferTransaction(ownerAddress, toAddress []byte, amoun
 }
 
 // CreateTriggerSmartContractTransaction creates a smart contract trigger transaction
-func (c *Client) CreateTriggerSmartContractTransaction(ownerAddress, contractAddress []byte, data []byte, callValue int64) (*api.TransactionExtention, error) {
-	return c.grpcCallWrapper("smart contract", func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
+func (c *Client) CreateTriggerSmartContractTransaction(ctx context.Context, ownerAddress, contractAddress []byte, data []byte, callValue int64) (*api.TransactionExtention, error) {
+	return c.grpcCallWrapper("smart contract", ctx, func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
 		return client.TriggerContract(ctx, &core.TriggerSmartContract{
 			OwnerAddress:    ownerAddress,
 			ContractAddress: contractAddress,
@@ -125,8 +125,8 @@ func (c *Client) CreateTriggerSmartContractTransaction(ownerAddress, contractAdd
 }
 
 // CreateFreezeTransaction creates a freeze balance transaction
-func (c *Client) CreateFreezeTransaction(ownerAddress []byte, amount int64, resource core.ResourceCode) (*api.TransactionExtention, error) {
-	return c.grpcCallWrapper("freeze", func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
+func (c *Client) CreateFreezeTransaction(ctx context.Context, ownerAddress []byte, amount int64, resource core.ResourceCode) (*api.TransactionExtention, error) {
+	return c.grpcCallWrapper("freeze", ctx, func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
 		return client.FreezeBalanceV2(ctx, &core.FreezeBalanceV2Contract{
 			OwnerAddress:  ownerAddress,
 			FrozenBalance: amount,
@@ -136,8 +136,8 @@ func (c *Client) CreateFreezeTransaction(ownerAddress []byte, amount int64, reso
 }
 
 // CreateUnfreezeTransaction creates an unfreeze balance transaction
-func (c *Client) CreateUnfreezeTransaction(ownerAddress []byte, amount int64, resource core.ResourceCode) (*api.TransactionExtention, error) {
-	return c.grpcCallWrapper("unfreeze", func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
+func (c *Client) CreateUnfreezeTransaction(ctx context.Context, ownerAddress []byte, amount int64, resource core.ResourceCode) (*api.TransactionExtention, error) {
+	return c.grpcCallWrapper("unfreeze", ctx, func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
 		return client.UnfreezeBalanceV2(ctx, &core.UnfreezeBalanceV2Contract{
 			OwnerAddress:    ownerAddress,
 			UnfreezeBalance: amount,
@@ -147,13 +147,10 @@ func (c *Client) CreateUnfreezeTransaction(ownerAddress []byte, amount int64, re
 }
 
 // CreateDelegateResourceTransaction creates a delegate resource transaction
-func (c *Client) CreateDelegateResourceTransaction(ownerAddress, receiverAddress []byte, amount int64, resource core.ResourceCode, lock bool, lockPeriod int64) (*api.TransactionExtention, error) {
+func (c *Client) CreateDelegateResourceTransaction(ctx context.Context, ownerAddress, receiverAddress []byte, amount int64, resource core.ResourceCode, lock bool, lockPeriod int64) (*api.TransactionExtention, error) {
 	if err := c.ensureConnection(); err != nil {
 		return nil, fmt.Errorf("connection error: %v", err)
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
-	defer cancel()
 
 	client := api.NewWalletClient(c.conn)
 	result, err := client.DelegateResource(ctx, &core.DelegateResourceContract{
@@ -177,13 +174,10 @@ func (c *Client) CreateDelegateResourceTransaction(ownerAddress, receiverAddress
 }
 
 // CreateUndelegateResourceTransaction creates an undelegate resource transaction
-func (c *Client) CreateUndelegateResourceTransaction(ownerAddress, receiverAddress []byte, amount int64, resource core.ResourceCode) (*api.TransactionExtention, error) {
+func (c *Client) CreateUndelegateResourceTransaction(ctx context.Context, ownerAddress, receiverAddress []byte, amount int64, resource core.ResourceCode) (*api.TransactionExtention, error) {
 	if err := c.ensureConnection(); err != nil {
 		return nil, fmt.Errorf("connection error: %v", err)
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
-	defer cancel()
 
 	client := api.NewWalletClient(c.conn)
 	result, err := client.UnDelegateResource(ctx, &core.UnDelegateResourceContract{
@@ -205,13 +199,10 @@ func (c *Client) CreateUndelegateResourceTransaction(ownerAddress, receiverAddre
 }
 
 // CreateWithdrawExpireUnfreezeTransaction creates a withdraw expire unfreeze transaction
-func (c *Client) CreateWithdrawExpireUnfreezeTransaction(ownerAddress []byte) (*api.TransactionExtention, error) {
+func (c *Client) CreateWithdrawExpireUnfreezeTransaction(ctx context.Context, ownerAddress []byte) (*api.TransactionExtention, error) {
 	if err := c.ensureConnection(); err != nil {
 		return nil, fmt.Errorf("connection error: %v", err)
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
-	defer cancel()
 
 	client := api.NewWalletClient(c.conn)
 	result, err := client.WithdrawExpireUnfreeze(ctx, &core.WithdrawExpireUnfreezeContract{
@@ -230,13 +221,10 @@ func (c *Client) CreateWithdrawExpireUnfreezeTransaction(ownerAddress []byte) (*
 }
 
 // CreateWithdrawBalanceTransaction creates a withdraw balance transaction (claim rewards)
-func (c *Client) CreateWithdrawBalanceTransaction(ownerAddress []byte) (*api.TransactionExtention, error) {
+func (c *Client) CreateWithdrawBalanceTransaction(ctx context.Context, ownerAddress []byte) (*api.TransactionExtention, error) {
 	if err := c.ensureConnection(); err != nil {
 		return nil, fmt.Errorf("connection error: %v", err)
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
-	defer cancel()
 
 	client := api.NewWalletClient(c.conn)
 	result, err := client.WithdrawBalance2(ctx, &core.WithdrawBalanceContract{

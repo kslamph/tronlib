@@ -11,13 +11,10 @@ import (
 )
 
 // GetBlockByNum returns a block by its number. it contains tron contract data
-func (c *Client) GetBlockByNum(blockNumber int64) (*api.BlockExtention, error) {
+func (c *Client) GetBlockByNum(ctx context.Context, blockNumber int64) (*api.BlockExtention, error) {
 	if err := c.ensureConnection(); err != nil {
 		return nil, fmt.Errorf("connection error: %v", err)
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
-	defer cancel()
 
 	client := api.NewWalletClient(c.conn)
 	result, err := client.GetBlockByNum2(ctx, &api.NumberMessage{
@@ -32,13 +29,10 @@ func (c *Client) GetBlockByNum(blockNumber int64) (*api.BlockExtention, error) {
 }
 
 // GetTransactionInfoByBlockNum returns transaction info for a block.
-func (c *Client) GetTransactionInfoByBlockNum(blockNumber int64) (*api.TransactionInfoList, error) {
+func (c *Client) GetTransactionInfoByBlockNum(ctx context.Context, blockNumber int64) (*api.TransactionInfoList, error) {
 	if err := c.ensureConnection(); err != nil {
 		return nil, fmt.Errorf("connection error: %v", err)
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
-	defer cancel()
 
 	client := api.NewWalletClient(c.conn)
 	result, err := client.GetTransactionInfoByBlockNum(ctx, &api.NumberMessage{
@@ -52,13 +46,10 @@ func (c *Client) GetTransactionInfoByBlockNum(blockNumber int64) (*api.Transacti
 	return result, nil
 }
 
-func (c *Client) GetNowBlock() (*api.BlockExtention, error) {
+func (c *Client) GetNowBlock(ctx context.Context) (*api.BlockExtention, error) {
 	if err := c.ensureConnection(); err != nil {
 		return nil, fmt.Errorf("connection error: %v", err)
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
-	defer cancel()
 
 	client := api.NewWalletClient(c.conn)
 	result, err := client.GetNowBlock2(ctx, &api.EmptyMessage{})
@@ -76,7 +67,7 @@ func (c *Client) GetNowBlock() (*api.BlockExtention, error) {
 // 0 = success
 // 1 = failed
 // when error occurs, the transaction status should be considered as unknown
-func (c *Client) WaitForTransactionInfo(txId string, timeoutSeconds int) (*core.TransactionInfo, error) {
+func (c *Client) WaitForTransactionInfo(ctx context.Context, txId string, timeoutSeconds int) (*core.TransactionInfo, error) {
 	hashBytes, err := hex.DecodeString(txId)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode transaction ID: %v", err)
@@ -89,12 +80,11 @@ func (c *Client) WaitForTransactionInfo(txId string, timeoutSeconds int) (*core.
 			return nil, fmt.Errorf("connection error: %v", err)
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
+		// Use the provided ctx for cancellation, but still respect the timeoutSeconds loop
 		client := api.NewWalletClient(c.conn)
 		result, err := client.GetTransactionInfoById(ctx, &api.BytesMessage{
 			Value: hashBytes,
 		})
-		cancel()
 
 		if err != nil {
 			return nil, fmt.Errorf("failed to wait for transaction info: %v", err)
@@ -110,7 +100,7 @@ func (c *Client) WaitForTransactionInfo(txId string, timeoutSeconds int) (*core.
 	return nil, fmt.Errorf("transaction not found after %d seconds", timeoutSeconds)
 }
 
-func (c *Client) GetTransactionById(txId string) (*core.Transaction, error) {
+func (c *Client) GetTransactionById(ctx context.Context, txId string) (*core.Transaction, error) {
 	hashBytes, err := hex.DecodeString(txId)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode transaction ID: %v", err)
@@ -119,9 +109,6 @@ func (c *Client) GetTransactionById(txId string) (*core.Transaction, error) {
 	if err := c.ensureConnection(); err != nil {
 		return nil, fmt.Errorf("connection error: %v", err)
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
-	defer cancel()
 
 	client := api.NewWalletClient(c.conn)
 	result, err := client.GetTransactionById(ctx, &api.BytesMessage{
@@ -135,7 +122,7 @@ func (c *Client) GetTransactionById(txId string) (*core.Transaction, error) {
 	return result, nil
 }
 
-func (c *Client) GetTransactionInfoById(txId string) (*core.TransactionInfo, error) {
+func (c *Client) GetTransactionInfoById(ctx context.Context, txId string) (*core.TransactionInfo, error) {
 	hashBytes, err := hex.DecodeString(txId)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode transaction ID: %v", err)
@@ -144,9 +131,6 @@ func (c *Client) GetTransactionInfoById(txId string) (*core.TransactionInfo, err
 	if err := c.ensureConnection(); err != nil {
 		return nil, fmt.Errorf("connection error: %v", err)
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
-	defer cancel()
 
 	client := api.NewWalletClient(c.conn)
 	result, err := client.GetTransactionInfoById(ctx, &api.BytesMessage{
@@ -160,13 +144,10 @@ func (c *Client) GetTransactionInfoById(txId string) (*core.TransactionInfo, err
 	return result, nil
 }
 
-func (c *Client) GetChainParameters() (*core.ChainParameters, error) {
+func (c *Client) GetChainParameters(ctx context.Context) (*core.ChainParameters, error) {
 	if err := c.ensureConnection(); err != nil {
 		return nil, fmt.Errorf("connection error: %v", err)
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
-	defer cancel()
 
 	client := api.NewWalletClient(c.conn)
 	result, err := client.GetChainParameters(ctx, &api.EmptyMessage{})

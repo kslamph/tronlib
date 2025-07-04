@@ -9,7 +9,7 @@ import (
 	"github.com/kslamph/tronlib/pkg/types"
 )
 
-func (c *Client) NewContractFromAddress(address *types.Address) (*types.Contract, error) {
+func (c *Client) NewContractFromAddress(ctx context.Context, address *types.Address) (*types.Contract, error) {
 	if address == nil {
 		return nil, fmt.Errorf("failed to get contract: contract address is nil")
 	}
@@ -17,9 +17,6 @@ func (c *Client) NewContractFromAddress(address *types.Address) (*types.Contract
 	if err := c.ensureConnection(); err != nil {
 		return nil, fmt.Errorf("connection error: %v", err)
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
-	defer cancel()
 
 	client := api.NewWalletClient(c.conn)
 	result, err := client.GetContract(ctx, &api.BytesMessage{
@@ -37,7 +34,7 @@ func (c *Client) NewContractFromAddress(address *types.Address) (*types.Contract
 	return types.NewContractFromABI(result.Abi, address.String())
 }
 
-func (c *Client) TriggerConstantSmartContract(contract *types.Contract, ownerAddress *types.Address, data []byte) ([][]byte, error) {
+func (c *Client) TriggerConstantSmartContract(ctx context.Context, contract *types.Contract, ownerAddress *types.Address, data []byte) ([][]byte, error) {
 	if err := c.ensureConnection(); err != nil {
 		return nil, fmt.Errorf("connection error: %v", err)
 	}
@@ -48,9 +45,6 @@ func (c *Client) TriggerConstantSmartContract(contract *types.Contract, ownerAdd
 		ContractAddress: contract.AddressBytes,
 		Data:            data,
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
-	defer cancel()
 
 	client := api.NewWalletClient(c.conn)
 	result, err := client.TriggerConstantContract(ctx, trigger)

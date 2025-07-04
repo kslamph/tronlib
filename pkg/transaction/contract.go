@@ -1,19 +1,21 @@
 package transaction
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/kslamph/tronlib/pkg/types"
 )
 
 // TriggerSmartContract triggers a smart contract call
-func (tx *Transaction) TriggerSmartContract(contract *types.Contract, data []byte, callValue int64) *Transaction {
+func (tx *Transaction) TriggerSmartContract(ctx context.Context, contract *types.Contract, data []byte, callValue int64) *Transaction {
 	if tx.receipt.Err != nil {
 		return tx // Return early if there's already an error
 	}
 
 	// Call the specific client method for smart contract transactions
 	txExt, err := tx.client.CreateTriggerSmartContractTransaction(
+		ctx,
 		tx.owner.Bytes(),
 		contract.AddressBytes,
 		data,
