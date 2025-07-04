@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"time"
@@ -22,10 +23,12 @@ func main() {
 		log.Fatalf("Failed to create receiver address: %v", err)
 	}
 
+	ctx := context.Background()
+
 	var lastused int64
 	for {
 
-		res, err := client.GetAccountResource(addr)
+		res, err := client.GetAccountResource(ctx, addr)
 		if err != nil {
 			log.Fatalf("Failed to get account resource: %v", err)
 		}

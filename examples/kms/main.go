@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -98,11 +99,13 @@ func main() {
 		log.Fatalf("Failed to create receiver address: %v", err)
 	}
 
+	ctx := context.Background()
+
 	// Create and prepare the transaction
 	tx := transaction.NewTransaction(tronClient).
-		SetOwner(address).                    // Set the sender
-		TransferTRX(receiverAddr, 1_000_000). // Transfer 1 TRX
-		SetFeelimit(10_000_000)               // Set fee limit to 10 TRX
+		SetOwner(address).                         // Set the sender
+		TransferTRX(ctx, receiverAddr, 1_000_000). // Transfer 1 TRX
+		SetFeelimit(10_000_000)                    // Set fee limit to 10 TRX
 
 	if tx.GetReceipt().Err != nil {
 		log.Fatalf("Failed to create transaction: %v", tx.GetReceipt().Err)
@@ -124,7 +127,7 @@ func main() {
 
 	fmt.Println("\nWaiting for transaction confirmation...")
 	// Wait for transaction confirmation (timeout after 10 retries)
-	confirmation, err := tronClient.WaitForTransactionInfo(receipt.TxID, 10)
+	confirmation, err := tronClient.WaitForTransactionInfo(ctx, receipt.TxID, 10)
 	if err != nil {
 		log.Fatalf("Failed to get transaction info: %v", err)
 	}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 
@@ -24,6 +25,8 @@ func main() {
 	}
 	defer tronClient.Close()
 
+	ctx := context.Background()
+
 	// Create new TRC20 contract instance
 	contract, err := smartcontract.NewTRC20Contract(ContractAddress, tronClient)
 	if err != nil {
@@ -31,21 +34,21 @@ func main() {
 	}
 
 	// Example: Get token symbol
-	symbol, err := contract.Symbol()
+	symbol, err := contract.Symbol(ctx)
 	if err != nil {
 		log.Fatalf("Failed to get symbol: %v", err)
 	}
 	fmt.Printf("Token Symbol: %s\n", symbol)
 
 	// Example: Get token decimals
-	decimals, err := contract.Decimals()
+	decimals, err := contract.Decimals(ctx)
 	if err != nil {
 		log.Fatalf("Failed to get decimals: %v", err)
 	}
 	fmt.Printf("Token Decimals: %d\n", decimals)
 
 	// Example: Get token name
-	name, err := contract.Name()
+	name, err := contract.Name(ctx)
 	if err != nil {
 		log.Fatalf("Failed to get name: %v", err)
 	}
@@ -62,14 +65,14 @@ func main() {
 		log.Fatalf("Failed to parse spender address: %v", err)
 	}
 
-	allowance, err := contract.Allowance(ownerAddress.String(), spenderAddr.String())
+	allowance, err := contract.Allowance(ctx, ownerAddress.String(), spenderAddr.String())
 	if err != nil {
 		log.Fatalf("Failed to get allowance: %v", err)
 	}
 	fmt.Printf("Allowance: %v\n", allowance)
 
 	// Example: Check balance
-	balance, err := contract.BalanceOf(ownerAddress.String())
+	balance, err := contract.BalanceOf(ctx, ownerAddress.String())
 	if err != nil {
 		log.Fatalf("Failed to get balance: %v", err)
 	}
@@ -79,7 +82,7 @@ func main() {
 	transferto, _ := types.NewAddress("TSGkU4jYbYCosYFtrVSYMWGhatFjgSRfnq")
 	ownerAccount, _ := types.NewAccountFromPrivateKey("f8c6f45b2aa8b68ab5f3910bdeb5239428b731618113e2881f46e374bf796b02")
 
-	receipt := contract.Transfer(ownerAccount.Address().String(), transferto.String(), decimal.NewFromInt(1234)).
+	receipt := contract.Transfer(ctx, ownerAccount.Address().String(), transferto.String(), decimal.NewFromInt(1234)).
 		Sign(ownerAccount).
 		Broadcast().
 		GetReceipt()
@@ -96,7 +99,7 @@ func main() {
 	}
 
 	// Wait for transaction confirmation
-	confirmation, err := tronClient.WaitForTransactionInfo(receipt.TxID, 9)
+	confirmation, err := tronClient.WaitForTransactionInfo(ctx, receipt.TxID, 9)
 	if err != nil {
 		log.Fatalf("Failed to get transaction info: %v", err)
 	}

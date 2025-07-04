@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"time"
@@ -47,6 +48,9 @@ func main() {
 	testDuration := 5 * time.Second // Run for 10 seconds, adjust as needed
 	timeout := time.After(testDuration)
 	var wg sync.WaitGroup
+
+	ctx := context.Background()
+
 loop:
 	for {
 		select {
@@ -54,9 +58,9 @@ loop:
 			break loop
 		case <-ticker.C:
 			wg.Add(1)
-			go func() {
+			go func(ctx context.Context) {
 				defer wg.Done()
-				ac, err := client.GetAccount(addr)
+				ac, err := client.GetAccount(ctx, addr)
 				if err != nil {
 					// Print full gRPC error details if available
 					if st, ok := status.FromError(err); ok {
@@ -70,7 +74,7 @@ loop:
 					return
 				}
 				_ = ac // Optionally process result
-			}()
+			}(ctx)
 			reqCount++
 		}
 	}
@@ -80,7 +84,7 @@ loop:
 	// Query transaction info with 5 second timeout
 	txId := "44519f26abfdc64c4a56fc85122f62279124bb12a41ce26ea65e3ab370d75ca5"
 	fmt.Printf("\nQuerying transaction %s...\n", txId)
-	txInfo, err := client.GetTransactionInfoById(txId)
+	txInfo, err := client.GetTransactionInfoById(ctx, txId)
 	if err != nil {
 		log.Printf("Failed to get transaction info: %v\n", err)
 	} else {

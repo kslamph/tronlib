@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"time"
@@ -19,6 +20,8 @@ func main() {
 		log.Fatalf("Failed to create client: %v", err)
 	}
 	defer tronClient.Close()
+
+	ctx := context.Background()
 
 	// Wait a bit for initial connections to establish
 	// time.Sleep(2 * time.Second)
@@ -39,7 +42,7 @@ func main() {
 	// Perform 500 queries
 	for i := 0; i < 500; i++ {
 		start := time.Now()
-		acc, err := tronClient.GetAccount(addr)
+		acc, err := tronClient.GetAccount(ctx, addr)
 		duration := time.Since(start)
 
 		if err != nil {

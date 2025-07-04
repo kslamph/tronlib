@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
+	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/client"
 	"github.com/kslamph/tronlib/pkg/transaction"
 	"github.com/kslamph/tronlib/pkg/types"
@@ -16,7 +18,7 @@ import (
 func createClient() (*client.Client, error) {
 	// Initialize client with configuration
 	config := client.ClientConfig{
-		NodeAddress: "grpc.shasta.trongrid.io:50051",
+		NodeAddress: "127.0.0.1:50051",
 		Timeout:     10 * time.Second, // 10 second timeout
 	}
 
@@ -71,7 +73,8 @@ func main() {
 		log.Fatalf("Failed to create receiver address: %v", err)
 	}
 
-	// Create new transaction
+	ctx := context.Background()
+
 	// Create new transaction
 	tx := transaction.NewTransaction(client).SetOwner(ownerAccount.Address())
 
@@ -80,31 +83,31 @@ func main() {
 	switch *command {
 	case "transfer":
 		// Transfer 1 TRX (1_000_000 SUN = 1 TRX)
-		tx.TransferTRX(receiverAddr, 1_000_000)
+		tx.TransferTRX(ctx, receiverAddr, 1_000_000)
 	case "freeze0":
 		// Freeze 1 TRX for Bandwidth (ResourceCode 0)
-		tx.Freeze(1_000_000, 0)
+		tx.Freeze(ctx, 1_000_000, core.ResourceCode_BANDWIDTH)
 	case "freeze1":
 		// Freeze 1 TRX for Energy (ResourceCode 1)
-		tx.Freeze(1_000_000, 1)
+		tx.Freeze(ctx, 1_000_000, core.ResourceCode_ENERGY)
 	case "unfreeze0":
 		// Unfreeze Bandwidth (ResourceCode 0)
-		tx.Unfreeze(1_000_000, 0)
+		tx.Unfreeze(ctx, 1_000_000, core.ResourceCode_BANDWIDTH)
 	case "unfreeze1":
 		// Unfreeze Energy (ResourceCode 1)
-		tx.Unfreeze(1_000_000, 1)
+		tx.Unfreeze(ctx, 1_000_000, core.ResourceCode_ENERGY)
 	case "delegate0":
 		// Delegate 1 TRX Bandwidth (ResourceCode 0)
-		tx.Delegate(receiverAddr, 1_000_000, 0)
+		tx.Delegate(ctx, receiverAddr, 1_000_000, core.ResourceCode_BANDWIDTH)
 	case "delegate1":
 		// Delegate 1 TRX Energy (ResourceCode 1)
-		tx.Delegate(receiverAddr, 1_000_000, 1)
+		tx.Delegate(ctx, receiverAddr, 1_000_000, core.ResourceCode_ENERGY)
 	case "reclaim0":
 		// Reclaim delegated Bandwidth (ResourceCode 0)
-		tx.Reclaim(receiverAddr, 1_000_000, 0)
+		tx.Reclaim(ctx, receiverAddr, 1_000_000, core.ResourceCode_BANDWIDTH)
 	case "reclaim1":
 		// Reclaim delegated Energy (ResourceCode 1)
-		tx.Reclaim(receiverAddr, 1_000_000, 1)
+		tx.Reclaim(ctx, receiverAddr, 1_000_000, core.ResourceCode_ENERGY)
 	default:
 		log.Fatalf("Invalid command: %s. Use transfer, freeze, unfreeze, delegate0, delegate1, reclaim0, or reclaim1.", *command)
 	}
@@ -130,7 +133,7 @@ func main() {
 	}
 
 	// Wait for transaction confirmation
-	confirmation, err := client.WaitForTransactionInfo(receipt.TxID, 10)
+	confirmation, err := client.WaitForTransactionInfo(ctx, receipt.TxID, 10)
 	if err != nil {
 		log.Fatalf("Failed to get transaction info: %v", err)
 	}

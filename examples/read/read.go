@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"time"
@@ -16,7 +17,7 @@ func main() {
 	// Option 1: Use direct config for mainnet
 	fmt.Println("Creating client using mainnet endpoint...")
 	tronClient, err := client.NewClient(client.ClientConfig{
-		NodeAddress: "grpc.trongrid.io:50051",
+		NodeAddress: "127.0.0.1:50051",
 	})
 	if err != nil {
 		log.Fatalf("Failed to create mainnet client: %v", err)
@@ -41,9 +42,11 @@ func main() {
 		log.Fatalf("Failed to create receiver address: %v", err)
 	}
 
+	ctx := context.Background()
+
 	fmt.Printf("\nQuerying account information...\n")
 	queryStart := time.Now()
-	ac, err := tronClient.GetAccount(addr)
+	ac, err := tronClient.GetAccount(ctx, addr)
 	if err != nil {
 		log.Fatalf("Failed to get account: %v", err)
 	}
@@ -73,7 +76,7 @@ func main() {
 	// Query transaction info
 	txId := "44519f26abfdc64c4a56fc85122f62279124bb12a41ce26ea65e3ab370d75ca5"
 	fmt.Printf("\nQuerying transaction %s...\n", txId)
-	txInfo, err := tronClient.GetTransactionInfoById(txId)
+	txInfo, err := tronClient.GetTransactionInfoById(ctx, txId)
 	if err != nil {
 		log.Printf("Failed to get transaction info: %v\n", err)
 	} else {
