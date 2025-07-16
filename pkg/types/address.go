@@ -25,7 +25,7 @@ type Address struct {
 	validated  bool // Private field to track if address was properly constructed
 }
 
-// NewAddress creates an Address from a base58 string
+// NewAddress creates an Address from a base58 string, it must be a length 34 base58 string prefixed by "T"
 func NewAddress(base58Addr string) (*Address, error) {
 	if !strings.HasPrefix(base58Addr, "T") {
 		return nil, fmt.Errorf("invalid address: must start with T")
@@ -44,6 +44,10 @@ func NewAddress(base58Addr string) (*Address, error) {
 		return nil, errors.New("invalid decoded address length")
 	}
 
+	if decoded[0] != 0x41 {
+		return nil, fmt.Errorf("invalid address prefix: expected 0x41, got 0x%x", decoded[0])
+	}
+
 	addressBytes := decoded[:AddressLength]
 	checksum := decoded[AddressLength:]
 
@@ -60,7 +64,7 @@ func NewAddress(base58Addr string) (*Address, error) {
 	}, nil
 }
 
-// NewAddressFromHex creates an Address from a hex string
+// NewAddressFromHex creates an Address from a hex string, it must prefixed with 0x41 or 41 followed by 40 hex chars
 func NewAddressFromHex(hexAddr string) (*Address, error) {
 	// Remove 0x prefix if present
 	hexAddr = strings.TrimPrefix(strings.ToLower(hexAddr), "0x")
@@ -86,6 +90,7 @@ func NewAddressFromHex(hexAddr string) (*Address, error) {
 	}, nil
 }
 
+// NewAddressFromEVMHex creates an Address from 20 bytes HEX, optionally prefixed with 0x
 func NewAddressFromEVMHex(hexAddr string) (*Address, error) {
 	// Remove 0x prefix if present
 	hexAddr = strings.TrimPrefix(strings.ToLower(hexAddr), "0x")

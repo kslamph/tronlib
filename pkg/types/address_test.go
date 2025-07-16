@@ -36,6 +36,12 @@ func TestAddressConversion(t *testing.T) {
 			wantError: true,
 		},
 		{
+			name:      "Invalid base58 address - out of range",
+			base58:    "T9rfYxWFRJMk9kRTAjvfYFsw2NLY92fd65",
+			hex:       "",
+			wantError: true,
+		},
+		{
 			name:      "Invalid hex address - wrong prefix",
 			base58:    "",
 			hex:       "51e28b3cfd4e0e909077821478e9fcb86b84be786e",
