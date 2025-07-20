@@ -10,7 +10,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 # Input and output directories
-PROTO_ROOT="$PROJECT_ROOT/reference/protocol"
+PROTO_ROOT="$PROJECT_ROOT/protos"
 OUTPUT_DIR="$PROJECT_ROOT/pb"
 
 # Create minimal googleapis directory with only needed files
