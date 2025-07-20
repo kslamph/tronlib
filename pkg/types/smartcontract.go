@@ -2,6 +2,7 @@ package types
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/kslamph/tronlib/pb/core"
 )
@@ -11,6 +12,14 @@ type Contract struct {
 	ABI          *core.SmartContract_ABI
 	Address      string
 	AddressBytes []byte
+
+	// Event signature cache using sync.Once pattern
+	eventCacheOnce      sync.Once
+	eventSignatureCache map[[32]byte]*core.SmartContract_ABI_Entry
+
+	// 4-byte event signature cache for DecodeEventSignature
+	event4ByteCacheOnce      sync.Once
+	event4ByteSignatureCache map[[4]byte]*core.SmartContract_ABI_Entry
 }
 
 // Param list

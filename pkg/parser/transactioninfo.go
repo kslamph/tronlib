@@ -1,11 +1,19 @@
 package parser
 
 import (
-	"fmt"
+	"encoding/hex"
 
 	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/types"
 )
+
+type TransactionEvent struct {
+	BlockNumber     uint64
+	BlockTimestamp  uint64
+	TransactionHash string
+	ContractAddress string
+	Event           *types.DecodedEvent
+}
 
 func ContractsSliceToMap(contracts []*types.Contract) map[[20]byte]*types.Contract {
 	contractsMap := make(map[[20]byte]*types.Contract)
@@ -17,35 +25,35 @@ func ContractsSliceToMap(contracts []*types.Contract) map[[20]byte]*types.Contra
 	return contractsMap
 }
 
-func ParseTransactionInfoLog(transactionInfo *core.TransactionInfo, contracts map[[20]byte]*types.Contract) []*types.DecodedEvent {
-	var decodedEvents []*types.DecodedEvent
+func ParseTransactionInfoLog(transactionInfo *core.TransactionInfo, contracts map[[20]byte]*types.Contract) []*TransactionEvent {
+	var decodedEvents []*TransactionEvent
 	log := transactionInfo.GetLog()
 
 	for _, log := range log {
 
 		addrArray := [20]byte{}
 		copy(addrArray[:], log.GetAddress()[0:20])
-		fmt.Printf("%x\n", addrArray)
 
 		contract, ok := contracts[addrArray]
 		if !ok {
 			continue
 		}
-		topics := log.GetTopics()
-		data := log.GetData()
 
-		// Decode event log using the new DecodeEventLog method
-		decodedEvent, err := contract.DecodeEventLog(topics, data)
+		decodedEvent, err := contract.DecodeEventLog(log.GetTopics(), log.GetData())
 		if err != nil {
-			// If event decoding fails, try function decoding as fallback
-			if len(topics) > 0 {
-				contract.DecodeInputData(topics[0])
-			}
 			continue
 		}
 
-		// Process the decoded event
-		decodedEvents = append(decodedEvents, decodedEvent)
+		// Create TransactionEvent struct with all the required fields
+		transactionEvent := &TransactionEvent{
+			BlockNumber:     uint64(transactionInfo.GetBlockNumber()),
+			BlockTimestamp:  uint64(transactionInfo.GetBlockTimeStamp()),
+			TransactionHash: hex.EncodeToString(transactionInfo.GetId()),
+			ContractAddress: hex.EncodeToString(log.GetAddress()),
+			Event:           decodedEvent,
+		}
+
+		decodedEvents = append(decodedEvents, transactionEvent)
 	}
 	return decodedEvents
 }

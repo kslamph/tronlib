@@ -20,23 +20,16 @@ type DecodedEvent struct {
 
 // DecodedEventParameter represents a decoded event parameter
 type DecodedEventParameter struct {
-	Name    string      `json:"name"`
-	Type    string      `json:"type"`
-	Value   interface{} `json:"value"`
-	Indexed bool        `json:"indexed"`
+	Name    string `json:"name"`
+	Type    string `json:"type"`
+	Value   string `json:"value"`
+	Indexed bool   `json:"indexed"`
 }
 
-// DecodeEventLog decodes an event log and returns the event details
-func (c *Contract) DecodeEventLog(topics [][]byte, data []byte) (*DecodedEvent, error) {
-	if len(topics) == 0 {
-		return nil, fmt.Errorf("no topics provided")
-	}
+// buildEventSignatureCache pre-computes event signature hashes for O(1) lookup
+func (c *Contract) buildEventSignatureCache() {
+	c.eventSignatureCache = make(map[[32]byte]*core.SmartContract_ABI_Entry)
 
-	// First topic is the event signature (32 bytes)
-	eventSignature := topics[0]
-
-	// Find the matching event in ABI
-	var matchedEvent *core.SmartContract_ABI_Entry
 	for _, entry := range c.ABI.Entrys {
 		if entry.Type != core.SmartContract_ABI_Entry_Event {
 			continue
@@ -54,14 +47,61 @@ func (c *Contract) DecodeEventLog(topics [][]byte, data []byte) (*DecodedEvent, 
 		hasher.Write([]byte(eventSigStr))
 		calculatedSig := hasher.Sum(nil)
 
-		// Compare signatures - compare full 32-byte hashes
-		if hex.EncodeToString(calculatedSig) == hex.EncodeToString(eventSignature) {
-			matchedEvent = entry
-			break
+		// Convert to fixed-size array for map key
+		var sigArray [32]byte
+		copy(sigArray[:], calculatedSig)
+		c.eventSignatureCache[sigArray] = entry
+	}
+}
+
+// buildEvent4ByteSignatureCache pre-computes 4-byte event signature hashes for O(1) lookup
+func (c *Contract) buildEvent4ByteSignatureCache() {
+	c.event4ByteSignatureCache = make(map[[4]byte]*core.SmartContract_ABI_Entry)
+
+	for _, entry := range c.ABI.Entrys {
+		if entry.Type != core.SmartContract_ABI_Entry_Event {
+			continue
 		}
+
+		// Build event signature string
+		inputs := make([]string, len(entry.Inputs))
+		for i, input := range entry.Inputs {
+			inputs[i] = input.Type
+		}
+		eventSigStr := fmt.Sprintf("%s(%s)", entry.Name, strings.Join(inputs, ","))
+
+		// Calculate event signature hash and take first 4 bytes
+		hasher := sha3.NewLegacyKeccak256()
+		hasher.Write([]byte(eventSigStr))
+		calculatedSig := hasher.Sum(nil)
+
+		// Convert to fixed-size array for map key (first 4 bytes)
+		var sigArray [4]byte
+		copy(sigArray[:], calculatedSig[:4])
+		c.event4ByteSignatureCache[sigArray] = entry
+	}
+}
+
+// DecodeEventLog decodes an event log and returns the event details
+func (c *Contract) DecodeEventLog(topics [][]byte, data []byte) (*DecodedEvent, error) {
+	if len(topics) == 0 {
+		return nil, fmt.Errorf("no topics provided")
 	}
 
-	if matchedEvent == nil {
+	// Ensure cache is built (thread-safe, one-time only)
+	c.eventCacheOnce.Do(c.buildEventSignatureCache)
+
+	// First topic is the event signature (32 bytes)
+	eventSignature := topics[0]
+
+	// Convert to fixed-size array for O(1) lookup
+	var sigArray [32]byte
+	copy(sigArray[:], eventSignature)
+
+	// O(1) lookup instead of O(n) iteration
+	matchedEvent, exists := c.eventSignatureCache[sigArray]
+
+	if !exists {
 		return &DecodedEvent{
 			EventName:  fmt.Sprintf("unknown_event(0x%s)", hex.EncodeToString(eventSignature)),
 			Parameters: []DecodedEventParameter{},
@@ -120,9 +160,9 @@ func (c *Contract) DecodeEventLog(topics [][]byte, data []byte) (*DecodedEvent, 
 
 		nonIndexedValues = make([]DecodedEventParameter, len(nonIndexedParams))
 		for i, param := range nonIndexedParams {
-			var value interface{}
+			var value string
 			if i < len(values) {
-				value = formatDecodedValue(values[i], param.Type)
+				value = formatDecodedValue(values[i], param.Type).(string)
 			}
 
 			nonIndexedValues[i] = DecodedEventParameter{
@@ -163,7 +203,7 @@ func (c *Contract) DecodeEventLog(topics [][]byte, data []byte) (*DecodedEvent, 
 }
 
 // decodeTopicValue decodes a topic value based on its type
-func decodeTopicValue(topic []byte, paramType string) interface{} {
+func decodeTopicValue(topic []byte, paramType string) string {
 	switch paramType {
 	case "address":
 		return eCommon.BytesToAddress(topic).Hex()
@@ -172,7 +212,10 @@ func decodeTopicValue(topic []byte, paramType string) interface{} {
 	case "int256", "int128", "int64", "int32", "int16", "int8":
 		return new(big.Int).SetBytes(topic).String()
 	case "bool":
-		return len(topic) > 0 && topic[0] != 0
+		if len(topic) > 0 && topic[0] != 0 {
+			return "true"
+		}
+		return "false"
 	case "bytes32":
 		return hex.EncodeToString(topic)
 	default:
@@ -186,32 +229,29 @@ func (c *Contract) DecodeEventSignature(signature []byte) (string, error) {
 		return "", fmt.Errorf("event signature too short, need at least 4 bytes")
 	}
 
+	// Ensure 4-byte cache is built (thread-safe, one-time only)
+	c.event4ByteCacheOnce.Do(c.buildEvent4ByteSignatureCache)
+
 	// Extract event signature (first 4 bytes)
 	eventSig := signature[:4]
 
-	// Find matching event in ABI by comparing event signatures
-	for _, entry := range c.ABI.Entrys {
-		if entry.Type != core.SmartContract_ABI_Entry_Event {
-			continue
-		}
+	// Convert to fixed-size array for O(1) lookup
+	var sigArray [4]byte
+	copy(sigArray[:], eventSig)
 
-		// Build event signature string
-		inputs := make([]string, len(entry.Inputs))
-		for i, input := range entry.Inputs {
-			inputs[i] = input.Type
-		}
-		eventSigStr := fmt.Sprintf("%s(%s)", entry.Name, strings.Join(inputs, ","))
+	// O(1) lookup instead of O(n) iteration
+	matchedEvent, exists := c.event4ByteSignatureCache[sigArray]
 
-		// Calculate event ID (same as method ID for events)
-		hasher := sha3.NewLegacyKeccak256()
-		hasher.Write([]byte(eventSigStr))
-		calculatedSig := hasher.Sum(nil)[:4]
-
-		// Compare signatures
-		if hex.EncodeToString(calculatedSig) == hex.EncodeToString(eventSig) {
-			return eventSigStr, nil
-		}
+	if !exists {
+		return fmt.Sprintf("unknown_event(0x%s)", hex.EncodeToString(eventSig)), nil
 	}
 
-	return fmt.Sprintf("unknown_event(0x%s)", hex.EncodeToString(eventSig)), nil
+	// Build event signature string for the matched event
+	inputs := make([]string, len(matchedEvent.Inputs))
+	for i, input := range matchedEvent.Inputs {
+		inputs[i] = input.Type
+	}
+	eventSigStr := fmt.Sprintf("%s(%s)", matchedEvent.Name, strings.Join(inputs, ","))
+
+	return eventSigStr, nil
 }
