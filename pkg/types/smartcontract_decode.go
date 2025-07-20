@@ -128,7 +128,8 @@ func formatDecodedValue(value interface{}, paramType string) interface{} {
 	switch paramType {
 	case "address":
 		if addr, ok := value.(eCommon.Address); ok {
-			return addr.Hex()
+			addrBase58 := MustNewAddressFromEVMHex(addr.Hex())
+			return addrBase58.String()
 		}
 		return value
 	case "uint256", "uint128", "uint64", "uint32", "uint16", "uint8":

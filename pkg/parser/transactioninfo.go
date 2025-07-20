@@ -49,7 +49,7 @@ func ParseTransactionInfoLog(transactionInfo *core.TransactionInfo, contracts ma
 			BlockNumber:     uint64(transactionInfo.GetBlockNumber()),
 			BlockTimestamp:  uint64(transactionInfo.GetBlockTimeStamp()),
 			TransactionHash: hex.EncodeToString(transactionInfo.GetId()),
-			ContractAddress: hex.EncodeToString(log.GetAddress()),
+			ContractAddress: contract.Address,
 			Event:           decodedEvent,
 		}
 

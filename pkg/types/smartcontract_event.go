@@ -206,7 +206,9 @@ func (c *Contract) DecodeEventLog(topics [][]byte, data []byte) (*DecodedEvent, 
 func decodeTopicValue(topic []byte, paramType string) string {
 	switch paramType {
 	case "address":
-		return eCommon.BytesToAddress(topic).Hex()
+		ethaddr := eCommon.BytesToAddress(topic)
+		addrBase58 := MustNewAddressFromEVMHex(ethaddr.Hex())
+		return addrBase58.String()
 	case "uint256", "uint128", "uint64", "uint32", "uint16", "uint8":
 		return new(big.Int).SetBytes(topic).String()
 	case "int256", "int128", "int64", "int32", "int16", "int8":
