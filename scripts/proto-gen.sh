@@ -11,8 +11,26 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 # Input and output directories
 PROTO_ROOT="$PROJECT_ROOT/reference/protocol"
-GOOGLEAPIS_ROOT="$PROJECT_ROOT/reference/googleapis"
 OUTPUT_DIR="$PROJECT_ROOT/pb"
+
+# Create minimal googleapis directory with only needed files
+MINIMAL_GOOGLEAPIS="$PROJECT_ROOT/tmp/googleapis"
+mkdir -p "$MINIMAL_GOOGLEAPIS/google/api"
+
+# Download only the annotations.proto file if it doesn't exist
+if [ ! -f "$MINIMAL_GOOGLEAPIS/google/api/annotations.proto" ]; then
+    echo "Downloading minimal Google APIs (annotations.proto)..."
+    curl -s -o "$MINIMAL_GOOGLEAPIS/google/api/annotations.proto" \
+        "https://raw.githubusercontent.com/googleapis/googleapis/master/google/api/annotations.proto"
+    
+    # Also download http.proto as it's a dependency of annotations.proto
+    curl -s -o "$MINIMAL_GOOGLEAPIS/google/api/http.proto" \
+        "https://raw.githubusercontent.com/googleapis/googleapis/master/google/api/http.proto"
+    
+    echo "Minimal Google APIs downloaded successfully!"
+else
+    echo "Minimal Google APIs already exists, skipping download."
+fi
 
 rm -rf "$OUTPUT_DIR"
 # Create output directory if it doesn't exist
@@ -54,7 +72,7 @@ find "$PROTO_ROOT" -type f -name "*.proto" ! -empty ! -path "*/core/tron/*" | wh
     # Run protoc compiler
     protoc \
         -I "$PROTO_ROOT" \
-        -I "$GOOGLEAPIS_ROOT" \
+        -I "$MINIMAL_GOOGLEAPIS" \
         -I "/usr/include" \
         --go_out="$OUTPUT_DIR" \
         --go_opt=paths=source_relative \
@@ -132,3 +150,4 @@ if [ -d "$OUTPUT_DIR/core/contract" ]; then
 fi
 
 echo "Proto generation completed successfully!"
+echo "Minimal Google APIs are stored in: $MINIMAL_GOOGLEAPIS"
