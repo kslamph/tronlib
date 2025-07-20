@@ -60,13 +60,7 @@ func NewClient(config ClientConfig) (*Client, error) {
 	}
 
 	factory := func(ctx context.Context) (*grpc.ClientConn, error) {
-		// If the context has no deadline, apply the client timeout
-		if _, ok := ctx.Deadline(); !ok {
-			var cancel context.CancelFunc
-			ctx, cancel = context.WithTimeout(ctx, timeout)
-			defer cancel()
-		}
-		return grpc.DialContext(ctx, config.NodeAddress, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+		return grpc.NewClient(config.NodeAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 
 	// Use the same timeout for connection pool
@@ -120,11 +114,6 @@ func (c *Client) Close() {
 		return // Already closed
 	}
 	c.pool.Close()
-}
-
-// isClosed checks if the client is closed
-func (c *Client) isClosed() bool {
-	return atomic.LoadInt32(&c.closed) == 1
 }
 
 // GetTimeout returns the client's configured timeout
