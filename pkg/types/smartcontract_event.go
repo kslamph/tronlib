@@ -162,7 +162,17 @@ func (c *Contract) DecodeEventLog(topics [][]byte, data []byte) (*DecodedEvent, 
 		for i, param := range nonIndexedParams {
 			var value string
 			if i < len(values) {
-				value = formatDecodedValue(values[i], param.Type).(string)
+				formattedValue := formatDecodedValue(values[i], param.Type)
+				// Handle different return types from formatDecodedValue
+				switch v := formattedValue.(type) {
+				case string:
+					value = v
+				case []interface{}:
+					// Convert slice to string representation
+					value = fmt.Sprintf("%v", v)
+				default:
+					value = fmt.Sprintf("%v", v)
+				}
 			}
 
 			nonIndexedValues[i] = DecodedEventParameter{
