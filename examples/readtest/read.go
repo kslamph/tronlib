@@ -45,7 +45,7 @@ func main() {
 	defer ticker.Stop()
 	reqCount := 0
 	failCount := 0
-	testDuration := 5 * time.Second // Run for 10 seconds, adjust as needed
+	testDuration := 10 * time.Second // Run for 10 seconds, adjust as needed
 	fmt.Printf("\nStarting %d Seconds stress test: %d ms per test....\n", testDuration/time.Second, x/time.Millisecond)
 	timeout := time.After(testDuration)
 	var wg sync.WaitGroup
