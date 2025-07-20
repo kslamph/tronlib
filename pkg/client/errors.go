@@ -26,46 +26,23 @@ func validateTransactionResult(result *api.TransactionExtention, operation strin
 }
 
 // grpcCallWrapper wraps common gRPC call patterns with proper connection management
-func (c *Client) grpcCallWrapper(operation string, ctx context.Context, call func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error)) (*api.TransactionExtention, error) {
-	if c.isClosed() {
-		return nil, fmt.Errorf("%s failed: %w", operation, ErrClientClosed)
-	}
-
-	// Check if context is already cancelled
-	select {
-	case <-ctx.Done():
-		return nil, fmt.Errorf("%s failed: %w", operation, ErrContextCancelled)
-	default:
-	}
-
-	// Apply client timeout to context if not already set
-	// This ensures the entire operation (connection + RPC) respects the timeout
-	var callCtx context.Context
-	var cancel context.CancelFunc
-
-	if _, ok := ctx.Deadline(); ok {
-		// Context already has a deadline, use it as is
-		callCtx = ctx
-	} else {
-		// Apply client timeout
-		callCtx, cancel = context.WithTimeout(ctx, c.timeout)
-		defer cancel()
-	}
-
-	// Get connection from pool (this will also apply timeout if needed)
-	conn, err := c.GetConnection(callCtx)
+func (c *Client) grpcCallWrapper(ctx context.Context, operation string, call func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error)) (*api.TransactionExtention, error) {
+	// Get connection from pool
+	conn, err := c.pool.Get(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get connection for %s: %w", operation, err)
 	}
-
-	// Ensure connection is returned to pool
-	defer c.ReturnConnection(conn)
+	defer c.pool.Put(conn)
 
 	// Create wallet client
-	client := api.NewWalletClient(conn)
+	walletClient := api.NewWalletClient(conn)
+
+	// Apply client timeout to context
+	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
+	defer cancel()
 
 	// Execute the call with proper context
-	result, err := call(client, callCtx)
+	result, err := call(walletClient, ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create %s transaction: %w", operation, err)
 	}

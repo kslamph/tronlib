@@ -38,33 +38,23 @@ func (c *Client) GetAccount(ctx context.Context, account *types.Address) (*core.
 }
 
 func (c *Client) GetAccountNet(ctx context.Context, account *types.Address) (*api.AccountNetMessage, error) {
-	if c.isClosed() {
-		return nil, fmt.Errorf("get account net failed: %w", ErrClientClosed)
-	}
-
-	// Check if context is already cancelled
-	select {
-	case <-ctx.Done():
-		return nil, fmt.Errorf("get account net failed: %w", ErrContextCancelled)
-	default:
-	}
-
 	// Validate input
 	if account == nil {
 		return nil, fmt.Errorf("get account net failed: account address is nil")
 	}
 
 	// Get connection from pool
-	conn, err := c.GetConnection(ctx)
+	conn, err := c.pool.Get(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get connection for get account net: %w", err)
 	}
+	defer c.pool.Put(conn)
 
-	// Ensure connection is returned to pool
-	defer c.ReturnConnection(conn)
+	walletClient := api.NewWalletClient(conn)
 
-	client := api.NewWalletClient(conn)
-	result, err := client.GetAccountNet(ctx, &core.Account{
+	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
+	defer cancel()
+	result, err := walletClient.GetAccountNet(ctx, &core.Account{
 		Address: account.Bytes(),
 	})
 
@@ -76,33 +66,23 @@ func (c *Client) GetAccountNet(ctx context.Context, account *types.Address) (*ap
 }
 
 func (c *Client) GetAccountResource(ctx context.Context, account *types.Address) (*api.AccountResourceMessage, error) {
-	if c.isClosed() {
-		return nil, fmt.Errorf("get account resource failed: %w", ErrClientClosed)
-	}
-
-	// Check if context is already cancelled
-	select {
-	case <-ctx.Done():
-		return nil, fmt.Errorf("get account resource failed: %w", ErrContextCancelled)
-	default:
-	}
-
 	// Validate input
 	if account == nil {
 		return nil, fmt.Errorf("get account resource failed: account address is nil")
 	}
 
 	// Get connection from pool
-	conn, err := c.GetConnection(ctx)
+	conn, err := c.pool.Get(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get connection for get account resource: %w", err)
 	}
+	defer c.pool.Put(conn)
 
-	// Ensure connection is returned to pool
-	defer c.ReturnConnection(conn)
+	walletClient := api.NewWalletClient(conn)
 
-	client := api.NewWalletClient(conn)
-	result, err := client.GetAccountResource(ctx, &core.Account{
+	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
+	defer cancel()
+	result, err := walletClient.GetAccountResource(ctx, &core.Account{
 		Address: account.Bytes(),
 	})
 

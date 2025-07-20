@@ -12,33 +12,23 @@ import (
 
 // GetBlockByNum returns a block by its number. it contains tron contract data
 func (c *Client) GetBlockByNum(ctx context.Context, blockNumber int64) (*api.BlockExtention, error) {
-	if c.isClosed() {
-		return nil, fmt.Errorf("get block by num failed: %w", ErrClientClosed)
-	}
-
-	// Check if context is already cancelled
-	select {
-	case <-ctx.Done():
-		return nil, fmt.Errorf("get block by num failed: %w", ErrContextCancelled)
-	default:
-	}
-
 	// Validate input
 	if blockNumber < 0 {
 		return nil, fmt.Errorf("get block by num failed: invalid block number %d", blockNumber)
 	}
 
 	// Get connection from pool
-	conn, err := c.GetConnection(ctx)
+	conn, err := c.pool.Get(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get connection for get block by num: %w", err)
 	}
+	defer c.pool.Put(conn)
 
-	// Ensure connection is returned to pool
-	defer c.ReturnConnection(conn)
+	walletClient := api.NewWalletClient(conn)
 
-	client := api.NewWalletClient(conn)
-	result, err := client.GetBlockByNum2(ctx, &api.NumberMessage{
+	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
+	defer cancel()
+	result, err := walletClient.GetBlockByNum2(ctx, &api.NumberMessage{
 		Num: blockNumber,
 	})
 
@@ -51,33 +41,23 @@ func (c *Client) GetBlockByNum(ctx context.Context, blockNumber int64) (*api.Blo
 
 // GetTransactionInfoByBlockNum returns transaction info for a block.
 func (c *Client) GetTransactionInfoByBlockNum(ctx context.Context, blockNumber int64) (*api.TransactionInfoList, error) {
-	if c.isClosed() {
-		return nil, fmt.Errorf("get transaction info by block num failed: %w", ErrClientClosed)
-	}
-
-	// Check if context is already cancelled
-	select {
-	case <-ctx.Done():
-		return nil, fmt.Errorf("get transaction info by block num failed: %w", ErrContextCancelled)
-	default:
-	}
-
 	// Validate input
 	if blockNumber < 0 {
 		return nil, fmt.Errorf("get transaction info by block num failed: invalid block number %d", blockNumber)
 	}
 
 	// Get connection from pool
-	conn, err := c.GetConnection(ctx)
+	conn, err := c.pool.Get(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get connection for get transaction info by block num: %w", err)
 	}
+	defer c.pool.Put(conn)
 
-	// Ensure connection is returned to pool
-	defer c.ReturnConnection(conn)
+	walletClient := api.NewWalletClient(conn)
 
-	client := api.NewWalletClient(conn)
-	result, err := client.GetTransactionInfoByBlockNum(ctx, &api.NumberMessage{
+	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
+	defer cancel()
+	result, err := walletClient.GetTransactionInfoByBlockNum(ctx, &api.NumberMessage{
 		Num: blockNumber,
 	})
 
@@ -89,28 +69,18 @@ func (c *Client) GetTransactionInfoByBlockNum(ctx context.Context, blockNumber i
 }
 
 func (c *Client) GetNowBlock(ctx context.Context) (*api.BlockExtention, error) {
-	if c.isClosed() {
-		return nil, fmt.Errorf("get now block failed: %w", ErrClientClosed)
-	}
-
-	// Check if context is already cancelled
-	select {
-	case <-ctx.Done():
-		return nil, fmt.Errorf("get now block failed: %w", ErrContextCancelled)
-	default:
-	}
-
 	// Get connection from pool
-	conn, err := c.GetConnection(ctx)
+	conn, err := c.pool.Get(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get connection for get now block: %w", err)
 	}
+	defer c.pool.Put(conn)
 
-	// Ensure connection is returned to pool
-	defer c.ReturnConnection(conn)
+	walletClient := api.NewWalletClient(conn)
 
-	client := api.NewWalletClient(conn)
-	result, err := client.GetNowBlock2(ctx, &api.EmptyMessage{})
+	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
+	defer cancel()
+	result, err := walletClient.GetNowBlock2(ctx, &api.EmptyMessage{})
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get current block: %w", err)
@@ -126,17 +96,6 @@ func (c *Client) GetNowBlock(ctx context.Context) (*api.BlockExtention, error) {
 // 1 = failed
 // when error occurs, the transaction status should be considered as unknown
 func (c *Client) WaitForTransactionInfo(ctx context.Context, txId string, timeoutSeconds int) (*core.TransactionInfo, error) {
-	if c.isClosed() {
-		return nil, fmt.Errorf("wait for transaction info failed: %w", ErrClientClosed)
-	}
-
-	// Check if context is already cancelled
-	select {
-	case <-ctx.Done():
-		return nil, fmt.Errorf("wait for transaction info failed: %w", ErrContextCancelled)
-	default:
-	}
-
 	// Validate inputs
 	if txId == "" {
 		return nil, fmt.Errorf("wait for transaction info failed: transaction ID is empty")
@@ -161,19 +120,22 @@ func (c *Client) WaitForTransactionInfo(ctx context.Context, txId string, timeou
 		}
 
 		// Get connection from pool
-		conn, err := c.GetConnection(ctx)
+		conn, err := c.pool.Get(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get connection for wait transaction info: %w", err)
 		}
 
 		// Create wallet client
-		client := api.NewWalletClient(conn)
-		result, err := client.GetTransactionInfoById(ctx, &api.BytesMessage{
+		walletClient := api.NewWalletClient(conn)
+
+		callCtx, cancel := context.WithTimeout(ctx, c.GetTimeout())
+		result, err := walletClient.GetTransactionInfoById(callCtx, &api.BytesMessage{
 			Value: hashBytes,
 		})
+		cancel()
 
 		// Return connection to pool
-		c.ReturnConnection(conn)
+		c.pool.Put(conn)
 
 		if err != nil {
 			return nil, fmt.Errorf("failed to wait for transaction info: %w", err)
@@ -195,17 +157,6 @@ func (c *Client) WaitForTransactionInfo(ctx context.Context, txId string, timeou
 }
 
 func (c *Client) GetTransactionById(ctx context.Context, txId string) (*core.Transaction, error) {
-	if c.isClosed() {
-		return nil, fmt.Errorf("get transaction by id failed: %w", ErrClientClosed)
-	}
-
-	// Check if context is already cancelled
-	select {
-	case <-ctx.Done():
-		return nil, fmt.Errorf("get transaction by id failed: %w", ErrContextCancelled)
-	default:
-	}
-
 	// Validate input
 	if txId == "" {
 		return nil, fmt.Errorf("get transaction by id failed: transaction ID is empty")
@@ -217,16 +168,17 @@ func (c *Client) GetTransactionById(ctx context.Context, txId string) (*core.Tra
 	}
 
 	// Get connection from pool
-	conn, err := c.GetConnection(ctx)
+	conn, err := c.pool.Get(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get connection for get transaction by id: %w", err)
 	}
+	defer c.pool.Put(conn)
 
-	// Ensure connection is returned to pool
-	defer c.ReturnConnection(conn)
+	walletClient := api.NewWalletClient(conn)
 
-	client := api.NewWalletClient(conn)
-	result, err := client.GetTransactionById(ctx, &api.BytesMessage{
+	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
+	defer cancel()
+	result, err := walletClient.GetTransactionById(ctx, &api.BytesMessage{
 		Value: hashBytes,
 	})
 
@@ -238,17 +190,6 @@ func (c *Client) GetTransactionById(ctx context.Context, txId string) (*core.Tra
 }
 
 func (c *Client) GetTransactionInfoById(ctx context.Context, txId string) (*core.TransactionInfo, error) {
-	if c.isClosed() {
-		return nil, fmt.Errorf("get transaction info by id failed: %w", ErrClientClosed)
-	}
-
-	// Check if context is already cancelled
-	select {
-	case <-ctx.Done():
-		return nil, fmt.Errorf("get transaction info by id failed: %w", ErrContextCancelled)
-	default:
-	}
-
 	// Validate input
 	if txId == "" {
 		return nil, fmt.Errorf("get transaction info by id failed: transaction ID is empty")
@@ -260,16 +201,17 @@ func (c *Client) GetTransactionInfoById(ctx context.Context, txId string) (*core
 	}
 
 	// Get connection from pool
-	conn, err := c.GetConnection(ctx)
+	conn, err := c.pool.Get(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get connection for get transaction info by id: %w", err)
 	}
+	defer c.pool.Put(conn)
 
-	// Ensure connection is returned to pool
-	defer c.ReturnConnection(conn)
+	walletClient := api.NewWalletClient(conn)
 
-	client := api.NewWalletClient(conn)
-	result, err := client.GetTransactionInfoById(ctx, &api.BytesMessage{
+	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
+	defer cancel()
+	result, err := walletClient.GetTransactionInfoById(ctx, &api.BytesMessage{
 		Value: hashBytes,
 	})
 
@@ -281,28 +223,18 @@ func (c *Client) GetTransactionInfoById(ctx context.Context, txId string) (*core
 }
 
 func (c *Client) GetChainParameters(ctx context.Context) (*core.ChainParameters, error) {
-	if c.isClosed() {
-		return nil, fmt.Errorf("get chain parameters failed: %w", ErrClientClosed)
-	}
-
-	// Check if context is already cancelled
-	select {
-	case <-ctx.Done():
-		return nil, fmt.Errorf("get chain parameters failed: %w", ErrContextCancelled)
-	default:
-	}
-
 	// Get connection from pool
-	conn, err := c.GetConnection(ctx)
+	conn, err := c.pool.Get(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get connection for get chain parameters: %w", err)
 	}
+	defer c.pool.Put(conn)
 
-	// Ensure connection is returned to pool
-	defer c.ReturnConnection(conn)
+	walletClient := api.NewWalletClient(conn)
 
-	client := api.NewWalletClient(conn)
-	result, err := client.GetChainParameters(ctx, &api.EmptyMessage{})
+	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
+	defer cancel()
+	result, err := walletClient.GetChainParameters(ctx, &api.EmptyMessage{})
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain parameters: %w", err)

@@ -14,39 +14,27 @@ func main() {
 	start := time.Now()
 	fmt.Printf("Starting TRON account query at %v\n\n", start.Format(time.RFC3339))
 
-	// Option 1: Use direct config for mainnet
+	// Note: The timeout is for connection establishment, not the entire RPC call duration
+	// A 1ms timeout means the connection must be established within 1ms, but once connected,
+	// the RPC call can take longer depending on server response time
 	fmt.Println("Creating client using mainnet endpoint...")
 	tronClient, err := client.NewClient(client.ClientConfig{
 		NodeAddress: "127.0.0.1:50051",
+		Timeout:     200 * time.Millisecond, // Connection timeout (not RPC call timeout)
 	})
 	if err != nil {
 		log.Fatalf("Failed to create mainnet client: %v", err)
 	}
 	defer tronClient.Close()
 
-	// Option 2: Custom configuration (commented out)
-	/*
-		config := client.ClientConfig{
-			NodeAddress: "grpc.trongrid.io:50051",
-			Timeout:     30 * time.Second,
-		}
-		client, err := client.NewClient(config)
-		if err != nil {
-			log.Fatalf("Failed to create client: %v", err)
-		}
-		defer client.Close()
-	*/
-
 	addr, err := types.NewAddress("TDUiUScimQNfmD1F76Uq6YaXbofCVuAvxH")
 	if err != nil {
 		log.Fatalf("Failed to create receiver address: %v", err)
 	}
 
-	ctx := context.Background()
-
 	fmt.Printf("\nQuerying account information...\n")
 	queryStart := time.Now()
-	ac, err := tronClient.GetAccount(ctx, addr)
+	ac, err := tronClient.GetAccount(context.Background(), addr)
 	if err != nil {
 		log.Fatalf("Failed to get account: %v", err)
 	}
@@ -76,7 +64,7 @@ func main() {
 	// Query transaction info
 	txId := "44519f26abfdc64c4a56fc85122f62279124bb12a41ce26ea65e3ab370d75ca5"
 	fmt.Printf("\nQuerying transaction %s...\n", txId)
-	txInfo, err := tronClient.GetTransactionInfoById(ctx, txId)
+	txInfo, err := tronClient.GetTransactionInfoById(context.Background(), txId)
 	if err != nil {
 		log.Printf("Failed to get transaction info: %v\n", err)
 	} else {

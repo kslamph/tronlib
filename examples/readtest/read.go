@@ -20,7 +20,7 @@ func main() {
 	// Initialize client with configuration
 	config := client.ClientConfig{
 		NodeAddress: "localhost:50051",
-		Timeout:     5 * time.Second, // 1 second timeout for RPC calls
+		Timeout:     15 * time.Second, // 1 second timeout for RPC calls
 	}
 
 	fmt.Printf("Connection Settings:\n")
@@ -40,12 +40,13 @@ func main() {
 		log.Fatalf("Failed to create receiver address: %v", err)
 	}
 	x := 20 * time.Millisecond
-	fmt.Printf("\nStarting stress test: %d ns per test...\n", x)
+
 	ticker := time.NewTicker(x)
 	defer ticker.Stop()
 	reqCount := 0
 	failCount := 0
 	testDuration := 5 * time.Second // Run for 10 seconds, adjust as needed
+	fmt.Printf("\nStarting %d Seconds stress test: %d ms per test....\n", testDuration/time.Second, x/time.Millisecond)
 	timeout := time.After(testDuration)
 	var wg sync.WaitGroup
 

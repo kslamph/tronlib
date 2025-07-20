@@ -10,33 +10,23 @@ import (
 )
 
 func (c *Client) NewContractFromAddress(ctx context.Context, address *types.Address) (*types.Contract, error) {
-	if c.isClosed() {
-		return nil, fmt.Errorf("new contract from address failed: %w", ErrClientClosed)
-	}
-
-	// Check if context is already cancelled
-	select {
-	case <-ctx.Done():
-		return nil, fmt.Errorf("new contract from address failed: %w", ErrContextCancelled)
-	default:
-	}
-
 	// Validate input
 	if address == nil {
 		return nil, fmt.Errorf("failed to get contract: contract address is nil")
 	}
 
 	// Get connection from pool
-	conn, err := c.GetConnection(ctx)
+	conn, err := c.pool.Get(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get connection for new contract from address: %w", err)
 	}
+	defer c.pool.Put(conn)
 
-	// Ensure connection is returned to pool
-	defer c.ReturnConnection(conn)
+	walletClient := api.NewWalletClient(conn)
 
-	client := api.NewWalletClient(conn)
-	result, err := client.GetContract(ctx, &api.BytesMessage{
+	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
+	defer cancel()
+	result, err := walletClient.GetContract(ctx, &api.BytesMessage{
 		Value: address.Bytes(),
 	})
 
@@ -56,17 +46,6 @@ func (c *Client) NewContractFromAddress(ctx context.Context, address *types.Addr
 }
 
 func (c *Client) TriggerConstantSmartContract(ctx context.Context, contract *types.Contract, ownerAddress *types.Address, data []byte) ([][]byte, error) {
-	if c.isClosed() {
-		return nil, fmt.Errorf("trigger constant smart contract failed: %w", ErrClientClosed)
-	}
-
-	// Check if context is already cancelled
-	select {
-	case <-ctx.Done():
-		return nil, fmt.Errorf("trigger constant smart contract failed: %w", ErrContextCancelled)
-	default:
-	}
-
 	// Validate inputs
 	if contract == nil {
 		return nil, fmt.Errorf("trigger constant smart contract failed: contract is nil")
@@ -79,13 +58,11 @@ func (c *Client) TriggerConstantSmartContract(ctx context.Context, contract *typ
 	}
 
 	// Get connection from pool
-	conn, err := c.GetConnection(ctx)
+	conn, err := c.pool.Get(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get connection for trigger constant smart contract: %w", err)
 	}
-
-	// Ensure connection is returned to pool
-	defer c.ReturnConnection(conn)
+	defer c.pool.Put(conn)
 
 	// Create trigger smart contract message
 	trigger := &core.TriggerSmartContract{
@@ -94,8 +71,11 @@ func (c *Client) TriggerConstantSmartContract(ctx context.Context, contract *typ
 		Data:            data,
 	}
 
-	client := api.NewWalletClient(conn)
-	result, err := client.TriggerConstantContract(ctx, trigger)
+	walletClient := api.NewWalletClient(conn)
+
+	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
+	defer cancel()
+	result, err := walletClient.TriggerConstantContract(ctx, trigger)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to trigger constant contract: %w", err)
