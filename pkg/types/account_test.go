@@ -1,7 +1,9 @@
-package types
+package types_test
 
 import (
 	"testing"
+
+	"github.com/kslamph/tronlib/pkg/types"
 )
 
 func TestAccountFromPrivateKey(t *testing.T) {
@@ -45,7 +47,7 @@ func TestAccountFromPrivateKey(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			account, err := NewAccountFromPrivateKey(tt.privKey)
+			account, err := types.NewAccountFromPrivateKey(tt.privKey)
 			if tt.wantError {
 				if err == nil {
 					t.Errorf("NewAccountFromPrivateKey() expected error for private key %s", tt.privKey)
@@ -124,7 +126,7 @@ func TestAccountFromHDWallet(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			account, err := NewAccountFromHDWallet(tt.mnemonic, "", tt.path)
+			account, err := types.NewAccountFromHDWallet(tt.mnemonic, "", tt.path)
 			if tt.wantError {
 				if err == nil {
 					t.Errorf("NewAccountFromHDWallet() expected error for mnemonic %s and path %s", tt.mnemonic, tt.path)
@@ -154,7 +156,7 @@ func TestAccountSigningWithKnownResult(t *testing.T) {
 		wantSignature = "0x88bacb8549cbe7c3e26d922b05e88757197b77410fb0db1fabb9f30480202c84691b7025e928d36be962cfd7b4a8d2353b97f36d64bdc14398e9568091b701201b"
 	)
 
-	account, err := NewAccountFromPrivateKey(privateKey)
+	account, err := types.NewAccountFromPrivateKey(privateKey)
 	if err != nil {
 		t.Fatalf("Failed to create test account: %v", err)
 	}

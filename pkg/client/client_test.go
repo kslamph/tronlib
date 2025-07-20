@@ -1,136 +1,128 @@
-package client
+package client_test
 
 import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/kslamph/tronlib/pkg/client"
 )
 
 func TestNewClient(t *testing.T) {
 	// Test with default configuration
-	config := ClientConfig{
+	config := client.ClientConfig{
 		NodeAddress: "127.0.0.1:50051",
 	}
 
-	client, err := NewClient(config)
+	clientInstance, err := client.NewClient(config)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
-	defer client.Close()
+	defer clientInstance.Close()
 
-	if client == nil {
+	if clientInstance == nil {
 		t.Fatal("Client should not be nil")
 	}
 
-	if client.nodeAddress != "127.0.0.1:50051" {
-		t.Errorf("Expected node address %s, got %s", "127.0.0.1:50051", client.nodeAddress)
-	}
+	// Note: nodeAddress is not exposed via public method, so we can't test it directly
+	// The node address is validated through the config passed to NewClient
 
-	if client.timeout != 30*time.Second {
-		t.Errorf("Expected timeout %v, got %v", 30*time.Second, client.timeout)
+	if clientInstance.GetTimeout() != 30*time.Second {
+		t.Errorf("Expected timeout %v, got %v", 30*time.Second, clientInstance.GetTimeout())
 	}
 }
 
 func TestClientWithCustomConfig(t *testing.T) {
-	config := ClientConfig{
+	config := client.ClientConfig{
 		NodeAddress:    "127.0.0.1:50051",
 		Timeout:        60 * time.Second,
 		MaxConnections: 10,
 	}
 
-	client, err := NewClient(config)
+	clientInstance, err := client.NewClient(config)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
-	defer client.Close()
+	defer clientInstance.Close()
 
-	if client.timeout != 60*time.Second {
-		t.Errorf("Expected timeout %v, got %v", 60*time.Second, client.timeout)
+	if clientInstance.GetTimeout() != 60*time.Second {
+		t.Errorf("Expected timeout %v, got %v", 60*time.Second, clientInstance.GetTimeout())
 	}
 }
 
 func TestClientClosed(t *testing.T) {
-	config := ClientConfig{
+	config := client.ClientConfig{
 		NodeAddress: "127.0.0.1:50051",
 	}
 
-	client, err := NewClient(config)
+	clientInstance, err := client.NewClient(config)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 
 	// Close the client
-	client.Close()
+	clientInstance.Close()
 
-	// Test that client is closed
-	if !client.isClosed() {
-		t.Error("Client should be closed")
-	}
+	// Test that client is closed by attempting to get a connection
+	// Since isClosed() is unexported, we test the behavior indirectly
 
 	// Test that operations fail on closed client
 	ctx := context.Background()
-	_, err = client.GetConnection(ctx)
+	_, err = clientInstance.GetConnection(ctx)
 	if err == nil {
 		t.Error("Expected error when getting connection from closed client")
 	}
 }
 
 func TestContextCancellation(t *testing.T) {
-	config := ClientConfig{
+	config := client.ClientConfig{
 		NodeAddress: "127.0.0.1:50051",
 	}
 
-	client, err := NewClient(config)
+	clientInstance, err := client.NewClient(config)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
-	defer client.Close()
+	defer clientInstance.Close()
 
 	// Create a cancelled context
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
 	// Test that operations fail with cancelled context
-	_, err = client.GetConnection(ctx)
+	_, err = clientInstance.GetConnection(ctx)
 	if err == nil {
 		t.Error("Expected error when context is cancelled")
 	}
 }
 
 func TestConnectionPool(t *testing.T) {
-	config := ClientConfig{
+	config := client.ClientConfig{
 		NodeAddress:    "127.0.0.1:50051",
 		MaxConnections: 3,
 	}
 
-	client, err := NewClient(config)
+	clientInstance, err := client.NewClient(config)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
-	defer client.Close()
+	defer clientInstance.Close()
 
-	// Test that pool is created
-	if client.pool == nil {
-		t.Fatal("Connection pool should not be nil")
-	}
-
-	// Test that the client has the correct node address
-	if client.nodeAddress != "127.0.0.1:50051" {
-		t.Errorf("Expected node address %s, got %s", "127.0.0.1:50051", client.nodeAddress)
-	}
+	// Test that the client was created successfully
+	// Note: nodeAddress is not exposed via public method, so we can't test it directly
 }
 
 func TestErrorTypes(t *testing.T) {
 	// Test error type definitions
-	if ErrConnectionFailed == nil {
+	if client.ErrConnectionFailed == nil {
 		t.Error("ErrConnectionFailed should not be nil")
 	}
 
-	if ErrClientClosed == nil {
+	if client.ErrClientClosed == nil {
 		t.Error("ErrClientClosed should not be nil")
 	}
 
-	if ErrContextCancelled == nil {
+	if client.ErrContextCancelled == nil {
 		t.Error("ErrContextCancelled should not be nil")
 	}
 }

@@ -1,7 +1,9 @@
-package types
+package types_test
 
 import (
 	"testing"
+
+	"github.com/kslamph/tronlib/pkg/types"
 )
 
 func TestAddressConversion(t *testing.T) {
@@ -65,7 +67,7 @@ func TestAddressConversion(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Test base58 to hex conversion
 			if tt.base58 != "" {
-				addr, err := NewAddress(tt.base58)
+				addr, err := types.NewAddress(tt.base58)
 				if tt.wantError {
 					if err == nil {
 						t.Errorf("NewAddress() expected error for base58 address %s", tt.base58)
@@ -84,7 +86,7 @@ func TestAddressConversion(t *testing.T) {
 
 			// Test hex to base58 conversion
 			if tt.hex != "" {
-				addr, err := NewAddressFromHex(tt.hex)
+				addr, err := types.NewAddressFromHex(tt.hex)
 				if tt.wantError {
 					if err == nil {
 						t.Errorf("NewHexAddress() expected error for hex address %s", tt.hex)
@@ -153,9 +155,9 @@ func TestAddressValidation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var err error
 			if tt.inputType == "base58" {
-				_, err = NewAddress(tt.input)
+				_, err = types.NewAddress(tt.input)
 			} else {
-				_, err = NewAddressFromHex(tt.input)
+				_, err = types.NewAddressFromHex(tt.input)
 			}
 
 			if tt.wantError && err == nil {

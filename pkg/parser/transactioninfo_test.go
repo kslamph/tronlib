@@ -1,4 +1,4 @@
-package parser
+package parser_test
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/kslamph/tronlib/pkg/client"
+	"github.com/kslamph/tronlib/pkg/parser"
 	"github.com/kslamph/tronlib/pkg/types"
 )
 
@@ -42,9 +43,9 @@ func TestParseTransactionInfoLog(t *testing.T) {
 		t.Fatalf("Failed to get transaction info: %v", err)
 	}
 	// log.Printf("%x\n", contract1.AddressBytes)
-	contractsMap := ContractsSliceToMap([]*types.Contract{contract1, contract2})
+	contractsMap := parser.ContractsSliceToMap([]*types.Contract{contract1, contract2})
 
-	decodedEvents := ParseTransactionInfoLog(transactionInfo, contractsMap)
+	decodedEvents := parser.ParseTransactionInfoLog(transactionInfo, contractsMap)
 	for _, decodedEvent := range decodedEvents {
 		t.Logf("Contract: %s, Event: %s", decodedEvent.ContractAddress, decodedEvent.Event.EventName)
 		for _, param := range decodedEvent.Event.Parameters {

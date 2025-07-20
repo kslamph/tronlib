@@ -1,8 +1,10 @@
-package crypto
+package crypto_test
 
 import (
 	"strings"
 	"testing"
+
+	"github.com/kslamph/tronlib/pkg/crypto"
 )
 
 func TestVerifyMessageV2(t *testing.T) {
@@ -54,7 +56,7 @@ func TestVerifyMessageV2(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-			valid, err := VerifyMessageV2(tt.address, tt.message, tt.signature)
+			valid, err := crypto.VerifyMessageV2(tt.address, tt.message, tt.signature)
 
 			// Check error expectations
 			if tt.wantErr {
