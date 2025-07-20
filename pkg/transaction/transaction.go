@@ -135,6 +135,11 @@ func (tx *Transaction) Broadcast() *Transaction {
 		return tx // Return early if there's already an error
 	}
 
+	if tx.txExtension == nil {
+		tx.receipt.Err = fmt.Errorf("broadcast failed: no transaction extension")
+		return tx
+	}
+
 	if tx.txExtension.GetTransaction() == nil {
 		tx.receipt.Err = fmt.Errorf("broadcast failed: no transaction to broadcast")
 		return tx
@@ -143,26 +148,34 @@ func (tx *Transaction) Broadcast() *Transaction {
 	// Ensure Txid is set before broadcasting
 	if len(tx.txExtension.GetTxid()) == 0 {
 		if err := tx.updateTxID(); err != nil {
-			tx.receipt.Err = fmt.Errorf("failed to update transaction ID before broadcast: %v", err)
+			tx.receipt.Err = fmt.Errorf("failed to update transaction ID before broadcast: %w", err)
 			return tx
 		}
 	}
+
 	// Preserve the TxID that was set either by signing or by updateTxID
 	finalTxID := hex.EncodeToString(tx.txExtension.GetTxid())
 
-	// Get connection (handles reconnection transparently)
-	conn, err := tx.client.GetConnection()
+	// Create context with client timeout
+	ctx, cancel := context.WithTimeout(context.Background(), tx.client.GetTimeout())
+	defer cancel()
+
+	// Get connection from pool
+	conn, err := tx.client.GetConnection(ctx)
 	if err != nil {
 		tx.receipt.Result = false
 		tx.receipt.Message = fmt.Sprintf("connection error: %v", err)
-		tx.receipt.Err = err
+		tx.receipt.Err = fmt.Errorf("failed to get connection for broadcast: %w", err)
 		return tx
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	// Ensure connection is returned to pool
+	defer tx.client.ReturnConnection(conn)
 
+	// Create wallet client
 	client := api.NewWalletClient(conn)
+
+	// Broadcast the transaction
 	resp, grpcErr := client.BroadcastTransaction(ctx, tx.txExtension.GetTransaction())
 
 	// Initialize receipt fields that are certain
@@ -173,12 +186,20 @@ func (tx *Transaction) Broadcast() *Transaction {
 		tx.receipt.Message = fmt.Sprintf("gRPC call to BroadcastTransaction failed: %v", grpcErr)
 		// If there was no prior error, set this as the error. Otherwise, append.
 		if tx.receipt.Err == nil {
-			tx.receipt.Err = fmt.Errorf(tx.receipt.Message)
+			tx.receipt.Err = fmt.Errorf("broadcast failed: %w", grpcErr)
 		} else {
-			tx.receipt.Err = fmt.Errorf("%w; additionally, %s", tx.receipt.Err, tx.receipt.Message)
+			tx.receipt.Err = fmt.Errorf("%w; additionally, broadcast failed: %w", tx.receipt.Err, grpcErr)
 		}
 		return tx
 	}
+
+	if resp == nil {
+		tx.receipt.Result = false
+		tx.receipt.Message = "broadcast failed: nil response"
+		tx.receipt.Err = fmt.Errorf("broadcast failed: nil response from server")
+		return tx
+	}
+
 	tx.receipt.Result = resp.GetResult()
 	tx.receipt.Message = string(resp.GetMessage())
 
@@ -188,7 +209,7 @@ func (tx *Transaction) Broadcast() *Transaction {
 			tx.receipt.Err = chainError
 		} else {
 			// Append chain error to existing error
-			tx.receipt.Err = fmt.Errorf("%w; additionally, %s", tx.receipt.Err, chainError.Error())
+			tx.receipt.Err = fmt.Errorf("%w; additionally, %w", tx.receipt.Err, chainError)
 		}
 	}
 	// If resp.GetResult() is true and tx.receipt.Err was nil, it remains nil (success)

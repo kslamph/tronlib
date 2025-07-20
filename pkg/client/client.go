@@ -3,33 +3,39 @@ package client
 import (
 	"context"
 	"errors"
-	"fmt"
-	"net"
-	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 var (
 	// ErrConnectionFailed is returned when connection to the node fails
 	ErrConnectionFailed = errors.New("connection to node failed")
+	// ErrClientClosed is returned when trying to use a closed client
+	ErrClientClosed = errors.New("client is closed")
+	// ErrContextCancelled is returned when context is cancelled
+	ErrContextCancelled = errors.New("context cancelled")
 )
 
 // ClientConfig represents the configuration for the TronClient
 type ClientConfig struct {
-	NodeAddress string        // Single node address
-	Timeout     time.Duration // Timeout for RPC calls
+	NodeAddress     string        // Single node address
+	Timeout         time.Duration // Universal timeout for all operations (connection + RPC calls)
+	InitConnections int           // Initial number of connections in pool
+	MaxConnections  int           // Maximum number of connections in pool
+	IdleTimeout     time.Duration // How long connections can be idle
 }
 
-// Client manages connection to a single Tron node
+// Client manages connection to a single Tron node with connection pooling
 type Client struct {
-	conn        *grpc.ClientConn
+	pool        *ConnPool
 	timeout     time.Duration
 	nodeAddress string
-	mu          sync.Mutex
+	closed      int32
 }
 
 // NewClient creates a new TronClient with the provided configuration (lazy connection)
@@ -40,63 +46,90 @@ func NewClient(config ClientConfig) (*Client, error) {
 
 	timeout := config.Timeout
 	if timeout == 0 {
-		timeout = 30 * time.Second // Default timeout
+		timeout = 30 * time.Second // Default timeout for all operations
+	}
+
+	maxConnections := config.MaxConnections
+	if maxConnections <= 0 {
+		maxConnections = 5 // Default pool size
+	}
+
+	initConnections := config.InitConnections
+	if initConnections <= 0 {
+		initConnections = 1 // Default initial pool size
+	}
+
+	factory := func(ctx context.Context) (*grpc.ClientConn, error) {
+		// If the context has no deadline, apply the client timeout
+		if _, ok := ctx.Deadline(); !ok {
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithTimeout(ctx, timeout)
+			defer cancel()
+		}
+		return grpc.DialContext(ctx, config.NodeAddress, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+	}
+
+	// Use the same timeout for connection pool
+	pool, err := NewConnPool(factory, initConnections, maxConnections)
+	if err != nil {
+		return nil, err
 	}
 
 	return &Client{
-		conn:        nil,
+		pool:        pool,
 		timeout:     timeout,
 		nodeAddress: config.NodeAddress,
 	}, nil
 }
 
-// ensureConnection establishes the connection if needed
-func (c *Client) ensureConnection() error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	// If already connected, return
-	if c.conn != nil {
-		return nil
+// GetConnection safely gets a connection from the pool
+func (c *Client) GetConnection(ctx context.Context) (*grpc.ClientConn, error) {
+	if atomic.LoadInt32(&c.closed) == 1 {
+		return nil, ErrClientClosed
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
-	defer cancel()
-
-	opts := []grpc.DialOption{
-		grpc.WithInsecure(),
-		grpc.WithBlock(),
-		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
-			d := net.Dialer{Timeout: 5 * time.Second}
-			return d.DialContext(ctx, "tcp", addr)
-		}),
+	// Check if context is already cancelled
+	select {
+	case <-ctx.Done():
+		return nil, ErrContextCancelled
+	default:
 	}
 
-	conn, err := grpc.DialContext(ctx, c.nodeAddress, opts...)
-	if err != nil {
-		return err
+	// Apply client timeout if context doesn't have a deadline
+	// This ensures the entire operation (connection + RPC) respects the timeout
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, c.timeout)
+		defer cancel()
 	}
 
-	c.conn = conn
-	return nil
+	return c.pool.Get(ctx)
 }
 
-// GetConnection returns the gRPC connection, establishing it if needed
-func (c *Client) GetConnection() (*grpc.ClientConn, error) {
-	if err := c.ensureConnection(); err != nil {
-		return nil, err
+// ReturnConnection safely returns a connection to the pool
+func (c *Client) ReturnConnection(conn *grpc.ClientConn) {
+	if atomic.LoadInt32(&c.closed) == 1 {
+		return
 	}
-	return c.conn, nil
+	c.pool.Put(conn)
 }
 
-// Close closes the connection to the Tron node
+// Close closes the client and all connections in the pool
 func (c *Client) Close() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.conn != nil {
-		c.conn.Close()
-		c.conn = nil
+	if !atomic.CompareAndSwapInt32(&c.closed, 0, 1) {
+		return // Already closed
 	}
+	c.pool.Close()
+}
+
+// isClosed checks if the client is closed
+func (c *Client) isClosed() bool {
+	return atomic.LoadInt32(&c.closed) == 1
+}
+
+// GetTimeout returns the client's configured timeout
+func (c *Client) GetTimeout() time.Duration {
+	return c.timeout
 }
 
 // Transaction creation methods
@@ -148,96 +181,44 @@ func (c *Client) CreateUnfreezeTransaction(ctx context.Context, ownerAddress []b
 
 // CreateDelegateResourceTransaction creates a delegate resource transaction
 func (c *Client) CreateDelegateResourceTransaction(ctx context.Context, ownerAddress, receiverAddress []byte, amount int64, resource core.ResourceCode, lock bool, lockPeriod int64) (*api.TransactionExtention, error) {
-	if err := c.ensureConnection(); err != nil {
-		return nil, fmt.Errorf("connection error: %v", err)
-	}
-
-	client := api.NewWalletClient(c.conn)
-	result, err := client.DelegateResource(ctx, &core.DelegateResourceContract{
-		OwnerAddress:    ownerAddress,
-		ReceiverAddress: receiverAddress,
-		Balance:         amount,
-		Resource:        resource,
-		Lock:            lock,
-		LockPeriod:      lockPeriod,
+	return c.grpcCallWrapper("delegate resource", ctx, func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
+		return client.DelegateResource(ctx, &core.DelegateResourceContract{
+			OwnerAddress:    ownerAddress,
+			ReceiverAddress: receiverAddress,
+			Balance:         amount,
+			Resource:        resource,
+			Lock:            lock,
+			LockPeriod:      lockPeriod,
+		})
 	})
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to create delegate resource transaction: %v", err)
-	}
-
-	if !result.Result.Result {
-		return nil, fmt.Errorf("failed to create delegate resource transaction: %v", result.Result)
-	}
-
-	return result, nil
 }
 
 // CreateUndelegateResourceTransaction creates an undelegate resource transaction
 func (c *Client) CreateUndelegateResourceTransaction(ctx context.Context, ownerAddress, receiverAddress []byte, amount int64, resource core.ResourceCode) (*api.TransactionExtention, error) {
-	if err := c.ensureConnection(); err != nil {
-		return nil, fmt.Errorf("connection error: %v", err)
-	}
-
-	client := api.NewWalletClient(c.conn)
-	result, err := client.UnDelegateResource(ctx, &core.UnDelegateResourceContract{
-		OwnerAddress:    ownerAddress,
-		ReceiverAddress: receiverAddress,
-		Balance:         amount,
-		Resource:        resource,
+	return c.grpcCallWrapper("undelegate resource", ctx, func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
+		return client.UnDelegateResource(ctx, &core.UnDelegateResourceContract{
+			OwnerAddress:    ownerAddress,
+			ReceiverAddress: receiverAddress,
+			Balance:         amount,
+			Resource:        resource,
+		})
 	})
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to create undelegate resource transaction: %v", err)
-	}
-
-	if !result.Result.Result {
-		return nil, fmt.Errorf("failed to create undelegate resource transaction: %v", result.Result)
-	}
-
-	return result, nil
 }
 
 // CreateWithdrawExpireUnfreezeTransaction creates a withdraw expire unfreeze transaction
 func (c *Client) CreateWithdrawExpireUnfreezeTransaction(ctx context.Context, ownerAddress []byte) (*api.TransactionExtention, error) {
-	if err := c.ensureConnection(); err != nil {
-		return nil, fmt.Errorf("connection error: %v", err)
-	}
-
-	client := api.NewWalletClient(c.conn)
-	result, err := client.WithdrawExpireUnfreeze(ctx, &core.WithdrawExpireUnfreezeContract{
-		OwnerAddress: ownerAddress,
+	return c.grpcCallWrapper("withdraw expire unfreeze", ctx, func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
+		return client.WithdrawExpireUnfreeze(ctx, &core.WithdrawExpireUnfreezeContract{
+			OwnerAddress: ownerAddress,
+		})
 	})
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to create withdraw expire unfreeze transaction: %v", err)
-	}
-
-	if !result.Result.Result {
-		return nil, fmt.Errorf("failed to create withdraw expire unfreeze transaction: %v", result.Result)
-	}
-
-	return result, nil
 }
 
 // CreateWithdrawBalanceTransaction creates a withdraw balance transaction (claim rewards)
 func (c *Client) CreateWithdrawBalanceTransaction(ctx context.Context, ownerAddress []byte) (*api.TransactionExtention, error) {
-	if err := c.ensureConnection(); err != nil {
-		return nil, fmt.Errorf("connection error: %v", err)
-	}
-
-	client := api.NewWalletClient(c.conn)
-	result, err := client.WithdrawBalance2(ctx, &core.WithdrawBalanceContract{
-		OwnerAddress: ownerAddress,
+	return c.grpcCallWrapper("withdraw balance", ctx, func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
+		return client.WithdrawBalance2(ctx, &core.WithdrawBalanceContract{
+			OwnerAddress: ownerAddress,
+		})
 	})
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to create withdraw balance transaction: %v", err)
-	}
-
-	if !result.Result.Result {
-		return nil, fmt.Errorf("failed to create withdraw balance transaction: %v", result.Result)
-	}
-
-	return result, nil
 }

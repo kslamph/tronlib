@@ -10,51 +10,104 @@ import (
 )
 
 func (c *Client) GetAccount(ctx context.Context, account *types.Address) (*core.Account, error) {
-	if err := c.ensureConnection(); err != nil {
-		return nil, fmt.Errorf("connection error: %v", err)
+	// Validate input
+	if account == nil {
+		return nil, fmt.Errorf("get account failed: account address is nil")
 	}
 
-	client := api.NewWalletClient(c.conn)
-	result, err := client.GetAccount(ctx, &core.Account{
+	// Get connection from pool
+	conn, err := c.pool.Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get connection for get account: %w", err)
+	}
+	defer c.pool.Put(conn)
+
+	walletClient := api.NewWalletClient(conn)
+
+	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
+	defer cancel()
+	result, err := walletClient.GetAccount(ctx, &core.Account{
 		Address: account.Bytes(),
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to get account: %v", err)
+		return nil, fmt.Errorf("failed to get account: %w", err)
 	}
 
 	return result, nil
 }
 
 func (c *Client) GetAccountNet(ctx context.Context, account *types.Address) (*api.AccountNetMessage, error) {
-	if err := c.ensureConnection(); err != nil {
-		return nil, fmt.Errorf("connection error: %v", err)
+	if c.isClosed() {
+		return nil, fmt.Errorf("get account net failed: %w", ErrClientClosed)
 	}
 
-	client := api.NewWalletClient(c.conn)
+	// Check if context is already cancelled
+	select {
+	case <-ctx.Done():
+		return nil, fmt.Errorf("get account net failed: %w", ErrContextCancelled)
+	default:
+	}
+
+	// Validate input
+	if account == nil {
+		return nil, fmt.Errorf("get account net failed: account address is nil")
+	}
+
+	// Get connection from pool
+	conn, err := c.GetConnection(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get connection for get account net: %w", err)
+	}
+
+	// Ensure connection is returned to pool
+	defer c.ReturnConnection(conn)
+
+	client := api.NewWalletClient(conn)
 	result, err := client.GetAccountNet(ctx, &core.Account{
 		Address: account.Bytes(),
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to get account net: %v", err)
+		return nil, fmt.Errorf("failed to get account net: %w", err)
 	}
 
 	return result, nil
 }
 
 func (c *Client) GetAccountResource(ctx context.Context, account *types.Address) (*api.AccountResourceMessage, error) {
-	if err := c.ensureConnection(); err != nil {
-		return nil, fmt.Errorf("connection error: %v", err)
+	if c.isClosed() {
+		return nil, fmt.Errorf("get account resource failed: %w", ErrClientClosed)
 	}
 
-	client := api.NewWalletClient(c.conn)
+	// Check if context is already cancelled
+	select {
+	case <-ctx.Done():
+		return nil, fmt.Errorf("get account resource failed: %w", ErrContextCancelled)
+	default:
+	}
+
+	// Validate input
+	if account == nil {
+		return nil, fmt.Errorf("get account resource failed: account address is nil")
+	}
+
+	// Get connection from pool
+	conn, err := c.GetConnection(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get connection for get account resource: %w", err)
+	}
+
+	// Ensure connection is returned to pool
+	defer c.ReturnConnection(conn)
+
+	client := api.NewWalletClient(conn)
 	result, err := client.GetAccountResource(ctx, &core.Account{
 		Address: account.Bytes(),
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to get account resource: %v", err)
+		return nil, fmt.Errorf("failed to get account resource: %w", err)
 	}
 
 	return result, nil
