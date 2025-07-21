@@ -52,7 +52,7 @@ func TestAddressConversion(t *testing.T) {
 		{
 			name:      "Invalid hex address - wrong length",
 			base58:    "",
-			hex:       "41e28b3cfd4e0e909077821478e9fcb86b84be78",
+			hex:       "41e28b3cfd4e0e909077821478e9fcb86b84be783840",
 			wantError: true,
 		},
 		{
