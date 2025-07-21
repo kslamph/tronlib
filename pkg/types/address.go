@@ -12,46 +12,47 @@ import (
 )
 
 const (
-	AddressPrefix     = "41"                                 // TRON address prefix in hex
-	AddressLength     = 21                                   // Raw address length in bytes (1 byte prefix + 20 bytes address)
-	TRONAddressLength = 34                                   // TRON base58 address length
-	BlackHoleAddress  = "T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb" // Black hole address prefix in hex
+	addressPrefixByte = 0x41
+	addressLength     = 21                                   // Raw address length in bytes (1 byte prefix + 20 bytes address)
+	tRONAddressLength = 34                                   // TRON base58 address length
+	BlackHoleAddress  = "T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb" // Black hole address prefix
 )
 
 // Address represents a Tron address that can be stored in different formats
 type Address struct {
 	base58Addr string
 	bytesAddr  []byte
-	validated  bool // Private field to track if address was properly constructed
 }
 
 // NewAddress creates an Address from a base58 string, it must be a length 34 base58 string prefixed by "T"
 func NewAddress(base58Addr string) (*Address, error) {
+	//address must start with T
 	if !strings.HasPrefix(base58Addr, "T") {
 		return nil, fmt.Errorf("invalid address: must start with T")
 	}
-	if len(base58Addr) != TRONAddressLength {
-		return nil, fmt.Errorf("invalid address length: expected %d, got %d", TRONAddressLength, len(base58Addr))
+	//address must be 34 chars long
+	if len(base58Addr) != tRONAddressLength {
+		return nil, fmt.Errorf("invalid address length: expected %d, got %d", tRONAddressLength, len(base58Addr))
 	}
 
-	// Validate checksum
 	decoded, err := base58.Decode(base58Addr)
+	//address must be valid base58
 	if err != nil {
 		return nil, fmt.Errorf("invalid base58 encoding: %w", err)
 	}
-
-	if len(decoded) != AddressLength+4 { // 21 bytes address + 4 bytes checksum
-		return nil, errors.New("invalid decoded address length")
-	}
-
+	//address hex must be prefixed with 0x41
 	if decoded[0] != 0x41 {
 		return nil, fmt.Errorf("invalid address prefix: expected 0x41, got 0x%x", decoded[0])
 	}
+	//address hex must be 21 bytes long
+	if len(decoded) != addressLength+4 { // 21 bytes address + 4 bytes checksum
+		return nil, errors.New("invalid decoded address length")
+	}
 
-	addressBytes := decoded[:AddressLength]
-	checksum := decoded[AddressLength:]
+	addressBytes := decoded[:addressLength]
+	checksum := decoded[addressLength:]
 
-	// Verify checksum
+	// Verify checksum first 4 bytes of sha256(sha256(addressBytes)) must be equal to checksum
 	h1 := sha256.Sum256(addressBytes)
 	h2 := sha256.Sum256(h1[:])
 	if !bytes.Equal(h2[:4], checksum) {
@@ -60,72 +61,55 @@ func NewAddress(base58Addr string) (*Address, error) {
 
 	return &Address{
 		base58Addr: base58Addr,
-		validated:  true,
+		bytesAddr:  addressBytes,
 	}, nil
 }
 
-// NewAddressFromHex creates an Address from a hex string, it must prefixed with 0x41 or 41 followed by 40 hex chars
+// NewAddressFromHex creates an Address from a hex string,
+// it must prefixed with 0x41 or 41 followed by 40 hex chars
+// or 20 bytes hex string
 func NewAddressFromHex(hexAddr string) (*Address, error) {
 	// Remove 0x prefix if present
 	hexAddr = strings.TrimPrefix(strings.ToLower(hexAddr), "0x")
-
-	// Validate prefix and length
-	if !strings.HasPrefix(hexAddr, AddressPrefix) {
-		return nil, fmt.Errorf("invalid hex address: must start with %s", AddressPrefix)
-	}
-
-	if len(hexAddr) != 42 { // "41" + 40 hex chars
-		return nil, fmt.Errorf("invalid hex address length: expected 42, got %d", len(hexAddr))
-	}
-
-	// Decode hex string
 	decoded, err := hex.DecodeString(hexAddr)
+
 	if err != nil {
 		return nil, fmt.Errorf("invalid hex encoding: %w", err)
 	}
 
-	return &Address{
-		bytesAddr: decoded,
-		validated: true,
-	}, nil
-}
-
-// NewAddressFromEVMHex creates an Address from 20 bytes HEX, optionally prefixed with 0x
-func NewAddressFromEVMHex(hexAddr string) (*Address, error) {
-	// Remove 0x prefix if present
-	hexAddr = strings.TrimPrefix(strings.ToLower(hexAddr), "0x")
-
-	if len(hexAddr) != 40 { // 40 hex chars
-		return nil, fmt.Errorf("invalid hex address length: expected 40, got %d", len(hexAddr))
-	}
-
-	hexAddr = AddressPrefix + hexAddr // Add TRON prefix
-
-	// Decode hex string
-	decoded, err := hex.DecodeString(hexAddr)
-	if err != nil {
-		return nil, fmt.Errorf("invalid hex encoding: %w", err)
+	switch len(decoded) {
+	case 21:
+		if decoded[0] != addressPrefixByte {
+			return nil, fmt.Errorf("invalid hex address: must start with %x", addressPrefixByte)
+		}
+	case 20:
+		//valid address
+	default:
+		return nil, fmt.Errorf("invalid hex address length: expected 40 or 42, got %d", len(hexAddr))
 	}
 
 	return &Address{
-		bytesAddr: decoded,
-		validated: true,
+		bytesAddr:  decoded,
+		base58Addr: encodeBase58Addr(decoded),
 	}, nil
 }
 
-// NewAddressFromBytes creates an Address from bytes
+// NewAddressFromBytes creates an Address from 21(prefixed with 0x41) or 20 bytes
 func NewAddressFromBytes(byteAddress []byte) (*Address, error) {
-	if len(byteAddress) != AddressLength {
-		return nil, fmt.Errorf("invalid address length: expected %d, got %d", AddressLength, len(byteAddress))
-	}
-
-	if byteAddress[0] != 0x41 {
-		return nil, fmt.Errorf("invalid address prefix: expected 0x41, got 0x%x", byteAddress[0])
+	switch len(byteAddress) {
+	case 21:
+		if byteAddress[0] != 0x41 {
+			return nil, fmt.Errorf("invalid address prefix: expected 0x41, got 0x%x", byteAddress[0])
+		}
+	case 20:
+		//valid address
+	default:
+		return nil, fmt.Errorf("invalid address length: expected 21 or 20, got %d", len(byteAddress))
 	}
 
 	return &Address{
-		bytesAddr: byteAddress,
-		validated: true,
+		bytesAddr:  byteAddress,
+		base58Addr: encodeBase58Addr(byteAddress),
 	}, nil
 }
 
@@ -147,15 +131,6 @@ func MustNewAddressFromHex(hexAddr string) *Address {
 	return addr
 }
 
-// MustNewAddressFromEVMHex is a wrapper for NewAddressFromEVMHex that panics if the address is invalid
-func MustNewAddressFromEVMHex(hexAddr string) *Address {
-	addr, err := NewAddressFromEVMHex(hexAddr)
-	if err != nil {
-		panic(err)
-	}
-	return addr
-}
-
 // MustNewAddressFromBytes is a wrapper for NewAddressFromBytes that panics if the address is invalid
 func MustNewAddressFromBytes(byteAddress []byte) *Address {
 	addr, err := NewAddressFromBytes(byteAddress)
@@ -166,107 +141,31 @@ func MustNewAddressFromBytes(byteAddress []byte) *Address {
 }
 
 // GetBase58Addr returns the base58 representation of the address
-func (a *Address) GetBase58Addr() (string, error) {
-	if !a.validated {
-		return "", errors.New("address must be created using NewAddress* methods")
-	}
-
-	if a.base58Addr != "" {
-		return a.base58Addr, nil
-	}
-
-	// Convert from bytes
-	if a.bytesAddr == nil {
-		return "", errors.New("address not initialized")
-	}
-
+func encodeBase58Addr(bytesAddr []byte) string {
 	// Calculate checksum
-	h1 := sha256.Sum256(a.bytesAddr)
+	h1 := sha256.Sum256(bytesAddr)
 	h2 := sha256.Sum256(h1[:])
 	checksum := h2[:4]
 
 	// Combine address with checksum
-	combined := append([]byte{}, a.bytesAddr...)
+	combined := append([]byte{}, bytesAddr...)
 	combined = append(combined, checksum...)
 
 	// Encode to base58
-	a.base58Addr = base58.Encode(combined)
-	return a.base58Addr, nil
+	return base58.Encode(combined)
 }
 
-// GetBytes returns the raw bytes of the address
-func (a *Address) GetBytes() ([]byte, error) {
-	if !a.validated {
-		return nil, errors.New("address must be created using NewAddress* methods")
-	}
-
-	if a.bytesAddr != nil {
-		return a.bytesAddr, nil
-	}
-
-	// Convert from base58
-	if a.base58Addr == "" {
-		return nil, errors.New("address not initialized")
-	}
-
-	decoded, err := base58.Decode(a.base58Addr)
-	if err != nil {
-		return nil, fmt.Errorf("invalid base58 encoding: %w", err)
-	}
-
-	// Take only the address part without checksum
-	if len(decoded) < AddressLength {
-		return nil, errors.New("invalid decoded address length")
-	}
-
-	a.bytesAddr = decoded[:AddressLength]
-	return a.bytesAddr, nil
-}
-
-// GetHex returns the hex string representation with 0x prefix
-func (a *Address) GetHex() (string, error) {
-	if !a.validated {
-		return "", errors.New("address must be created using NewAddress* methods")
-	}
-	bytes, err := a.GetBytes()
-	if err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(bytes), nil
-}
-
-// String returns the base58 representation
+// String returns the T prefixed 34 chars base58 representation
 func (a *Address) String() string {
-	if !a.validated {
-		return "<address must be created using NewAddress* methods>"
-	}
-	addr, err := a.GetBase58Addr()
-	if err != nil {
-		return "<invalid address>"
-	}
-	return addr
+	return a.base58Addr
 }
 
-// Bytes returns the raw bytes of the address
+// Bytes returns the raw bytes of the address (0x41 prefixed 21 bytes)
 func (a *Address) Bytes() []byte {
-	if !a.validated {
-		return nil
-	}
-	bytes, err := a.GetBytes()
-	if err != nil {
-		return nil
-	}
-	return bytes
+	return a.bytesAddr
 }
 
-// Hex returns the hex string representation with 0x prefix
+// Hex returns the hex string of the address (41 prefixed 42 chars)
 func (a *Address) Hex() string {
-	if !a.validated {
-		return "<address must be created using NewAddress* methods>"
-	}
-	hex, err := a.GetHex()
-	if err != nil {
-		return "<invalid address>"
-	}
-	return hex
+	return hex.EncodeToString(a.bytesAddr)
 }

@@ -217,7 +217,7 @@ func decodeTopicValue(topic []byte, paramType string) string {
 	switch paramType {
 	case "address":
 		ethaddr := eCommon.BytesToAddress(topic)
-		addrBase58 := MustNewAddressFromEVMHex(ethaddr.Hex())
+		addrBase58 := MustNewAddressFromHex(ethaddr.Hex())
 		return addrBase58.String()
 	case "uint256", "uint128", "uint64", "uint32", "uint16", "uint8":
 		return new(big.Int).SetBytes(topic).String()

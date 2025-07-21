@@ -128,7 +128,7 @@ func formatDecodedValue(value interface{}, paramType string) interface{} {
 	switch paramType {
 	case "address":
 		if addr, ok := value.(eCommon.Address); ok {
-			addrBase58 := MustNewAddressFromEVMHex(addr.Hex())
+			addrBase58 := MustNewAddressFromHex(addr.Hex())
 			return addrBase58.String()
 		}
 		return value
