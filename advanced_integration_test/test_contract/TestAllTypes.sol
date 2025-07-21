@@ -1,11 +1,34 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-contract TestContract {
+/// @title TestAllTypes - A contract for testing encoder/decoder with diverse types and events
+contract TestAllTypes {
+    // State variables
     uint256 public counter;
+    address public myAddress;
+    bool public myBool;
+    uint256 public myUint;
 
+    // Events with various types
+    event SimpleEvent();
+    event AddressEvent(address indexed sender, address value);
+    event BoolEvent(bool value);
+    event UintEvent(uint256 value);
+    event StringEvent(string value);
+    event BytesEvent(bytes data);
+    event MixedEvent(address indexed sender, uint256 number, string message, bool flag, bytes32 hash);
+
+    // Constructor to initialize state variables (from exetest)
+    constructor(address _myAddress, bool _myBool, uint256 _myUint) {
+        myAddress = _myAddress;
+        myBool = _myBool;
+        myUint = _myUint;
+    }
+
+    // --- Functions from TestContract ---
     function incrementCounter() public {
         counter++;
+        emit UintEvent(counter);
     }
 
     function getCounter() public view returns (uint256) {
@@ -51,9 +74,9 @@ contract TestContract {
             uint256 max = type(uint256).max;
             counter = max + 1;
         }
+        emit UintEvent(counter);
     }
 
-    // Simple return value functions
     function getSimpleBool() public pure returns (bool) {
         return true;
     }
@@ -98,7 +121,6 @@ contract TestContract {
         return hex"deadbeef";
     }
 
-    // Multiple return values with mixed types
     function getMultipleValues1() public pure returns (uint8, bytes1, string memory) {
         return (42, 0xa1, "Mixed types");
     }
@@ -112,9 +134,9 @@ contract TestContract {
         );
     }
 
-    // Nonpayable function examples
     function setMultipleValues(uint256 _counter) public {
         counter = _counter;
+        emit UintEvent(counter);
     }
 
     function complexOperation(uint256 input) public {
@@ -123,5 +145,26 @@ contract TestContract {
         } else {
             counter = input / 2;
         }
+        emit UintEvent(counter);
     }
-}
+
+    // --- Functions from exetest (ReturnVariables) ---
+    function getAndUpdateVariables(address _newAddress, bool _newBool, uint256 _newUint) public returns (address, bool, uint256) {
+        myAddress = _newAddress;
+        myBool = _newBool;
+        myUint = _newUint;
+        emit MixedEvent(msg.sender, myUint, "Updated variables", myBool, keccak256(abi.encodePacked(_newAddress, _newBool, _newUint)));
+        return (myAddress, myBool, myUint);
+    }
+
+    // --- Additional event emission examples ---
+    function emitAllEvents() public {
+        emit SimpleEvent();
+        emit AddressEvent(msg.sender, address(this));
+        emit BoolEvent(true);
+        emit UintEvent(counter);
+        emit StringEvent("Test string event");
+        emit BytesEvent(hex"cafebabe");
+        emit MixedEvent(msg.sender, 123, "Hello Event", false, bytes32(uint256(0x1234)));
+    }
+} 

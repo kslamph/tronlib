@@ -87,3 +87,43 @@ func (c *Client) TriggerConstantSmartContract(ctx context.Context, contract *typ
 
 	return result.GetConstantResult(), nil
 }
+
+func (c *Client) EstimateEnergy(ctx context.Context, contract *types.Contract, ownerAddress *types.Address, data []byte) (int64, error) {
+	// Validate inputs
+	if contract == nil {
+		return 0, fmt.Errorf("estimate energy failed: contract is nil")
+	}
+	if ownerAddress == nil {
+		return 0, fmt.Errorf("estimate energy failed: owner address is nil")
+	}
+	if data == nil {
+		return 0, fmt.Errorf("estimate energy failed: data is nil")
+	}
+
+	// Get connection from pool
+	conn, err := c.pool.Get(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get connection for estimate energy: %w", err)
+	}
+	defer c.pool.Put(conn)
+
+	// Create trigger smart contract message
+	trigger := &core.TriggerSmartContract{
+		OwnerAddress:    ownerAddress.Bytes(),
+		ContractAddress: contract.AddressBytes,
+		Data:            data,
+	}
+
+	walletClient := api.NewWalletClient(conn)
+
+	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
+	defer cancel()
+	result, err := walletClient.EstimateEnergy(ctx, trigger)
+	if err != nil {
+		return 0, fmt.Errorf("failed to estimate energy: %w", err)
+	}
+	if result == nil {
+		return 0, fmt.Errorf("failed to estimate energy: nil response")
+	}
+	return result.EnergyRequired, nil
+}
