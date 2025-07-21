@@ -1,31 +1,41 @@
-# Event Logs Direct Example
+# Event Signature Collector
 
-This example demonstrates how to display all logs for all transactions for all contracts using the `types.DecodeEventLog` method directly, with contract caching.
+This example demonstrates how to collect and store event signatures from TRON blockchain transactions. It scans blocks for smart contract events and stores their signatures in a SQLite database for later analysis.
 
 ## Key Features
 
-1. **Direct Event Log Decoding**: Uses `types.DecodeEventLog` method directly without relying on `transactioninfo.go`
-2. **Contract Caching**: Implements a thread-safe contract cache to avoid repeated network calls
-3. **Batch Processing**: Processes multiple blocks and transactions efficiently
-4. **Error Handling**: Gracefully handles errors and continues processing
+1. **Event Signature Collection**: Collects event signatures from smart contract transactions
+2. **Backward Block Scanning**: Scans current block once, then scans backwards from current-1200 blocks continuously
+3. **Contract Caching**: Implements a thread-safe contract cache to avoid repeated network calls
+4. **Database Storage**: Stores event signatures in SQLite database with parameter information
+5. **Continuous Processing**: Scans blocks as fast as possible without any delays
+6. **Graceful Shutdown**: Handles SIGINT/SIGTERM signals for clean shutdown
 
 ## How It Works
 
-### Contract Cache
-The `ContractCache` struct provides:
-- Thread-safe storage of contracts using `sync.RWMutex`
-- `GetOrFetch` method that checks cache first, then fetches from network if needed
-- Automatic caching of contracts for reuse
+### Scanning Strategy
+1. **Startup**: Scans the current block once to capture latest events
+2. **Backward Scanning**: Scans backwards from current block -1200 continuously without delay
+3. **Completion**: Stops when reaching the target block number (current - 1200)
 
-### Event Log Processing
-1. **Block Processing**: Iterates through a range of blocks
-2. **Transaction Processing**: For each block, gets all transaction info
-3. **Log Processing**: For each transaction, processes all event logs
-4. **Contract Resolution**: Uses cached contracts or fetches new ones
-5. **Event Decoding**: Uses `contract.DecodeEventLog()` to decode events
-6. **Result Display**: Shows decoded event information
+### Event Processing
+1. **Block Processing**: Gets transaction info for each block
+2. **Transaction Processing**: For each transaction, processes all event logs
+3. **Contract Resolution**: Uses cached contracts or fetches new ones
+4. **Event Decoding**: Uses `contract.DecodeEventLog()` to decode events
+5. **Database Storage**: Saves event signatures with parameter types and names
 
 ### Key Components
+
+#### EventSignatureCollector
+```go
+type EventSignatureCollector struct {
+    client *client.Client
+    db     *database.Database
+    cache  *ContractCache
+    mutex  sync.RWMutex
+}
+```
 
 #### ContractCache
 ```go
@@ -35,83 +45,82 @@ type ContractCache struct {
 }
 ```
 
-#### DecodedLog
-```go
-type DecodedLog struct {
-    BlockNumber     uint64
-    BlockTimestamp  uint64
-    TransactionHash string
-    ContractAddress string
-    EventName       string
-    Parameters      []types.DecodedEventParameter
-    RawTopics       [][]byte
-    RawData         []byte
-}
-```
-
 ## Usage
 
-### Multi-Block Processing
+### Building
 ```bash
-go run main.go single_transaction_example.go
+cd examples/event_signature_collector
+make
 ```
 
-### Single Transaction Processing
+### Running the Collector
 ```bash
-# Run with default example transaction
-go run main.go single_transaction_example.go --single
+# Run with default settings
+./collector
 
-# Run with specific transaction ID
-go run main.go single_transaction_example.go --single 60a3be8dcf42cc13a38c35a00b89e115520756ae4106a7896d750fd9d8463f9c
+# Run with custom node and database
+./collector -node 127.0.0.1:50051 -db my_signatures.db
+
+# Run with custom timeout
+./collector -timeout 60s
+
+# Run with all custom options
+./collector -node 127.0.0.1:50051 -db signatures.db -timeout 30s
 ```
 
-**Note**: Transaction ID must be exactly 64 characters (32 bytes) in hexadecimal format.
+### Querying Collected Data
+```bash
+# Query collected signatures
+./query
 
-### Steps
-1. **Configure Client**: Set up TRON client with appropriate node address
-2. **Create Cache**: Initialize the contract cache
-3. **Process Blocks**: Specify the block range to process
-4. **View Results**: See decoded events with parameters
+# Query with custom database
+./query -db my_signatures.db
+```
+
+## Command Line Options
+
+- `-node`: TRON node address (default: 127.0.0.1:50051)
+- `-db`: Path to SQLite database (default: event_signatures.db)
+- `-timeout`: Client timeout duration (default: 30s)
 
 ## Example Output
 
 ```
-Current block number: 12345678
-Processing blocks 12345668 to 12345678...
-Processing block 12345668...
-Processing block 12345669...
+Starting event signature collector...
+Node: 127.0.0.1:50051
+Database: event_signatures.db
+Strategy: Scan current block once, then scan backwards from current-1200 blocks continuously
+Press Ctrl+C to stop
 
-=== Decoded Event Logs (15 total) ===
+Processing block 12345678
+Found 15 transactions in block 12345678
+Saved event signature: ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef (Transfer) with parameter types ["address","address","uint256"] and names ["from","to","value"] from contract TXJgMdjVX5dKiQaUi9QobwNxtSQaFqccvd
 
-Log #1:
-  Block: 12345668 (timestamp: 1703123456789)
-  Transaction: 60a3be8dcf42cc13a38c35a00b89e115520756ae4106a7896d750fd9d8463f9c
-  Contract: TXJgMdjVX5dKiQaUi9QobwNxtSQaFqccvd
-  Event: Transfer
-  Parameters:
-    from (address): TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t (indexed)
-    to (address): TXJgMdjVX5dKiQaUi9QobwNxtSQaFqccvd (indexed)
-    value (uint256): 1000000000000000000
-  Raw Topics: 2 topics
-    Topic[0]: 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef
-    Topic[1]: 0x000000000000000000000000a614f803b6fd780986a42c78ec9c7f77e6ded13c
-  Raw Data: 0x0000000000000000000000000000000000000000000000000de0b6b3a7640000
-
-=== Cache Statistics ===
-Total contracts cached: 3
-Cached contract addresses:
-  TXJgMdjVX5dKiQaUi9QobwNxtSQaFqccvd
-  TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t
-  TQn9Y2khDD95J42FQtQTdwVVRZJmJk8ZkQ
+Starting backward scan from block 12345678 to block 12344478
+Processing block 12345677
+Found 12 transactions in block 12345677
+...
 ```
+
+## Database Schema
+
+The SQLite database stores event signatures with the following information:
+- Event signature (hex string)
+- Event name
+- Parameter types (JSON array)
+- Parameter names (JSON array)
+- Contract address (base58)
+- Timestamp of collection
 
 ## Benefits
 
-1. **Performance**: Contract caching reduces network calls
-2. **Efficiency**: Direct event decoding without intermediate parsing
-3. **Scalability**: Can process large numbers of blocks and transactions
-4. **Reliability**: Graceful error handling and recovery
-5. **Flexibility**: Easy to modify for different use cases
+1. **Comprehensive Collection**: Captures event signatures from a wide range of blocks
+2. **Performance**: Contract caching reduces network calls
+3. **Efficiency**: Backward scanning ensures no blocks are missed
+4. **Speed**: Continuous scanning without delays maximizes processing speed
+5. **Scalability**: Can process large numbers of blocks and transactions
+6. **Reliability**: Graceful error handling and recovery
+7. **Flexibility**: Configurable database storage
 
 ## Configuration
 
@@ -120,10 +129,11 @@ You can modify the following parameters:
 - `Timeout`: Request timeout duration
 - `InitConnections`: Initial connection pool size
 - `MaxConnections`: Maximum connection pool size
-- Block range: Number of blocks to process
+- `Database`: SQLite database path
 
 ## Dependencies
 
 - `github.com/kslamph/tronlib/pkg/client`
 - `github.com/kslamph/tronlib/pkg/types`
-- `github.com/kslamph/tronlib/pb/core` 
+- `github.com/kslamph/tronlib/pb/core`
+- SQLite3 database 

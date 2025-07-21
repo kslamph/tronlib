@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -19,10 +20,12 @@ import (
 func main() {
 	// Define command line flags
 	var (
-		nodeAddr = flag.String("node", "127.0.0.1:50051", "TRON node address")
-		dbPath   = flag.String("db", "event_signatures.db", "Path to the SQLite database")
-		timeout  = flag.Duration("timeout", 30*time.Second, "Client timeout")
-		interval = flag.Duration("interval", 4*time.Second, "Block processing interval")
+		nodeAddr    = flag.String("node", "127.0.0.1:50051", "TRON node address")
+		dbPath      = flag.String("db", "event_signatures.db", "Path to the SQLite database")
+		timeout     = flag.Duration("timeout", 30*time.Second, "Client timeout")
+		startBlock  = flag.Int64("start", 0, "Start block number (inclusive)")
+		endBlock    = flag.Int64("end", 0, "End block number (inclusive)")
+		concurrency = flag.Int("concurrency", 4, "Number of concurrent workers")
 	)
 	flag.Parse()
 
@@ -69,11 +72,54 @@ func main() {
 	fmt.Printf("Starting event signature collector...\n")
 	fmt.Printf("Node: %s\n", *nodeAddr)
 	fmt.Printf("Database: %s\n", *dbPath)
-	fmt.Printf("Interval: %v\n", *interval)
+	fmt.Println("Strategy: Scan current block once, then scan backwards from current-1200 blocks continuously")
 	fmt.Println("Press Ctrl+C to stop")
 
-	// Start collection loop with custom interval
-	collector.StartWithInterval(ctx, *interval)
+	// If start/end blocks are specified, use concurrent workers
+	if *startBlock > 0 && *endBlock > 0 && *endBlock >= *startBlock {
+		fmt.Printf("Concurrent block processing: start=%d end=%d concurrency=%d\n", *startBlock, *endBlock, *concurrency)
+		processBlocksConcurrently(ctx, collector, *startBlock, *endBlock, *concurrency)
+		collector.ShutdownWriter()
+	} else {
+		// Start collection loop (legacy behavior)
+		collector.Start(ctx)
+		collector.ShutdownWriter()
+	}
+}
+
+// processBlocksConcurrently processes blocks in the given range using concurrent workers
+func processBlocksConcurrently(ctx context.Context, collector *collector.EventSignatureCollector, start, end int64, concurrency int) {
+	blockCh := make(chan int64, concurrency*2)
+	var wg sync.WaitGroup
+
+	// Start workers
+	for i := 0; i < concurrency; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for blockNum := range blockCh {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					if err := collector.ProcessBlockByNumber(ctx, blockNum); err != nil {
+						log.Printf("Error processing block %d: %v", blockNum, err)
+					}
+				}
+			}
+		}()
+	}
+
+	// Feed block numbers
+	for b := start; b <= end; b++ {
+		select {
+		case <-ctx.Done():
+			break
+		case blockCh <- b:
+		}
+	}
+	close(blockCh)
+	wg.Wait()
 }
 
 func init() {
@@ -81,10 +127,12 @@ func init() {
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Event Signature Collector\n\n")
 		fmt.Fprintf(os.Stderr, "Usage: %s [options]\n\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Strategy: Scans current block once at startup, then scans backwards\n")
+		fmt.Fprintf(os.Stderr, "         from current block -1200 continuously without delay.\n\n")
 		fmt.Fprintf(os.Stderr, "Options:\n")
 		flag.PrintDefaults()
 		fmt.Fprintf(os.Stderr, "\nExamples:\n")
 		fmt.Fprintf(os.Stderr, "  %s -node 127.0.0.1:50051 -db signatures.db\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "  %s -interval 2s -timeout 60s\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "  %s -timeout 60s\n", os.Args[0])
 	}
 }

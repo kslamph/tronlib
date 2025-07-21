@@ -23,49 +23,126 @@ type EventSignatureCollector struct {
 	db     *database.Database
 	cache  *ContractCache
 	mutex  sync.RWMutex
+
+	writeCh chan *eventSignatureWriteRequest
+	writeWg sync.WaitGroup
+}
+
+// eventSignatureWriteRequest represents a request to save an event signature
+// and a channel to report the result (error)
+type eventSignatureWriteRequest struct {
+	signature      string
+	eventName      string
+	parameterTypes string
+	parameterNames string
+	contractAddr   string
+	done           chan error
 }
 
 // NewEventSignatureCollector creates a new event signature collector
 func NewEventSignatureCollector(client *client.Client, db *database.Database) *EventSignatureCollector {
-	return &EventSignatureCollector{
-		client: client,
-		db:     db,
-		cache:  NewContractCache(),
+	c := &EventSignatureCollector{
+		client:  client,
+		db:      db,
+		cache:   NewContractCache(),
+		writeCh: make(chan *eventSignatureWriteRequest, 1000),
 	}
+	c.writeWg.Add(1)
+	go c.writer()
+	return c
+}
+
+// writer serializes all database writes
+func (c *EventSignatureCollector) writer() {
+	defer c.writeWg.Done()
+	for req := range c.writeCh {
+		err := c.db.SaveEventSignature(req.signature, req.eventName, req.parameterTypes, req.parameterNames, req.contractAddr)
+		if req.done != nil {
+			req.done <- err
+		}
+	}
+}
+
+// ShutdownWriter closes the write channel and waits for the writer to finish
+func (c *EventSignatureCollector) ShutdownWriter() {
+	close(c.writeCh)
+	c.writeWg.Wait()
 }
 
 // Start begins the collection loop
 func (c *EventSignatureCollector) Start(ctx context.Context) {
-	ticker := time.NewTicker(4 * time.Second)
-	defer ticker.Stop()
+	// First, process the current block once at startup
+	if err := c.processLatestBlock(ctx); err != nil {
+		log.Printf("Error processing latest block at startup: %v", err)
+	}
+
+	// Get current block number to calculate starting point for backward scanning
+	block, err := c.client.GetNowBlock(ctx)
+	if err != nil {
+		log.Fatalf("Failed to get current block: %v", err)
+	}
+	currentBlockNum := block.GetBlockHeader().GetRawData().GetNumber()
+	startBlockNum := currentBlockNum - 1200
+
+	log.Printf("Starting backward scan from block %d to block %d", currentBlockNum, startBlockNum)
+
+	currentScanBlock := currentBlockNum - 1 // Start from the block before current
 
 	for {
 		select {
 		case <-ctx.Done():
 			log.Println("Collection stopped")
 			return
-		case <-ticker.C:
-			if err := c.processLatestBlock(ctx); err != nil {
-				log.Printf("Error processing latest block: %v", err)
+		default:
+			if currentScanBlock < startBlockNum {
+				log.Printf("Backward scan completed. Reached target block %d", startBlockNum)
+				return
 			}
+
+			if err := c.ProcessBlockByNumber(ctx, currentScanBlock); err != nil {
+				log.Printf("Error processing block %d: %v", currentScanBlock, err)
+			}
+
+			currentScanBlock--
 		}
 	}
 }
 
 // StartWithInterval begins the collection loop with custom interval
 func (c *EventSignatureCollector) StartWithInterval(ctx context.Context, interval time.Duration) {
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
+	// First, process the current block once at startup
+	if err := c.processLatestBlock(ctx); err != nil {
+		log.Printf("Error processing latest block at startup: %v", err)
+	}
+
+	// Get current block number to calculate starting point for backward scanning
+	block, err := c.client.GetNowBlock(ctx)
+	if err != nil {
+		log.Fatalf("Failed to get current block: %v", err)
+	}
+	currentBlockNum := block.GetBlockHeader().GetRawData().GetNumber()
+	startBlockNum := currentBlockNum - 1200
+
+	log.Printf("Starting backward scan from block %d to block %d", currentBlockNum, startBlockNum)
+
+	currentScanBlock := currentBlockNum - 1 // Start from the block before current
 
 	for {
 		select {
 		case <-ctx.Done():
 			log.Println("Collection stopped")
 			return
-		case <-ticker.C:
-			if err := c.processLatestBlock(ctx); err != nil {
-				log.Printf("Error processing latest block: %v", err)
+		default:
+			if currentScanBlock < startBlockNum {
+				log.Printf("Backward scan completed. Reached target block %d", startBlockNum)
+				return
 			}
+
+			if err := c.ProcessBlockByNumber(ctx, currentScanBlock); err != nil {
+				log.Printf("Error processing block %d: %v", currentScanBlock, err)
+			}
+
+			currentScanBlock--
 		}
 	}
 }
@@ -152,7 +229,7 @@ func (c *EventSignatureCollector) processLog(ctx context.Context, logEntry *core
 	contract, err := c.cache.GetOrFetch(ctx, c.client, fullAddrBytes)
 	if err != nil {
 		// If we can't get the contract, skip recording unknown events
-		log.Printf("Skipping unknown event signature: %s from contract %s (contract not found)", eventSignature, contractAddressBase58)
+		// log.Printf("Skipping unknown event signature: %s from contract %s (contract not found)", eventSignature, contractAddressBase58)
 		return nil
 	}
 
@@ -167,7 +244,7 @@ func (c *EventSignatureCollector) processLog(ctx context.Context, logEntry *core
 	// Check if this is an unknown event (event name starts with "unknown_event")
 	if strings.HasPrefix(decodedEvent.EventName, "unknown_event") {
 		// Skip recording unknown events
-		log.Printf("Skipping unknown event signature: %s from contract %s", eventSignature, contractAddressBase58)
+		// log.Printf("Skipping unknown event signature: %s from contract %s", eventSignature, contractAddressBase58)
 		return nil
 	}
 
@@ -190,13 +267,38 @@ func (c *EventSignatureCollector) processLog(ctx context.Context, logEntry *core
 		return fmt.Errorf("failed to marshal parameter names: %v", err)
 	}
 
-	// Save the event signature
-	if err := c.db.SaveEventSignature(eventSignature, decodedEvent.EventName, string(parameterTypesJSON), string(parameterNamesJSON), contractAddressBase58); err != nil {
-		return fmt.Errorf("failed to save event signature: %v", err)
+	// Save the event signature (serialize via write channel)
+	done := make(chan error, 1)
+	c.writeCh <- &eventSignatureWriteRequest{
+		signature:      eventSignature,
+		eventName:      decodedEvent.EventName,
+		parameterTypes: string(parameterTypesJSON),
+		parameterNames: string(parameterNamesJSON),
+		contractAddr:   contractAddressBase58,
+		done:           done,
+	}
+	return <-done
+}
+
+// ProcessBlockByNumber processes a specific block by its number (exported for concurrency)
+func (c *EventSignatureCollector) ProcessBlockByNumber(ctx context.Context, blockNum int64) error {
+	log.Printf("Processing block %d", blockNum)
+
+	// Get transaction info for the block
+	txInfoList, err := c.client.GetTransactionInfoByBlockNum(ctx, blockNum)
+	if err != nil {
+		return fmt.Errorf("failed to get transaction info for block %d: %v", blockNum, err)
 	}
 
-	log.Printf("Saved event signature: %s (%s) with parameter types %s and names %s from contract %s",
-		eventSignature, decodedEvent.EventName, string(parameterTypesJSON), string(parameterNamesJSON), contractAddressBase58)
+	log.Printf("Found %d transactions in block %d", len(txInfoList.TransactionInfo), blockNum)
+
+	// Process each transaction
+	for _, txInfo := range txInfoList.TransactionInfo {
+		if err := c.processTransaction(ctx, txInfo); err != nil {
+			log.Printf("Warning: Failed to process transaction %s: %v", hex.EncodeToString(txInfo.GetId()), err)
+			continue
+		}
+	}
 
 	return nil
 }
