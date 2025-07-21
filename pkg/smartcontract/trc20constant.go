@@ -27,6 +27,10 @@ type TRC20Contract struct {
 
 // NewTRC20Contract creates a new TRC20 contract instance
 func NewTRC20Contract(address string, client *client.Client) (*TRC20Contract, error) {
+	if client == nil {
+		return nil, fmt.Errorf("client cannot be nil")
+	}
+
 	contract, err := types.NewContract(types.ERC20ABI, address)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create TRC20 contract: %v", err)
