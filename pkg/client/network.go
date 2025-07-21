@@ -222,23 +222,41 @@ func (c *Client) GetTransactionInfoById(ctx context.Context, txId string) (*core
 	return result, nil
 }
 
-func (c *Client) GetChainParameters(ctx context.Context) (*core.ChainParameters, error) {
-	// Get connection from pool
+func (c *Client) GetNodeInfo(ctx context.Context) (*core.NodeInfo, error) {
 	conn, err := c.pool.Get(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get connection for get chain parameters: %w", err)
+		return nil, err
 	}
 	defer c.pool.Put(conn)
 
 	walletClient := api.NewWalletClient(conn)
-
 	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
 	defer cancel()
-	result, err := walletClient.GetChainParameters(ctx, &api.EmptyMessage{})
+	return walletClient.GetNodeInfo(ctx, &api.EmptyMessage{})
+}
 
+func (c *Client) ListNodes(ctx context.Context) (*api.NodeList, error) {
+	conn, err := c.pool.Get(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get chain parameters: %w", err)
+		return nil, err
 	}
+	defer c.pool.Put(conn)
 
-	return result, nil
+	walletClient := api.NewWalletClient(conn)
+	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
+	defer cancel()
+	return walletClient.ListNodes(ctx, &api.EmptyMessage{})
+}
+
+func (c *Client) GetChainParameters(ctx context.Context) (*core.ChainParameters, error) {
+	conn, err := c.pool.Get(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer c.pool.Put(conn)
+
+	walletClient := api.NewWalletClient(conn)
+	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
+	defer cancel()
+	return walletClient.GetChainParameters(ctx, &api.EmptyMessage{})
 }
