@@ -3,7 +3,6 @@ package integration_test
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/kslamph/tronlib/pkg/client"
 	"github.com/kslamph/tronlib/pkg/types"
@@ -29,7 +28,7 @@ func TestTransactionReadOnly(t *testing.T) {
 		t.Fatalf("Failed to create address: %v", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), c.GetTimeout())
 	defer cancel()
 	ac, err := c.GetAccount(ctx, addr)
 	if err != nil {
@@ -38,7 +37,7 @@ func TestTransactionReadOnly(t *testing.T) {
 		t.Error("Account balance should not be negative")
 	}
 
-	txCtx, txCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	txCtx, txCancel := context.WithTimeout(context.Background(), c.GetTimeout())
 	defer txCancel()
 	txInfo, err := c.GetTransactionInfoById(txCtx, TxnTestID)
 	if err != nil {

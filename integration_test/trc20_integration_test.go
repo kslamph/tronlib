@@ -3,7 +3,6 @@ package integration_test
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/kslamph/tronlib/pkg/client"
 	"github.com/kslamph/tronlib/pkg/smartcontract"
@@ -33,7 +32,7 @@ func TestTRC20ReadOnly(t *testing.T) {
 		t.Fatalf("Failed to create TRC20 contract: %v", err)
 	}
 
-	callCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	callCtx, cancel := context.WithTimeout(ctx, c.GetTimeout())
 	defer cancel()
 
 	if symbol, err := contract.Symbol(callCtx); err != nil {
@@ -42,7 +41,7 @@ func TestTRC20ReadOnly(t *testing.T) {
 		t.Error("Symbol is empty")
 	}
 
-	callCtx, cancel = context.WithTimeout(ctx, 5*time.Second)
+	callCtx, cancel = context.WithTimeout(ctx, c.GetTimeout())
 	defer cancel()
 	if decimals, err := contract.Decimals(callCtx); err != nil {
 		t.Errorf("Failed to get decimals: %v", err)
@@ -50,7 +49,7 @@ func TestTRC20ReadOnly(t *testing.T) {
 		t.Error("Decimals should be positive")
 	}
 
-	callCtx, cancel = context.WithTimeout(ctx, 5*time.Second)
+	callCtx, cancel = context.WithTimeout(ctx, c.GetTimeout())
 	defer cancel()
 	if name, err := contract.Name(callCtx); err != nil {
 		t.Errorf("Failed to get name: %v", err)
@@ -61,7 +60,7 @@ func TestTRC20ReadOnly(t *testing.T) {
 	owner, _ := types.NewAddress(TRC20OwnerAddress)
 	spender, _ := types.NewAddress(TRC20SpenderAddress)
 
-	callCtx, cancel = context.WithTimeout(ctx, 5*time.Second)
+	callCtx, cancel = context.WithTimeout(ctx, c.GetTimeout())
 	defer cancel()
 	if allowance, err := contract.Allowance(callCtx, owner.String(), spender.String()); err != nil {
 		t.Errorf("Failed to get allowance: %v", err)
@@ -69,7 +68,7 @@ func TestTRC20ReadOnly(t *testing.T) {
 		t.Error("Allowance should not be negative")
 	}
 
-	callCtx, cancel = context.WithTimeout(ctx, 5*time.Second)
+	callCtx, cancel = context.WithTimeout(ctx, c.GetTimeout())
 	defer cancel()
 	if balance, err := contract.BalanceOf(callCtx, owner.String()); err != nil {
 		t.Errorf("Failed to get balance: %v", err)

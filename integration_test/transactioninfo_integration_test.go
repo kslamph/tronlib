@@ -21,7 +21,7 @@ func getContract(tclient *client.Client, address string) *types.Contract {
 func TestParseTransactionInfoLogIntegration(t *testing.T) {
 	tclient, err := client.NewClient(client.ClientConfig{
 		NodeAddress: "127.0.0.1:50051",
-		Timeout:     30 * time.Second,
+		Timeout:     15 * time.Second,
 	})
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)

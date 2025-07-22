@@ -4,7 +4,6 @@ import (
 	"context"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/kslamph/tronlib/pkg/client"
 	"github.com/kslamph/tronlib/pkg/types"
@@ -37,7 +36,7 @@ func TestClientConnectionPoolConcurrency(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), c.GetTimeout())
 			defer cancel()
 			_, err := c.GetAccount(ctx, addr)
 			errs <- err

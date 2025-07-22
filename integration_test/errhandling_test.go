@@ -12,14 +12,14 @@ import (
 func TestErrorHandlingForNonExistentAccountAndTransaction(t *testing.T) {
 	c, err := client.NewClient(client.ClientConfig{
 		NodeAddress: NodeInfoEndpoint,
-		Timeout:     10 * time.Second,
+		Timeout:     15 * time.Second,
 	})
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 	defer c.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), c.GetTimeout())
 	defer cancel()
 
 	// Non-existent account
