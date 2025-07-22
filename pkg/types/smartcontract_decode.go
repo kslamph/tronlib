@@ -220,8 +220,8 @@ func decodeValue(data []byte, param Param) (interface{}, error) {
 	return nil, fmt.Errorf("no type specified in param")
 }
 
-// decodeABI decodes the ABI string into a core.SmartContract_ABI object
-func decodeABI(abi string) (*core.SmartContract_ABI, error) {
+// DecodeABI decodes the ABI string into a core.SmartContract_ABI object
+func DecodeABI(abi string) (*core.SmartContract_ABI, error) {
 	if abi == "" {
 		return nil, fmt.Errorf("empty ABI string")
 	}

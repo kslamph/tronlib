@@ -33,7 +33,7 @@ func NewContract(abi string, address string) (*Contract, error) {
 	if address == "" {
 		return nil, fmt.Errorf("empty contract address")
 	}
-	decodedABI, err := decodeABI(abi)
+	decodedABI, err := DecodeABI(abi)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode ABI: %v", err)
 	}

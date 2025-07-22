@@ -211,3 +211,10 @@ func (c *Client) CreateWithdrawBalanceTransaction(ctx context.Context, ownerAddr
 		})
 	})
 }
+
+// CreateDeployContractTransaction creates a deploy contract transaction
+func (c *Client) CreateDeployContractTransaction(ctx context.Context, contract *core.CreateSmartContract) (*api.TransactionExtention, error) {
+	return c.grpcCallWrapper(ctx, "deploy contract", func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
+		return client.DeployContract(ctx, contract)
+	})
+}

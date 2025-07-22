@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/kslamph/tronlib/pb/api"
+	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/client"
 	"github.com/kslamph/tronlib/pkg/types"
 	"google.golang.org/protobuf/proto"
@@ -247,5 +248,100 @@ func (tx *Transaction) SetDefaultOptions() *Transaction {
 		return tx
 	}
 	tx.receipt.Err = fmt.Errorf("no transaction to set default options")
+	return tx
+}
+
+// DeployContract deploys a smart contract with the provided parameters
+// The owner address must be set using SetOwner() before calling this method
+func (tx *Transaction) DeployContract(ctx context.Context, bytecode []byte, abi []byte, name string, originEnergyLimit int64, consumeUserResourcePercent int64, constructorParams ...interface{}) *Transaction {
+	if tx.receipt.Err != nil {
+		return tx
+	}
+
+	// Validate required parameters
+	if len(bytecode) == 0 {
+		tx.receipt.Err = fmt.Errorf("bytecode cannot be empty")
+		return tx
+	}
+	if len(abi) == 0 {
+		tx.receipt.Err = fmt.Errorf("abi cannot be empty")
+		return tx
+	}
+	if name == "" {
+		tx.receipt.Err = fmt.Errorf("contract name cannot be empty")
+		return tx
+	}
+	if originEnergyLimit <= 0 {
+		tx.receipt.Err = fmt.Errorf("origin energy limit must be greater than 0")
+		return tx
+	}
+	if consumeUserResourcePercent < 0 || consumeUserResourcePercent > 100 {
+		tx.receipt.Err = fmt.Errorf("consume user resource percent must be between 0 and 100")
+		return tx
+	}
+
+	// Check if owner is set
+	if tx.owner == nil {
+		tx.receipt.Err = fmt.Errorf("owner address must be set before deploying contract")
+		return tx
+	}
+
+	// Prepare the final bytecode with constructor parameters if provided
+	finalBytecode := bytecode
+	if len(constructorParams) > 0 {
+		// Decode ABI to handle constructor parameters
+		contractABI, err := types.DecodeABI(string(abi))
+		if err != nil {
+			tx.receipt.Err = fmt.Errorf("failed to decode ABI: %v", err)
+			return tx
+		}
+
+		// Create contract instance to encode constructor parameters
+		contract, err := types.NewContractFromABI(contractABI, tx.owner.String())
+		if err != nil {
+			tx.receipt.Err = fmt.Errorf("failed to create contract instance: %v", err)
+			return tx
+		}
+
+		// Encode constructor parameters
+		encodedParams, err := contract.EncodeInput("", constructorParams...)
+		if err != nil {
+			tx.receipt.Err = fmt.Errorf("failed to encode constructor parameters: %v", err)
+			return tx
+		}
+
+		// Append constructor parameters to bytecode
+		finalBytecode = append(bytecode, encodedParams...)
+	}
+
+	// Decode ABI for the smart contract
+	contractABI, err := types.DecodeABI(string(abi))
+	if err != nil {
+		tx.receipt.Err = fmt.Errorf("failed to decode ABI for smart contract: %v", err)
+		return tx
+	}
+
+	// Create the smart contract request
+	createReq := &core.CreateSmartContract{
+		OwnerAddress: tx.owner.Bytes(),
+		NewContract: &core.SmartContract{
+			Name:                       name,
+			Bytecode:                   finalBytecode,
+			Abi:                        contractABI,
+			OriginAddress:              tx.owner.Bytes(),
+			OriginEnergyLimit:          originEnergyLimit,
+			ConsumeUserResourcePercent: consumeUserResourcePercent,
+		},
+	}
+
+	// Call the low-level client method
+	txExt, err := tx.client.CreateDeployContractTransaction(ctx, createReq)
+	if err != nil {
+		tx.receipt.Err = fmt.Errorf("failed to create deploy contract transaction: %v", err)
+		return tx
+	}
+
+	tx.txExtension = txExt
+	tx.SetDefaultOptions()
 	return tx
 }
