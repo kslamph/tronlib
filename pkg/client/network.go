@@ -3,7 +3,9 @@ package client
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/kslamph/tronlib/pb/api"
@@ -95,13 +97,10 @@ func (c *Client) GetNowBlock(ctx context.Context) (*api.BlockExtention, error) {
 // 0 = success
 // 1 = failed
 // when error occurs, the transaction status should be considered as unknown
-func (c *Client) WaitForTransactionInfo(ctx context.Context, txId string, timeoutSeconds int) (*core.TransactionInfo, error) {
+func (c *Client) WaitForTransactionInfo(ctx context.Context, txId string) (*core.TransactionInfo, error) {
 	// Validate inputs
 	if txId == "" {
 		return nil, fmt.Errorf("wait for transaction info failed: transaction ID is empty")
-	}
-	if timeoutSeconds <= 0 {
-		return nil, fmt.Errorf("wait for transaction info failed: invalid timeout %d", timeoutSeconds)
 	}
 
 	hashBytes, err := hex.DecodeString(txId)
@@ -109,13 +108,11 @@ func (c *Client) WaitForTransactionInfo(ctx context.Context, txId string, timeou
 		return nil, fmt.Errorf("failed to decode transaction ID: %w", err)
 	}
 
-	deadline := time.Now().Add(time.Duration(timeoutSeconds) * time.Second)
-
-	for time.Now().Before(deadline) {
+	for {
 		// Check if context is cancelled
 		select {
 		case <-ctx.Done():
-			return nil, fmt.Errorf("wait for transaction info failed: %w", ErrContextCancelled)
+			return nil, fmt.Errorf("wait for transaction info failed: %w", ctx.Err())
 		default:
 		}
 
@@ -138,10 +135,17 @@ func (c *Client) WaitForTransactionInfo(ctx context.Context, txId string, timeou
 		c.pool.Put(conn)
 
 		if err != nil {
-			return nil, fmt.Errorf("failed to wait for transaction info: %w", err)
+			// If the context was canceled during the gRPC call, return that error.
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return nil, fmt.Errorf("wait for transaction info failed: %w", err)
+			}
+			// For other gRPC errors, you might want to log them and continue retrying
+			// or return immediately depending on the desired behavior.
+			// For this example, we'll continue retrying on other errors.
+			log.Printf("failed to get transaction info, will retry: %v", err)
 		}
 
-		if result.GetBlockNumber() != 0 {
+		if result != nil && result.GetBlockNumber() != 0 {
 			return result, nil
 		}
 
@@ -149,11 +153,9 @@ func (c *Client) WaitForTransactionInfo(ctx context.Context, txId string, timeou
 		select {
 		case <-time.After(time.Second):
 		case <-ctx.Done():
-			return nil, fmt.Errorf("wait for transaction info failed: %w", ErrContextCancelled)
+			return nil, fmt.Errorf("wait for transaction info failed: %w", ctx.Err())
 		}
 	}
-
-	return nil, fmt.Errorf("transaction not found after %d seconds", timeoutSeconds)
 }
 
 func (c *Client) GetTransactionById(ctx context.Context, txId string) (*core.Transaction, error) {

@@ -1,10 +1,10 @@
-package parser
+package helper
 
 import (
 	"encoding/hex"
 
 	"github.com/kslamph/tronlib/pb/core"
-	"github.com/kslamph/tronlib/pkg/types"
+	"github.com/kslamph/tronlib/pkg/smartcontract"
 )
 
 type TransactionEvent struct {
@@ -12,11 +12,11 @@ type TransactionEvent struct {
 	BlockTimestamp  uint64
 	TransactionHash string
 	ContractAddress string
-	Event           *types.DecodedEvent
+	Event           *smartcontract.DecodedEvent
 }
 
-func ContractsSliceToMap(contracts []*types.Contract) map[[20]byte]*types.Contract {
-	contractsMap := make(map[[20]byte]*types.Contract)
+func ContractsSliceToMap(contracts []*smartcontract.Contract) map[[20]byte]*smartcontract.Contract {
+	contractsMap := make(map[[20]byte]*smartcontract.Contract)
 	for _, contract := range contracts {
 		addrArray := [20]byte{}
 		copy(addrArray[:], contract.AddressBytes[1:21])
@@ -25,7 +25,7 @@ func ContractsSliceToMap(contracts []*types.Contract) map[[20]byte]*types.Contra
 	return contractsMap
 }
 
-func ParseTransactionInfoLog(transactionInfo *core.TransactionInfo, contracts map[[20]byte]*types.Contract) []*TransactionEvent {
+func ParseTransactionInfoLog(transactionInfo *core.TransactionInfo, contracts map[[20]byte]*smartcontract.Contract) []*TransactionEvent {
 	var decodedEvents []*TransactionEvent
 	log := transactionInfo.GetLog()
 

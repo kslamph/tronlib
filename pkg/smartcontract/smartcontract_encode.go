@@ -1,4 +1,4 @@
-package types
+package smartcontract
 
 import (
 	"encoding/hex"
@@ -11,6 +11,7 @@ import (
 	eABI "github.com/ethereum/go-ethereum/accounts/abi"
 	eCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/kslamph/tronlib/pb/core"
+	"github.com/kslamph/tronlib/pkg/types"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -150,7 +151,7 @@ func (c *Contract) EncodeInput(method string, params ...interface{}) ([]byte, er
 						if strings.HasPrefix(addrStr, "0x") {
 							addresses[j] = eCommon.HexToAddress(addrStr)
 						} else {
-							tronAddr, err := NewAddress(addrStr)
+							tronAddr, err := types.NewAddress(addrStr)
 							if err != nil {
 								return nil, fmt.Errorf("invalid Tron address at index %d: %v", j, err)
 							}
@@ -199,7 +200,7 @@ func (c *Contract) EncodeInput(method string, params ...interface{}) ([]byte, er
 						}
 						param[typeName] = eCommon.BytesToAddress(decoded)
 					} else if strings.HasPrefix(addrStr, "T") {
-						tronAddr, err := NewAddress(addrStr)
+						tronAddr, err := types.NewAddress(addrStr)
 						if err != nil {
 							return nil, fmt.Errorf("invalid Tron address: %v", err)
 						}
@@ -343,7 +344,7 @@ func (c *Contract) encodeConstructor(params ...interface{}) ([]byte, error) {
 						if strings.HasPrefix(addrStr, "0x") {
 							addresses[j] = eCommon.HexToAddress(addrStr)
 						} else {
-							tronAddr, err := NewAddress(addrStr)
+							tronAddr, err := types.NewAddress(addrStr)
 							if err != nil {
 								return nil, fmt.Errorf("invalid Tron address at index %d: %v", j, err)
 							}
@@ -392,7 +393,7 @@ func (c *Contract) encodeConstructor(params ...interface{}) ([]byte, error) {
 						}
 						param[typeName] = eCommon.BytesToAddress(decoded)
 					} else if strings.HasPrefix(addrStr, "T") {
-						tronAddr, err := NewAddress(addrStr)
+						tronAddr, err := types.NewAddress(addrStr)
 						if err != nil {
 							return nil, fmt.Errorf("invalid Tron address: %v", err)
 						}

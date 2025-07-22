@@ -1,4 +1,4 @@
-package types
+package smartcontract
 
 import (
 	"encoding/hex"
@@ -9,6 +9,7 @@ import (
 	eABI "github.com/ethereum/go-ethereum/accounts/abi"
 	eCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/kslamph/tronlib/pb/core"
+	"github.com/kslamph/tronlib/pkg/types"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -217,7 +218,7 @@ func decodeTopicValue(topic []byte, paramType string) string {
 	switch paramType {
 	case "address":
 		ethaddr := eCommon.BytesToAddress(topic)
-		addrBase58 := MustNewAddressFromHex(ethaddr.Hex())
+		addrBase58 := types.MustNewAddressFromHex(ethaddr.Hex())
 		return addrBase58.String()
 	case "uint256", "uint128", "uint64", "uint32", "uint16", "uint8":
 		return new(big.Int).SetBytes(topic).String()

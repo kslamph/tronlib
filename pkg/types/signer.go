@@ -17,8 +17,8 @@ type Signer interface {
 	// Sign signs a transaction with permissionID 2 (active permission)
 	Sign(tx *core.Transaction) (*core.Transaction, error)
 
-	// MultiSign signs a transaction with the specified permissionID
-	MultiSign(tx *core.Transaction, permissionID int32) (*core.Transaction, error)
+	// SignWithPermissionID signs a transaction with the specified permissionID
+	SignWithPermissionID(tx *core.Transaction, permissionID int32) (*core.Transaction, error)
 
 	// SignMessageV2 signs a message using TIP-191 format (v2)
 	SignMessageV2(message string) (string, error)

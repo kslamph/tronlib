@@ -1,4 +1,4 @@
-package smartcontract
+package trc20
 
 import (
 	"context"
@@ -7,13 +7,14 @@ import (
 	"sync"
 
 	"github.com/kslamph/tronlib/pkg/client"
+	"github.com/kslamph/tronlib/pkg/smartcontract"
 	"github.com/kslamph/tronlib/pkg/types"
 	"github.com/shopspring/decimal"
 )
 
 // TRC20Contract represents a TRC20 token contract
 type TRC20Contract struct {
-	*types.Contract
+	*smartcontract.Contract
 	client *client.Client
 
 	// Cached values
@@ -26,12 +27,12 @@ type TRC20Contract struct {
 }
 
 // NewTRC20Contract creates a new TRC20 contract instance
-func NewTRC20Contract(address string, client *client.Client) (*TRC20Contract, error) {
+func NewTRC20Contract(client *client.Client, address string) (*TRC20Contract, error) {
 	if client == nil {
 		return nil, fmt.Errorf("client cannot be nil")
 	}
 
-	contract, err := types.NewContract(types.ERC20ABI, address)
+	contract, err := smartcontract.NewContract(types.ERC20ABI, address)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create TRC20 contract: %v", err)
 	}

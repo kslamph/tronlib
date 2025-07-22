@@ -6,11 +6,12 @@ import (
 	"time"
 
 	"github.com/kslamph/tronlib/pkg/client"
-	"github.com/kslamph/tronlib/pkg/parser"
+	"github.com/kslamph/tronlib/pkg/helper"
+	"github.com/kslamph/tronlib/pkg/smartcontract"
 	"github.com/kslamph/tronlib/pkg/types"
 )
 
-func getContract(tclient *client.Client, address string) *types.Contract {
+func getContract(tclient *client.Client, address string) *smartcontract.Contract {
 	contract, err := tclient.NewContractFromAddress(context.Background(), types.MustNewAddress(address))
 	if err != nil {
 		return nil
@@ -42,8 +43,8 @@ func TestParseTransactionInfoLogIntegration(t *testing.T) {
 		t.Fatalf("Failed to get transaction info: %v", err)
 	}
 
-	contractsMap := parser.ContractsSliceToMap([]*types.Contract{contract1, contract2})
-	decodedEvents := parser.ParseTransactionInfoLog(transactionInfo, contractsMap)
+	contractsMap := helper.ContractsSliceToMap([]*smartcontract.Contract{contract1, contract2})
+	decodedEvents := helper.ParseTransactionInfoLog(transactionInfo, contractsMap)
 	for _, decodedEvent := range decodedEvents {
 		t.Logf("Contract: %s, Event: %s", decodedEvent.ContractAddress, decodedEvent.Event.EventName)
 		for _, param := range decodedEvent.Event.Parameters {

@@ -1,10 +1,10 @@
-package types_test
+package smartcontract_test
 
 import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/kslamph/tronlib/pkg/types"
+	"github.com/kslamph/tronlib/pkg/smartcontract"
 )
 
 const testABI = `[{"constant":true,"inputs":[],"name":"name","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"guy","type":"address"},{"name":"sad","type":"uint256"}],"name":"approve","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"totalSupply","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"src","type":"address"},{"name":"dst","type":"address"},{"name":"sad","type":"uint256"}],"name":"transferFrom","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"sad","type":"uint256"}],"name":"withdraw","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"guy","type":"address"}],"name":"balanceOf","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"symbol","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"dst","type":"address"},{"name":"sad","type":"uint256"}],"name":"transfer","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[],"name":"deposit","outputs":[],"payable":true,"stateMutability":"payable","type":"function"},{"constant":false,"inputs":[{"name":"guy","type":"address"}],"name":"approve","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"name":"src","type":"address"},{"name":"guy","type":"address"}],"name":"allowance","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"payable":true,"stateMutability":"payable","type":"fallback"},{"anonymous":false,"inputs":[{"indexed":true,"name":"src","type":"address"},{"indexed":true,"name":"guy","type":"address"},{"indexed":false,"name":"sad","type":"uint256"}],"name":"Approval","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"src","type":"address"},{"indexed":true,"name":"dst","type":"address"},{"indexed":false,"name":"sad","type":"uint256"}],"name":"Transfer","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"dst","type":"address"},{"indexed":false,"name":"sad","type":"uint256"}],"name":"Deposit","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"src","type":"address"},{"indexed":false,"name":"sad","type":"uint256"}],"name":"Withdrawal","type":"event"}]`
@@ -25,7 +25,7 @@ func TestNewContract(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := types.NewContract(tt.abi, tt.address)
+			_, err := smartcontract.NewContract(tt.abi, tt.address)
 			if tt.wantErr && err == nil {
 				t.Errorf("Expected error, got nil")
 			}
@@ -37,7 +37,7 @@ func TestNewContract(t *testing.T) {
 }
 
 func TestDecodeInputData(t *testing.T) {
-	contract, err := types.NewContract(testABI, testAddress)
+	contract, err := smartcontract.NewContract(testABI, testAddress)
 	if err != nil {
 		t.Fatalf("Failed to create contract: %v", err)
 	}
@@ -83,7 +83,7 @@ func TestDecodeInputData(t *testing.T) {
 }
 
 func TestDecodeEventSignature(t *testing.T) {
-	contract, err := types.NewContract(testABI, testAddress)
+	contract, err := smartcontract.NewContract(testABI, testAddress)
 	if err != nil {
 		t.Fatalf("Failed to create contract: %v", err)
 	}
@@ -123,7 +123,7 @@ func TestDecodeEventSignature(t *testing.T) {
 }
 
 func TestDecodeEventLog(t *testing.T) {
-	contract, err := types.NewContract(testABI, testAddress)
+	contract, err := smartcontract.NewContract(testABI, testAddress)
 	if err != nil {
 		t.Fatalf("Failed to create contract: %v", err)
 	}

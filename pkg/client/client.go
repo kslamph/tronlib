@@ -6,8 +6,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/kslamph/tronlib/pb/api"
-	"github.com/kslamph/tronlib/pb/core"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -122,99 +120,3 @@ func (c *Client) GetTimeout() time.Duration {
 }
 
 // Transaction creation methods
-
-// CreateTransferTransaction creates a TRX transfer transaction
-func (c *Client) CreateTransferTransaction(ctx context.Context, ownerAddress, toAddress []byte, amount int64) (*api.TransactionExtention, error) {
-	return c.grpcCallWrapper(ctx, "transfer", func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
-		return client.CreateTransaction2(ctx, &core.TransferContract{
-			OwnerAddress: ownerAddress,
-			ToAddress:    toAddress,
-			Amount:       amount,
-		})
-	})
-}
-
-// CreateTriggerSmartContractTransaction creates a smart contract trigger transaction
-func (c *Client) CreateTriggerSmartContractTransaction(ctx context.Context, ownerAddress, contractAddress []byte, data []byte, callValue int64) (*api.TransactionExtention, error) {
-	return c.grpcCallWrapper(ctx, "smart contract", func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
-		return client.TriggerContract(ctx, &core.TriggerSmartContract{
-			OwnerAddress:    ownerAddress,
-			ContractAddress: contractAddress,
-			Data:            data,
-			CallValue:       callValue,
-		})
-	})
-}
-
-// CreateFreezeTransaction creates a freeze balance transaction
-func (c *Client) CreateFreezeTransaction(ctx context.Context, ownerAddress []byte, amount int64, resource core.ResourceCode) (*api.TransactionExtention, error) {
-	return c.grpcCallWrapper(ctx, "freeze", func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
-		return client.FreezeBalanceV2(ctx, &core.FreezeBalanceV2Contract{
-			OwnerAddress:  ownerAddress,
-			FrozenBalance: amount,
-			Resource:      resource,
-		})
-	})
-}
-
-// CreateUnfreezeTransaction creates an unfreeze balance transaction
-func (c *Client) CreateUnfreezeTransaction(ctx context.Context, ownerAddress []byte, amount int64, resource core.ResourceCode) (*api.TransactionExtention, error) {
-	return c.grpcCallWrapper(ctx, "unfreeze", func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
-		return client.UnfreezeBalanceV2(ctx, &core.UnfreezeBalanceV2Contract{
-			OwnerAddress:    ownerAddress,
-			UnfreezeBalance: amount,
-			Resource:        resource,
-		})
-	})
-}
-
-// CreateDelegateResourceTransaction creates a delegate resource transaction
-func (c *Client) CreateDelegateResourceTransaction(ctx context.Context, ownerAddress, receiverAddress []byte, amount int64, resource core.ResourceCode, lock bool, lockPeriod int64) (*api.TransactionExtention, error) {
-	return c.grpcCallWrapper(ctx, "delegate resource", func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
-		return client.DelegateResource(ctx, &core.DelegateResourceContract{
-			OwnerAddress:    ownerAddress,
-			ReceiverAddress: receiverAddress,
-			Balance:         amount,
-			Resource:        resource,
-			Lock:            lock,
-			LockPeriod:      lockPeriod,
-		})
-	})
-}
-
-// CreateUndelegateResourceTransaction creates an undelegate resource transaction
-func (c *Client) CreateUndelegateResourceTransaction(ctx context.Context, ownerAddress, receiverAddress []byte, amount int64, resource core.ResourceCode) (*api.TransactionExtention, error) {
-	return c.grpcCallWrapper(ctx, "undelegate resource", func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
-		return client.UnDelegateResource(ctx, &core.UnDelegateResourceContract{
-			OwnerAddress:    ownerAddress,
-			ReceiverAddress: receiverAddress,
-			Balance:         amount,
-			Resource:        resource,
-		})
-	})
-}
-
-// CreateWithdrawExpireUnfreezeTransaction creates a withdraw expire unfreeze transaction
-func (c *Client) CreateWithdrawExpireUnfreezeTransaction(ctx context.Context, ownerAddress []byte) (*api.TransactionExtention, error) {
-	return c.grpcCallWrapper(ctx, "withdraw expire unfreeze", func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
-		return client.WithdrawExpireUnfreeze(ctx, &core.WithdrawExpireUnfreezeContract{
-			OwnerAddress: ownerAddress,
-		})
-	})
-}
-
-// CreateWithdrawBalanceTransaction creates a withdraw balance transaction (claim rewards)
-func (c *Client) CreateWithdrawBalanceTransaction(ctx context.Context, ownerAddress []byte) (*api.TransactionExtention, error) {
-	return c.grpcCallWrapper(ctx, "withdraw balance", func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
-		return client.WithdrawBalance2(ctx, &core.WithdrawBalanceContract{
-			OwnerAddress: ownerAddress,
-		})
-	})
-}
-
-// CreateDeployContractTransaction creates a deploy contract transaction
-func (c *Client) CreateDeployContractTransaction(ctx context.Context, contract *core.CreateSmartContract) (*api.TransactionExtention, error) {
-	return c.grpcCallWrapper(ctx, "deploy contract", func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
-		return client.DeployContract(ctx, contract)
-	})
-}

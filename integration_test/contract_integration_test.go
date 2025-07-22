@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/kslamph/tronlib/pkg/client"
-	"github.com/kslamph/tronlib/pkg/types"
+	"github.com/kslamph/tronlib/pkg/smartcontract"
 )
 
 const (
@@ -28,7 +28,7 @@ func TestUSDTContractReadOnly(t *testing.T) {
 	}
 	defer c.Close()
 
-	contract, err := types.NewContract(USDT_ABI, USDTContractAddress)
+	contract, err := smartcontract.NewContract(USDT_ABI, USDTContractAddress)
 	if err != nil {
 		t.Fatalf("Failed to create contract: %v", err)
 	}

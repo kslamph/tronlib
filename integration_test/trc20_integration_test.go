@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/kslamph/tronlib/pkg/client"
-	"github.com/kslamph/tronlib/pkg/smartcontract"
+	"github.com/kslamph/tronlib/pkg/trc20"
 	"github.com/kslamph/tronlib/pkg/types"
 )
 
@@ -27,7 +27,7 @@ func TestTRC20ReadOnly(t *testing.T) {
 
 	ctx := context.Background()
 
-	contract, err := smartcontract.NewTRC20Contract(TRC20ContractAddress, c)
+	contract, err := trc20.NewTRC20Contract(c, TRC20ContractAddress)
 	if err != nil {
 		t.Fatalf("Failed to create TRC20 contract: %v", err)
 	}

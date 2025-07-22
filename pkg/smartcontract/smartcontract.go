@@ -1,10 +1,11 @@
-package types
+package smartcontract
 
 import (
 	"fmt"
 	"sync"
 
 	"github.com/kslamph/tronlib/pb/core"
+	"github.com/kslamph/tronlib/pkg/types"
 )
 
 // Contract represents a smart contract interface
@@ -39,7 +40,7 @@ func NewContract(abi string, address string) (*Contract, error) {
 	}
 
 	// Convert address to bytes
-	addr, err := NewAddress(address)
+	addr, err := types.NewAddress(address)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse address: %v", err)
 	}
@@ -52,7 +53,7 @@ func NewContract(abi string, address string) (*Contract, error) {
 }
 
 func NewContractFromABI(abi *core.SmartContract_ABI, address string) (*Contract, error) {
-	addr, err := NewAddress(address)
+	addr, err := types.NewAddress(address)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse address: %v", err)
 	}

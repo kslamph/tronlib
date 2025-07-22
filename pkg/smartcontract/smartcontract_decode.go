@@ -1,4 +1,4 @@
-package types
+package smartcontract
 
 import (
 	"encoding/hex"
@@ -11,6 +11,7 @@ import (
 	eABI "github.com/ethereum/go-ethereum/accounts/abi"
 	eCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/kslamph/tronlib/pb/core"
+	"github.com/kslamph/tronlib/pkg/types"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -128,7 +129,7 @@ func formatDecodedValue(value interface{}, paramType string) interface{} {
 	switch paramType {
 	case "address":
 		if addr, ok := value.(eCommon.Address); ok {
-			addrBase58 := MustNewAddressFromHex(addr.Hex())
+			addrBase58 := types.MustNewAddressFromHex(addr.Hex())
 			return addrBase58.String()
 		}
 		return value

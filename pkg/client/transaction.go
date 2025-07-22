@@ -25,7 +25,8 @@ func validateTransactionResult(result *api.TransactionExtention, operation strin
 	return nil
 }
 
-// grpcCallWrapper wraps common gRPC call patterns with proper connection management
+// grpcCallWrapper wraps common transaction building gRPC call patterns with proper connection management
+// the function call should return a transaction extension
 func (c *Client) grpcCallWrapper(ctx context.Context, operation string, call func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error)) (*api.TransactionExtention, error) {
 	// Get connection from pool
 	conn, err := c.pool.Get(ctx)
