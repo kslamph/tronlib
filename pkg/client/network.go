@@ -262,3 +262,19 @@ func (c *Client) GetChainParameters(ctx context.Context) (*core.ChainParameters,
 	defer cancel()
 	return walletClient.GetChainParameters(ctx, &api.EmptyMessage{})
 }
+
+// GetBlockById retrieves a block by its ID
+func (c *Client) GetBlockById(ctx context.Context, blockId []byte) (*core.Block, error) {
+	if len(blockId) == 0 {
+		return nil, fmt.Errorf("GetBlockById failed: blockId is empty")
+	}
+	conn, err := c.pool.Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get connection for GetBlockById: %w", err)
+	}
+	defer c.pool.Put(conn)
+	walletClient := api.NewWalletClient(conn)
+	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
+	defer cancel()
+	return walletClient.GetBlockById(ctx, &api.BytesMessage{Value: blockId})
+}

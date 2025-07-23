@@ -2,6 +2,7 @@ package integration_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/kslamph/tronlib/pkg/client"
@@ -37,42 +38,52 @@ func TestTRC20ReadOnly(t *testing.T) {
 
 	if symbol, err := contract.Symbol(callCtx); err != nil {
 		t.Errorf("Failed to get symbol: %v", err)
-	} else if symbol == "" {
-		t.Error("Symbol is empty")
+	} else if symbol != "USDT" {
+		t.Errorf("Symbol is:[%s], want USDT", symbol)
 	}
 
 	callCtx, cancel = context.WithTimeout(ctx, c.GetTimeout())
 	defer cancel()
 	if decimals, err := contract.Decimals(callCtx); err != nil {
 		t.Errorf("Failed to get decimals: %v", err)
-	} else if decimals <= 0 {
-		t.Error("Decimals should be positive")
+	} else if decimals != 6 {
+		t.Errorf("Decimals is %d, want 6", decimals)
 	}
 
 	callCtx, cancel = context.WithTimeout(ctx, c.GetTimeout())
 	defer cancel()
 	if name, err := contract.Name(callCtx); err != nil {
 		t.Errorf("Failed to get name: %v", err)
-	} else if name == "" {
-		t.Error("Name is empty")
+	} else if name != "Tether USD" {
+		t.Errorf("Name is[%s], want Tether USD", name)
+		t.Errorf("Name bytes: %v", []byte(name))
+		runes := []rune(name)
+		runeHex := make([]string, len(runes))
+		for i, r := range runes {
+			runeHex[i] = fmt.Sprintf("U+%04X", r)
+		}
+		t.Errorf("Name runes: %v", runeHex)
 	}
 
-	owner, _ := types.NewAddress(TRC20OwnerAddress)
-	spender, _ := types.NewAddress(TRC20SpenderAddress)
+	owner := types.MustNewAddress(TRC20OwnerAddress)
+	spender := types.MustNewAddress(TRC20SpenderAddress)
 
 	callCtx, cancel = context.WithTimeout(ctx, c.GetTimeout())
 	defer cancel()
 	if allowance, err := contract.Allowance(callCtx, owner.String(), spender.String()); err != nil {
 		t.Errorf("Failed to get allowance: %v", err)
-	} else if allowance.IsNegative() {
-		t.Error("Allowance should not be negative")
+	} else if !allowance.IsPositive() {
+		t.Errorf("Allowance is %s, want positive", allowance.String())
 	}
 
 	callCtx, cancel = context.WithTimeout(ctx, c.GetTimeout())
 	defer cancel()
 	if balance, err := contract.BalanceOf(callCtx, owner.String()); err != nil {
 		t.Errorf("Failed to get balance: %v", err)
-	} else if balance.IsNegative() {
-		t.Error("Balance should not be negative")
+	} else if !balance.IsPositive() {
+		t.Errorf("Balance is %s, want positive", balance.String())
+	} else {
+		t.Logf("Balance is %s", balance.String())
 	}
+
 }

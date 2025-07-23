@@ -6,7 +6,8 @@ import (
 	"log"
 
 	"github.com/kslamph/tronlib/pkg/client"
-	"github.com/kslamph/tronlib/pkg/smartcontract"
+	"github.com/kslamph/tronlib/pkg/helper"
+	"github.com/kslamph/tronlib/pkg/trc20"
 	"github.com/kslamph/tronlib/pkg/types"
 	"github.com/shopspring/decimal"
 )
@@ -28,7 +29,7 @@ func main() {
 	ctx := context.Background()
 
 	// Create new TRC20 contract instance
-	contract, err := smartcontract.NewTRC20Contract(ContractAddress, tronClient)
+	contract, err := trc20.NewTRC20Contract(tronClient, ContractAddress)
 	if err != nil {
 		log.Fatalf("Failed to create TRC20 contract: %v", err)
 	}
@@ -82,24 +83,29 @@ func main() {
 	transferto, _ := types.NewAddress("TSGkU4jYbYCosYFtrVSYMWGhatFjgSRfnq")
 	ownerAccount, _ := types.NewAccountFromPrivateKey("f8c6f45b2aa8b68ab5f3910bdeb5239428b731618113e2881f46e374bf796b02")
 
-	receipt := contract.Transfer(ctx, ownerAccount.Address().String(), transferto.String(), decimal.NewFromInt(1234)).
-		Sign(ownerAccount).
-		Broadcast().
-		GetReceipt()
-
-	if receipt.Err != nil {
-		log.Fatalf("Failed to transfer tokens: %v", receipt.Err)
+	tx, err := contract.Transfer(ctx, ownerAccount.Address().String(), transferto.String(), decimal.NewFromInt(1234))
+	if err != nil {
+		log.Fatalf("Failed to transfer tokens: %v", err)
 	}
-	// Err is nil, meaning the broadcast was successful
+	signed, err := ownerAccount.Sign(tx.GetTransaction())
 
-	fmt.Printf("Transaction ID: %s\n", receipt.TxID)
+	if err != nil {
+		log.Fatalf("Failed to sign transaction: %v", err)
+	}
+	txid := helper.GetTxid(signed)
+	fmt.Printf("Transaction ID: %s\n", txid)
+	receipt, err := tronClient.BroadcastTransaction(ctx, signed)
+	if err != nil {
+		log.Fatalf("Failed to broadcast transaction: %v", err)
+	}
+
 	fmt.Printf("Result: %v\n", receipt.Result)
-	if receipt.Message != "" {
-		fmt.Printf("Message: %s\n", receipt.Message)
+	if receipt.Message != nil {
+		fmt.Printf("Message: %s\n", string(receipt.Message))
 	}
 
 	// Wait for transaction confirmation
-	confirmation, err := tronClient.WaitForTransactionInfo(ctx, receipt.TxID, 9)
+	confirmation, err := tronClient.WaitForTransactionInfo(ctx, txid)
 	if err != nil {
 		log.Fatalf("Failed to get transaction info: %v", err)
 	}

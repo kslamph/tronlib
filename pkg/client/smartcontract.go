@@ -204,3 +204,49 @@ func (c *Client) CreateDeployContractTransaction(ctx context.Context, contract *
 		return client.DeployContract(ctx, contract)
 	})
 }
+
+// UpdateSetting updates smart contract settings
+func (c *Client) UpdateSetting(ctx context.Context, contract *core.UpdateSettingContract) (*api.TransactionExtention, error) {
+	if contract == nil {
+		return nil, fmt.Errorf("UpdateSetting failed: contract is nil")
+	}
+	return c.grpcCallWrapper(ctx, "update setting", func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
+		return client.UpdateSetting(ctx, contract)
+	})
+}
+
+// UpdateEnergyLimit updates the energy limit of a smart contract
+func (c *Client) UpdateEnergyLimit(ctx context.Context, contract *core.UpdateEnergyLimitContract) (*api.TransactionExtention, error) {
+	if contract == nil {
+		return nil, fmt.Errorf("UpdateEnergyLimit failed: contract is nil")
+	}
+	return c.grpcCallWrapper(ctx, "update energy limit", func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
+		return client.UpdateEnergyLimit(ctx, contract)
+	})
+}
+
+// GetContractInfo retrieves contract info by address
+func (c *Client) GetContractInfo(ctx context.Context, address []byte) (*core.SmartContractDataWrapper, error) {
+	if len(address) == 0 {
+		return nil, fmt.Errorf("GetContractInfo failed: address is empty")
+	}
+	conn, err := c.pool.Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get connection for get contract info: %w", err)
+	}
+	defer c.pool.Put(conn)
+	walletClient := api.NewWalletClient(conn)
+	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
+	defer cancel()
+	return walletClient.GetContractInfo(ctx, &api.BytesMessage{Value: address})
+}
+
+// ClearContractABI clears the ABI of a smart contract
+func (c *Client) ClearContractABI(ctx context.Context, contract *core.ClearABIContract) (*api.TransactionExtention, error) {
+	if contract == nil {
+		return nil, fmt.Errorf("ClearContractABI failed: contract is nil")
+	}
+	return c.grpcCallWrapper(ctx, "clear contract abi", func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
+		return client.ClearContractABI(ctx, contract)
+	})
+}

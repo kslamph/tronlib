@@ -104,15 +104,66 @@ func (c *Client) CreateWithdrawExpireUnfreezeTransaction(ctx context.Context, ow
 	})
 }
 
-// CreateWithdrawBalanceTransaction creates a withdraw balance transaction (claim rewards)
-func (c *Client) CreateWithdrawBalanceTransaction(ctx context.Context, ownerAddress string) (*api.TransactionExtention, error) {
-	return c.grpcCallWrapper(ctx, "withdraw balance", func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
-		ownerAddress, err := types.NewAddress(ownerAddress)
-		if err != nil {
-			return nil, fmt.Errorf("invalid owner address: %w", err)
-		}
-		return client.WithdrawBalance2(ctx, &core.WithdrawBalanceContract{
-			OwnerAddress: ownerAddress.Bytes(),
-		})
-	})
+// GetDelegatedResourceV2 retrieves delegated resource info
+func (c *Client) GetDelegatedResourceV2(ctx context.Context, req *api.DelegatedResourceMessage) (*api.DelegatedResourceList, error) {
+	if req == nil {
+		return nil, fmt.Errorf("GetDelegatedResourceV2 failed: request is nil")
+	}
+	conn, err := c.pool.Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get connection for GetDelegatedResourceV2: %w", err)
+	}
+	defer c.pool.Put(conn)
+	walletClient := api.NewWalletClient(conn)
+	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
+	defer cancel()
+	return walletClient.GetDelegatedResourceV2(ctx, req)
+}
+
+// GetDelegatedResourceAccountIndexV2 retrieves delegated resource account index
+func (c *Client) GetDelegatedResourceAccountIndexV2(ctx context.Context, address []byte) (*core.DelegatedResourceAccountIndex, error) {
+	if len(address) == 0 {
+		return nil, fmt.Errorf("GetDelegatedResourceAccountIndexV2 failed: address is empty")
+	}
+	conn, err := c.pool.Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get connection for GetDelegatedResourceAccountIndexV2: %w", err)
+	}
+	defer c.pool.Put(conn)
+	walletClient := api.NewWalletClient(conn)
+	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
+	defer cancel()
+	return walletClient.GetDelegatedResourceAccountIndexV2(ctx, &api.BytesMessage{Value: address})
+}
+
+// GetCanDelegatedMaxSize retrieves the max size that can be delegated
+func (c *Client) GetCanDelegatedMaxSize(ctx context.Context, req *api.CanDelegatedMaxSizeRequestMessage) (*api.CanDelegatedMaxSizeResponseMessage, error) {
+	if req == nil {
+		return nil, fmt.Errorf("GetCanDelegatedMaxSize failed: request is nil")
+	}
+	conn, err := c.pool.Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get connection for GetCanDelegatedMaxSize: %w", err)
+	}
+	defer c.pool.Put(conn)
+	walletClient := api.NewWalletClient(conn)
+	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
+	defer cancel()
+	return walletClient.GetCanDelegatedMaxSize(ctx, req)
+}
+
+// GetCanWithdrawUnfreezeAmount retrieves the amount that can be withdrawn/unfrozen
+func (c *Client) GetCanWithdrawUnfreezeAmount(ctx context.Context, req *api.CanWithdrawUnfreezeAmountRequestMessage) (*api.CanWithdrawUnfreezeAmountResponseMessage, error) {
+	if req == nil {
+		return nil, fmt.Errorf("GetCanWithdrawUnfreezeAmount failed: request is nil")
+	}
+	conn, err := c.pool.Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get connection for GetCanWithdrawUnfreezeAmount: %w", err)
+	}
+	defer c.pool.Put(conn)
+	walletClient := api.NewWalletClient(conn)
+	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
+	defer cancel()
+	return walletClient.GetCanWithdrawUnfreezeAmount(ctx, req)
 }

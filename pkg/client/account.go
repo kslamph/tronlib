@@ -92,3 +92,25 @@ func (c *Client) GetAccountResource(ctx context.Context, account *types.Address)
 
 	return result, nil
 }
+
+// UpdateAccount2 updates account information using AccountUpdateContract
+func (c *Client) UpdateAccount2(ctx context.Context, ownerAddress types.Address, accountName string) (*api.TransactionExtention, error) {
+
+	contract := &core.AccountUpdateContract{
+		OwnerAddress: ownerAddress.Bytes(),
+		AccountName:  []byte(accountName),
+	}
+	return c.grpcCallWrapper(ctx, "update account2", func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
+		return client.UpdateAccount2(ctx, contract)
+	})
+}
+
+// AccountPermissionUpdate updates account permissions using AccountPermissionUpdateContract
+func (c *Client) AccountPermissionUpdate(ctx context.Context, contract *core.AccountPermissionUpdateContract) (*api.TransactionExtention, error) {
+	if contract == nil {
+		return nil, fmt.Errorf("AccountPermissionUpdate failed: contract is nil")
+	}
+	return c.grpcCallWrapper(ctx, "account permission update", func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
+		return client.AccountPermissionUpdate(ctx, contract)
+	})
+}
