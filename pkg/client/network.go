@@ -158,15 +158,10 @@ func (c *Client) WaitForTransactionInfo(ctx context.Context, txId string) (*core
 	}
 }
 
-func (c *Client) GetTransactionById(ctx context.Context, txId string) (*core.Transaction, error) {
+func (c *Client) GetTransactionById(ctx context.Context, txId []byte) (*core.Transaction, error) {
 	// Validate input
-	if txId == "" {
+	if len(txId) == 0 {
 		return nil, fmt.Errorf("get transaction by id failed: transaction ID is empty")
-	}
-
-	hashBytes, err := hex.DecodeString(txId)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode transaction ID: %w", err)
 	}
 
 	// Get connection from pool
@@ -181,7 +176,7 @@ func (c *Client) GetTransactionById(ctx context.Context, txId string) (*core.Tra
 	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
 	defer cancel()
 	result, err := walletClient.GetTransactionById(ctx, &api.BytesMessage{
-		Value: hashBytes,
+		Value: txId,
 	})
 
 	if err != nil {
@@ -191,15 +186,10 @@ func (c *Client) GetTransactionById(ctx context.Context, txId string) (*core.Tra
 	return result, nil
 }
 
-func (c *Client) GetTransactionInfoById(ctx context.Context, txId string) (*core.TransactionInfo, error) {
+func (c *Client) GetTransactionInfoById(ctx context.Context, txId []byte) (*core.TransactionInfo, error) {
 	// Validate input
-	if txId == "" {
+	if len(txId) == 0 {
 		return nil, fmt.Errorf("get transaction info by id failed: transaction ID is empty")
-	}
-
-	hashBytes, err := hex.DecodeString(txId)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode transaction ID: %w", err)
 	}
 
 	// Get connection from pool
@@ -214,7 +204,7 @@ func (c *Client) GetTransactionInfoById(ctx context.Context, txId string) (*core
 	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
 	defer cancel()
 	result, err := walletClient.GetTransactionInfoById(ctx, &api.BytesMessage{
-		Value: hashBytes,
+		Value: txId,
 	})
 
 	if err != nil {

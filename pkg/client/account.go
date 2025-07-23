@@ -9,9 +9,9 @@ import (
 	"github.com/kslamph/tronlib/pkg/types"
 )
 
-func (c *Client) GetAccount(ctx context.Context, account *types.Address) (*core.Account, error) {
+func (c *Client) GetAccount(ctx context.Context, address *types.Address) (*core.Account, error) {
 	// Validate input
-	if account == nil {
+	if address == nil {
 		return nil, fmt.Errorf("get account failed: account address is nil")
 	}
 
@@ -27,7 +27,7 @@ func (c *Client) GetAccount(ctx context.Context, account *types.Address) (*core.
 	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
 	defer cancel()
 	result, err := walletClient.GetAccount(ctx, &core.Account{
-		Address: account.Bytes(),
+		Address: address.Bytes(),
 	})
 
 	if err != nil {
@@ -37,9 +37,9 @@ func (c *Client) GetAccount(ctx context.Context, account *types.Address) (*core.
 	return result, nil
 }
 
-func (c *Client) GetAccountNet(ctx context.Context, account *types.Address) (*api.AccountNetMessage, error) {
+func (c *Client) GetAccountNet(ctx context.Context, address *types.Address) (*api.AccountNetMessage, error) {
 	// Validate input
-	if account == nil {
+	if address == nil {
 		return nil, fmt.Errorf("get account net failed: account address is nil")
 	}
 
@@ -55,7 +55,7 @@ func (c *Client) GetAccountNet(ctx context.Context, account *types.Address) (*ap
 	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
 	defer cancel()
 	result, err := walletClient.GetAccountNet(ctx, &core.Account{
-		Address: account.Bytes(),
+		Address: address.Bytes(),
 	})
 
 	if err != nil {
@@ -65,9 +65,9 @@ func (c *Client) GetAccountNet(ctx context.Context, account *types.Address) (*ap
 	return result, nil
 }
 
-func (c *Client) GetAccountResource(ctx context.Context, account *types.Address) (*api.AccountResourceMessage, error) {
+func (c *Client) GetAccountResource(ctx context.Context, address *types.Address) (*api.AccountResourceMessage, error) {
 	// Validate input
-	if account == nil {
+	if address == nil {
 		return nil, fmt.Errorf("get account resource failed: account address is nil")
 	}
 
@@ -83,7 +83,7 @@ func (c *Client) GetAccountResource(ctx context.Context, account *types.Address)
 	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
 	defer cancel()
 	result, err := walletClient.GetAccountResource(ctx, &core.Account{
-		Address: account.Bytes(),
+		Address: address.Bytes(),
 	})
 
 	if err != nil {
@@ -94,10 +94,10 @@ func (c *Client) GetAccountResource(ctx context.Context, account *types.Address)
 }
 
 // UpdateAccount2 updates account information using AccountUpdateContract
-func (c *Client) UpdateAccount2(ctx context.Context, ownerAddress types.Address, accountName string) (*api.TransactionExtention, error) {
+func (c *Client) UpdateAccount2(ctx context.Context, address types.Address, accountName string) (*api.TransactionExtention, error) {
 
 	contract := &core.AccountUpdateContract{
-		OwnerAddress: ownerAddress.Bytes(),
+		OwnerAddress: address.Bytes(),
 		AccountName:  []byte(accountName),
 	}
 	return c.grpcCallWrapper(ctx, "update account2", func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {

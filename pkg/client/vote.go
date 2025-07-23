@@ -10,12 +10,9 @@ import (
 )
 
 // CreateWithdrawBalanceTransaction creates a withdraw balance transaction (claim rewards)
-func (c *Client) CreateWithdrawBalanceTransaction(ctx context.Context, ownerAddress string) (*api.TransactionExtention, error) {
+func (c *Client) CreateWithdrawBalanceTransaction(ctx context.Context, ownerAddress types.Address) (*api.TransactionExtention, error) {
 	return c.grpcCallWrapper(ctx, "withdraw balance", func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
-		ownerAddress, err := types.NewAddress(ownerAddress)
-		if err != nil {
-			return nil, fmt.Errorf("invalid owner address: %w", err)
-		}
+
 		return client.WithdrawBalance2(ctx, &core.WithdrawBalanceContract{
 			OwnerAddress: ownerAddress.Bytes(),
 		})
@@ -46,14 +43,7 @@ func (c *Client) ListWitnesses(ctx context.Context) (*api.WitnessList, error) {
 }
 
 // GetRewardInfo retrieves reward info for an address
-func (c *Client) GetRewardInfo(ctx context.Context, address string) (int64, error) {
-	if len(address) == 0 {
-		return 0, fmt.Errorf("GetRewardInfo failed: address is empty")
-	}
-	addr, err := types.NewAddress(address)
-	if err != nil {
-		return 0, fmt.Errorf("invalid address: %w", err)
-	}
+func (c *Client) GetRewardInfo(ctx context.Context, address types.Address) (int64, error) {
 
 	conn, err := c.pool.Get(ctx)
 	if err != nil {
@@ -63,7 +53,7 @@ func (c *Client) GetRewardInfo(ctx context.Context, address string) (int64, erro
 	walletClient := api.NewWalletClient(conn)
 	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
 	defer cancel()
-	rewardInfo, err := walletClient.GetRewardInfo(ctx, &api.BytesMessage{Value: addr.Bytes()})
+	rewardInfo, err := walletClient.GetRewardInfo(ctx, &api.BytesMessage{Value: address.Bytes()})
 	if err != nil {
 		return 0, fmt.Errorf("failed to get reward info: %w", err)
 	}
