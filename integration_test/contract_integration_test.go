@@ -21,7 +21,7 @@ const (
 
 func TestUSDTContractReadOnly(t *testing.T) {
 	c, err := client.NewClient(client.ClientConfig{
-		NodeAddress: NodeEndpoint,
+		NodeAddress: ContractNodeEndpoint,
 	})
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)

@@ -9,7 +9,7 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/kslamph/tronlib/pkg/client"
-	"github.com/kslamph/tronlib/pkg/transaction"
+	"github.com/kslamph/tronlib/pkg/helper"
 	"github.com/kslamph/tronlib/pkg/types"
 )
 
@@ -102,32 +102,33 @@ func main() {
 	ctx := context.Background()
 
 	// Create and prepare the transaction
-	tx := transaction.NewTransaction(tronClient).
-		SetOwner(address).                         // Set the sender
-		TransferTRX(ctx, receiverAddr, 1_000_000). // Transfer 1 TRX
-		SetFeelimit(10_000_000)                    // Set fee limit to 10 TRX
-
-	if tx.GetReceipt().Err != nil {
-		log.Fatalf("Failed to create transaction: %v", tx.GetReceipt().Err)
+	tx, err := tronClient.CreateTransferTransaction(ctx, address.String(), receiverAddr.String(), 1_000_000)
+	if err != nil {
+		log.Fatalf("Failed to create transaction: %v", err)
 	}
 
 	fmt.Println("\nSigning transaction using Cloud KMS...")
 	// Sign the transaction using KMS and broadcast
-	receipt := tx.Sign(kmsAccount).Broadcast().GetReceipt()
-	if receipt.Err != nil {
-		log.Fatalf("Transaction failed: %v", receipt.Err)
+	signed, err := kmsAccount.Sign(tx.GetTransaction())
+	txid := helper.GetTxid(signed)
+	if err != nil {
+		log.Fatalf("Failed to sign transaction: %v", err)
+	}
+	receipt, err := tronClient.BroadcastTransaction(ctx, signed)
+	if err != nil {
+		log.Fatalf("Failed to broadcast transaction: %v", err)
 	}
 
 	fmt.Printf("\nTransaction successful!\n")
-	fmt.Printf("Transaction ID: %s\n", receipt.TxID)
+	fmt.Printf("Transaction ID: %s\n", txid)
 	fmt.Printf("Result: %v\n", receipt.Result)
-	if receipt.Message != "" {
-		fmt.Printf("Message: %s\n", receipt.Message)
+	if receipt.Message != nil {
+		fmt.Printf("Message: %s\n", string(receipt.Message))
 	}
 
 	fmt.Println("\nWaiting for transaction confirmation...")
 	// Wait for transaction confirmation (timeout after 10 retries)
-	confirmation, err := tronClient.WaitForTransactionInfo(ctx, receipt.TxID, 10)
+	confirmation, err := tronClient.WaitForTransactionInfo(ctx, txid)
 	if err != nil {
 		log.Fatalf("Failed to get transaction info: %v", err)
 	}

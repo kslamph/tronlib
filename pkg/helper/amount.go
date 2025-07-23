@@ -27,11 +27,17 @@ func SunToTrxStringCommas(sun int64) string {
 	if negative {
 		sun = -sun
 	}
-	whole := sun / 1_000_000
-	decimal := sun % 1_000_000
-	wholeStr := formatWholeNumberWithCommas(fmt.Sprintf("%d", whole))
-	decimalStr := fmt.Sprintf("%06d", decimal)
+	trx := sun / 1_000_000
+	dec := sun % 1_000_000
+	wholeStr := formatWholeNumberWithCommas(fmt.Sprintf("%d", trx))
+	decimalStr := fmt.Sprintf("%06d", dec)
 	decimalStr = strings.TrimRight(decimalStr, "0")
+	if decimalStr == "" {
+		if negative {
+			return fmt.Sprintf("-%s", wholeStr)
+		}
+		return wholeStr
+	}
 	if negative {
 		return fmt.Sprintf("-%s.%s", wholeStr, decimalStr)
 	}

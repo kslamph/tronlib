@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/kslamph/tronlib/pkg/client"
-	"github.com/kslamph/tronlib/pkg/transaction"
+	"github.com/kslamph/tronlib/pkg/helper"
+
 	"github.com/kslamph/tronlib/pkg/types"
 )
 
@@ -55,53 +57,42 @@ func deployContractExample() {
 	ctx := context.Background()
 
 	// Example 1: Deploy contract without constructor parameters
-	tx := transaction.NewTransaction(tronClient).
-		SetOwner(owner.Address()).
-		DeployContract(
-			ctx,
-			bytecode,     // contract bytecode
-			abi,          // contract ABI
-			"MyContract", // contract name
-			1000000,      // origin energy limit
-			100,          // consume user resource percent (100%)
-		).
-		SetFeelimit(150000000).
-		Sign(owner).
-		Broadcast()
-
-	receipt := tx.GetReceipt()
-	if receipt.Err != nil {
-		fmt.Printf("Contract deployment failed: %v\n", receipt.Err)
+	tx, err := tronClient.DeployContract(ctx, owner.Address(),
+		bytecode,
+		string(abi),
+		"MyContract",
+		1000000,
+		100,
+		"MyToken",       // constructor parameter 1: token name
+		"MTK",           // constructor parameter 2: token symbol
+		uint64(1000000), // constructor parameter 3: total supply
+	)
+	if err != nil {
+		fmt.Printf("Failed to deploy contract: %v\n", err)
 		return
 	}
 
-	fmt.Printf("Contract deployed successfully! Transaction ID: %s\n", receipt.TxID)
-
-	// Example 2: Deploy contract with constructor parameters
-	tx2 := transaction.NewTransaction(tronClient).
-		SetOwner(owner.Address()).
-		DeployContract(
-			ctx,
-			bytecode,          // contract bytecode
-			abi,               // contract ABI
-			"MyTokenContract", // contract name
-			1000000,           // origin energy limit
-			100,               // consume user resource percent (100%)
-			"MyToken",         // constructor parameter 1: token name
-			"MTK",             // constructor parameter 2: token symbol
-			uint64(1000000),   // constructor parameter 3: total supply
-		).
-		SetFeelimit(150000000).
-		Sign(owner).
-		Broadcast()
-
-	receipt2 := tx2.GetReceipt()
-	if receipt2.Err != nil {
-		fmt.Printf("Token contract deployment failed: %v\n", receipt2.Err)
+	signed, err := owner.Sign(tx.GetTransaction())
+	if err != nil {
+		fmt.Printf("Failed to sign transaction: %v\n", err)
 		return
 	}
+	txid := helper.GetTxid(signed)
+	log.Printf("Signed transaction: %s", txid)
 
-	fmt.Printf("Token contract deployed successfully! Transaction ID: %s\n", receipt2.TxID)
+	ret, err := tronClient.BroadcastTransaction(ctx, signed)
+	if err != nil {
+		fmt.Printf("Failed to broadcast transaction: %v\n", err)
+		return
+	}
+	fmt.Printf("Transaction broadcasted successfully! Transaction ID: %s\nRet: %v\n", txid, ret)
+	info, err := tronClient.WaitForTransactionInfo(ctx, txid)
+	if err != nil {
+		fmt.Printf("Failed to wait for transaction info: %v\n", err)
+		return
+	}
+	fmt.Printf("Contract deployed successfully! Transaction ID: %s\nContract address: %s", txid, types.MustNewAddressFromBytes(info.ContractAddress).String())
+
 }
 
 // Helper functions to load contract files

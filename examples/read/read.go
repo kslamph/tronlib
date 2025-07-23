@@ -19,15 +19,15 @@ func main() {
 	// the RPC call can take longer depending on server response time
 	fmt.Println("Creating client using mainnet endpoint...")
 	tronClient, err := client.NewClient(client.ClientConfig{
-		NodeAddress: "127.0.0.1:50051",
-		Timeout:     200 * time.Millisecond, // Connection timeout (not RPC call timeout)
+		NodeAddress: "grpc.nile.trongrid.io:50051",
+		Timeout:     2000 * time.Millisecond, // Connection timeout (not RPC call timeout)
 	})
 	if err != nil {
 		log.Fatalf("Failed to create mainnet client: %v", err)
 	}
 	defer tronClient.Close()
 
-	addr, err := types.NewAddress("TDUiUScimQNfmD1F76Uq6YaXbofCVuAvxH")
+	addr, err := types.NewAddress("TLibQrqpdqPyg11VBJR97Q4H2714xa9GT1")
 	if err != nil {
 		log.Fatalf("Failed to create receiver address: %v", err)
 	}
@@ -41,6 +41,7 @@ func main() {
 
 	fmt.Printf("\nAccount Information:\n")
 	fmt.Printf("==================\n")
+	fmt.Printf("Node Address: %v\n", ac.CreateTime)
 	fmt.Printf("Address: %s\n", addr.String())
 	fmt.Printf("Balance: %d TRX\n", ac.GetBalance()/1_000_000) // Convert from SUN to TRX
 	if len(ac.GetFrozenV2()) > 0 {

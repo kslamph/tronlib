@@ -30,7 +30,7 @@ The `ContractCache` struct provides:
 #### ContractCache
 ```go
 type ContractCache struct {
-    contracts map[string]*types.Contract
+    contracts map[string]*smartcontract.Contract
     mutex     sync.RWMutex
 }
 ```

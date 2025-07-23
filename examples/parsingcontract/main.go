@@ -34,7 +34,7 @@ func main() {
 	ctx := context.Background()
 
 	// Create new Contract instance
-	// ctt, err := types.NewContract(MultiSignContractABI, MultiSignContract)
+	// ctt, err := smartcontract.NewContract(MultiSignContractABI, MultiSignContract)
 	if err != nil {
 		log.Fatalf("Failed to create contract: %v", err)
 	}

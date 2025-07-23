@@ -11,38 +11,39 @@ import (
 
 	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/client"
+	"github.com/kslamph/tronlib/pkg/smartcontract"
 	"github.com/kslamph/tronlib/pkg/types"
 )
 
 // ContractCache manages a thread-safe cache of contracts
 type ContractCache struct {
-	contracts map[string]*types.Contract
+	contracts map[string]*smartcontract.Contract
 	mutex     sync.RWMutex
 }
 
 // NewContractCache creates a new contract cache
 func NewContractCache() *ContractCache {
 	return &ContractCache{
-		contracts: make(map[string]*types.Contract),
+		contracts: make(map[string]*smartcontract.Contract),
 	}
 }
 
 // Get retrieves a contract from cache, returns nil if not found
-func (c *ContractCache) Get(address string) *types.Contract {
+func (c *ContractCache) Get(address string) *smartcontract.Contract {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 	return c.contracts[address]
 }
 
 // Set stores a contract in the cache
-func (c *ContractCache) Set(address string, contract *types.Contract) {
+func (c *ContractCache) Set(address string, contract *smartcontract.Contract) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	c.contracts[address] = contract
 }
 
 // GetOrFetch retrieves a contract from cache, or fetches it if not cached
-func (c *ContractCache) GetOrFetch(ctx context.Context, client *client.Client, addressBytes []byte) (*types.Contract, error) {
+func (c *ContractCache) GetOrFetch(ctx context.Context, client *client.Client, addressBytes []byte) (*smartcontract.Contract, error) {
 	// Convert address bytes to base58 string for caching
 	addr, err := types.NewAddressFromBytes(addressBytes)
 	if err != nil {
@@ -73,7 +74,7 @@ type DecodedLog struct {
 	TransactionHash string
 	ContractAddress string
 	EventName       string
-	Parameters      []types.DecodedEventParameter
+	Parameters      []smartcontract.DecodedEventParameter
 	RawTopics       [][]byte
 	RawData         []byte
 }

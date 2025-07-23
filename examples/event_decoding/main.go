@@ -7,7 +7,8 @@ import (
 	"time"
 
 	"github.com/kslamph/tronlib/pkg/client"
-	"github.com/kslamph/tronlib/pkg/parser"
+	"github.com/kslamph/tronlib/pkg/helper"
+	"github.com/kslamph/tronlib/pkg/smartcontract"
 	"github.com/kslamph/tronlib/pkg/types"
 )
 
@@ -38,10 +39,10 @@ func main() {
 	}
 
 	// Create contracts map
-	contractsMap := parser.ContractsSliceToMap([]*types.Contract{contract})
+	contractsMap := helper.ContractsSliceToMap([]*smartcontract.Contract{contract})
 
 	// Parse transaction info logs - now returns []*TransactionEvent
-	transactionEvents := parser.ParseTransactionInfoLog(transactionInfo, contractsMap)
+	transactionEvents := helper.ParseTransactionInfoLog(transactionInfo, contractsMap)
 
 	fmt.Printf("Transaction: %s\n", txID)
 	fmt.Printf("Block Number: %d\n", transactionInfo.GetBlockNumber())
@@ -66,7 +67,7 @@ func main() {
 	}
 }
 
-func getContract(tclient *client.Client, address string) *types.Contract {
+func getContract(tclient *client.Client, address string) *smartcontract.Contract {
 	contract, err := tclient.NewContractFromAddress(context.Background(), types.MustNewAddress(address))
 	if err != nil {
 		return nil

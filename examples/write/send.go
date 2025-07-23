@@ -9,9 +9,10 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
+	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/client"
-	"github.com/kslamph/tronlib/pkg/transaction"
+	"github.com/kslamph/tronlib/pkg/helper"
 	"github.com/kslamph/tronlib/pkg/types"
 )
 
@@ -75,70 +76,61 @@ func main() {
 
 	ctx := context.Background()
 
-	// Create new transaction
-	tx := transaction.NewTransaction(client).SetOwner(ownerAccount.Address())
+	var txExt *api.TransactionExtention
+	var signErr error
 
-	// Execute the transaction based on the command flag
 	log.Printf("Executing command: %s\n", *command)
 	switch *command {
 	case "transfer":
-		// Transfer 1 TRX (1_000_000 SUN = 1 TRX)
-		tx.TransferTRX(ctx, receiverAddr, 1_000_000)
+		txExt, signErr = client.CreateTransferTransaction(ctx, ownerAccount.Address().String(), receiverAddr.String(), 1_000_000)
 	case "freeze0":
-		// Freeze 1 TRX for Bandwidth (ResourceCode 0)
-		tx.Freeze(ctx, 1_000_000, core.ResourceCode_BANDWIDTH)
+		txExt, signErr = client.CreateFreezeTransaction(ctx, ownerAccount.Address().String(), 1_000_000, core.ResourceCode_BANDWIDTH)
 	case "freeze1":
-		// Freeze 1 TRX for Energy (ResourceCode 1)
-		tx.Freeze(ctx, 1_000_000, core.ResourceCode_ENERGY)
+		txExt, signErr = client.CreateFreezeTransaction(ctx, ownerAccount.Address().String(), 1_000_000, core.ResourceCode_ENERGY)
 	case "unfreeze0":
-		// Unfreeze Bandwidth (ResourceCode 0)
-		tx.Unfreeze(ctx, 1_000_000, core.ResourceCode_BANDWIDTH)
+		txExt, signErr = client.CreateUnfreezeTransaction(ctx, ownerAccount.Address().String(), 1_000_000, core.ResourceCode_BANDWIDTH)
 	case "unfreeze1":
-		// Unfreeze Energy (ResourceCode 1)
-		tx.Unfreeze(ctx, 1_000_000, core.ResourceCode_ENERGY)
+		txExt, signErr = client.CreateUnfreezeTransaction(ctx, ownerAccount.Address().String(), 1_000_000, core.ResourceCode_ENERGY)
 	case "delegate0":
-		// Delegate 1 TRX Bandwidth (ResourceCode 0)
-		tx.Delegate(ctx, receiverAddr, 1_000_000, core.ResourceCode_BANDWIDTH)
+		txExt, signErr = client.CreateDelegateResourceTransaction(ctx, ownerAccount.Address().String(), receiverAddr.String(), 1_000_000, core.ResourceCode_BANDWIDTH, false)
 	case "delegate1":
-		// Delegate 1 TRX Energy (ResourceCode 1)
-		tx.Delegate(ctx, receiverAddr, 1_000_000, core.ResourceCode_ENERGY)
+		txExt, signErr = client.CreateDelegateResourceTransaction(ctx, ownerAccount.Address().String(), receiverAddr.String(), 1_000_000, core.ResourceCode_ENERGY, false)
 	case "reclaim0":
-		// Reclaim delegated Bandwidth (ResourceCode 0)
-		tx.Reclaim(ctx, receiverAddr, 1_000_000, core.ResourceCode_BANDWIDTH)
+		txExt, signErr = client.CreateUndelegateResourceTransaction(ctx, ownerAccount.Address().String(), receiverAddr.String(), 1_000_000, core.ResourceCode_BANDWIDTH)
 	case "reclaim1":
-		// Reclaim delegated Energy (ResourceCode 1)
-		tx.Reclaim(ctx, receiverAddr, 1_000_000, core.ResourceCode_ENERGY)
+		txExt, signErr = client.CreateUndelegateResourceTransaction(ctx, ownerAccount.Address().String(), receiverAddr.String(), 1_000_000, core.ResourceCode_ENERGY)
 	default:
 		log.Fatalf("Invalid command: %s. Use transfer, freeze, unfreeze, delegate0, delegate1, reclaim0, or reclaim1.", *command)
 	}
 
-	if tx.GetReceipt().Err != nil {
-		log.Fatalf("Failed to create transaction for command '%s': %v", *command, tx.GetReceipt().Err)
+	if signErr != nil {
+		log.Fatalf("Failed to create transaction for command '%s': %v", *command, signErr)
 	}
 
-	// Set transaction parameters
-	// 30 seconds
-	// tx.SetExpiration(60)
-
-	// Get receipt
-	receipt := tx.Sign(ownerAccount).Broadcast().GetReceipt()
-	if receipt.Err != nil {
-		log.Fatalf("Transaction failed: %v", receipt.Err)
+	signed, err := ownerAccount.Sign(txExt.GetTransaction())
+	if err != nil {
+		log.Fatalf("Failed to sign transaction: %v", err)
 	}
-	//Err is nil, meaning broadcast was successful
-	fmt.Printf("Transaction ID: %s\n", receipt.TxID)
-	fmt.Printf("Result: %v\n", receipt.Result)
-	if receipt.Message != "" {
-		fmt.Printf("Message: %s\n", receipt.Message)
+
+	receipt, err := client.BroadcastTransaction(ctx, signed)
+	if err != nil {
+		log.Fatalf("Transaction failed: %v", err)
+	}
+	if !receipt.GetResult() {
+		log.Fatalf("Transaction failed: %s", string(receipt.GetMessage()))
+	}
+	fmt.Printf("Transaction ID: %s\n", helper.GetTxid(signed))
+	fmt.Printf("Result: %v\n", receipt.GetResult())
+	if receipt.GetMessage() != nil {
+		fmt.Printf("Message: %s\n", string(receipt.GetMessage()))
 	}
 
 	// Wait for transaction confirmation
-	confirmation, err := client.WaitForTransactionInfo(ctx, receipt.TxID, 10)
+	confirmation, err := client.WaitForTransactionInfo(ctx, helper.GetTxid(signed))
 	if err != nil {
 		log.Fatalf("Failed to get transaction info: %v", err)
 	}
 	fmt.Printf("\nTransaction Information:\n")
 	fmt.Printf("====================\n")
 	fmt.Println(confirmation)
-
 }

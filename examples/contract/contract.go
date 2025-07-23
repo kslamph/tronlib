@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/kslamph/tronlib/pkg/client"
+	"github.com/kslamph/tronlib/pkg/smartcontract"
 	"github.com/kslamph/tronlib/pkg/types"
 )
 
@@ -36,7 +37,7 @@ func main() {
 	defer c.Close()
 
 	// Create new Contract instance
-	contract, err := types.NewContract(USDT_ABI, USDTContractAddress)
+	contract, err := smartcontract.NewContract(USDT_ABI, USDTContractAddress)
 	if err != nil {
 		log.Fatalf("Failed to create contract: %v", err)
 	}
