@@ -10,7 +10,10 @@ import (
 )
 
 // CreateWithdrawBalanceTransaction creates a withdraw balance transaction (claim rewards)
-func (c *Client) CreateWithdrawBalanceTransaction(ctx context.Context, ownerAddress types.Address) (*api.TransactionExtention, error) {
+func (c *Client) CreateWithdrawBalanceTransaction(ctx context.Context, ownerAddress *types.Address) (*api.TransactionExtention, error) {
+	if ownerAddress == nil {
+		return nil, fmt.Errorf("CreateWithdrawBalanceTransaction failed: owner address is nil")
+	}
 	return c.grpcCallWrapper(ctx, "withdraw balance", func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
 
 		return client.WithdrawBalance2(ctx, &core.WithdrawBalanceContract{
@@ -43,7 +46,10 @@ func (c *Client) ListWitnesses(ctx context.Context) (*api.WitnessList, error) {
 }
 
 // GetRewardInfo retrieves reward info for an address
-func (c *Client) GetRewardInfo(ctx context.Context, address types.Address) (int64, error) {
+func (c *Client) GetRewardInfo(ctx context.Context, address *types.Address) (int64, error) {
+	if address == nil {
+		return 0, fmt.Errorf("GetRewardInfo failed: address is nil")
+	}
 
 	conn, err := c.pool.Get(ctx)
 	if err != nil {

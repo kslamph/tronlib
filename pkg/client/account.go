@@ -94,7 +94,10 @@ func (c *Client) GetAccountResource(ctx context.Context, address *types.Address)
 }
 
 // UpdateAccount2 updates account information using AccountUpdateContract
-func (c *Client) UpdateAccount2(ctx context.Context, address types.Address, accountName string) (*api.TransactionExtention, error) {
+func (c *Client) UpdateAccount2(ctx context.Context, address *types.Address, accountName string) (*api.TransactionExtention, error) {
+	if address == nil {
+		return nil, fmt.Errorf("UpdateAccount2 failed: address is nil")
+	}
 
 	contract := &core.AccountUpdateContract{
 		OwnerAddress: address.Bytes(),
