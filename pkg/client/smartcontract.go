@@ -16,23 +16,14 @@ func (c *Client) NewContractFromAddress(ctx context.Context, address *types.Addr
 		return nil, fmt.Errorf("failed to get contract: contract address is nil")
 	}
 
-	// Get connection from pool
-	conn, err := c.pool.Get(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get connection for new contract from address: %w", err)
-	}
-	defer c.pool.Put(conn)
-
-	walletClient := api.NewWalletClient(conn)
-
-	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
-	defer cancel()
-	result, err := walletClient.GetContract(ctx, &api.BytesMessage{
-		Value: address.Bytes(),
+	result, err := grpcGenericCallWrapper(c, ctx, "new contract from address", func(client api.WalletClient, ctx context.Context) (*core.SmartContract, error) {
+		return client.GetContract(ctx, &api.BytesMessage{
+			Value: address.Bytes(),
+		})
 	})
-
+	
 	if err != nil {
-		return nil, fmt.Errorf("failed to get contract: %w", err)
+		return nil, err
 	}
 
 	if result == nil {
@@ -58,13 +49,6 @@ func (c *Client) TriggerConstantSmartContract(ctx context.Context, contract *sma
 		return nil, fmt.Errorf("trigger constant smart contract failed: data is nil")
 	}
 
-	// Get connection from pool
-	conn, err := c.pool.Get(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get connection for trigger constant smart contract: %w", err)
-	}
-	defer c.pool.Put(conn)
-
 	// Create trigger smart contract message
 	trigger := &core.TriggerSmartContract{
 		OwnerAddress:    ownerAddress.Bytes(),
@@ -72,14 +56,12 @@ func (c *Client) TriggerConstantSmartContract(ctx context.Context, contract *sma
 		Data:            data,
 	}
 
-	walletClient := api.NewWalletClient(conn)
-
-	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
-	defer cancel()
-	result, err := walletClient.TriggerConstantContract(ctx, trigger)
+	result, err := grpcGenericCallWrapper(c, ctx, "trigger constant smart contract", func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
+		return client.TriggerConstantContract(ctx, trigger)
+	})
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to trigger constant contract: %w", err)
+		return nil, err
 	}
 
 	if result == nil {
@@ -101,13 +83,6 @@ func (c *Client) EstimateEnergy(ctx context.Context, contract *smartcontract.Con
 		return 0, fmt.Errorf("estimate energy failed: data is nil")
 	}
 
-	// Get connection from pool
-	conn, err := c.pool.Get(ctx)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get connection for estimate energy: %w", err)
-	}
-	defer c.pool.Put(conn)
-
 	// Create trigger smart contract message
 	trigger := &core.TriggerSmartContract{
 		OwnerAddress:    ownerAddress.Bytes(),
@@ -115,13 +90,12 @@ func (c *Client) EstimateEnergy(ctx context.Context, contract *smartcontract.Con
 		Data:            data,
 	}
 
-	walletClient := api.NewWalletClient(conn)
+	result, err := grpcGenericCallWrapper(c, ctx, "estimate energy", func(client api.WalletClient, ctx context.Context) (*api.EstimateEnergyMessage, error) {
+		return client.EstimateEnergy(ctx, trigger)
+	})
 
-	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
-	defer cancel()
-	result, err := walletClient.EstimateEnergy(ctx, trigger)
 	if err != nil {
-		return 0, fmt.Errorf("failed to estimate energy: %w", err)
+		return 0, err
 	}
 	if result == nil {
 		return 0, fmt.Errorf("failed to estimate energy: nil response")
@@ -230,15 +204,10 @@ func (c *Client) GetContractInfo(ctx context.Context, address []byte) (*core.Sma
 	if len(address) == 0 {
 		return nil, fmt.Errorf("GetContractInfo failed: address is empty")
 	}
-	conn, err := c.pool.Get(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get connection for get contract info: %w", err)
-	}
-	defer c.pool.Put(conn)
-	walletClient := api.NewWalletClient(conn)
-	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
-	defer cancel()
-	return walletClient.GetContractInfo(ctx, &api.BytesMessage{Value: address})
+
+	return grpcGenericCallWrapper(c, ctx, "get contract info", func(client api.WalletClient, ctx context.Context) (*core.SmartContractDataWrapper, error) {
+		return client.GetContractInfo(ctx, &api.BytesMessage{Value: address})
+	})
 }
 
 // ClearContractABI clears the ABI of a smart contract

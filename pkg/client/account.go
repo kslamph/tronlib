@@ -15,26 +15,11 @@ func (c *Client) GetAccount(ctx context.Context, address *types.Address) (*core.
 		return nil, fmt.Errorf("get account failed: account address is nil")
 	}
 
-	// Get connection from pool
-	conn, err := c.pool.Get(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get connection for get account: %w", err)
-	}
-	defer c.pool.Put(conn)
-
-	walletClient := api.NewWalletClient(conn)
-
-	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
-	defer cancel()
-	result, err := walletClient.GetAccount(ctx, &core.Account{
-		Address: address.Bytes(),
+	return grpcGenericCallWrapper(c, ctx, "get account", func(client api.WalletClient, ctx context.Context) (*core.Account, error) {
+		return client.GetAccount(ctx, &core.Account{
+			Address: address.Bytes(),
+		})
 	})
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to get account: %w", err)
-	}
-
-	return result, nil
 }
 
 func (c *Client) GetAccountNet(ctx context.Context, address *types.Address) (*api.AccountNetMessage, error) {
@@ -43,26 +28,11 @@ func (c *Client) GetAccountNet(ctx context.Context, address *types.Address) (*ap
 		return nil, fmt.Errorf("get account net failed: account address is nil")
 	}
 
-	// Get connection from pool
-	conn, err := c.pool.Get(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get connection for get account net: %w", err)
-	}
-	defer c.pool.Put(conn)
-
-	walletClient := api.NewWalletClient(conn)
-
-	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
-	defer cancel()
-	result, err := walletClient.GetAccountNet(ctx, &core.Account{
-		Address: address.Bytes(),
+	return grpcGenericCallWrapper(c, ctx, "get account net", func(client api.WalletClient, ctx context.Context) (*api.AccountNetMessage, error) {
+		return client.GetAccountNet(ctx, &core.Account{
+			Address: address.Bytes(),
+		})
 	})
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to get account net: %w", err)
-	}
-
-	return result, nil
 }
 
 func (c *Client) GetAccountResource(ctx context.Context, address *types.Address) (*api.AccountResourceMessage, error) {
@@ -71,26 +41,11 @@ func (c *Client) GetAccountResource(ctx context.Context, address *types.Address)
 		return nil, fmt.Errorf("get account resource failed: account address is nil")
 	}
 
-	// Get connection from pool
-	conn, err := c.pool.Get(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get connection for get account resource: %w", err)
-	}
-	defer c.pool.Put(conn)
-
-	walletClient := api.NewWalletClient(conn)
-
-	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
-	defer cancel()
-	result, err := walletClient.GetAccountResource(ctx, &core.Account{
-		Address: address.Bytes(),
+	return grpcGenericCallWrapper(c, ctx, "get account resource", func(client api.WalletClient, ctx context.Context) (*api.AccountResourceMessage, error) {
+		return client.GetAccountResource(ctx, &core.Account{
+			Address: address.Bytes(),
+		})
 	})
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to get account resource: %w", err)
-	}
-
-	return result, nil
 }
 
 // UpdateAccount2 updates account information using AccountUpdateContract

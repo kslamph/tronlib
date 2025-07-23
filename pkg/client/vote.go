@@ -10,14 +10,14 @@ import (
 )
 
 // CreateWithdrawBalanceTransaction creates a withdraw balance transaction (claim rewards)
-func (c *Client) CreateWithdrawBalanceTransaction(ctx context.Context, ownerAddress *types.Address) (*api.TransactionExtention, error) {
-	if ownerAddress == nil {
+func (c *Client) CreateWithdrawBalanceTransaction(ctx context.Context, address *types.Address) (*api.TransactionExtention, error) {
+	if address == nil {
 		return nil, fmt.Errorf("CreateWithdrawBalanceTransaction failed: owner address is nil")
 	}
 	return c.grpcCallWrapper(ctx, "withdraw balance", func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
 
 		return client.WithdrawBalance2(ctx, &core.WithdrawBalanceContract{
-			OwnerAddress: ownerAddress.Bytes(),
+			OwnerAddress: address.Bytes(),
 		})
 	})
 }

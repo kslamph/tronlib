@@ -10,13 +10,13 @@ import (
 )
 
 // CreateFreezeTransaction creates a freeze balance transaction
-func (c *Client) CreateFreezeTransaction(ctx context.Context, ownerAddress *types.Address, amount int64, resource core.ResourceCode) (*api.TransactionExtention, error) {
+func (c *Client) CreateFreezeTransaction(ctx context.Context, address *types.Address, amount int64, resource core.ResourceCode) (*api.TransactionExtention, error) {
 	return c.grpcCallWrapper(ctx, "freeze", func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
-		if ownerAddress == nil {
+		if address == nil {
 			return nil, fmt.Errorf("owner address is nil")
 		}
 		return client.FreezeBalanceV2(ctx, &core.FreezeBalanceV2Contract{
-			OwnerAddress:  ownerAddress.Bytes(),
+			OwnerAddress:  address.Bytes(),
 			FrozenBalance: amount,
 			Resource:      resource,
 		})
@@ -24,13 +24,13 @@ func (c *Client) CreateFreezeTransaction(ctx context.Context, ownerAddress *type
 }
 
 // CreateUnfreezeTransaction creates an unfreeze balance transaction
-func (c *Client) CreateUnfreezeTransaction(ctx context.Context, ownerAddress *types.Address, amount int64, resource core.ResourceCode) (*api.TransactionExtention, error) {
+func (c *Client) CreateUnfreezeTransaction(ctx context.Context, address *types.Address, amount int64, resource core.ResourceCode) (*api.TransactionExtention, error) {
 	return c.grpcCallWrapper(ctx, "unfreeze", func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
-		if ownerAddress == nil {
+		if address == nil {
 			return nil, fmt.Errorf("owner address is nil")
 		}
 		return client.UnfreezeBalanceV2(ctx, &core.UnfreezeBalanceV2Contract{
-			OwnerAddress:    ownerAddress.Bytes(),
+			OwnerAddress:    address.Bytes(),
 			UnfreezeBalance: amount,
 			Resource:        resource,
 		})
@@ -87,52 +87,37 @@ func (c *Client) GetDelegatedResourceV2(ctx context.Context, fromAddr, toAddr *t
 	if fromAddr == nil || toAddr == nil {
 		return nil, fmt.Errorf("GetDelegatedResourceV2 failed: addresses cannot be nil")
 	}
-	conn, err := c.pool.Get(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get connection for GetDelegatedResourceV2: %w", err)
-	}
-	defer c.pool.Put(conn)
-	walletClient := api.NewWalletClient(conn)
-	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
-	defer cancel()
-	return walletClient.GetDelegatedResourceV2(ctx, &api.DelegatedResourceMessage{
-		FromAddress: fromAddr.Bytes(),
-		ToAddress:   toAddr.Bytes(),
+
+	return grpcGenericCallWrapper(c, ctx, "get delegated resource v2", func(client api.WalletClient, ctx context.Context) (*api.DelegatedResourceList, error) {
+		return client.GetDelegatedResourceV2(ctx, &api.DelegatedResourceMessage{
+			FromAddress: fromAddr.Bytes(),
+			ToAddress:   toAddr.Bytes(),
+		})
 	})
 }
 
 // GetDelegatedResourceAccountIndexV2 retrieves delegated resource account index
-func (c *Client) GetDelegatedResourceAccountIndexV2(ctx context.Context, address []byte) (*core.DelegatedResourceAccountIndex, error) {
-	if len(address) == 0 {
-		return nil, fmt.Errorf("GetDelegatedResourceAccountIndexV2 failed: address is empty")
+func (c *Client) GetDelegatedResourceAccountIndexV2(ctx context.Context, address *types.Address) (*core.DelegatedResourceAccountIndex, error) {
+	if address == nil {
+		return nil, fmt.Errorf("GetDelegatedResourceAccountIndexV2 failed: address is nil")
 	}
-	conn, err := c.pool.Get(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get connection for GetDelegatedResourceAccountIndexV2: %w", err)
-	}
-	defer c.pool.Put(conn)
-	walletClient := api.NewWalletClient(conn)
-	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
-	defer cancel()
-	return walletClient.GetDelegatedResourceAccountIndexV2(ctx, &api.BytesMessage{Value: address})
+
+	return grpcGenericCallWrapper(c, ctx, "get delegated resource account index v2", func(client api.WalletClient, ctx context.Context) (*core.DelegatedResourceAccountIndex, error) {
+		return client.GetDelegatedResourceAccountIndexV2(ctx, &api.BytesMessage{Value: address.Bytes()})
+	})
 }
 
 // GetCanDelegatedMaxSize retrieves the max size that can be delegated
-func (c *Client) GetCanDelegatedMaxSize(ctx context.Context, ownerAddr *types.Address, typeCode int32) (*api.CanDelegatedMaxSizeResponseMessage, error) {
-	if ownerAddr == nil {
+func (c *Client) GetCanDelegatedMaxSize(ctx context.Context, address *types.Address, resource core.ResourceCode) (*api.CanDelegatedMaxSizeResponseMessage, error) {
+	if address == nil {
 		return nil, fmt.Errorf("GetCanDelegatedMaxSize failed: owner address is nil")
 	}
-	conn, err := c.pool.Get(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get connection for GetCanDelegatedMaxSize: %w", err)
-	}
-	defer c.pool.Put(conn)
-	walletClient := api.NewWalletClient(conn)
-	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
-	defer cancel()
-	return walletClient.GetCanDelegatedMaxSize(ctx, &api.CanDelegatedMaxSizeRequestMessage{
-		OwnerAddress: ownerAddr.Bytes(),
-		Type:         typeCode,
+
+	return grpcGenericCallWrapper(c, ctx, "get can delegated max size", func(client api.WalletClient, ctx context.Context) (*api.CanDelegatedMaxSizeResponseMessage, error) {
+		return client.GetCanDelegatedMaxSize(ctx, &api.CanDelegatedMaxSizeRequestMessage{
+			OwnerAddress: address.Bytes(),
+			Type:         int32(resource.Number()),
+		})
 	})
 }
 
@@ -141,15 +126,10 @@ func (c *Client) GetCanWithdrawUnfreezeAmount(ctx context.Context, ownerAddr *ty
 	if ownerAddr == nil {
 		return nil, fmt.Errorf("GetCanWithdrawUnfreezeAmount failed: owner address is nil")
 	}
-	conn, err := c.pool.Get(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get connection for GetCanWithdrawUnfreezeAmount: %w", err)
-	}
-	defer c.pool.Put(conn)
-	walletClient := api.NewWalletClient(conn)
-	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
-	defer cancel()
-	return walletClient.GetCanWithdrawUnfreezeAmount(ctx, &api.CanWithdrawUnfreezeAmountRequestMessage{
-		OwnerAddress: ownerAddr.Bytes(),
+
+	return grpcGenericCallWrapper(c, ctx, "get can withdraw unfreeze amount", func(client api.WalletClient, ctx context.Context) (*api.CanWithdrawUnfreezeAmountResponseMessage, error) {
+		return client.GetCanWithdrawUnfreezeAmount(ctx, &api.CanWithdrawUnfreezeAmountRequestMessage{
+			OwnerAddress: ownerAddr.Bytes(),
+		})
 	})
 }

@@ -19,26 +19,11 @@ func (c *Client) GetBlockByNum(ctx context.Context, blockNumber int64) (*api.Blo
 		return nil, fmt.Errorf("get block by num failed: invalid block number %d", blockNumber)
 	}
 
-	// Get connection from pool
-	conn, err := c.pool.Get(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get connection for get block by num: %w", err)
-	}
-	defer c.pool.Put(conn)
-
-	walletClient := api.NewWalletClient(conn)
-
-	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
-	defer cancel()
-	result, err := walletClient.GetBlockByNum2(ctx, &api.NumberMessage{
-		Num: blockNumber,
+	return grpcGenericCallWrapper(c, ctx, "get block by num", func(client api.WalletClient, ctx context.Context) (*api.BlockExtention, error) {
+		return client.GetBlockByNum2(ctx, &api.NumberMessage{
+			Num: blockNumber,
+		})
 	})
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to get block by number: %w", err)
-	}
-
-	return result, nil
 }
 
 // GetTransactionInfoByBlockNum returns transaction info for a block.
@@ -48,47 +33,17 @@ func (c *Client) GetTransactionInfoByBlockNum(ctx context.Context, blockNumber i
 		return nil, fmt.Errorf("get transaction info by block num failed: invalid block number %d", blockNumber)
 	}
 
-	// Get connection from pool
-	conn, err := c.pool.Get(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get connection for get transaction info by block num: %w", err)
-	}
-	defer c.pool.Put(conn)
-
-	walletClient := api.NewWalletClient(conn)
-
-	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
-	defer cancel()
-	result, err := walletClient.GetTransactionInfoByBlockNum(ctx, &api.NumberMessage{
-		Num: blockNumber,
+	return grpcGenericCallWrapper(c, ctx, "get transaction info by block num", func(client api.WalletClient, ctx context.Context) (*api.TransactionInfoList, error) {
+		return client.GetTransactionInfoByBlockNum(ctx, &api.NumberMessage{
+			Num: blockNumber,
+		})
 	})
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to get transaction info by block number: %w", err)
-	}
-
-	return result, nil
 }
 
 func (c *Client) GetNowBlock(ctx context.Context) (*api.BlockExtention, error) {
-	// Get connection from pool
-	conn, err := c.pool.Get(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get connection for get now block: %w", err)
-	}
-	defer c.pool.Put(conn)
-
-	walletClient := api.NewWalletClient(conn)
-
-	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
-	defer cancel()
-	result, err := walletClient.GetNowBlock2(ctx, &api.EmptyMessage{})
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to get current block: %w", err)
-	}
-
-	return result, nil
+	return grpcGenericCallWrapper(c, ctx, "get now block", func(client api.WalletClient, ctx context.Context) (*api.BlockExtention, error) {
+		return client.GetNowBlock2(ctx, &api.EmptyMessage{})
+	})
 }
 
 // WaitForTransactionInfo waits for a transaction to be confirmed by checking its info.
@@ -116,23 +71,12 @@ func (c *Client) WaitForTransactionInfo(ctx context.Context, txId string) (*core
 		default:
 		}
 
-		// Get connection from pool
-		conn, err := c.pool.Get(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get connection for wait transaction info: %w", err)
-		}
-
-		// Create wallet client
-		walletClient := api.NewWalletClient(conn)
-
-		callCtx, cancel := context.WithTimeout(ctx, c.GetTimeout())
-		result, err := walletClient.GetTransactionInfoById(callCtx, &api.BytesMessage{
-			Value: hashBytes,
+		// Use generic wrapper for individual calls but handle retry logic here
+		result, err := grpcGenericCallWrapper(c, ctx, "wait for transaction info", func(client api.WalletClient, ctx context.Context) (*core.TransactionInfo, error) {
+			return client.GetTransactionInfoById(ctx, &api.BytesMessage{
+				Value: hashBytes,
+			})
 		})
-		cancel()
-
-		// Return connection to pool
-		c.pool.Put(conn)
 
 		if err != nil {
 			// If the context was canceled during the gRPC call, return that error.
@@ -164,26 +108,11 @@ func (c *Client) GetTransactionById(ctx context.Context, txId []byte) (*core.Tra
 		return nil, fmt.Errorf("get transaction by id failed: transaction ID is empty")
 	}
 
-	// Get connection from pool
-	conn, err := c.pool.Get(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get connection for get transaction by id: %w", err)
-	}
-	defer c.pool.Put(conn)
-
-	walletClient := api.NewWalletClient(conn)
-
-	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
-	defer cancel()
-	result, err := walletClient.GetTransactionById(ctx, &api.BytesMessage{
-		Value: txId,
+	return grpcGenericCallWrapper(c, ctx, "get transaction by id", func(client api.WalletClient, ctx context.Context) (*core.Transaction, error) {
+		return client.GetTransactionById(ctx, &api.BytesMessage{
+			Value: txId,
+		})
 	})
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to get transaction by ID: %w", err)
-	}
-
-	return result, nil
 }
 
 func (c *Client) GetTransactionInfoById(ctx context.Context, txId []byte) (*core.TransactionInfo, error) {
@@ -192,65 +121,29 @@ func (c *Client) GetTransactionInfoById(ctx context.Context, txId []byte) (*core
 		return nil, fmt.Errorf("get transaction info by id failed: transaction ID is empty")
 	}
 
-	// Get connection from pool
-	conn, err := c.pool.Get(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get connection for get transaction info by id: %w", err)
-	}
-	defer c.pool.Put(conn)
-
-	walletClient := api.NewWalletClient(conn)
-
-	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
-	defer cancel()
-	result, err := walletClient.GetTransactionInfoById(ctx, &api.BytesMessage{
-		Value: txId,
+	return grpcGenericCallWrapper(c, ctx, "get transaction info by id", func(client api.WalletClient, ctx context.Context) (*core.TransactionInfo, error) {
+		return client.GetTransactionInfoById(ctx, &api.BytesMessage{
+			Value: txId,
+		})
 	})
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to get transaction info by ID: %w", err)
-	}
-
-	return result, nil
 }
 
 func (c *Client) GetNodeInfo(ctx context.Context) (*core.NodeInfo, error) {
-	conn, err := c.pool.Get(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer c.pool.Put(conn)
-
-	walletClient := api.NewWalletClient(conn)
-	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
-	defer cancel()
-	return walletClient.GetNodeInfo(ctx, &api.EmptyMessage{})
+	return grpcGenericCallWrapper(c, ctx, "get node info", func(client api.WalletClient, ctx context.Context) (*core.NodeInfo, error) {
+		return client.GetNodeInfo(ctx, &api.EmptyMessage{})
+	})
 }
 
 func (c *Client) ListNodes(ctx context.Context) (*api.NodeList, error) {
-	conn, err := c.pool.Get(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer c.pool.Put(conn)
-
-	walletClient := api.NewWalletClient(conn)
-	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
-	defer cancel()
-	return walletClient.ListNodes(ctx, &api.EmptyMessage{})
+	return grpcGenericCallWrapper(c, ctx, "list nodes", func(client api.WalletClient, ctx context.Context) (*api.NodeList, error) {
+		return client.ListNodes(ctx, &api.EmptyMessage{})
+	})
 }
 
 func (c *Client) GetChainParameters(ctx context.Context) (*core.ChainParameters, error) {
-	conn, err := c.pool.Get(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer c.pool.Put(conn)
-
-	walletClient := api.NewWalletClient(conn)
-	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
-	defer cancel()
-	return walletClient.GetChainParameters(ctx, &api.EmptyMessage{})
+	return grpcGenericCallWrapper(c, ctx, "get chain parameters", func(client api.WalletClient, ctx context.Context) (*core.ChainParameters, error) {
+		return client.GetChainParameters(ctx, &api.EmptyMessage{})
+	})
 }
 
 // GetBlockById retrieves a block by its ID
@@ -258,13 +151,8 @@ func (c *Client) GetBlockById(ctx context.Context, blockId []byte) (*core.Block,
 	if len(blockId) == 0 {
 		return nil, fmt.Errorf("GetBlockById failed: blockId is empty")
 	}
-	conn, err := c.pool.Get(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get connection for GetBlockById: %w", err)
-	}
-	defer c.pool.Put(conn)
-	walletClient := api.NewWalletClient(conn)
-	ctx, cancel := context.WithTimeout(ctx, c.GetTimeout())
-	defer cancel()
-	return walletClient.GetBlockById(ctx, &api.BytesMessage{Value: blockId})
+
+	return grpcGenericCallWrapper(c, ctx, "get block by id", func(client api.WalletClient, ctx context.Context) (*core.Block, error) {
+		return client.GetBlockById(ctx, &api.BytesMessage{Value: blockId})
+	})
 }
