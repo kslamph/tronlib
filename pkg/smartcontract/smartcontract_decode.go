@@ -209,7 +209,17 @@ func decodeValue(data []byte, param Param) (interface{}, error) {
 			return new(big.Int).SetBytes(data), nil
 
 		case "string":
-			return string(data), nil
+			// Solidity ABI for dynamic string: [offset (32)][length (32)][data (padded to 32)]
+			if len(data) >= 64 {
+				// If data is at least 64 bytes, treat as dynamic string encoding
+				strLen := new(big.Int).SetBytes(data[32:64]).Int64()
+				if strLen > 0 && int(64+strLen) <= len(data) {
+					strData := data[64 : 64+strLen]
+					return string(strData), nil
+				}
+			}
+			// Otherwise, treat as static string (padded)
+			return strings.TrimRight(string(data), "\x00 \n\r\t"), nil
 
 		case "bool":
 			return len(data) > 0 && data[0] != 0, nil

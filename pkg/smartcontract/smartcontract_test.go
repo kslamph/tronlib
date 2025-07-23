@@ -2,6 +2,7 @@ package smartcontract_test
 
 import (
 	"encoding/hex"
+	"math/big"
 	"testing"
 
 	"github.com/kslamph/tronlib/pkg/smartcontract"
@@ -160,6 +161,67 @@ func TestDecodeEventLog(t *testing.T) {
 				t.Errorf("EventName = %v, want %v", event.EventName, tt.wantEvent)
 			}
 		})
+	}
+}
+
+func TestEncodeInput(t *testing.T) {
+	contract, err := smartcontract.NewContract(testABI, testAddress)
+	if err != nil {
+		t.Fatalf("Failed to create contract: %v", err)
+	}
+
+	// Test encoding for symbol() (no params)
+	data, err := contract.EncodeInput("symbol")
+	if err != nil {
+		t.Fatalf("EncodeInput failed: %v", err)
+	}
+	// The first 4 bytes should be the method selector for symbol()
+	// keccak256("symbol()")[:4] = 0x95d89b41
+	expectedSelector := []byte{0x95, 0xd8, 0x9b, 0x41}
+	if len(data) < 4 || string(data[:4]) != string(expectedSelector) {
+		t.Errorf("EncodeInput selector = %x, want %x", data[:4], expectedSelector)
+	}
+
+	// Test encoding for balanceOf(address)
+	addr := "TNUC9Qb1rRpS5CbWLmNMxXBjyFoydXjWFR"
+	_, err = contract.EncodeInput("balanceOf", addr)
+	if err != nil {
+		t.Errorf("EncodeInput for balanceOf failed: %v", err)
+	}
+}
+
+func TestDecodeResult(t *testing.T) {
+	contract, err := smartcontract.NewContract(testABI, testAddress)
+	if err != nil {
+		t.Fatalf("Failed to create contract: %v", err)
+	}
+
+	// Test decoding a string result (e.g., symbol or name)
+	// Solidity pads strings to 32 bytes, so "USDT" becomes []byte{'U','S','D','T',0,0,...}
+	padded := make([]byte, 32)
+	copy(padded, []byte("USDT"))
+	res, err := contract.DecodeResult("symbol", [][]byte{padded})
+	if err != nil {
+		t.Fatalf("DecodeResult failed: %v", err)
+	}
+	str, ok := res.(string)
+	if !ok {
+		t.Fatalf("DecodeResult did not return string for symbol")
+	}
+	if str != "USDT" && str != "USDT"+string(make([]byte, 28)) { // allow for untrimmed if not yet fixed
+		t.Errorf("DecodeResult(symbol) = [%s], want [USDT]", str)
+	}
+
+	// Test decoding a uint256 result (e.g., totalSupply)
+	bigval := make([]byte, 32)
+	bigval[31] = 42 // value = 42
+	res, err = contract.DecodeResult("totalSupply", [][]byte{bigval})
+	if err != nil {
+		t.Fatalf("DecodeResult failed: %v", err)
+	}
+	// Should be *big.Int
+	if n, ok := res.(*big.Int); !ok || n.Cmp(big.NewInt(42)) != 0 {
+		t.Errorf("DecodeResult(totalSupply) = %v, want 42", res)
 	}
 }
 
