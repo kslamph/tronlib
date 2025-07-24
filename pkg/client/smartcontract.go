@@ -21,7 +21,7 @@ func (c *Client) NewContractFromAddress(ctx context.Context, address *types.Addr
 			Value: address.Bytes(),
 		})
 	})
-	
+
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +104,7 @@ func (c *Client) EstimateEnergy(ctx context.Context, contract *smartcontract.Con
 }
 
 func (c *Client) TriggerSmartContract(ctx context.Context, owner *types.Address, contract *smartcontract.Contract, data []byte, callValue int64) (*api.TransactionExtention, error) {
-	return c.CreateTriggerSmartContractTransaction(ctx, owner.Bytes(), contract.AddressBytes, data, callValue)
+	return c.CreateTriggerSmartContractTransaction(ctx, owner, types.MustNewAddress(contract.Address), data, callValue)
 }
 
 func (c *Client) DeployContract(ctx context.Context, owner *types.Address, bytecode []byte, abi string, name string, originEnergyLimit int64, consumeUserResourcePercent int64, constructorParams ...interface{}) (*api.TransactionExtention, error) {
@@ -161,11 +161,18 @@ func (c *Client) DeployContract(ctx context.Context, owner *types.Address, bytec
 }
 
 // CreateTriggerSmartContractTransaction creates a smart contract trigger transaction
-func (c *Client) CreateTriggerSmartContractTransaction(ctx context.Context, ownerAddress, contractAddress []byte, data []byte, callValue int64) (*api.TransactionExtention, error) {
+func (c *Client) CreateTriggerSmartContractTransaction(ctx context.Context, ownerAddress, contractAddress *types.Address, data []byte, callValue int64) (*api.TransactionExtention, error) {
+	if ownerAddress == nil {
+		return nil, fmt.Errorf("CreateTriggerSmartContractTransaction failed: owner address is nil")
+	}
+	if contractAddress == nil {
+		return nil, fmt.Errorf("CreateTriggerSmartContractTransaction failed: contract address is nil")
+	}
+
 	return c.grpcCallWrapper(ctx, "smart contract", func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
 		return client.TriggerContract(ctx, &core.TriggerSmartContract{
-			OwnerAddress:    ownerAddress,
-			ContractAddress: contractAddress,
+			OwnerAddress:    ownerAddress.Bytes(),
+			ContractAddress: contractAddress.Bytes(),
 			Data:            data,
 			CallValue:       callValue,
 		})
@@ -180,12 +187,22 @@ func (c *Client) CreateDeployContractTransaction(ctx context.Context, contract *
 }
 
 // UpdateSetting updates smart contract settings
-func (c *Client) UpdateSetting(ctx context.Context, contract *core.UpdateSettingContract) (*api.TransactionExtention, error) {
-	if contract == nil {
-		return nil, fmt.Errorf("UpdateSetting failed: contract is nil")
+func (c *Client) UpdateSetting(ctx context.Context, ownerAddr, contractAddr *types.Address, ConsumeUserResourcePercent int64) (*api.TransactionExtention, error) {
+	if ownerAddr == nil {
+		return nil, fmt.Errorf("UpdateSetting failed: owner address is nil")
+	}
+	if contractAddr == nil {
+		return nil, fmt.Errorf("UpdateSetting failed: contract address is nil")
+	}
+	if ConsumeUserResourcePercent < 0 || ConsumeUserResourcePercent > 100 {
+		return nil, fmt.Errorf("UpdateSetting failed: consume user resource percent must be between 0 and 100")
 	}
 	return c.grpcCallWrapper(ctx, "update setting", func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
-		return client.UpdateSetting(ctx, contract)
+		return client.UpdateSetting(ctx, &core.UpdateSettingContract{
+			OwnerAddress:               ownerAddr.Bytes(),
+			ContractAddress:            contractAddr.Bytes(),
+			ConsumeUserResourcePercent: ConsumeUserResourcePercent,
+		})
 	})
 }
 
@@ -200,13 +217,13 @@ func (c *Client) UpdateEnergyLimit(ctx context.Context, contract *core.UpdateEne
 }
 
 // GetContractInfo retrieves contract info by address
-func (c *Client) GetContractInfo(ctx context.Context, address []byte) (*core.SmartContractDataWrapper, error) {
-	if len(address) == 0 {
+func (c *Client) GetContractInfo(ctx context.Context, address *types.Address) (*core.SmartContractDataWrapper, error) {
+	if address == nil {
 		return nil, fmt.Errorf("GetContractInfo failed: address is empty")
 	}
 
 	return grpcGenericCallWrapper(c, ctx, "get contract info", func(client api.WalletClient, ctx context.Context) (*core.SmartContractDataWrapper, error) {
-		return client.GetContractInfo(ctx, &api.BytesMessage{Value: address})
+		return client.GetContractInfo(ctx, &api.BytesMessage{Value: address.Bytes()})
 	})
 }
 
@@ -218,4 +235,49 @@ func (c *Client) ClearContractABI(ctx context.Context, contract *core.ClearABICo
 	return c.grpcCallWrapper(ctx, "clear contract abi", func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
 		return client.ClearContractABI(ctx, contract)
 	})
+}
+
+// ExecuteSmartContract executes a smart contract method that modifies the blockchain state.
+func (c *Client) ExecuteSmartContract(ctx context.Context, contract *smartcontract.Contract, owner *types.Address, callValue int64, method string, params ...interface{}) (*api.TransactionExtention, error) {
+	if contract == nil {
+		return nil, fmt.Errorf("execute smart contract failed: contract is nil")
+	}
+	if owner == nil {
+		return nil, fmt.Errorf("execute smart contract failed: owner address is nil")
+	}
+
+	data, err := contract.EncodeInput(method, params...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode input for method %s: %v", method, err)
+	}
+
+	return c.TriggerSmartContract(ctx, owner, contract, data, callValue)
+}
+
+// QuerySmartContract queries a smart contract method that does not modify the blockchain state (constant method).
+func (c *Client) QuerySmartContract(ctx context.Context, contract *smartcontract.Contract, owner *types.Address, method string, params ...interface{}) (interface{}, error) {
+	if contract == nil {
+		return nil, fmt.Errorf("query smart contract failed: contract is nil")
+	}
+	if owner == nil {
+		return nil, fmt.Errorf("query smart contract failed: owner address is nil")
+	}
+
+	data, err := contract.EncodeInput(method, params...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode input for method %s: %v", method, err)
+	}
+
+	resultBytes, err := c.TriggerConstantSmartContract(ctx, contract, owner, data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to trigger constant smart contract for method %s: %v", method, err)
+	}
+
+	// DecodeResult expects the result of TriggerConstantSmartContract which is [][]byte
+	decoded, err := contract.DecodeResult(method, resultBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode result for method %s: %v", method, err)
+	}
+
+	return decoded, nil
 }

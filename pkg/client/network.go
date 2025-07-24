@@ -115,15 +115,16 @@ func (c *Client) GetTransactionById(ctx context.Context, txId []byte) (*core.Tra
 	})
 }
 
-func (c *Client) GetTransactionInfoById(ctx context.Context, txId []byte) (*core.TransactionInfo, error) {
+func (c *Client) GetTransactionInfoById(ctx context.Context, txId string) (*core.TransactionInfo, error) {
 	// Validate input
-	if len(txId) == 0 {
-		return nil, fmt.Errorf("get transaction info by id failed: transaction ID is empty")
+	hashBytes, err := hex.DecodeString(txId)
+	if err != nil || len(hashBytes) != 32 {
+		return nil, fmt.Errorf("failed to decode transaction ID: %w", err)
 	}
 
 	return grpcGenericCallWrapper(c, ctx, "get transaction info by id", func(client api.WalletClient, ctx context.Context) (*core.TransactionInfo, error) {
 		return client.GetTransactionInfoById(ctx, &api.BytesMessage{
-			Value: txId,
+			Value: []byte(hashBytes),
 		})
 	})
 }
