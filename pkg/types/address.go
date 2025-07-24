@@ -1,171 +1,174 @@
+// Package types provides shared types and utilities for the TRON SDK
 package types
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"strings"
 
-	"github.com/mr-tron/base58"
+	"github.com/btcsuite/btcutil/base58"
+	"golang.org/x/crypto/sha3"
 )
 
-const (
-	addressPrefixByte = 0x41
-	addressLength     = 21                                   // Raw address length in bytes (1 byte prefix + 20 bytes address)
-	tRONAddressLength = 34                                   // TRON base58 address length
-	BlackHoleAddress  = "T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb" // Black hole address prefix
-)
-
-// Address represents a Tron address that can be stored in different formats
+// Address represents a TRON address
 type Address struct {
-	base58Addr string
-	bytesAddr  []byte
+	address []byte
 }
 
-// NewAddress creates an Address from a base58 string, it must be a length 34 base58 string prefixed by "T"
-func NewAddress(base58Addr string) (*Address, error) {
-	//address must start with T
-	if !strings.HasPrefix(base58Addr, "T") {
-		return nil, fmt.Errorf("invalid address: must start with T")
+// NewAddressFromBytes creates a new Address from byte slice
+func NewAddressFromBytes(addr []byte) (*Address, error) {
+	if len(addr) != 21 {
+		return nil, errors.New("invalid address length")
 	}
-	//address must be 34 chars long
-	if len(base58Addr) != tRONAddressLength {
-		return nil, fmt.Errorf("invalid address length: expected %d, got %d", tRONAddressLength, len(base58Addr))
-	}
-
-	decoded, err := base58.Decode(base58Addr)
-	//address must be valid base58
-	if err != nil {
-		return nil, fmt.Errorf("invalid base58 encoding: %w", err)
-	}
-	//address hex must be prefixed with 0x41
-	if decoded[0] != 0x41 {
-		return nil, fmt.Errorf("invalid address prefix: expected 0x41, got 0x%x", decoded[0])
-	}
-	//address hex must be 21 bytes long
-	if len(decoded) != addressLength+4 { // 21 bytes address + 4 bytes checksum
-		return nil, errors.New("invalid decoded address length")
-	}
-
-	addressBytes := decoded[:addressLength]
-	checksum := decoded[addressLength:]
-
-	// Verify checksum first 4 bytes of sha256(sha256(addressBytes)) must be equal to checksum
-	h1 := sha256.Sum256(addressBytes)
-	h2 := sha256.Sum256(h1[:])
-	if !bytes.Equal(h2[:4], checksum) {
-		return nil, errors.New("invalid checksum")
-	}
-
-	return &Address{
-		base58Addr: base58Addr,
-		bytesAddr:  addressBytes,
-	}, nil
+	return &Address{address: addr}, nil
 }
 
-// NewAddressFromHex creates an Address from a hex string,
-// it must prefixed with 0x41 or 41 followed by 40 hex chars
-// or 20 bytes hex string
+// NewAddressFromHex creates a new Address from hex string
 func NewAddressFromHex(hexAddr string) (*Address, error) {
-	// Remove 0x prefix if present
-	hexAddr = strings.TrimPrefix(strings.ToLower(hexAddr), "0x")
-	decoded, err := hex.DecodeString(hexAddr)
-
+	if len(hexAddr) == 42 && hexAddr[:2] == "0x" {
+		hexAddr = hexAddr[2:]
+	}
+	if len(hexAddr) != 40 {
+		return nil, errors.New("invalid hex address length")
+	}
+	
+	addr, err := hex.DecodeString(hexAddr)
 	if err != nil {
-		return nil, fmt.Errorf("invalid hex encoding: %w", err)
+		return nil, fmt.Errorf("invalid hex address: %v", err)
 	}
-
-	switch len(decoded) {
-	case 21:
-		if decoded[0] != addressPrefixByte {
-			return nil, fmt.Errorf("invalid hex address: must start with %x", addressPrefixByte)
-		}
-	case 20:
-		//valid address
-	default:
-		return nil, fmt.Errorf("invalid hex address length: expected 40 or 42, got %d", len(hexAddr))
+	
+	if len(addr) != 20 {
+		return nil, errors.New("decoded address must be 20 bytes")
 	}
-
-	return &Address{
-		bytesAddr:  decoded,
-		base58Addr: encodeBase58Addr(decoded),
-	}, nil
+	
+	// Add TRON prefix (0x41)
+	tronAddr := make([]byte, 21)
+	tronAddr[0] = 0x41
+	copy(tronAddr[1:], addr)
+	
+	return &Address{address: tronAddr}, nil
 }
 
-// NewAddressFromBytes creates an Address from 21(prefixed with 0x41) or 20 bytes
-func NewAddressFromBytes(byteAddress []byte) (*Address, error) {
-	switch len(byteAddress) {
-	case 21:
-		if byteAddress[0] != 0x41 {
-			return nil, fmt.Errorf("invalid address prefix: expected 0x41, got 0x%x", byteAddress[0])
-		}
-	case 20:
-		//valid address
-	default:
-		return nil, fmt.Errorf("invalid address length: expected 21 or 20, got %d", len(byteAddress))
+// NewAddressFromBase58 creates a new Address from base58 string
+func NewAddressFromBase58(base58Addr string) (*Address, error) {
+	decoded := base58.Decode(base58Addr)
+	if len(decoded) != 25 {
+		return nil, errors.New("invalid base58 address length")
 	}
-
-	return &Address{
-		bytesAddr:  byteAddress,
-		base58Addr: encodeBase58Addr(byteAddress),
-	}, nil
-}
-
-// MustNewAddress is a wrapper for NewAddress that panics if the address is invalid
-func MustNewAddress(base58Addr string) *Address {
-	addr, err := NewAddress(base58Addr)
-	if err != nil {
-		panic(err)
+	
+	// Verify checksum
+	addr := decoded[:21]
+	checksum := decoded[21:]
+	
+	hash1 := sha256.Sum256(addr)
+	hash2 := sha256.Sum256(hash1[:])
+	
+	if !bytesEqual(hash2[:4], checksum) {
+		return nil, errors.New("invalid base58 address checksum")
 	}
-	return addr
+	
+	return &Address{address: addr}, nil
 }
 
-// MustNewAddressFromHex is a wrapper for NewAddressFromHex that panics if the address is invalid
-func MustNewAddressFromHex(hexAddr string) *Address {
-	addr, err := NewAddressFromHex(hexAddr)
-	if err != nil {
-		panic(err)
-	}
-	return addr
-}
-
-// MustNewAddressFromBytes is a wrapper for NewAddressFromBytes that panics if the address is invalid
-func MustNewAddressFromBytes(byteAddress []byte) *Address {
-	addr, err := NewAddressFromBytes(byteAddress)
-	if err != nil {
-		panic(err)
-	}
-	return addr
-}
-
-// GetBase58Addr returns the base58 representation of the address
-func encodeBase58Addr(bytesAddr []byte) string {
-	// Calculate checksum
-	h1 := sha256.Sum256(bytesAddr)
-	h2 := sha256.Sum256(h1[:])
-	checksum := h2[:4]
-
-	// Combine address with checksum
-	combined := append([]byte{}, bytesAddr...)
-	combined = append(combined, checksum...)
-
-	// Encode to base58
-	return base58.Encode(combined)
-}
-
-// String returns the T prefixed 34 chars base58 representation
-func (a *Address) String() string {
-	return a.base58Addr
-}
-
-// Bytes returns the raw bytes of the address (0x41 prefixed 21 bytes)
+// Bytes returns the address as byte slice
 func (a *Address) Bytes() []byte {
-	return a.bytesAddr
+	if a == nil {
+		return nil
+	}
+	return a.address
 }
 
-// Hex returns the hex string of the address (41 prefixed 42 chars)
+// Hex returns the address as hex string (without 0x prefix)
 func (a *Address) Hex() string {
-	return hex.EncodeToString(a.bytesAddr)
+	if a == nil {
+		return ""
+	}
+	return hex.EncodeToString(a.address)
+}
+
+// HexWithPrefix returns the address as hex string with 0x prefix
+func (a *Address) HexWithPrefix() string {
+	if a == nil {
+		return ""
+	}
+	return "0x" + hex.EncodeToString(a.address)
+}
+
+// Base58 returns the address as base58 string
+func (a *Address) Base58() string {
+	if a == nil {
+		return ""
+	}
+	
+	// Calculate checksum
+	hash1 := sha256.Sum256(a.address)
+	hash2 := sha256.Sum256(hash1[:])
+	
+	// Append checksum
+	fullAddr := make([]byte, 25)
+	copy(fullAddr[:21], a.address)
+	copy(fullAddr[21:], hash2[:4])
+	
+	return base58.Encode(fullAddr)
+}
+
+// String returns the address as base58 string (default representation)
+func (a *Address) String() string {
+	return a.Base58()
+}
+
+// IsValid checks if the address is valid
+func (a *Address) IsValid() bool {
+	return a != nil && len(a.address) == 21 && a.address[0] == 0x41
+}
+
+// Equal checks if two addresses are equal
+func (a *Address) Equal(other *Address) bool {
+	if a == nil || other == nil {
+		return a == other
+	}
+	return bytesEqual(a.address, other.address)
+}
+
+// Helper function to compare byte slices
+func bytesEqual(a, b []byte) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// GenerateContractAddress generates a contract address from creator address and nonce
+func GenerateContractAddress(creatorAddr *Address, nonce uint64) (*Address, error) {
+	if creatorAddr == nil {
+		return nil, errors.New("creator address is nil")
+	}
+	
+	// Convert nonce to bytes
+	nonceBytes := make([]byte, 8)
+	for i := 7; i >= 0; i-- {
+		nonceBytes[i] = byte(nonce)
+		nonce >>= 8
+	}
+	
+	// Concatenate creator address and nonce
+	data := append(creatorAddr.Bytes(), nonceBytes...)
+	
+	// Calculate keccak256 hash
+	hash := sha3.NewLegacyKeccak256()
+	hash.Write(data)
+	hashBytes := hash.Sum(nil)
+	
+	// Take last 20 bytes and add TRON prefix
+	contractAddr := make([]byte, 21)
+	contractAddr[0] = 0x41
+	copy(contractAddr[1:], hashBytes[12:])
+	
+	return &Address{address: contractAddr}, nil
 }

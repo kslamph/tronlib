@@ -1,22 +1,24 @@
+// Package client provides core infrastructure for gRPC client management
 package client
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"sync/atomic"
 	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+
+	"github.com/kslamph/tronlib/pb/api"
+	"github.com/kslamph/tronlib/pkg/types"
 )
 
+// Client errors
 var (
-	// ErrConnectionFailed is returned when connection to the node fails
-	ErrConnectionFailed = errors.New("connection to node failed")
-	// ErrClientClosed is returned when trying to use a closed client
-	ErrClientClosed = errors.New("client is closed")
-	// ErrContextCancelled is returned when context is cancelled
-	ErrContextCancelled = errors.New("context cancelled")
+	ErrConnectionFailed = types.NewTronError(1001, "connection to node failed", nil)
+	ErrClientClosed     = types.NewTronError(1002, "client is closed", nil)
+	ErrContextCancelled = types.NewTronError(1003, "context cancelled", nil)
 )
 
 // ClientConfig represents the configuration for the TronClient
@@ -26,6 +28,17 @@ type ClientConfig struct {
 	InitConnections int           // Initial number of connections in pool
 	MaxConnections  int           // Maximum number of connections in pool
 	IdleTimeout     time.Duration // How long connections can be idle
+}
+
+// DefaultClientConfig returns a default client configuration
+func DefaultClientConfig(nodeAddress string) ClientConfig {
+	return ClientConfig{
+		NodeAddress:     nodeAddress,
+		Timeout:         30 * time.Second,
+		InitConnections: 1,
+		MaxConnections:  5,
+		IdleTimeout:     5 * time.Minute,
+	}
 }
 
 // Client manages connection to a single Tron node with connection pooling
@@ -39,7 +52,7 @@ type Client struct {
 // NewClient creates a new TronClient with the provided configuration (lazy connection)
 func NewClient(config ClientConfig) (*Client, error) {
 	if config.NodeAddress == "" {
-		return nil, errors.New("node address must be provided")
+		return nil, fmt.Errorf("node address must be provided")
 	}
 
 	timeout := config.Timeout
@@ -119,4 +132,74 @@ func (c *Client) GetTimeout() time.Duration {
 	return c.timeout
 }
 
-// Transaction creation methods
+// GetNodeAddress returns the configured node address
+func (c *Client) GetNodeAddress() string {
+	return c.nodeAddress
+}
+
+// IsConnected checks if the client is connected (not closed)
+func (c *Client) IsConnected() bool {
+	return atomic.LoadInt32(&c.closed) == 0
+}
+
+// ValidationFunc is a function type for validating gRPC call results
+// T represents the return type of the gRPC call
+type ValidationFunc[T any] func(result T, operation string) error
+
+// grpcGenericCallWrapper wraps common gRPC call patterns with proper connection management
+// T represents the return type of the gRPC call
+// This generic wrapper can handle any gRPC operation return type while maintaining type safety
+func grpcGenericCallWrapper[T any](c *Client, ctx context.Context, operation string, call func(client api.WalletClient, ctx context.Context) (T, error), validateFunc ...ValidationFunc[T]) (T, error) {
+	var zero T // zero value for type T
+	
+	// Get connection from pool
+	conn, err := c.pool.Get(ctx)
+	if err != nil {
+		return zero, fmt.Errorf("failed to get connection for %s: %w", operation, err)
+	}
+	defer c.pool.Put(conn)
+
+	// Create wallet client
+	walletClient := api.NewWalletClient(conn)
+
+	// fallback to context with timeout if no deadline is set
+	var cancel context.CancelFunc
+	if _, ok := ctx.Deadline(); !ok {
+		ctx, cancel = context.WithTimeout(ctx, c.GetTimeout())
+		defer cancel()
+	}
+
+	// Execute the call with proper context
+	result, err := call(walletClient, ctx)
+	if err != nil {
+		return zero, fmt.Errorf("failed to execute %s: %w", operation, err)
+	}
+
+	// Apply validation if provided
+	if len(validateFunc) > 0 && validateFunc[0] != nil {
+		if err := validateFunc[0](result, operation); err != nil {
+			return zero, err
+		}
+	}
+
+	return result, nil
+}
+
+// validateTransactionResult checks the common result pattern for transaction operations
+func validateTransactionResult(result *api.TransactionExtention, operation string) error {
+	if result == nil {
+		return fmt.Errorf("nil result for %s", operation)
+	}
+	if result.Result == nil {
+		return fmt.Errorf("nil result field for %s", operation)
+	}
+	if !result.Result.Result {
+		return types.WrapTransactionResult(result.Result, operation)
+	}
+	return nil
+}
+
+// grpcTransactionCallWrapper wraps gRPC calls that return TransactionExtention
+func (c *Client) grpcTransactionCallWrapper(ctx context.Context, operation string, call func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error)) (*api.TransactionExtention, error) {
+	return grpcGenericCallWrapper(c, ctx, operation, call, validateTransactionResult)
+}
