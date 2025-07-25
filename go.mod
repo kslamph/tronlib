@@ -5,9 +5,9 @@ go 1.23.0
 toolchain go1.24.4
 
 require (
-	github.com/btcsuite/btcutil v0.0.0-20190425235716-9e5f4b9a998d
 	github.com/ethereum/go-ethereum v1.16.1
 	github.com/miguelmota/go-ethereum-hdwallet v0.1.3
+	github.com/mr-tron/base58 v1.2.0
 	github.com/shopspring/decimal v1.4.0
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/crypto v0.40.0
@@ -30,7 +30,6 @@ require (
 	github.com/ethereum/c-kzg-4844/v2 v2.1.0 // indirect
 	github.com/ethereum/go-verkle v0.2.2 // indirect
 	github.com/holiman/uint256 v1.3.2 // indirect
-	github.com/mr-tron/base58 v1.2.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/supranational/blst v0.3.14 // indirect
 	github.com/tyler-smith/go-bip39 v1.1.0 // indirect
