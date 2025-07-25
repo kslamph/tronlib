@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"github.com/kslamph/tronlib/pkg/client"
 	"github.com/kslamph/tronlib/pkg/network"
 	"github.com/kslamph/tronlib/pkg/smartcontract"
+	"github.com/kslamph/tronlib/pkg/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -104,46 +106,6 @@ func setupNetworkTestManager(t *testing.T) *network.Manager {
 	return network.NewManager(client)
 }
 
-// loadTestBlockData loads the test block data from JSON file
-func loadTestBlockData(t *testing.T) *BlockData {
-	// Get the current working directory and construct path to test data
-	cwd, err := os.Getwd()
-	require.NoError(t, err, "Failed to get current working directory")
-
-	// Navigate up to find the project root
-	projectRoot := filepath.Dir(filepath.Dir(cwd)) // Go up two levels from read_tests to project root
-	testDataPath := filepath.Join(projectRoot, "integration_test", "tmp", "getnowblock_header.json")
-
-	data, err := os.ReadFile(testDataPath)
-	require.NoError(t, err, "Failed to read test data file: %s", testDataPath)
-
-	var blockData BlockData
-	err = json.Unmarshal(data, &blockData)
-	require.NoError(t, err, "Failed to unmarshal test data")
-
-	return &blockData
-}
-
-// loadSuccessfulTransactionInfo loads the successful transaction info test data
-func loadSuccessfulTransactionInfo(t *testing.T) *TransactionInfoTestData {
-	// Get the current working directory and construct path to test data
-	cwd, err := os.Getwd()
-	require.NoError(t, err, "Failed to get current working directory")
-
-	// Navigate up to find the project root
-	projectRoot := filepath.Dir(filepath.Dir(cwd)) // Go up two levels from read_tests to project root
-	testDataPath := filepath.Join(projectRoot, "integration_test", "tmp", "succ_tx_info.json")
-
-	data, err := os.ReadFile(testDataPath)
-	require.NoError(t, err, "Failed to read successful transaction info test data file: %s", testDataPath)
-
-	var txInfo TransactionInfoTestData
-	err = json.Unmarshal(data, &txInfo)
-	require.NoError(t, err, "Failed to unmarshal successful transaction info test data")
-
-	return &txInfo
-}
-
 // loadFailedTransactionInfo loads the failed transaction info test data
 func loadFailedTransactionInfo(t *testing.T) *TransactionInfoTestData {
 	// Get the current working directory and construct path to test data
@@ -169,9 +131,6 @@ func TestMainnetGetNowBlock(t *testing.T) {
 	manager := setupNetworkTestManager(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-
-	// Load expected test data for validation
-	expectedData := loadTestBlockData(t)
 
 	t.Run("GetNowBlock_ValidateStructure", func(t *testing.T) {
 		block, err := manager.GetNowBlock(ctx)
@@ -325,9 +284,7 @@ func TestMainnetGetNowBlock(t *testing.T) {
 			t.Logf("Current block ID: %s", blockIdHex)
 
 			// Compare format with expected data
-			expectedBlockId := expectedData.BlockID
-			assert.Len(t, expectedBlockId, 64, "Expected block ID should be 64 hex chars")
-			t.Logf("Expected block ID format matches: %t", len(blockIdHex) == len(expectedBlockId))
+
 		}
 
 		// Validate timestamp is recent (within last hour)
@@ -337,22 +294,8 @@ func TestMainnetGetNowBlock(t *testing.T) {
 		timeDiff := currentTime - blockTime
 
 		// Block should be recent (within 1 hour = 3600000 ms)
-		assert.Less(t, timeDiff, int64(3600000), "Block should be recent (within 1 hour)")
+		assert.Less(t, timeDiff, int64(60000), "Block should be recent (within 1 hour)")
 		t.Logf("Block age: %d ms", timeDiff)
-
-		// Validate block number progression
-		blockNumber := rawData.GetNumber()
-		expectedMinBlockNumber := expectedData.BlockHeader.RawData.Number
-		assert.GreaterOrEqual(t, blockNumber, expectedMinBlockNumber,
-			"Current block number should be >= test data block number")
-		t.Logf("Block number progression: test data block %d -> current block %d",
-			expectedMinBlockNumber, blockNumber)
-
-		// Validate version consistency
-		version := rawData.GetVersion()
-		expectedVersion := expectedData.BlockHeader.RawData.Version
-		assert.Equal(t, expectedVersion, version, "Block version should match expected version")
-		t.Logf("Block version matches expected: %d", version)
 
 		t.Logf("✅ Test data validation passed")
 	})
@@ -364,10 +307,8 @@ func TestMainnetGetBlockByNumber(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	expectedData := loadTestBlockData(t)
-	expectedBlockNumber := expectedData.BlockHeader.RawData.Number
-
 	t.Run("GetBlockByNumber_KnownBlock", func(t *testing.T) {
+		expectedBlockNumber := int64(68900960)
 		block, err := manager.GetBlockByNumber(ctx, expectedBlockNumber)
 		require.NoError(t, err, "GetBlockByNumber should succeed")
 		require.NotNil(t, block, "Block should not be nil")
@@ -380,16 +321,16 @@ func TestMainnetGetBlockByNumber(t *testing.T) {
 
 		// Validate timestamp matches expected
 		actualTimestamp := rawData.GetTimestamp()
-		expectedTimestamp := expectedData.BlockHeader.RawData.Timestamp
+		expectedTimestamp := int64(1737354357000)
 		assert.Equal(t, expectedTimestamp, actualTimestamp,
 			"Block timestamp should match expected")
 
 		// Validate witness address matches expected
-		actualWitnessAddr := rawData.GetWitnessAddress()
-		expectedWitnessAddrBytes, err := hex.DecodeString(expectedData.BlockHeader.RawData.WitnessAddress)
-		require.NoError(t, err, "Should decode expected witness address")
-		assert.Equal(t, expectedWitnessAddrBytes, actualWitnessAddr,
-			"Witness address should match expected")
+		actualBlockHash := block.GetBlockid()
+		assert.Equal(t, "00000000041b5860faa23511e1eb3f4d00b230bfac4fd4291753c9b9af1bb942", fmt.Sprintf("%x", actualBlockHash), "Block hash should match expected")
+
+		actualNumberOfTransactions := len(block.GetTransactions())
+		assert.Equal(t, 343, actualNumberOfTransactions, "Should have 343 transactions")
 
 		t.Logf("✅ Successfully retrieved and validated block %d", expectedBlockNumber)
 	})
@@ -494,11 +435,11 @@ func TestMainnetGetTransactionInfoById(t *testing.T) {
 	defer cancel()
 
 	// Load test data
-	successfulTxData := loadSuccessfulTransactionInfo(t)
-	failedTxData := loadFailedTransactionInfo(t)
+	succTx := "f079d362f06b496cd22ccb9ec54d8c5bf0ef734e47613dc4caa76e4eb118f5a9"
+	failedTx := "65fd57f1324178fb30a100584f454b1d03d987086dea87ed16c401aecb5dbf88"
 
 	t.Run("GetTransactionInfoById_SuccessfulTransaction", func(t *testing.T) {
-		txId := successfulTxData.ID
+		txId := succTx
 		txInfo, err := manager.GetTransactionInfoById(ctx, txId)
 		require.NoError(t, err, "GetTransactionInfoById should succeed for successful transaction")
 		require.NotNil(t, txInfo, "Transaction info should not be nil")
@@ -514,11 +455,11 @@ func TestMainnetGetTransactionInfoById(t *testing.T) {
 
 		// Validate block information
 		blockNumber := txInfo.GetBlockNumber()
-		assert.Equal(t, successfulTxData.BlockNumber, blockNumber, "Block number should match expected")
+		assert.Equal(t, int64(74255266), blockNumber, "Block number should match expected")
 		t.Logf("Transaction in block: %d", blockNumber)
 
 		blockTimeStamp := txInfo.GetBlockTimeStamp()
-		assert.Equal(t, successfulTxData.BlockTimeStamp, blockTimeStamp, "Block timestamp should match expected")
+		assert.Equal(t, int64(1753424376000), blockTimeStamp, "Block timestamp should match expected")
 		t.Logf("Block timestamp: %d", blockTimeStamp)
 
 		// Validate contract result
@@ -531,8 +472,7 @@ func TestMainnetGetTransactionInfoById(t *testing.T) {
 		assert.NotEmpty(t, contractAddress, "Contract address should not be empty")
 
 		// Convert expected hex address to bytes for comparison
-		expectedContractAddrBytes, err := hex.DecodeString(successfulTxData.ContractAddress)
-		require.NoError(t, err, "Should decode expected contract address")
+		expectedContractAddrBytes := types.MustNewAddressFromBase58("TKFRELGGoRgiayhwJTNNLqCNjFoLBh3Mnf").Bytes()
 		assert.Equal(t, expectedContractAddrBytes, contractAddress, "Contract address should match expected")
 		t.Logf("Contract address: %x", contractAddress)
 
@@ -541,7 +481,7 @@ func TestMainnetGetTransactionInfoById(t *testing.T) {
 		require.NotNil(t, receipt, "Receipt should not be nil")
 
 		energyUsageTotal := receipt.GetEnergyUsageTotal()
-		assert.Equal(t, successfulTxData.Receipt.EnergyUsageTotal, energyUsageTotal, "Energy usage total should match expected")
+		assert.Equal(t, int64(84291), energyUsageTotal, "Energy usage total should match expected")
 		t.Logf("Energy usage total: %d", energyUsageTotal)
 
 		result := receipt.GetResult()
@@ -550,7 +490,7 @@ func TestMainnetGetTransactionInfoById(t *testing.T) {
 
 		// Validate logs (events)
 		logs := txInfo.GetLog()
-		expectedLogCount := len(successfulTxData.Log)
+		expectedLogCount := 6
 		assert.Len(t, logs, expectedLogCount, "Log count should match expected")
 		t.Logf("Event logs count: %d", len(logs))
 
@@ -571,14 +511,12 @@ func TestMainnetGetTransactionInfoById(t *testing.T) {
 			t.Logf("Log %d: address=%x, topics=%d, data_length=%d", i, address, len(topics), len(data))
 		}
 
-		// Validate internal transactions
-		internalTxs := txInfo.GetInternalTransactions()
 		// Note: Internal transactions may not always be included in gRPC response
 		// so we'll log the count but not enforce strict equality
-		t.Logf("Internal transactions count: %d (expected: %d)", len(internalTxs), len(successfulTxData.InternalTransactions))
+		t.Logf("Internal transactions count: %d (expected: %d)", len(txInfo.InternalTransactions), 13)
 
 		// Validate first few internal transactions if they exist
-		for i, internalTx := range internalTxs {
+		for i, internalTx := range txInfo.GetInternalTransactions() {
 			if i >= 3 { // Limit validation to first 3 internal transactions
 				break
 			}
@@ -602,7 +540,7 @@ func TestMainnetGetTransactionInfoById(t *testing.T) {
 	})
 
 	t.Run("GetTransactionInfoById_FailedTransaction", func(t *testing.T) {
-		txId := failedTxData.ID
+		txId := failedTx
 		txInfo, err := manager.GetTransactionInfoById(ctx, txId)
 		require.NoError(t, err, "GetTransactionInfoById should succeed for failed transaction")
 		require.NotNil(t, txInfo, "Transaction info should not be nil")
@@ -617,13 +555,12 @@ func TestMainnetGetTransactionInfoById(t *testing.T) {
 
 		// Validate block information
 		blockNumber := txInfo.GetBlockNumber()
-		assert.Equal(t, failedTxData.BlockNumber, blockNumber, "Block number should match expected")
+		assert.Equal(t, int64(71773886), blockNumber, "Block number should match expected")
 		t.Logf("Failed transaction in block: %d", blockNumber)
 
 		// Validate fee for failed transaction
 		fee := txInfo.GetFee()
-		assert.Equal(t, failedTxData.Fee, fee, "Fee should match expected")
-		assert.Greater(t, fee, int64(0), "Failed transaction should have fee > 0")
+		assert.Equal(t, int64(28999810), fee, "Fee should match expected")
 		t.Logf("Transaction fee: %d SUN", fee)
 
 		// Validate receipt for failed transaction
@@ -635,12 +572,11 @@ func TestMainnetGetTransactionInfoById(t *testing.T) {
 		t.Logf("Failed transaction result: %v", result)
 
 		energyUsageTotal := receipt.GetEnergyUsageTotal()
-		assert.Equal(t, failedTxData.Receipt.EnergyUsageTotal, energyUsageTotal, "Energy usage total should match expected")
+		assert.Equal(t, int64(134461), energyUsageTotal, "Energy usage total should match expected")
 		t.Logf("Energy usage total: %d", energyUsageTotal)
 
 		energyFee := receipt.GetEnergyFee()
-		assert.Equal(t, failedTxData.Receipt.EnergyFee, energyFee, "Energy fee should match expected")
-		assert.Greater(t, energyFee, int64(0), "Failed transaction should have energy fee > 0")
+		assert.Equal(t, int64(28236810), energyFee, "Energy fee should match expected")
 		t.Logf("Energy fee: %d SUN", energyFee)
 
 		// Validate result message for failed transaction
@@ -652,8 +588,8 @@ func TestMainnetGetTransactionInfoById(t *testing.T) {
 		internalTxs := txInfo.GetInternalTransactions()
 		// Note: Internal transactions may not always be included in gRPC response
 		// so we'll log the count but not enforce strict equality
-		t.Logf("Failed transaction internal transactions count: %d (expected: %d)", len(internalTxs), len(failedTxData.InternalTransactions))
-		t.Logf("internal transactions: %v", failedTxData.InternalTransactions)
+		t.Logf("Failed transaction internal transactions count: %d (expected: %d)", len(internalTxs), 3)
+		t.Logf("internal transactions: %v", internalTxs)
 
 		// All internal transactions should be rejected for failed transaction if they exist
 		for i, internalTx := range internalTxs {
@@ -684,13 +620,13 @@ func TestMainnetGetTransactionInfoById(t *testing.T) {
 		assert.Contains(t, err.Error(), "64 hex characters", "Error should mention correct length requirement")
 
 		// Test with 0x prefix (should be accepted and stripped)
-		txId := "0x" + successfulTxData.ID
+		txId := "0x" + succTx
 		txInfo, err := manager.GetTransactionInfoById(ctx, txId)
 		require.NoError(t, err, "Should accept transaction ID with 0x prefix")
 		require.NotNil(t, txInfo, "Should return valid transaction info")
 
 		// Test with 0X prefix (should be accepted and stripped)
-		txId = "0X" + successfulTxData.ID
+		txId = "0X" + succTx
 		txInfo, err = manager.GetTransactionInfoById(ctx, txId)
 		require.NoError(t, err, "Should accept transaction ID with 0X prefix")
 		require.NotNil(t, txInfo, "Should return valid transaction info")
@@ -737,7 +673,7 @@ func TestMainnetEventDecoder(t *testing.T) {
 
 		// Track unique contract addresses
 		contractAddresses := make(map[string]bool)
-		
+
 		// Process each event log
 		for i, log := range logs {
 			address := log.GetAddress()
@@ -765,7 +701,7 @@ func TestMainnetEventDecoder(t *testing.T) {
 
 			// Try to get contract ABI and decode the event
 			t.Logf("  Attempting to decode event...")
-			
+
 			// Create a client for retrieving contract information
 			client, err := client.NewClient(client.DefaultClientConfig(getTestConfig().Endpoint))
 			if err != nil {
@@ -827,7 +763,7 @@ func TestMainnetEventDecoder(t *testing.T) {
 		// Test with invalid contract address for NewContract
 		client, err := client.NewClient(client.DefaultClientConfig(getTestConfig().Endpoint))
 		require.NoError(t, err, "Should create client")
-		
+
 		_, err = smartcontract.NewContract("invalid_address", client)
 		assert.Error(t, err, "Should reject invalid contract address")
 

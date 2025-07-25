@@ -60,7 +60,7 @@ func demonstrateSimpleTransfer(client *client.Client, signer *signer.PrivateKeyS
 
 	// Action chain: Set timeout -> Sign -> Broadcast with waiting
 	wf := workflow.NewWorkflow(client, mockTx).
-		SetTimeout(time.Now().Add(10*time.Minute).UnixMilli()).
+		SetTimeout(time.Now().Add(10 * time.Minute).UnixMilli()).
 		Sign(signer)
 
 	// Check for errors before broadcasting
@@ -70,7 +70,7 @@ func demonstrateSimpleTransfer(client *client.Client, signer *signer.PrivateKeyS
 	}
 
 	// Broadcast and wait for confirmation (smart contract transactions only)
-	txID, success, txInfo, err := wf.Broadcast(ctx, 30)
+	txID, success, broadcastResult, txInfo, err := wf.Broadcast(ctx, 30)
 	if err != nil {
 		fmt.Printf("Broadcast failed: %v\n", err)
 		return
@@ -79,6 +79,7 @@ func demonstrateSimpleTransfer(client *client.Client, signer *signer.PrivateKeyS
 	fmt.Printf("Transfer Result:\n")
 	fmt.Printf("  TX ID: %s\n", txID)
 	fmt.Printf("  Broadcast Success: %t\n", success)
+	fmt.Printf("  Broadcast Result: %v\n", broadcastResult)
 	if txInfo != nil {
 		fmt.Printf("  Block Number: %d\n", txInfo.BlockNumber)
 		fmt.Printf("  Result: %v\n", txInfo.Result)
@@ -94,7 +95,7 @@ func demonstrateSmartContractWithFeeLimit(client *client.Client, signer *signer.
 	// Action chain: Set fee limit -> Set timeout -> Sign -> Broadcast
 	wf := workflow.NewWorkflow(client, mockTx).
 		SetFeeLimit(1000000). // 1 TRX fee limit
-		SetTimeout(time.Now().Add(1*time.Hour).UnixMilli()).
+		SetTimeout(time.Now().Add(1 * time.Hour).UnixMilli()).
 		Sign(signer)
 
 	if err := wf.GetError(); err != nil {
@@ -103,7 +104,7 @@ func demonstrateSmartContractWithFeeLimit(client *client.Client, signer *signer.
 	}
 
 	// Broadcast with waiting for smart contract result
-	txID, success, txInfo, err := wf.Broadcast(ctx, 60)
+	txID, success, broadcastResult, txInfo, err := wf.Broadcast(ctx, 60)
 	if err != nil {
 		fmt.Printf("Broadcast failed: %v\n", err)
 		return
@@ -112,6 +113,7 @@ func demonstrateSmartContractWithFeeLimit(client *client.Client, signer *signer.
 	fmt.Printf("Smart Contract Result:\n")
 	fmt.Printf("  TX ID: %s\n", txID)
 	fmt.Printf("  Broadcast Success: %t\n", success)
+	fmt.Printf("  Broadcast Result: %v\n", broadcastResult)
 	if txInfo != nil {
 		fmt.Printf("  Block Number: %d\n", txInfo.BlockNumber)
 		fmt.Printf("  Contract Result: %v\n", txInfo.ContractResult)
@@ -133,8 +135,8 @@ func demonstrateMultiSignature(client *client.Client, signer1 *signer.PrivateKey
 	// Multi-signature workflow: Sign with multiple signers
 	wf := workflow.NewWorkflow(client, mockTx).
 		SetTimeout(time.Now().Add(30*time.Minute).UnixMilli()).
-		Sign(signer1).                    // First signature
-		MultiSign(signer2, 1)             // Second signature with permission ID
+		Sign(signer1).        // First signature
+		MultiSign(signer2, 1) // Second signature with permission ID
 
 	if err := wf.GetError(); err != nil {
 		fmt.Printf("Multi-signature workflow error: %v\n", err)
@@ -160,7 +162,7 @@ func demonstrateSignOnly(client *client.Client, signer *signer.PrivateKeySigner)
 
 	// Sign only workflow - useful for multi-party scenarios
 	wf := workflow.NewWorkflow(client, mockTx).
-		SetTimeout(time.Now().Add(2*time.Hour).UnixMilli()).
+		SetTimeout(time.Now().Add(2 * time.Hour).UnixMilli()).
 		SetFeeLimit(500000).
 		Sign(signer)
 
@@ -196,7 +198,7 @@ func demonstrateErrorHandling(client *client.Client, signer *signer.PrivateKeySi
 
 	// Try to use the invalid transaction
 	wf := workflow.NewWorkflow(client, invalidTx).
-		SetTimeout(time.Now().Add(1*time.Hour).UnixMilli()).
+		SetTimeout(time.Now().Add(1 * time.Hour).UnixMilli()).
 		Sign(signer)
 
 	// Check for errors
@@ -216,7 +218,7 @@ func demonstrateErrorHandling(client *client.Client, signer *signer.PrivateKeySi
 
 	// Try to set fee limit on signed transaction (should fail)
 	validWorkflow.SetFeeLimit(1000000)
-	
+
 	if err := validWorkflow.GetError(); err != nil {
 		fmt.Printf("State validation error: %v\n", err)
 	}

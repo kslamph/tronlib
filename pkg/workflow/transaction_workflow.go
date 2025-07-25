@@ -2,6 +2,7 @@
 package workflow
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"sync"
@@ -46,17 +47,18 @@ type TransactionWorkflow struct {
 	mu          sync.RWMutex
 	client      *client.Client
 	transaction *core.Transaction
-	signatures  []*core.Transaction_Contract
-	state       WorkflowState
-	error       error
-	txid        string
+	// signatures      [][]byte
+	state           WorkflowState
+	txid            string
 	broadcastResult *BroadcastResult
+	err             error
 }
 
 // BroadcastResult contains the result of broadcasting a transaction
 type BroadcastResult struct {
 	TxID            string
 	Success         bool
+	Return          *api.Return
 	TransactionInfo *core.TransactionInfo
 	Error           error
 }
@@ -85,18 +87,18 @@ func NewTransactionWorkflow(client *client.Client, tx interface{}) *TransactionW
 				workflow.txid = fmt.Sprintf("%x", types.GetTransactionID(t.Transaction))
 			}
 		} else {
-			workflow.error = fmt.Errorf("transaction extension contains nil transaction")
+			workflow.err = fmt.Errorf("transaction extension contains nil transaction")
 			workflow.state = StateError
 		}
 	default:
-		workflow.error = fmt.Errorf("invalid transaction type: expected *core.Transaction or *api.TransactionExtention")
+		workflow.err = fmt.Errorf("invalid transaction type: expected *core.Transaction or *api.TransactionExtention")
 		workflow.state = StateError
 	}
 
 	// Validate transaction structure
-	if workflow.error == nil && workflow.transaction != nil {
+	if workflow.err == nil && workflow.transaction != nil {
 		if workflow.transaction.RawData == nil {
-			workflow.error = fmt.Errorf("transaction raw data is nil")
+			workflow.err = fmt.Errorf("transaction raw data is nil")
 			workflow.state = StateError
 		}
 	}
@@ -108,7 +110,7 @@ func NewTransactionWorkflow(client *client.Client, tx interface{}) *TransactionW
 func (w *TransactionWorkflow) GetError() error {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	return w.error
+	return w.err
 }
 
 // GetState returns the current state of the workflow
@@ -124,12 +126,12 @@ func (w *TransactionWorkflow) SetTimeout(timestamp int64) *TransactionWorkflow {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	if w.error != nil {
+	if w.err != nil {
 		return w
 	}
 
 	if w.state != StateUnsigned {
-		w.error = fmt.Errorf("cannot set timeout on %s transaction", w.state.String())
+		w.err = fmt.Errorf("cannot set timeout on %s transaction", w.state.String())
 		w.state = StateError
 		return w
 	}
@@ -147,12 +149,12 @@ func (w *TransactionWorkflow) SetFeeLimit(feeLimit int64) *TransactionWorkflow {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	if w.error != nil {
+	if w.err != nil {
 		return w
 	}
 
 	if w.state != StateUnsigned {
-		w.error = fmt.Errorf("cannot set fee limit on %s transaction", w.state.String())
+		w.err = fmt.Errorf("cannot set fee limit on %s transaction", w.state.String())
 		w.state = StateError
 		return w
 	}
@@ -170,19 +172,19 @@ func (w *TransactionWorkflow) Sign(s *signer.PrivateKeySigner) *TransactionWorkf
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	if w.error != nil {
+	if w.err != nil {
 		return w
 	}
 
 	if w.state == StateBroadcasted {
-		w.error = fmt.Errorf("cannot sign broadcasted transaction")
+		w.err = fmt.Errorf("cannot sign broadcasted transaction")
 		w.state = StateError
 		return w
 	}
 
 	signedTx, err := s.Sign(w.transaction)
 	if err != nil {
-		w.error = fmt.Errorf("failed to sign transaction: %w", err)
+		w.err = fmt.Errorf("failed to sign transaction: %w", err)
 		w.state = StateError
 		return w
 	}
@@ -201,12 +203,12 @@ func (w *TransactionWorkflow) MultiSign(s *signer.PrivateKeySigner, permissionID
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	if w.error != nil {
+	if w.err != nil {
 		return w
 	}
 
 	if w.state == StateBroadcasted {
-		w.error = fmt.Errorf("cannot multi-sign broadcasted transaction")
+		w.err = fmt.Errorf("cannot multi-sign broadcasted transaction")
 		w.state = StateError
 		return w
 	}
@@ -216,7 +218,7 @@ func (w *TransactionWorkflow) MultiSign(s *signer.PrivateKeySigner, permissionID
 	// more complex permission validation and signature aggregation
 	signedTx, err := s.Sign(w.transaction)
 	if err != nil {
-		w.error = fmt.Errorf("failed to multi-sign transaction: %w", err)
+		w.err = fmt.Errorf("failed to multi-sign transaction: %w", err)
 		w.state = StateError
 		return w
 	}
@@ -235,8 +237,8 @@ func (w *TransactionWorkflow) GetSignedTransaction() (string, *api.TransactionEx
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
-	if w.error != nil {
-		return "", nil, w.error
+	if w.err != nil {
+		return "", nil, w.err
 	}
 
 	if w.state == StateUnsigned {
@@ -258,7 +260,7 @@ func (w *TransactionWorkflow) GetTxid() string {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
-	if w.error != nil || w.state == StateUnsigned {
+	if w.err != nil || w.state == StateUnsigned {
 		return ""
 	}
 
@@ -269,24 +271,24 @@ func (w *TransactionWorkflow) GetTxid() string {
 // waitSeconds: 0 means no waiting, >0 means wait up to this many seconds for receipt
 // Returns (txid, broadcast_success, transaction_info, error)
 // transaction_info can be nil if waiting not specified/applicable/failed
-func (w *TransactionWorkflow) Broadcast(ctx context.Context, waitSeconds int64) (string, bool, *core.TransactionInfo, error) {
+func (w *TransactionWorkflow) Broadcast(ctx context.Context, waitSeconds int64) (string, bool, *api.Return, *core.TransactionInfo, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	if w.error != nil {
-		return "", false, nil, w.error
+	if w.err != nil {
+		return "", false, nil, nil, w.err
 	}
 
 	if w.state == StateUnsigned {
-		return "", false, nil, fmt.Errorf("cannot broadcast unsigned transaction")
+		return "", false, nil, nil, fmt.Errorf("cannot broadcast unsigned transaction")
 	}
 
 	// Broadcast the transaction
 	result, err := lowlevel.BroadcastTransaction(w.client, ctx, w.transaction)
 	if err != nil {
-		w.error = fmt.Errorf("failed to broadcast transaction: %w", err)
+		w.err = fmt.Errorf("failed to broadcast transaction: %w", err)
 		w.state = StateError
-		return w.txid, false, nil, w.error
+		return w.txid, false, result, nil, w.err
 	}
 
 	success := result != nil && result.Result
@@ -294,20 +296,22 @@ func (w *TransactionWorkflow) Broadcast(ctx context.Context, waitSeconds int64) 
 
 	// Store broadcast result
 	w.broadcastResult = &BroadcastResult{
-		TxID:    w.txid,
-		Success: success,
-		Error:   err,
+		TxID:            w.txid,
+		Success:         success,
+		Return:          result,
+		TransactionInfo: nil,
+		Error:           err,
 	}
 
 	var txInfo *core.TransactionInfo
-	
+
 	// If waiting is requested and this is a smart contract transaction, wait for receipt
 	if waitSeconds > 0 && success && w.isSmartContractTransaction() {
 		txInfo = w.waitForTransactionInfo(ctx, waitSeconds)
 		w.broadcastResult.TransactionInfo = txInfo
 	}
 
-	return w.txid, success, txInfo, nil
+	return w.txid, success, result, txInfo, nil
 }
 
 // EstimateFee estimates the fee for the transaction (placeholder implementation)
@@ -316,8 +320,8 @@ func (w *TransactionWorkflow) EstimateFee() (int64, error) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
-	if w.error != nil {
-		return 0, w.error
+	if w.err != nil {
+		return 0, w.err
 	}
 
 	// Placeholder implementation
@@ -326,22 +330,19 @@ func (w *TransactionWorkflow) EstimateFee() (int64, error) {
 	// - Contract complexity
 	// - Current network conditions
 	// - Energy/bandwidth requirements
-	
+
 	return 0, fmt.Errorf("fee estimation not implemented yet")
 }
 
 // isSmartContractTransaction checks if the transaction involves smart contracts
 func (w *TransactionWorkflow) isSmartContractTransaction() bool {
+
 	if w.transaction == nil || w.transaction.RawData == nil {
 		return false
 	}
-
-	for _, contract := range w.transaction.RawData.Contract {
-		switch contract.Type {
-		case core.Transaction_Contract_TriggerSmartContract,
-			 core.Transaction_Contract_CreateSmartContract:
-			return true
-		}
+	contractType := w.transaction.RawData.Contract[0].Type
+	if contractType == core.Transaction_Contract_CreateSmartContract || contractType == core.Transaction_Contract_TriggerSmartContract {
+		return true
 	}
 	return false
 }
@@ -364,7 +365,7 @@ func (w *TransactionWorkflow) waitForTransactionInfo(ctx context.Context, waitSe
 		case <-ticker.C:
 			req := &api.BytesMessage{Value: txIDBytes}
 			txInfo, err := lowlevel.GetTransactionInfoById(w.client, ctx, req)
-			if err == nil && txInfo != nil {
+			if err == nil && txInfo != nil && bytes.Equal(txInfo.Id, txIDBytes) {
 				return txInfo
 			}
 		}

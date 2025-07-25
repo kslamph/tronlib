@@ -9,6 +9,7 @@ import (
 
 	"github.com/kslamph/tronlib/pkg/client"
 	"github.com/kslamph/tronlib/pkg/smartcontract"
+	"github.com/kslamph/tronlib/pkg/utils"
 )
 
 func main() {
@@ -19,20 +20,26 @@ func main() {
 	}
 	defer c.Close()
 
-	// Create smartcontract manager
+	// Create smartcontract manager and ABI parser
 	manager := smartcontract.NewManager(c)
+	parser := utils.NewABIParser()
 	ctx := context.Background()
 
 	// Example 1: Deploy a simple contract without constructor parameters
 	simpleContractBytecode, _ := hex.DecodeString("608060405234801561001057600080fd5b50")
-	simpleContractABI := `[]` // Empty ABI for simple contract
+	simpleContractABIStr := `[]` // Empty ABI for simple contract
 
 	fmt.Println("Example 1: Deploy simple contract without constructor")
+	simpleABI, err := parser.ParseABI(simpleContractABIStr)
+	if err != nil {
+		log.Fatalf("Failed to parse simple ABI: %v", err)
+	}
+
 	_, err = manager.DeployContract(
 		ctx,
 		"TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g", // Owner address
 		"SimpleContract",                       // Contract name (can be empty)
-		simpleContractABI,                      // ABI JSON string
+		simpleABI,                              // Parsed ABI
 		simpleContractBytecode,                 // Bytecode as []byte
 		0,                                      // Call value (TRX to send)
 		50,                                     // Consume user resource percent (0-100)
@@ -41,11 +48,13 @@ func main() {
 	)
 	if err != nil {
 		fmt.Printf("Deployment failed: %v\n", err)
+	} else {
+		fmt.Println("✅ Simple contract deployed successfully")
 	}
 
 	// Example 2: Deploy TRC20 token with constructor parameters
 	trc20Bytecode, _ := hex.DecodeString("60806040523480156100...")
-	trc20ABI := `[{
+	trc20ABIStr := `[{
 		"inputs": [
 			{"internalType": "string", "name": "name_", "type": "string"},
 			{"internalType": "string", "name": "symbol_", "type": "string"},
@@ -56,28 +65,35 @@ func main() {
 		"type": "constructor"
 	}]`
 
-	fmt.Println("Example 2: Deploy TRC20 token with constructor parameters")
+	fmt.Println("\nExample 2: Deploy TRC20 token with constructor parameters")
+	trc20ABI, err := parser.ParseABI(trc20ABIStr)
+	if err != nil {
+		log.Fatalf("Failed to parse TRC20 ABI: %v", err)
+	}
+
 	_, err = manager.DeployContract(
 		ctx,
 		"TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g", // Owner address
 		"My Test Token",                        // Contract name
-		trc20ABI,                               // ABI JSON string
+		trc20ABI,                               // Parsed ABI
 		trc20Bytecode,                          // Bytecode as []byte
 		0,                                      // Call value
 		100,                                    // Consume user resource percent
 		10000000,                               // Origin energy limit
 		// Constructor parameters (automatically encoded)
-		"TestToken",    // name_
-		"TTK",          // symbol_
-		uint8(18),      // decimals_
-		"1000000000000000000000000", // initialSupply_ (1M tokens with 18 decimals)
+		"TestToken",                     // name_
+		"TTK",                           // symbol_
+		uint8(18),                       // decimals_
+		"1000000000000000000000000",     // initialSupply_ (1M tokens with 18 decimals)
 	)
 	if err != nil {
 		fmt.Printf("TRC20 deployment failed: %v\n", err)
+	} else {
+		fmt.Println("✅ TRC20 token deployed successfully")
 	}
 
 	// Example 3: Deploy contract with mixed parameter types
-	complexABI := `[{
+	complexABIStr := `[{
 		"inputs": [
 			{"internalType": "address", "name": "_myAddress", "type": "address"},
 			{"internalType": "bool", "name": "_myBool", "type": "bool"},
@@ -87,12 +103,17 @@ func main() {
 		"type": "constructor"
 	}]`
 
-	fmt.Println("Example 3: Deploy contract with mixed parameter types")
+	fmt.Println("\nExample 3: Deploy contract with mixed parameter types")
+	complexABI, err := parser.ParseABI(complexABIStr)
+	if err != nil {
+		log.Fatalf("Failed to parse complex ABI: %v", err)
+	}
+
 	_, err = manager.DeployContract(
 		ctx,
 		"TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g", // Owner address
 		"",                                     // Empty contract name (allowed)
-		complexABI,                             // ABI JSON string
+		complexABI,                             // Parsed ABI
 		trc20Bytecode,                          // Bytecode as []byte
 		0,                                      // Call value
 		75,                                     // Consume user resource percent
@@ -104,7 +125,9 @@ func main() {
 	)
 	if err != nil {
 		fmt.Printf("Complex contract deployment failed: %v\n", err)
+	} else {
+		fmt.Println("✅ Complex contract deployed successfully")
 	}
 
-	fmt.Println("All deployment examples completed!")
+	fmt.Println("\n🎉 All deployment examples completed!")
 }
