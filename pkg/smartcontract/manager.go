@@ -89,7 +89,11 @@ func (m *Manager) DeployContract(ctx context.Context, ownerAddress, contractName
 // encodeConstructor encodes constructor parameters for contract deployment
 func (m *Manager) encodeConstructor(abi *core.SmartContract_ABI, constructorParams []interface{}) ([]byte, error) {
 	if abi == nil {
-		return nil, fmt.Errorf("ABI cannot be empty")
+		if len(constructorParams) > 0 {
+			return nil, fmt.Errorf("constructor parameters provided but ABI is nil")
+		}
+		// No ABI and no constructor params - return empty data
+		return []byte{}, nil
 	}
 
 	// Parse ABI to get constructor parameter types
@@ -97,6 +101,7 @@ func (m *Manager) encodeConstructor(abi *core.SmartContract_ABI, constructorPara
 
 	// Get constructor parameter types
 	constructorTypes, err := parser.GetConstructorTypes(abi)
+
 	if err != nil {
 		// If no constructor found, but parameters provided, that's an error
 		if len(constructorParams) > 0 {
@@ -118,7 +123,8 @@ func (m *Manager) encodeConstructor(abi *core.SmartContract_ABI, constructorPara
 
 	// Encode constructor parameters
 	encoder := utils.NewABIEncoder()
-	encoded, err := encoder.EncodeParameters(constructorTypes, constructorParams)
+
+	encoded, err := encoder.EncodeMethod("", constructorTypes, constructorParams)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode constructor parameters: %w", err)
 	}

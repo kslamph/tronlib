@@ -156,6 +156,12 @@ func (s *NileTestnetSetup) Run() error {
 
 	// Steps 4-6: Deploy contracts sequentially
 	for _, contract := range contracts {
+		// Check if contract is already deployed
+		if s.isContractAlreadyDeployed(contract.Name) {
+			fmt.Printf("⏭️  Skipping %s - already deployed\n", contract.Name)
+			continue
+		}
+
 		result, err := s.deployContract(contract)
 		if err != nil {
 			return fmt.Errorf("deployment of %s failed: %w", contract.Name, err)
@@ -261,10 +267,10 @@ func (s *NileTestnetSetup) prepareContractParameters() ([]ContractInfo, error) {
 			ABIFile: "TRC20.abi",
 			BinFile: "TRC20.bin",
 			ConstructorParams: []interface{}{
-				TRC20Name,            // name_
-				TRC20Symbol,          // symbol_
+				TRC20Name,          // name_
+				TRC20Symbol,        // symbol_
 				uint8(TRC20Decimals), // decimals_
-				TRC20InitialSupply,   // initialSupply_
+				TRC20InitialSupply, // initialSupply_
 			},
 			EnvVarName: "TRC20_CONTRACT_ADDRESS",
 		},
@@ -363,7 +369,7 @@ func (s *NileTestnetSetup) deployContract(contract ContractInfo) (DeploymentResu
 	defer cancel()
 
 	fmt.Printf("📝 Creating deployment transaction...\n")
-	log.Printf("abi: %s", string(abiBytes))
+
 	parser := utils.NewABIParser()
 	abi, err := parser.ParseABI(string(abiBytes))
 	if err != nil {
@@ -657,16 +663,11 @@ func (s *NileTestnetSetup) updateEnvironmentFilesForContract(result DeploymentRe
 		return nil
 	}
 
-	// Update .env file
-	envPath := filepath.Join(s.config.ProjectRoot, ".env")
-	if err := s.updateSingleContractInFile(envPath, result, "env"); err != nil {
-		return fmt.Errorf("failed to update .env: %w", err)
-	}
-
-	// Update integration_test/.env file
-	testEnvPath := filepath.Join(s.config.ProjectRoot, "integration_test", ".env")
-	if err := s.updateSingleContractInFile(testEnvPath, result, "env"); err != nil {
-		return fmt.Errorf("failed to update integration_test/.env: %w", err)
+	// Update all configured environment files
+	for _, envFile := range s.config.TestEnvFiles {
+		if err := s.updateSingleContractInFile(envFile, result, "env"); err != nil {
+			return fmt.Errorf("failed to update %s: %w", envFile, err)
+		}
 	}
 
 	return nil
@@ -686,11 +687,11 @@ func (s *NileTestnetSetup) updateSingleContractInFile(filePath string, result De
 	}
 
 	lines := strings.Split(string(content), "\n")
-	
+
 	// Find and update the line for this contract
 	contractKey := fmt.Sprintf("%s_CONTRACT_ADDRESS", strings.ToUpper(result.ContractName))
 	updated := false
-	
+
 	for i, line := range lines {
 		if strings.HasPrefix(line, contractKey+"=") {
 			lines[i] = fmt.Sprintf("%s=%s", contractKey, result.Address)
@@ -698,7 +699,7 @@ func (s *NileTestnetSetup) updateSingleContractInFile(filePath string, result De
 			break
 		}
 	}
-	
+
 	// If not found, append new line
 	if !updated {
 		if len(lines) > 0 && lines[len(lines)-1] != "" {
@@ -706,13 +707,13 @@ func (s *NileTestnetSetup) updateSingleContractInFile(filePath string, result De
 		}
 		lines = append(lines, fmt.Sprintf("%s=%s", contractKey, result.Address))
 	}
-	
+
 	// Write back to file
 	newContent := strings.Join(lines, "\n")
 	if err := os.WriteFile(filePath, []byte(newContent), 0644); err != nil {
 		return fmt.Errorf("failed to write %s: %w", filePath, err)
 	}
-	
+
 	return nil
 }
 
@@ -720,14 +721,9 @@ func (s *NileTestnetSetup) updateSingleContractInFile(filePath string, result De
 func (s *NileTestnetSetup) verifyEnvironmentFiles() error {
 	fmt.Println("\n📝 Step 7: Verifying Environment Configuration Files")
 
-	envFiles := []string{
-		filepath.Join(s.config.ProjectRoot, ".env"),
-		filepath.Join(s.config.ProjectRoot, "integration_test", ".env"),
-	}
-
 	if s.config.DryRun {
 		fmt.Println("🔍 DRY RUN: Would verify the following environment files:")
-		for _, envFile := range envFiles {
+		for _, envFile := range s.config.TestEnvFiles {
 			fmt.Printf("🔍 DRY RUN: - %s\n", envFile)
 		}
 
@@ -741,7 +737,7 @@ func (s *NileTestnetSetup) verifyEnvironmentFiles() error {
 		return nil
 	}
 
-	for _, envFile := range envFiles {
+	for _, envFile := range s.config.TestEnvFiles {
 		if err := s.verifyContractsInFile(envFile); err != nil {
 			return fmt.Errorf("verification failed for %s: %w", envFile, err)
 		}
@@ -759,17 +755,51 @@ func (s *NileTestnetSetup) verifyContractsInFile(filePath string) error {
 	}
 
 	fileContent := string(content)
-	
+
 	for _, result := range s.deploymentResults {
 		if result.Success {
 			contractKey := fmt.Sprintf("%s_CONTRACT_ADDRESS", strings.ToUpper(result.ContractName))
 			expectedLine := fmt.Sprintf("%s=%s", contractKey, result.Address)
-			
+
 			if !strings.Contains(fileContent, expectedLine) {
 				return fmt.Errorf("contract %s address not found in %s", result.ContractName, filePath)
 			}
 		}
 	}
-	
+
 	return nil
+}
+
+// isContractAlreadyDeployed checks if a contract is already deployed by looking for its address in the environment file
+func (s *NileTestnetSetup) isContractAlreadyDeployed(contractName string) bool {
+	// In dry-run mode, never skip (so we can see what would be deployed)
+	if s.config.DryRun {
+		return false
+	}
+
+	// Check the main environment file where private keys are read from
+	envFile := s.config.TestEnvFiles[0] // Use the first (and only) configured env file
+	content, err := os.ReadFile(envFile)
+	if err != nil {
+		// If we can't read the file, assume contract is not deployed
+		return false
+	}
+
+	// Look for the contract address variable
+	contractKey := fmt.Sprintf("%s_CONTRACT_ADDRESS", strings.ToUpper(contractName))
+	lines := strings.Split(string(content), "\n")
+
+	for _, line := range lines {
+		if strings.HasPrefix(line, contractKey+"=") {
+			// Extract the value after the equals sign
+			parts := strings.SplitN(line, "=", 2)
+			if len(parts) == 2 {
+				address := strings.TrimSpace(parts[1])
+				// Consider it deployed if the address is not empty
+				return address != ""
+			}
+		}
+	}
+
+	return false
 }

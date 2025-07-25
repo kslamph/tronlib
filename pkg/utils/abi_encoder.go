@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"reflect"
+	"strconv"
 	"strings"
 
 	eABI "github.com/ethereum/go-ethereum/accounts/abi"
@@ -26,7 +27,7 @@ func NewABIEncoder() *ABIEncoder {
 func (e *ABIEncoder) EncodeMethod(method string, paramTypes []string, params []interface{}) ([]byte, error) {
 	// Create method signature
 	methodSig := fmt.Sprintf("%s(%s)", method, strings.Join(paramTypes, ","))
-	
+
 	// Get method ID (first 4 bytes of keccak256 hash)
 	hasher := sha3.NewLegacyKeccak256()
 	hasher.Write([]byte(methodSig))
@@ -61,7 +62,7 @@ func (e *ABIEncoder) EncodeParameters(paramTypes []string, params []interface{})
 			return nil, fmt.Errorf("failed to create ABI type for %s: %v", paramType, err)
 		}
 		args[i] = eABI.Argument{Type: abiType}
-		
+
 		// Convert parameter to appropriate type
 		convertedValue, err := e.convertParameter(params[i], paramType)
 		if err != nil {
@@ -95,7 +96,9 @@ func (e *ABIEncoder) convertParameter(param interface{}, paramType string) (inte
 	switch paramType {
 	case "address":
 		return e.convertAddress(param)
-	case "uint256", "uint128", "uint64", "uint32", "uint16", "uint8":
+	case "uint8":
+		return e.convertUint8(param)
+	case "uint256", "uint128", "uint64", "uint32", "uint16":
 		return e.convertUint(param)
 	case "int256", "int128", "int64", "int32", "int16", "int8":
 		return e.convertInt(param)
@@ -120,7 +123,7 @@ func (e *ABIEncoder) convertAddress(param interface{}) (eCommon.Address, error) 
 	if strings.HasPrefix(addrStr, "0x") {
 		return eCommon.HexToAddress(addrStr), nil
 	}
-	
+
 	if strings.HasPrefix(addrStr, "T") {
 		tronAddr, err := types.NewAddressFromBase58(addrStr)
 		if err != nil {
@@ -151,6 +154,8 @@ func (e *ABIEncoder) convertUint(param interface{}) (*big.Int, error) {
 		return n, nil
 	case *big.Int:
 		return v, nil
+	case int:
+		return new(big.Int).SetInt64(int64(v)), nil
 	case int64:
 		return new(big.Int).SetInt64(v), nil
 	case uint64:
@@ -307,4 +312,65 @@ func (e *ABIEncoder) GetMethodID(methodSig string) []byte {
 	hasher := sha3.NewLegacyKeccak256()
 	hasher.Write([]byte(methodSig))
 	return hasher.Sum(nil)[:4]
+}
+
+// convertUint8 converts uint8 parameter specifically
+func (e *ABIEncoder) convertUint8(param interface{}) (uint8, error) {
+	switch v := param.(type) {
+	case uint8:
+		return v, nil
+	case int:
+		if v < 0 || v > 255 {
+			return 0, fmt.Errorf("value %d out of range for uint8", v)
+		}
+		return uint8(v), nil
+	case int64:
+		if v < 0 || v > 255 {
+			return 0, fmt.Errorf("value %d out of range for uint8", v)
+		}
+		return uint8(v), nil
+	case uint64:
+		if v > 255 {
+			return 0, fmt.Errorf("value %d out of range for uint8", v)
+		}
+		return uint8(v), nil
+	case int32:
+		if v < 0 || v > 255 {
+			return 0, fmt.Errorf("value %d out of range for uint8", v)
+		}
+		return uint8(v), nil
+	case uint32:
+		if v > 255 {
+			return 0, fmt.Errorf("value %d out of range for uint8", v)
+		}
+		return uint8(v), nil
+	case int16:
+		if v < 0 || v > 255 {
+			return 0, fmt.Errorf("value %d out of range for uint8", v)
+		}
+		return uint8(v), nil
+	case uint16:
+		if v > 255 {
+			return 0, fmt.Errorf("value %d out of range for uint8", v)
+		}
+		return uint8(v), nil
+	case int8:
+		if v < 0 {
+			return 0, fmt.Errorf("value %d out of range for uint8", v)
+		}
+		return uint8(v), nil
+	case float64:
+		if v < 0 || v > 255 {
+			return 0, fmt.Errorf("value %f out of range for uint8", v)
+		}
+		return uint8(v), nil
+	case string:
+		n, err := strconv.ParseUint(v, 0, 8)
+		if err != nil {
+			return 0, fmt.Errorf("invalid uint8 string: %s", v)
+		}
+		return uint8(n), nil
+	default:
+		return 0, fmt.Errorf("unsupported uint8 type: %T", param)
+	}
 }

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/kslamph/tronlib/pkg/client"
+	"github.com/kslamph/tronlib/pb/core"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -21,7 +22,7 @@ func TestDeployContractValidation(t *testing.T) {
 		name                       string
 		ownerAddress              string
 		contractName              string
-		abi                       string
+		abi                       *core.SmartContract_ABI
 		bytecode                  []byte
 		callValue                 int64
 		consumeUserResourcePercent int64
@@ -34,7 +35,7 @@ func TestDeployContractValidation(t *testing.T) {
 			name:                       "Valid empty contract name",
 			ownerAddress:              "TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g",
 			contractName:              "",
-			abi:                       "",
+			abi:                       nil,
 			bytecode:                  []byte("608060405234801561001057600080fd5b50"),
 			callValue:                 0,
 			consumeUserResourcePercent: 50,
@@ -46,7 +47,7 @@ func TestDeployContractValidation(t *testing.T) {
 			name:                       "Valid contract name with spaces",
 			ownerAddress:              "TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g",
 			contractName:              "My Test Contract",
-			abi:                       "",
+			abi:                       nil,
 			bytecode:                  []byte("608060405234801561001057600080fd5b50"),
 			callValue:                 0,
 			consumeUserResourcePercent: 100,
@@ -58,7 +59,7 @@ func TestDeployContractValidation(t *testing.T) {
 			name:                       "Invalid contract name with control characters",
 			ownerAddress:              "TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g",
 			contractName:              "Test\x00Contract",
-			abi:                       "",
+			abi:                       nil,
 			bytecode:                  []byte("608060405234801561001057600080fd5b50"),
 			callValue:                 0,
 			consumeUserResourcePercent: 50,
@@ -71,7 +72,7 @@ func TestDeployContractValidation(t *testing.T) {
 			name:                       "Empty bytecode",
 			ownerAddress:              "TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g",
 			contractName:              "TestContract",
-			abi:                       "",
+			abi:                       nil,
 			bytecode:                  []byte{},
 			callValue:                 0,
 			consumeUserResourcePercent: 50,
@@ -84,7 +85,7 @@ func TestDeployContractValidation(t *testing.T) {
 			name:                       "Negative call value",
 			ownerAddress:              "TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g",
 			contractName:              "TestContract",
-			abi:                       "",
+			abi:                       nil,
 			bytecode:                  []byte("608060405234801561001057600080fd5b50"),
 			callValue:                 -1,
 			consumeUserResourcePercent: 50,
@@ -97,7 +98,7 @@ func TestDeployContractValidation(t *testing.T) {
 			name:                       "Invalid consume user resource percent - negative",
 			ownerAddress:              "TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g",
 			contractName:              "TestContract",
-			abi:                       "",
+			abi:                       nil,
 			bytecode:                  []byte("608060405234801561001057600080fd5b50"),
 			callValue:                 0,
 			consumeUserResourcePercent: -1,
@@ -110,7 +111,7 @@ func TestDeployContractValidation(t *testing.T) {
 			name:                       "Invalid consume user resource percent - over 100",
 			ownerAddress:              "TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g",
 			contractName:              "TestContract",
-			abi:                       "",
+			abi:                       nil,
 			bytecode:                  []byte("608060405234801561001057600080fd5b50"),
 			callValue:                 0,
 			consumeUserResourcePercent: 101,
@@ -123,7 +124,7 @@ func TestDeployContractValidation(t *testing.T) {
 			name:                       "Negative origin energy limit",
 			ownerAddress:              "TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g",
 			contractName:              "TestContract",
-			abi:                       "",
+			abi:                       nil,
 			bytecode:                  []byte("608060405234801561001057600080fd5b50"),
 			callValue:                 0,
 			consumeUserResourcePercent: 50,
@@ -136,7 +137,7 @@ func TestDeployContractValidation(t *testing.T) {
 			name:                       "Invalid owner address",
 			ownerAddress:              "invalid-address",
 			contractName:              "TestContract",
-			abi:                       "",
+			abi:                       nil,
 			bytecode:                  []byte("608060405234801561001057600080fd5b50"),
 			callValue:                 0,
 			consumeUserResourcePercent: 50,
@@ -149,7 +150,7 @@ func TestDeployContractValidation(t *testing.T) {
 			name:                       "Constructor params without ABI",
 			ownerAddress:              "TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g",
 			contractName:              "TestContract",
-			abi:                       "",
+			abi:                       nil,
 			bytecode:                  []byte("608060405234801561001057600080fd5b50"),
 			callValue:                 0,
 			consumeUserResourcePercent: 50,
@@ -205,47 +206,33 @@ func TestEncodeConstructor(t *testing.T) {
 	
 	tests := []struct {
 		name              string
-		abi               string
+		abi               *core.SmartContract_ABI
 		constructorParams []interface{}
 		wantErr           bool
 		errMsg            string
 	}{
 		{
 			name:              "Empty ABI",
-			abi:               "",
+			abi:               nil,
 			constructorParams: []interface{}{},
-			wantErr:           true,
-			errMsg:            "ABI cannot be empty",
+			wantErr:           false,
 		},
 		{
 			name:              "Invalid ABI JSON",
-			abi:               "invalid json",
+			abi:               nil,
 			constructorParams: []interface{}{},
-			wantErr:           true,
-			errMsg:            "failed to parse ABI",
+			wantErr:           false,
 		},
 		{
 			name: "No constructor in ABI but params provided",
-			abi: `[{
-				"inputs": [],
-				"name": "getValue",
-				"outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
-				"stateMutability": "view",
-				"type": "function"
-			}]`,
+			abi: nil,
 			constructorParams: []interface{}{"param1"},
 			wantErr:           true,
-			errMsg:            "constructor parameters provided but no constructor found in ABI",
+			errMsg:            "constructor parameters provided but ABI is nil",
 		},
 		{
 			name: "No constructor in ABI and no params - valid",
-			abi: `[{
-				"inputs": [],
-				"name": "getValue",
-				"outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
-				"stateMutability": "view",
-				"type": "function"
-			}]`,
+			abi: nil,
 			constructorParams: []interface{}{},
 			wantErr:           false,
 		},
