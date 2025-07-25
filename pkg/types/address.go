@@ -26,6 +26,44 @@ type Address struct {
 	bytesAddr  []byte
 }
 
+// NewAddress creates an Address from a string, []byte, or base58 string
+// it will try to parse the address as base58 first, then hex, then bytes
+// performance penalty is expected
+func NewAddress(address any) (*Address, error) {
+	switch v := address.(type) {
+	case string:
+		addr, err := NewAddressFromBase58(v)
+		if err == nil {
+			return addr, nil
+		}
+		addr, err = NewAddressFromHex(v)
+		if err == nil {
+			return addr, nil
+		}
+		return nil, fmt.Errorf("invalid address: %v", err)
+	case []byte:
+		addr, err := NewAddressFromBytes(v)
+		if err == nil {
+			return addr, nil
+		}
+		return nil, fmt.Errorf("invalid address: %v", err)
+	case [20]byte:
+		addr, err := NewAddressFromBytes(v[:])
+		if err == nil {
+			return addr, nil
+		}
+		return nil, fmt.Errorf("invalid address: %v", err)
+	case [21]byte:
+		addr, err := NewAddressFromBytes(v[:])
+		if err == nil {
+			return addr, nil
+		}
+		return nil, fmt.Errorf("invalid address: %v", err)
+	default:
+		return nil, fmt.Errorf("invalid address: %v", address)
+	}
+}
+
 // NewAddressFromBase58 creates an Address from a base58 string, it must be a length 34 base58 string prefixed by "T"
 func NewAddressFromBase58(base58Addr string) (*Address, error) {
 	// Address must start with T

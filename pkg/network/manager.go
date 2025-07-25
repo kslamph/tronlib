@@ -3,7 +3,9 @@ package network
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
+	"strings"
 
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
@@ -97,4 +99,37 @@ func (m *Manager) GetLatestBlocks(ctx context.Context, count int64) (*api.BlockL
 		Num: count,
 	}
 	return lowlevel.GetBlockByLatestNum2(m.client, ctx, req)
+}
+
+// GetNowBlock retrieves the current/latest block
+func (m *Manager) GetNowBlock(ctx context.Context) (*api.BlockExtention, error) {
+	req := &api.EmptyMessage{}
+	return lowlevel.GetNowBlock2(m.client, ctx, req)
+}
+// GetTransactionInfoById retrieves transaction information by transaction ID (hex string)
+func (m *Manager) GetTransactionInfoById(ctx context.Context, txIdHex string) (*core.TransactionInfo, error) {
+	if txIdHex == "" {
+		return nil, fmt.Errorf("transaction ID cannot be empty")
+	}
+	
+	// Remove 0x prefix if present
+	if strings.HasPrefix(txIdHex, "0x") || strings.HasPrefix(txIdHex, "0X") {
+		txIdHex = txIdHex[2:]
+	}
+	
+	// Validate hex string length (should be 64 characters for 32 bytes)
+	if len(txIdHex) != 64 {
+		return nil, fmt.Errorf("transaction ID must be 64 hex characters (32 bytes), got %d characters", len(txIdHex))
+	}
+	
+	// Convert hex string to bytes
+	txIdBytes, err := hex.DecodeString(txIdHex)
+	if err != nil {
+		return nil, fmt.Errorf("invalid hex string: %v", err)
+	}
+
+	req := &api.BytesMessage{
+		Value: txIdBytes,
+	}
+	return lowlevel.GetTransactionInfoById(m.client, ctx, req)
 }

@@ -1,9 +1,13 @@
 package smartcontract
 
 import (
+	"context"
 	"fmt"
 
+	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
+	"github.com/kslamph/tronlib/pkg/client"
+	"github.com/kslamph/tronlib/pkg/client/lowlevel"
 	"github.com/kslamph/tronlib/pkg/types"
 	"github.com/kslamph/tronlib/pkg/utils"
 )
@@ -21,19 +25,14 @@ type Contract struct {
 	parser       *utils.ABIParser
 }
 
-// NewContract creates a new contract instance from ABI string and address
-func NewContract(abi string, address string) (*Contract, error) {
-	if abi == "" {
-		return nil, fmt.Errorf("empty ABI string")
-	}
+// NewContract creates a new contract instance from various input types
+// abiOrClient can be:
+// - string: ABI JSON string
+// - *core.SmartContract_ABI: Parsed ABI object
+// - *client.Client: Client to retrieve contract data from network
+func NewContract(address string, abiOrClient interface{}) (*Contract, error) {
 	if address == "" {
 		return nil, fmt.Errorf("empty contract address")
-	}
-	
-	parser := utils.NewABIParser()
-	decodedABI, err := parser.ParseABI(abi)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode ABI: %v", err)
 	}
 
 	// Convert address to bytes
@@ -42,31 +41,45 @@ func NewContract(abi string, address string) (*Contract, error) {
 		return nil, fmt.Errorf("failed to parse address: %v", err)
 	}
 
-	return &Contract{
-		ABI:          decodedABI,
-		Address:      address,
-		AddressBytes: addr.Bytes(),
-		encoder:      utils.NewABIEncoder(),
-		decoder:      utils.NewABIDecoder(),
-		eventDecoder: utils.NewEventDecoder(decodedABI),
-		parser:       parser,
-	}, nil
-}
+	var abi *core.SmartContract_ABI
 
-// NewContractFromABI creates a new contract instance from ABI object and address
-func NewContractFromABI(abi *core.SmartContract_ABI, address string) (*Contract, error) {
-	if abi == nil {
-		return nil, fmt.Errorf("ABI cannot be nil")
+	switch v := abiOrClient.(type) {
+	case string:
+		// Handle ABI string
+		if v == "" {
+			return nil, fmt.Errorf("empty ABI string")
+		}
+		parser := utils.NewABIParser()
+		abi, err = parser.ParseABI(v)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode ABI: %v", err)
+		}
+
+	case *core.SmartContract_ABI:
+		// Handle parsed ABI object
+		if v == nil {
+			return nil, fmt.Errorf("ABI cannot be nil")
+		}
+		abi = v
+
+	case *client.Client:
+		// Handle client - retrieve contract from network
+		if v == nil {
+			return nil, fmt.Errorf("client cannot be nil")
+		}
+		contractInfo, err := getContractFromNetwork(context.Background(), v, address)
+		if err != nil {
+			return nil, fmt.Errorf("failed to retrieve contract from network: %v", err)
+		}
+		if contractInfo.GetAbi() == nil {
+			return nil, fmt.Errorf("contract has no ABI available on network")
+		}
+		abi = contractInfo.GetAbi()
+
+	default:
+		return nil, fmt.Errorf("abiOrClient must be string, *core.SmartContract_ABI, or *client.Client, got %T", abiOrClient)
 	}
-	if address == "" {
-		return nil, fmt.Errorf("empty contract address")
-	}
-	
-	addr, err := types.NewAddressFromBase58(address)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse address: %v", err)
-	}
-	
+
 	return &Contract{
 		ABI:          abi,
 		Address:      address,
@@ -76,6 +89,25 @@ func NewContractFromABI(abi *core.SmartContract_ABI, address string) (*Contract,
 		eventDecoder: utils.NewEventDecoder(abi),
 		parser:       utils.NewABIParser(),
 	}, nil
+}
+
+// getContractFromNetwork retrieves smart contract information from the network
+func getContractFromNetwork(ctx context.Context, client *client.Client, contractAddress string) (*core.SmartContract, error) {
+	// Handle both hex and base58 addresses
+	var contractAddressBytes []byte
+	var err error
+
+	// Try to parse as base58 first (standard TRON address)
+	addr, err := types.NewAddress(contractAddress)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse address: %v", err)
+	}
+	contractAddressBytes = addr.Bytes()
+
+	req := &api.BytesMessage{
+		Value: contractAddressBytes,
+	}
+	return lowlevel.GetContract(client, ctx, req)
 }
 
 // EncodeInput creates contract call data from method name and parameters
