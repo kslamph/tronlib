@@ -14,6 +14,8 @@ import (
 	"github.com/kslamph/tronlib/pkg/client/lowlevel"
 	"github.com/kslamph/tronlib/pkg/signer"
 	"github.com/kslamph/tronlib/pkg/types"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 // WorkflowState represents the current state of the transaction workflow
@@ -314,9 +316,9 @@ func (w *TransactionWorkflow) Broadcast(ctx context.Context, waitSeconds int64) 
 	return w.txid, success, result, txInfo, nil
 }
 
-// EstimateFee estimates the fee for the transaction (placeholder implementation)
-// This is a complex calculation depending on transaction type and contracts involved
-func (w *TransactionWorkflow) EstimateFee() (int64, error) {
+// EstimateFee estimates the fee for the transaction
+// Returns estimated fee in SUN
+func (w *TransactionWorkflow) EstimateFee(ctx context.Context) (int64, error) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
@@ -324,14 +326,48 @@ func (w *TransactionWorkflow) EstimateFee() (int64, error) {
 		return 0, w.err
 	}
 
-	// Placeholder implementation
-	// In practice, this would involve complex calculations based on:
-	// - Transaction type
-	// - Contract complexity
-	// - Current network conditions
-	// - Energy/bandwidth requirements
+	if w.transaction == nil || w.transaction.RawData == nil || len(w.transaction.RawData.Contract) == 0 {
+		return 0, fmt.Errorf("invalid transaction for fee estimation")
+	}
 
-	return 0, fmt.Errorf("fee estimation not implemented yet")
+	contract := w.transaction.RawData.Contract[0]
+	if contract.Type != core.Transaction_Contract_TriggerSmartContract {
+		// For non-contract tx, estimate bandwidth only (1 SUN per byte)
+		txBytes, _ := proto.Marshal(w.transaction)
+		return int64(len(txBytes)), nil
+	}
+
+	// Extract TriggerSmartContract params
+	param := &core.TriggerSmartContract{}
+	if err := anypb.UnmarshalTo(contract.Parameter, param, proto.UnmarshalOptions{}); err != nil {
+		return 0, fmt.Errorf("failed to unmarshal contract param: %w", err)
+	}
+
+	// Call estimate energy API (assuming lowlevel.EstimateEnergy exists or simulate)
+	// In practice, implement lowlevel.EstimateEnergy if not present
+	req := &core.TriggerSmartContract{
+		OwnerAddress:    param.OwnerAddress,
+		ContractAddress: param.ContractAddress,
+		CallValue:       param.CallValue,
+		Data:            param.Data,
+		CallTokenValue:  param.CallTokenValue,
+		TokenId:         param.TokenId,
+	}
+	energyResp, err := lowlevel.EstimateEnergy(w.client, ctx, req) // Assume this method
+	if err != nil {
+		return 0, fmt.Errorf("failed to estimate energy: %w", err)
+	}
+
+	energyRequired := energyResp.EnergyRequired // Assuming response has EnergyRequired
+
+	// Estimate bandwidth: tx size in bytes * 1 SUN/byte
+	txBytes, _ := proto.Marshal(w.transaction)
+	bandwidthCost := int64(len(txBytes))
+
+	// Energy cost: energy * 420 SUN (typical price, could fetch dynamically)
+	energyCost := energyRequired * 420
+
+	return bandwidthCost + energyCost, nil
 }
 
 // isSmartContractTransaction checks if the transaction involves smart contracts

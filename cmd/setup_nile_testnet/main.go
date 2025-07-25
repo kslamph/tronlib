@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/kslamph/tronlib/pb/api"
+	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/account"
 	"github.com/kslamph/tronlib/pkg/client"
 	"github.com/kslamph/tronlib/pkg/signer"
@@ -166,6 +167,7 @@ func (s *NileTestnetSetup) Run() error {
 		if err != nil {
 			return fmt.Errorf("deployment of %s failed: %w", contract.Name, err)
 		}
+
 		s.deploymentResults = append(s.deploymentResults, result)
 
 		// Update environment files immediately after successful deployment
@@ -263,18 +265,6 @@ func (s *NileTestnetSetup) prepareContractParameters() ([]ContractInfo, error) {
 			EnvVarName:        "MINIMAL_CONTRACT_ADDRESS",
 		},
 		{
-			Name:    "TRC20",
-			ABIFile: "TRC20.abi",
-			BinFile: "TRC20.bin",
-			ConstructorParams: []interface{}{
-				TRC20Name,          // name_
-				TRC20Symbol,        // symbol_
-				uint8(TRC20Decimals), // decimals_
-				TRC20InitialSupply, // initialSupply_
-			},
-			EnvVarName: "TRC20_CONTRACT_ADDRESS",
-		},
-		{
 			Name:    "TestAllTypes",
 			ABIFile: "TestAllTypes.abi",
 			BinFile: "TestAllTypes.bin",
@@ -284,6 +274,18 @@ func (s *NileTestnetSetup) prepareContractParameters() ([]ContractInfo, error) {
 				TestAllTypesMyUint,   // _myUint
 			},
 			EnvVarName: "TESTALLTYPES_CONTRACT_ADDRESS",
+		},
+		{
+			Name:    "TRC20",
+			ABIFile: "TRC20.abi",
+			BinFile: "TRC20.bin",
+			ConstructorParams: []interface{}{
+				TRC20Name,            // name_
+				TRC20Symbol,          // symbol_
+				uint8(TRC20Decimals), // decimals_
+				TRC20InitialSupply,   // initialSupply_
+			},
+			EnvVarName: "TRC20_CONTRACT_ADDRESS",
 		},
 	}
 
@@ -433,6 +435,10 @@ func (s *NileTestnetSetup) deployContract(contract ContractInfo) (DeploymentResu
 			return result, fmt.Errorf("failed to parse contract address: %w", err)
 		}
 		result.Address = addr.String()
+		if txInfo.GetResult() != core.TransactionInfo_SUCESS {
+			result.Error = fmt.Errorf("transaction failed")
+			return result, fmt.Errorf("transaction failed: %s ,%s", txInfo.GetResult(), string(txInfo.GetResMessage()))
+		}
 	} else {
 		result.Error = fmt.Errorf("no contract address in transaction info")
 		return result, fmt.Errorf("deployment successful but no contract address found")
@@ -604,7 +610,7 @@ func loadSetupConfig() (SetupConfig, error) {
 		Key1PrivateKey:   key1PrivateKey,
 		Key1Address:      key1Address,
 		ProjectRoot:      currentFolder,
-		ContractBuildDir: filepath.Join(currentFolder, "cmd", "setup_nile_testnet", "test_contract", "build"),
+		ContractBuildDir: filepath.Join(currentFolder, "test_contract", "build"),
 		TestEnvFiles: []string{
 			filepath.Join(currentFolder, "test.env"),
 		},

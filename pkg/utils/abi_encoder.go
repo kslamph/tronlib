@@ -25,7 +25,16 @@ func NewABIEncoder() *ABIEncoder {
 
 // EncodeMethod encodes method call with parameters
 func (e *ABIEncoder) EncodeMethod(method string, paramTypes []string, params []interface{}) ([]byte, error) {
-	// Create method signature
+	// For constructors (empty method name), encode parameters without method ID
+	if method == "" {
+		if len(params) == 0 {
+			return []byte{}, nil
+		}
+		// Encode parameters only (no method ID for constructors)
+		return e.EncodeParameters(paramTypes, params)
+	}
+
+	// Create method signature for regular methods
 	methodSig := fmt.Sprintf("%s(%s)", method, strings.Join(paramTypes, ","))
 
 	// Get method ID (first 4 bytes of keccak256 hash)
