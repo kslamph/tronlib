@@ -14,9 +14,8 @@ import (
 
 // Contract represents a smart contract interface with high-level abstraction
 type Contract struct {
-	ABI          *core.SmartContract_ABI
-	Address      string
-	AddressBytes []byte
+	ABI     *core.SmartContract_ABI
+	Address *types.Address
 
 	// Utility instances for encoding/decoding
 	encoder      *utils.ABIEncoder
@@ -30,13 +29,13 @@ type Contract struct {
 // - string: ABI JSON string
 // - *core.SmartContract_ABI: Parsed ABI object
 // - *client.Client: Client to retrieve contract data from network
-func NewContract(address string, abiOrClient interface{}) (*Contract, error) {
+func NewContract(address any, abiOrClient interface{}) (*Contract, error) {
 	if address == "" {
 		return nil, fmt.Errorf("empty contract address")
 	}
 
 	// Convert address to bytes
-	addr, err := types.NewAddressFromBase58(address)
+	addr, err := types.NewAddress(address)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse address: %v", err)
 	}
@@ -67,7 +66,7 @@ func NewContract(address string, abiOrClient interface{}) (*Contract, error) {
 		if v == nil {
 			return nil, fmt.Errorf("client cannot be nil")
 		}
-		contractInfo, err := getContractFromNetwork(context.Background(), v, address)
+		contractInfo, err := getContractFromNetwork(context.Background(), v, addr.String())
 		if err != nil {
 			return nil, fmt.Errorf("failed to retrieve contract from network: %v", err)
 		}
@@ -81,9 +80,9 @@ func NewContract(address string, abiOrClient interface{}) (*Contract, error) {
 	}
 
 	return &Contract{
-		ABI:          abi,
-		Address:      address,
-		AddressBytes: addr.Bytes(),
+		ABI:     abi,
+		Address: addr,
+
 		encoder:      utils.NewABIEncoder(),
 		decoder:      utils.NewABIDecoder(),
 		eventDecoder: utils.NewEventDecoder(abi),

@@ -227,6 +227,13 @@ func (a *Address) Bytes() []byte {
 	return a.bytesAddr
 }
 
+func (a *Address) BytesEVM() []byte {
+	if a == nil {
+		return nil
+	}
+	return a.bytesAddr[1:]
+}
+
 // Hex returns the hex string of the address (41 prefixed 42 chars)
 func (a *Address) Hex() string {
 	if a == nil {
@@ -236,11 +243,11 @@ func (a *Address) Hex() string {
 }
 
 // HexWithPrefix returns the address as hex string with 0x prefix
-func (a *Address) HexWithPrefix() string {
+func (a *Address) HexEVM() string {
 	if a == nil {
 		return ""
 	}
-	return "0x" + hex.EncodeToString(a.bytesAddr)
+	return "0x" + hex.EncodeToString(a.bytesAddr[1:])
 }
 
 // IsValid checks if the address is valid

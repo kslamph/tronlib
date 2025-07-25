@@ -40,13 +40,13 @@ func NewTransaction(tx *core.Transaction) *Transaction {
 	if tx == nil {
 		return nil
 	}
-	
+
 	txIDBytes := GetTransactionID(tx)
 	var txIDStr string
 	if txIDBytes != nil {
 		txIDStr = hex.EncodeToString(txIDBytes)
 	}
-	
+
 	return &Transaction{
 		Transaction: tx,
 		TxID:        txIDStr,
@@ -59,13 +59,13 @@ func GetTransactionID(tx *core.Transaction) []byte {
 	if tx == nil || tx.RawData == nil {
 		return nil
 	}
-	
+
 	// Marshal raw data for hashing
 	rawData, err := proto.Marshal(tx.RawData)
 	if err != nil {
 		return nil
 	}
-	
+
 	// Calculate SHA256 hash
 	hasher := sha256.New()
 	hasher.Write(rawData)
@@ -74,24 +74,24 @@ func GetTransactionID(tx *core.Transaction) []byte {
 
 // IsValid checks if the transaction is valid
 func (t *Transaction) IsValid() bool {
-	return t != nil && t.Transaction != nil && t.Transaction.RawData != nil
+	return len(t.GetRawData().GetContract()) > 0
 }
 
 // GetContractType returns the type of the first contract in the transaction
 func (t *Transaction) GetContractType() core.Transaction_Contract_ContractType {
-	if !t.IsValid() || len(t.Transaction.RawData.Contract) == 0 {
+	if !t.IsValid() {
 		return core.Transaction_Contract_AccountCreateContract
 	}
-	return t.Transaction.RawData.Contract[0].Type
+	return t.GetRawData().GetContract()[0].Type
 }
 
 // GetContractAddress returns the contract address for contract-related transactions
 func (t *Transaction) GetContractAddress() *Address {
-	if !t.IsValid() || len(t.Transaction.RawData.Contract) == 0 {
+	if !t.IsValid() {
 		return nil
 	}
-	
-	contract := t.Transaction.RawData.Contract[0]
+
+	contract := t.GetRawData().GetContract()[0]
 	switch contract.Type {
 	case core.Transaction_Contract_TriggerSmartContract:
 		// Extract contract address from TriggerSmartContract
@@ -168,13 +168,13 @@ func (b *TransactionBuilder) Build() *core.Transaction {
 
 // TransactionOptions represents options for transaction operations
 type TransactionOptions struct {
-	FeeLimit       int64
-	CallValue      int64
-	TokenID        int64
-	TokenValue     int64
-	PermissionID   int32
-	Memo           string
-	ExtraData      []byte
+	FeeLimit     int64
+	CallValue    int64
+	TokenID      int64
+	TokenValue   int64
+	PermissionID int32
+	Memo         string
+	ExtraData    []byte
 }
 
 // DefaultTransactionOptions returns default transaction options

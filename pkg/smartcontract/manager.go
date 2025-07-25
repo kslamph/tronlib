@@ -24,20 +24,23 @@ func NewManager(client *client.Client) *Manager {
 	}
 }
 
-// DeployContract deploys a smart contract
-func (m *Manager) DeployContract(ctx context.Context, ownerAddress string, contractName string, abi string, bytecode string, feeLimit int64, callValue int64, consumeUserResourcePercent int64, originEnergyLimit int64) (*api.TransactionExtention, error) {
+// DeployContract deploys a smart contract with constructor parameters
+func (m *Manager) DeployContract(ctx context.Context, ownerAddress, contractName, abi string, bytecode []byte, callValue, consumeUserResourcePercent, originEnergyLimit int64, constructorParams ...interface{}) (*api.TransactionExtention, error) {
 	// Validate inputs
-	if contractName == "" {
-		return nil, fmt.Errorf("contract name cannot be empty")
+	if err := utils.ValidateContractName(contractName); err != nil {
+		return nil, fmt.Errorf("invalid contract name: %w", err)
 	}
-	if bytecode == "" {
+	if len(bytecode) == 0 {
 		return nil, fmt.Errorf("bytecode cannot be empty")
-	}
-	if feeLimit < 0 {
-		return nil, fmt.Errorf("fee limit cannot be negative")
 	}
 	if callValue < 0 {
 		return nil, fmt.Errorf("call value cannot be negative")
+	}
+	if err := utils.ValidateConsumeUserResourcePercent(consumeUserResourcePercent); err != nil {
+		return nil, err
+	}
+	if originEnergyLimit < 0 {
+		return nil, fmt.Errorf("origin energy limit cannot be negative")
 	}
 
 	addr, err := utils.ValidateAddress(ownerAddress)
@@ -45,12 +48,28 @@ func (m *Manager) DeployContract(ctx context.Context, ownerAddress string, contr
 		return nil, fmt.Errorf("invalid owner address: %w", err)
 	}
 
+	// Encode constructor parameters if provided
+	finalBytecode := bytecode
+	if len(constructorParams) > 0 {
+		if abi == "" {
+			return nil, fmt.Errorf("ABI is required when constructor parameters are provided")
+		}
+		
+		encodedParams, err := m.encodeConstructor(abi, constructorParams)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encode constructor parameters: %w", err)
+		}
+		
+		// Append encoded constructor parameters to bytecode
+		finalBytecode = append(bytecode, encodedParams...)
+	}
+
 	// Create new contract
 	newContract := &core.SmartContract{
 		OriginAddress:              addr.Bytes(),
 		ContractAddress:            nil, // Will be generated
 		Abi:                        &core.SmartContract_ABI{Entrys: []*core.SmartContract_ABI_Entry{}},
-		Bytecode:                   []byte(bytecode),
+		Bytecode:                   finalBytecode,
 		CallValue:                  callValue,
 		ConsumeUserResourcePercent: consumeUserResourcePercent,
 		Name:                       contractName,
@@ -62,8 +81,13 @@ func (m *Manager) DeployContract(ctx context.Context, ownerAddress string, contr
 		if err := utils.ValidateABI(abi); err != nil {
 			return nil, fmt.Errorf("invalid ABI: %w", err)
 		}
-		// Note: ABI parsing would be implemented here in a real scenario
-		// For now, we'll leave it as empty entries
+		
+		parser := utils.NewABIParser()
+		parsedABI, err := parser.ParseABI(abi)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse ABI: %w", err)
+		}
+		newContract.Abi = parsedABI
 	}
 
 	req := &core.CreateSmartContract{
@@ -74,6 +98,50 @@ func (m *Manager) DeployContract(ctx context.Context, ownerAddress string, contr
 	}
 
 	return lowlevel.DeployContract(m.client, ctx, req)
+}
+
+// encodeConstructor encodes constructor parameters for contract deployment
+func (m *Manager) encodeConstructor(abi string, constructorParams []interface{}) ([]byte, error) {
+	if abi == "" {
+		return nil, fmt.Errorf("ABI cannot be empty")
+	}
+	
+	// Parse ABI to get constructor parameter types
+	parser := utils.NewABIParser()
+	parsedABI, err := parser.ParseABI(abi)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse ABI: %w", err)
+	}
+	
+	// Get constructor parameter types
+	constructorTypes, err := parser.GetConstructorTypes(parsedABI)
+	if err != nil {
+		// If no constructor found, but parameters provided, that's an error
+		if len(constructorParams) > 0 {
+			return nil, fmt.Errorf("constructor parameters provided but no constructor found in ABI")
+		}
+		// No constructor and no parameters is valid
+		return []byte{}, nil
+	}
+	
+	// Validate parameter count
+	if len(constructorParams) != len(constructorTypes) {
+		return nil, fmt.Errorf("constructor parameter count mismatch: expected %d, got %d", len(constructorTypes), len(constructorParams))
+	}
+	
+	// If no parameters, return empty bytes
+	if len(constructorParams) == 0 {
+		return []byte{}, nil
+	}
+	
+	// Encode constructor parameters
+	encoder := utils.NewABIEncoder()
+	encoded, err := encoder.EncodeParameters(constructorTypes, constructorParams)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode constructor parameters: %w", err)
+	}
+	
+	return encoded, nil
 }
 
 // TriggerContract triggers a smart contract method

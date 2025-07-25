@@ -436,3 +436,39 @@ func ValidateAmounts(amounts []*big.Int, minAmount *big.Int) error {
 	
 	return nil
 }
+// Contract name validation
+
+// IsValidContractName validates a smart contract name
+func IsValidContractName(name string) bool {
+	if name == "" {
+		return true // Empty names are allowed
+	}
+	
+	// Contract names should only contain visible characters and spaces
+	// Visible characters are printable characters excluding control characters
+	for _, r := range name {
+		if r < 32 || r == 127 { // Control characters
+			return false
+		}
+	}
+	
+	return true
+}
+
+// ValidateContractName validates a contract name and returns error if invalid
+func ValidateContractName(name string) error {
+	if !IsValidContractName(name) {
+		return fmt.Errorf("invalid contract name: contains non-visible characters")
+	}
+	
+	return nil
+}
+
+// ValidateConsumeUserResourcePercent validates the consume user resource percentage
+func ValidateConsumeUserResourcePercent(percent int64) error {
+	if percent < 0 || percent > 100 {
+		return fmt.Errorf("consume user resource percent must be between 0 and 100, got %d", percent)
+	}
+	
+	return nil
+}

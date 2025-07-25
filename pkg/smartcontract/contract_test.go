@@ -50,12 +50,12 @@ const testERC20ABI = `[
 
 func TestNewContract(t *testing.T) {
 	// Test contract creation from ABI string
-	contract, err := NewContract(testERC20ABI, "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t")
+	contract, err := NewContract("TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t", testERC20ABI)
 	if err != nil {
 		t.Fatalf("Failed to create contract: %v", err)
 	}
 
-	if contract.Address != "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t" {
+	if contract.Address.String() != "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t" {
 		t.Errorf("Expected address TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t, got %s", contract.Address)
 	}
 
@@ -63,13 +63,13 @@ func TestNewContract(t *testing.T) {
 		t.Error("ABI should not be nil")
 	}
 
-	if len(contract.AddressBytes) == 0 {
+	if len(contract.Address.Bytes()) == 0 {
 		t.Error("AddressBytes should not be empty")
 	}
 }
 
 func TestEncodeInput(t *testing.T) {
-	contract, err := NewContract(testERC20ABI, "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t")
+	contract, err := NewContract("TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t", testERC20ABI)
 	if err != nil {
 		t.Fatalf("Failed to create contract: %v", err)
 	}

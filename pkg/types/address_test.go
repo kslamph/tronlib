@@ -1,7 +1,6 @@
 package types
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -21,7 +20,7 @@ func TestAddressConversion(t *testing.T) {
 			hex:    "e28b3cfd4e0e909077821478e9fcb86b84be786e",
 		},
 		{
-			name:   "Valid address pair 2", 
+			name:   "Valid address pair 2",
 			base58: "TXNYeYdao7JL7wBtmzbk7mAie7UZsdgVjx",
 			hex:    "eac49bc766be29be1b6d36619eff8f86ed4d04df",
 		},
@@ -34,7 +33,7 @@ func TestAddressConversion(t *testing.T) {
 			require.NoError(t, err)
 			assert.True(t, addr.IsValid())
 
-			// Test Hex -> Address object  
+			// Test Hex -> Address object
 			addr2, err := NewAddressFromHex(tc.hex)
 			require.NoError(t, err)
 			assert.True(t, addr2.IsValid())
@@ -140,7 +139,7 @@ func TestAddressCreationFromBytes(t *testing.T) {
 			0x41, 0xe2, 0x8b, 0x3c, 0xfd, 0x4e, 0x0e, 0x90, 0x90, 0x77, 0x82,
 			0x14, 0x78, 0xe9, 0xfc, 0xb8, 0x6b, 0x84, 0xbe, 0x78, 0x6e,
 		}
-		
+
 		addr, err := NewAddressFromBytes(validBytes)
 		require.NoError(t, err)
 		assert.True(t, addr.IsValid())
@@ -149,7 +148,7 @@ func TestAddressCreationFromBytes(t *testing.T) {
 
 	t.Run("Invalid length - too short", func(t *testing.T) {
 		invalidBytes := []byte{0x41, 0xe2, 0x8b}
-		
+
 		_, err := NewAddressFromBytes(invalidBytes)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid address length")
@@ -158,7 +157,7 @@ func TestAddressCreationFromBytes(t *testing.T) {
 	t.Run("Invalid length - too long", func(t *testing.T) {
 		invalidBytes := make([]byte, 25)
 		invalidBytes[0] = 0x41
-		
+
 		_, err := NewAddressFromBytes(invalidBytes)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid address length")
@@ -167,7 +166,7 @@ func TestAddressCreationFromBytes(t *testing.T) {
 
 func TestAddressStringMethods(t *testing.T) {
 	base58Addr := "TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwb"
-	
+
 	addr, err := NewAddressFromBase58(base58Addr)
 	require.NoError(t, err)
 
@@ -175,12 +174,6 @@ func TestAddressStringMethods(t *testing.T) {
 		hexResult := addr.Hex()
 		assert.NotEmpty(t, hexResult)
 		assert.Equal(t, 42, len(hexResult)) // 21 bytes * 2 = 42 hex chars
-	})
-
-	t.Run("HexWithPrefix method", func(t *testing.T) {
-		hexWithPrefix := addr.HexWithPrefix()
-		assert.True(t, strings.HasPrefix(hexWithPrefix, "0x"))
-		assert.Equal(t, 44, len(hexWithPrefix)) // 0x + 42 hex chars
 	})
 
 	t.Run("Base58 method", func(t *testing.T) {
@@ -194,13 +187,13 @@ func TestAddressStringMethods(t *testing.T) {
 
 func TestAddressEquality(t *testing.T) {
 	base58Addr := "TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwb"
-	
+
 	addr1, err := NewAddressFromBase58(base58Addr)
 	require.NoError(t, err)
-	
+
 	addr2, err := NewAddressFromBase58(base58Addr)
 	require.NoError(t, err)
-	
+
 	addr3, err := NewAddressFromBase58("TXNYeYdao7JL7wBtmzbk7mAie7UZsdgVjx")
 	require.NoError(t, err)
 
@@ -228,7 +221,7 @@ func TestNilAddressMethods(t *testing.T) {
 	t.Run("Nil address methods", func(t *testing.T) {
 		assert.Nil(t, nilAddr.Bytes())
 		assert.Equal(t, "", nilAddr.Hex())
-		assert.Equal(t, "", nilAddr.HexWithPrefix())
+
 		assert.Equal(t, "", nilAddr.Base58())
 		assert.Equal(t, "", nilAddr.String())
 		assert.False(t, nilAddr.IsValid())
@@ -239,7 +232,7 @@ func TestGenerateContractAddress(t *testing.T) {
 	t.Run("Valid contract address generation", func(t *testing.T) {
 		creatorAddr, err := NewAddressFromBase58("TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwb")
 		require.NoError(t, err)
-		
+
 		contractAddr, err := GenerateContractAddress(creatorAddr, 1)
 		require.NoError(t, err)
 		assert.True(t, contractAddr.IsValid())
@@ -249,13 +242,13 @@ func TestGenerateContractAddress(t *testing.T) {
 	t.Run("Different nonces generate different addresses", func(t *testing.T) {
 		creatorAddr, err := NewAddressFromBase58("TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwb")
 		require.NoError(t, err)
-		
+
 		addr1, err := GenerateContractAddress(creatorAddr, 1)
 		require.NoError(t, err)
-		
+
 		addr2, err := GenerateContractAddress(creatorAddr, 2)
 		require.NoError(t, err)
-		
+
 		assert.False(t, addr1.Equal(addr2))
 	})
 
