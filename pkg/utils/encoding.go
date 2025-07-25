@@ -14,7 +14,6 @@ import (
 // HexToBytes converts hex string to bytes
 func HexToBytes(hexStr string) ([]byte, error) {
 	// Remove 0x prefix if present
-
 	hexStr = strings.TrimPrefix(hexStr, "0x")
 
 	// Ensure even length

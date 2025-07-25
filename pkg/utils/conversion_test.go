@@ -63,31 +63,35 @@ func TestHumanReadableNumber(t *testing.T) {
 		{"three digits", "123", 2, "1.23", false},
 		{"four digits", "1234", 2, "12.34", false},
 		{"very large number", "1234567890123456789", 0, "1,234,567,890,123,456,789", false},
+		{"TRC20 max allowance", "115792089237316195423570985008687907853269984665640564039457584007913129639935", 18, "115,792,089,237,316,195,423,570,985,008,687,907,853,269,984,665,640,564,039,457.584007913129639935", false},
 
 		// Error cases
 		{"nil input", nil, 2, "", true},
 		{"negative decimals", "123", -1, "", true},
+		{"decimal string not allowed", "123.45", 2, "", true},
+		{"float with decimal not allowed", 123.45, 2, "", true},
 		{"nil bigint", (*big.Int)(nil), 2, "", true},
 		{"nil bigfloat", (*big.Float)(nil), 2, "", true},
+		{"bigfloat with decimal not allowed", new(big.Float).SetFloat64(123.45), 2, "", true},
 		{"unsupported type", []int{1, 2, 3}, 2, "", true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := HumanReadableNumber(tt.number, tt.decimal)
-			
+
 			if tt.hasError {
 				if err == nil {
 					t.Errorf("expected error but got none")
 				}
 				return
 			}
-			
+
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 				return
 			}
-			
+
 			if result != tt.expected {
 				t.Errorf("expected %q, got %q", tt.expected, result)
 			}
@@ -114,19 +118,19 @@ func TestHumanReadableTokenAmount(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := HumanReadableTokenAmount(tt.amount, tt.decimals)
-			
+
 			if tt.hasError {
 				if err == nil {
 					t.Errorf("expected error but got none")
 				}
 				return
 			}
-			
+
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 				return
 			}
-			
+
 			if result != tt.expected {
 				t.Errorf("expected %q, got %q", tt.expected, result)
 			}
@@ -152,19 +156,19 @@ func TestHumanReadableBalance(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := HumanReadableBalance(tt.balance, tt.decimals)
-			
+
 			if tt.hasError {
 				if err == nil {
 					t.Errorf("expected error but got none")
 				}
 				return
 			}
-			
+
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 				return
 			}
-			
+
 			if result != tt.expected {
 				t.Errorf("expected %q, got %q", tt.expected, result)
 			}
@@ -179,19 +183,19 @@ func TestToBigFloat(t *testing.T) {
 		expected string
 		hasError bool
 	}{
-		{"string number", "123.456", "123.456", false},
+		{"string number", "123.456", "", true}, // Now expects error
 		{"string integer", "123", "123", false},
-		{"string negative", "-123.456", "-123.456", false},
+		{"string negative", "-123.456", "", true}, // Now expects error
 		{"string zero", "0", "0", false},
-		{"string scientific", "1.23e6", "1230000", false},
+		{"string scientific", "1.23e6", "", true}, // Now expects error
 		{"empty string", "", "", true},
 		{"invalid string", "abc", "", true},
 		{"bigint", new(big.Int).SetInt64(123), "123", false},
-		{"bigfloat", new(big.Float).SetFloat64(123.456), "123.456", false},
+		{"bigfloat", new(big.Float).SetFloat64(123.456), "", true}, // Now expects error
 		{"int", int(123), "123", false},
 		{"int64", int64(-123), "-123", false},
 		{"uint64", uint64(123), "123", false},
-		{"float64", float64(123.456), "123.456", false},
+		{"float64", float64(123.456), "", true}, // Now expects error
 		{"nil", nil, "", true},
 		{"unsupported type", []int{1, 2, 3}, "", true},
 	}
@@ -199,19 +203,19 @@ func TestToBigFloat(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := toBigFloat(tt.input)
-			
+
 			if tt.hasError {
 				if err == nil {
 					t.Errorf("expected error but got none")
 				}
 				return
 			}
-			
+
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 				return
 			}
-			
+
 			if result.String() != tt.expected {
 				t.Errorf("expected %q, got %q", tt.expected, result.String())
 			}
@@ -296,7 +300,7 @@ func BenchmarkHumanReadableNumber(b *testing.B) {
 
 func BenchmarkAddCommasSeparators(b *testing.B) {
 	testString := "1234567890123456789"
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = addCommasSeparators(testString)
