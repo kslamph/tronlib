@@ -1,371 +1,217 @@
-// Package utils provides type conversion utilities for the TRON SDK
 package utils
 
 import (
 	"fmt"
 	"math/big"
-	"strconv"
-	"time"
-
-	"github.com/kslamph/tronlib/pb/core"
-	"github.com/kslamph/tronlib/pkg/types"
+	"strings"
 )
 
-// TRX/SUN conversions
-
-// TRXToSUN converts TRX amount to SUN (1 TRX = 1,000,000 SUN)
-func TRXToSUN(trx float64) *big.Int {
-	// Convert to SUN with precision
-	sunFloat := trx * float64(types.SunPerTRX)
-	sunBig := new(big.Float).SetFloat64(sunFloat)
-	
-	// Convert to integer
-	sunInt, _ := sunBig.Int(nil)
-	return sunInt
-}
-
-// SUNToTRX converts SUN amount to TRX as float64
-func SUNToTRX(sun *big.Int) float64 {
-	if sun == nil {
-		return 0
+// HumanReadableNumber converts a number to human-readable format with comma separators
+// and decimal places. Handles negative numbers and various input types.
+//
+// Parameters:
+//   - number: Input number (raw value, e.g., from smart contract)
+//   - decimal: Number of decimal places the raw number should be divided by (e.g., 6 for USDT, 18 for ETH)
+//
+// Returns:
+//   - string: Formatted number with comma separators (e.g., "1,234,567.890000")
+//   - error: Error if conversion fails
+//
+// Examples:
+//   HumanReadableNumber("1234567890", 6) -> "1,234.567890", nil (divides by 10^6)
+//   HumanReadableNumber(-1234567890, 2) -> "-12,345,678.90", nil (divides by 10^2)
+//   HumanReadableNumber("0", 0) -> "0", nil (no division)
+func HumanReadableNumber(number any, decimal int64) (string, error) {
+	if number == nil {
+		return "", fmt.Errorf("number cannot be nil")
 	}
-	
-	sunFloat := new(big.Float).SetInt(sun)
-	divisor := new(big.Float).SetInt64(types.SunPerTRX)
-	result, _ := new(big.Float).Quo(sunFloat, divisor).Float64()
-	
-	return result
-}
 
-// SUNToTRXString converts SUN amount to TRX as formatted string
-func SUNToTRXString(sun *big.Int, decimals int) string {
-	if sun == nil {
-		return "0"
+	if decimal < 0 {
+		return "", fmt.Errorf("decimal places cannot be negative: %d", decimal)
 	}
-	
-	return FormatBigInt(sun, 6) // TRX has 6 decimal places
-}
 
-// TRXStringToSUN converts TRX string to SUN big.Int
-func TRXStringToSUN(trxStr string) (*big.Int, error) {
-	trxFloat, err := strconv.ParseFloat(trxStr, 64)
+	// Convert input to *big.Float for consistent handling
+	bigFloat, err := toBigFloat(number)
 	if err != nil {
-		return nil, fmt.Errorf("invalid TRX amount: %v", err)
+		return "", fmt.Errorf("failed to convert number: %v", err)
 	}
-	
-	return TRXToSUN(trxFloat), nil
-}
 
-// Address conversions
-
-// AddressToBytes converts various address formats to bytes
-func AddressToBytes(address string) ([]byte, error) {
-	addr, err := ValidateAddress(address)
-	if err != nil {
-		return nil, err
-	}
-	
-	return addr.Bytes(), nil
-}
-
-// BytesToAddress converts bytes to Address object
-func BytesToAddress(data []byte) (*types.Address, error) {
-	return types.NewAddressFromBytes(data)
-}
-
-// AddressToHex converts address to hex string
-func AddressToHex(address string) (string, error) {
-	addr, err := ValidateAddress(address)
-	if err != nil {
-		return "", err
-	}
-	
-	return addr.Hex(), nil
-}
-
-// AddressToBase58 converts address to base58 string
-func AddressToBase58(address string) (string, error) {
-	addr, err := ValidateAddress(address)
-	if err != nil {
-		return "", err
-	}
-	
-	return addr.Base58(), nil
-}
-
-// Time conversions
-
-// UnixMillisToTime converts unix milliseconds to time.Time
-func UnixMillisToTime(millis int64) time.Time {
-	return time.Unix(millis/1000, (millis%1000)*1000000)
-}
-
-// TimeToUnixMillis converts time.Time to unix milliseconds
-func TimeToUnixMillis(t time.Time) int64 {
-	return t.UnixMilli()
-}
-
-// Now returns current time in unix milliseconds
-func Now() int64 {
-	return time.Now().UnixMilli()
-}
-
-// Resource type conversions
-
-// ResourceTypeToCore converts ResourceType to core.ResourceCode
-func ResourceTypeToCore(resourceType types.ResourceType) core.ResourceCode {
-	switch resourceType {
-	case types.ResourceBandwidth:
-		return core.ResourceCode_BANDWIDTH
-	case types.ResourceEnergy:
-		return core.ResourceCode_ENERGY
-	default:
-		return core.ResourceCode_BANDWIDTH
-	}
-}
-
-// CoreToResourceType converts core.ResourceCode to ResourceType
-func CoreToResourceType(resourceCode core.ResourceCode) types.ResourceType {
-	switch resourceCode {
-	case core.ResourceCode_BANDWIDTH:
-		return types.ResourceBandwidth
-	case core.ResourceCode_ENERGY:
-		return types.ResourceEnergy
-	default:
-		return types.ResourceBandwidth
-	}
-}
-
-// Contract type conversions
-
-// ContractTypeToString converts ContractType to string
-func ContractTypeToString(contractType types.ContractType) string {
-	return contractType.String()
-}
-
-// StringToContractType converts string to ContractType
-func StringToContractType(str string) types.ContractType {
-	switch str {
-	case "TRC20":
-		return types.ContractTypeTRC20
-	case "TRC721":
-		return types.ContractTypeTRC721
-	case "TRC1155":
-		return types.ContractTypeTRC1155
-	case "CUSTOM":
-		return types.ContractTypeCustom
-	default:
-		return types.ContractTypeUnknown
-	}
-}
-
-// Number format conversions
-
-// FormatSUN formats SUN amount with proper decimal places
-func FormatSUN(amount *big.Int) string {
-	if amount == nil {
-		return "0"
-	}
-	
-	// Format as TRX with 6 decimal places
-	return FormatBigInt(amount, 6) + " TRX"
-}
-
-// FormatWei formats wei amount (for TRC20 tokens)
-func FormatWei(amount *big.Int, decimals int, symbol string) string {
-	if amount == nil {
-		return "0"
-	}
-	
-	formatted := FormatBigInt(amount, decimals)
-	if symbol != "" {
-		return formatted + " " + symbol
-	}
-	
-	return formatted
-}
-
-// ParseAmount parses amount string with decimals
-func ParseAmount(amountStr string, decimals int) (*big.Int, error) {
-	if amountStr == "" {
-		return big.NewInt(0), nil
-	}
-	
-	// Parse as big float first
-	amountFloat, ok := new(big.Float).SetString(amountStr)
-	if !ok {
-		return nil, fmt.Errorf("invalid amount format: %s", amountStr)
-	}
-	
-	// Multiply by 10^decimals
-	multiplier := new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(decimals)), nil))
-	result := new(big.Float).Mul(amountFloat, multiplier)
-	
-	// Convert to integer
-	amount, _ := result.Int(nil)
-	return amount, nil
-}
-
-// Percentage calculations
-
-// CalculatePercentage calculates percentage of an amount
-func CalculatePercentage(amount *big.Int, percentage float64) *big.Int {
-	if amount == nil || percentage <= 0 {
-		return big.NewInt(0)
-	}
-	
-	// Convert to float, calculate, and convert back
-	amountFloat := new(big.Float).SetInt(amount)
-	percentFloat := new(big.Float).SetFloat64(percentage / 100.0)
-	result := new(big.Float).Mul(amountFloat, percentFloat)
-	
-	resultInt, _ := result.Int(nil)
-	return resultInt
-}
-
-// CalculatePercentageOf calculates what percentage one amount is of another
-func CalculatePercentageOf(part, total *big.Int) float64 {
-	if total == nil || total.Sign() == 0 || part == nil {
-		return 0
-	}
-	
-	partFloat := new(big.Float).SetInt(part)
-	totalFloat := new(big.Float).SetInt(total)
-	
-	// (part / total) * 100
-	ratio := new(big.Float).Quo(partFloat, totalFloat)
-	percentage := new(big.Float).Mul(ratio, big.NewFloat(100))
-	
-	result, _ := percentage.Float64()
-	return result
-}
-
-// Unit conversions
-
-// BytesToMB converts bytes to megabytes
-func BytesToMB(bytes int64) float64 {
-	return float64(bytes) / (1024 * 1024)
-}
-
-// MBToBytes converts megabytes to bytes
-func MBToBytes(mb float64) int64 {
-	return int64(mb * 1024 * 1024)
-}
-
-// SecondsToBlocks estimates number of blocks for given seconds
-func SecondsToBlocks(seconds int64) int64 {
-	return seconds * 1000 / types.BlockTimeMS
-}
-
-// BlocksToSeconds estimates seconds for given number of blocks
-func BlocksToSeconds(blocks int64) int64 {
-	return blocks * types.BlockTimeMS / 1000
-}
-
-// Energy calculations
-
-// EstimateEnergyForBytes estimates energy needed for given data size
-func EstimateEnergyForBytes(dataSize int) int64 {
-	// Basic estimation: 1 energy per byte + base cost
-	baseCost := int64(21000) // Base transaction cost
-	dataCost := int64(dataSize) * types.EnergyPerByte
-	
-	return baseCost + dataCost
-}
-
-// EstimateBandwidthForBytes estimates bandwidth needed for given data size
-func EstimateBandwidthForBytes(dataSize int) int64 {
-	// Basic estimation: 1 bandwidth per byte + base cost
-	baseCost := int64(200) // Base transaction cost
-	dataCost := int64(dataSize) * types.BandwidthPerByte
-	
-	return baseCost + dataCost
-}
-
-// Array conversions
-
-// StringSliceToBytes converts string slice to byte slices
-func StringSliceToBytes(strings []string) [][]byte {
-	result := make([][]byte, len(strings))
-	for i, str := range strings {
-		result[i] = []byte(str)
-	}
-	return result
-}
-
-// ByteSlicesToStrings converts byte slices to string slice
-func ByteSlicesToStrings(bytes [][]byte) []string {
-	result := make([]string, len(bytes))
-	for i, b := range bytes {
-		result[i] = string(b)
-	}
-	return result
-}
-
-// AddressSliceToBytes converts address strings to byte slices
-func AddressSliceToBytes(addresses []string) ([][]byte, error) {
-	result := make([][]byte, len(addresses))
-	for i, addr := range addresses {
-		bytes, err := AddressToBytes(addr)
-		if err != nil {
-			return nil, fmt.Errorf("invalid address at index %d: %v", i, err)
+	// Handle zero case
+	if bigFloat.Sign() == 0 {
+		if decimal == 0 {
+			return "0", nil
 		}
-		result[i] = bytes
+		return "0." + strings.Repeat("0", int(decimal)), nil
 	}
+
+	// Check if number is negative
+	isNegative := bigFloat.Sign() < 0
+	if isNegative {
+		bigFloat = new(big.Float).Abs(bigFloat)
+	}
+
+	// Apply decimal scaling (divide by 10^decimal)
+	if decimal > 0 {
+		divisor := new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(decimal), nil))
+		bigFloat = new(big.Float).Quo(bigFloat, divisor)
+	}
+
+	// Format with specified decimal places
+	formatted := bigFloat.Text('f', int(decimal))
+
+	// Split into integer and decimal parts
+	parts := strings.Split(formatted, ".")
+	integerPart := parts[0]
+	var decimalPart string
+	if len(parts) > 1 {
+		decimalPart = parts[1]
+	}
+
+	// Add comma separators to integer part
+	integerPart = addCommasSeparators(integerPart)
+
+	// Reconstruct the number
+	result := integerPart
+	if decimal > 0 {
+		// Ensure decimal part has correct length
+		if len(decimalPart) < int(decimal) {
+			decimalPart = decimalPart + strings.Repeat("0", int(decimal)-len(decimalPart))
+		}
+		result += "." + decimalPart
+	}
+
+	// Add negative sign if needed
+	if isNegative {
+		result = "-" + result
+	}
+
 	return result, nil
 }
 
-// Safe math operations
+// toBigFloat converts various numeric types to *big.Float
+func toBigFloat(number any) (*big.Float, error) {
+	switch v := number.(type) {
+	case string:
+		// Handle empty string
+		if strings.TrimSpace(v) == "" {
+			return nil, fmt.Errorf("empty string is not a valid number")
+		}
+		
+		// Try to parse as big.Float
+		bigFloat, _, err := big.ParseFloat(v, 10, 256, big.ToNearestEven)
+		if err != nil {
+			return nil, fmt.Errorf("invalid number string: %s", v)
+		}
+		return bigFloat, nil
 
-// SafeAdd safely adds two big integers
-func SafeAdd(a, b *big.Int) *big.Int {
-	if a == nil {
-		a = big.NewInt(0)
+	case *big.Int:
+		if v == nil {
+			return nil, fmt.Errorf("*big.Int cannot be nil")
+		}
+		return new(big.Float).SetInt(v), nil
+
+	case *big.Float:
+		if v == nil {
+			return nil, fmt.Errorf("*big.Float cannot be nil")
+		}
+		return new(big.Float).Set(v), nil
+
+	// Signed integers
+	case int:
+		return new(big.Float).SetInt64(int64(v)), nil
+	case int8:
+		return new(big.Float).SetInt64(int64(v)), nil
+	case int16:
+		return new(big.Float).SetInt64(int64(v)), nil
+	case int32:
+		return new(big.Float).SetInt64(int64(v)), nil
+	case int64:
+		return new(big.Float).SetInt64(v), nil
+
+	// Unsigned integers
+	case uint:
+		return new(big.Float).SetUint64(uint64(v)), nil
+	case uint8:
+		return new(big.Float).SetUint64(uint64(v)), nil
+	case uint16:
+		return new(big.Float).SetUint64(uint64(v)), nil
+	case uint32:
+		return new(big.Float).SetUint64(uint64(v)), nil
+	case uint64:
+		return new(big.Float).SetUint64(v), nil
+
+	// Floating point
+	case float32:
+		return new(big.Float).SetFloat64(float64(v)), nil
+	case float64:
+		return new(big.Float).SetFloat64(v), nil
+
+	default:
+		return nil, fmt.Errorf("unsupported number type: %T", number)
 	}
-	if b == nil {
-		b = big.NewInt(0)
-	}
-	
-	return new(big.Int).Add(a, b)
 }
 
-// SafeSub safely subtracts two big integers (returns 0 if result would be negative)
-func SafeSub(a, b *big.Int) *big.Int {
-	if a == nil {
-		a = big.NewInt(0)
+// addCommasSeparators adds comma separators to an integer string
+func addCommasSeparators(s string) string {
+	if len(s) <= 3 {
+		return s
 	}
-	if b == nil {
-		b = big.NewInt(0)
-	}
+
+	// Handle the case where we need to add commas
+	var result strings.Builder
 	
-	result := new(big.Int).Sub(a, b)
-	if result.Sign() < 0 {
-		return big.NewInt(0)
+	// Process from right to left
+	for i, digit := range reverse(s) {
+		if i > 0 && i%3 == 0 {
+			result.WriteRune(',')
+		}
+		result.WriteRune(digit)
 	}
-	
-	return result
+
+	return reverse(result.String())
 }
 
-// SafeMul safely multiplies two big integers
-func SafeMul(a, b *big.Int) *big.Int {
-	if a == nil {
-		a = big.NewInt(0)
+// reverse reverses a string
+func reverse(s string) string {
+	runes := []rune(s)
+	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
+		runes[i], runes[j] = runes[j], runes[i]
 	}
-	if b == nil {
-		b = big.NewInt(0)
-	}
-	
-	return new(big.Int).Mul(a, b)
+	return string(runes)
 }
 
-// SafeDiv safely divides two big integers (returns 0 if divisor is 0)
-func SafeDiv(a, b *big.Int) *big.Int {
-	if a == nil {
-		a = big.NewInt(0)
-	}
-	if b == nil || b.Sign() == 0 {
-		return big.NewInt(0)
-	}
-	
-	return new(big.Int).Div(a, b)
+// HumanReadableTokenAmount is a convenience function for token amounts
+// It handles the common case of converting token amounts with known decimals
+//
+// Parameters:
+//   - amount: Token amount (raw value from smart contract)
+//   - decimals: Token decimals (e.g., 18 for most ERC20 tokens, 6 for USDT)
+//
+// Returns:
+//   - string: Human-readable token amount
+//   - error: Error if conversion fails
+//
+// Examples:
+//   HumanReadableTokenAmount("1000000000000000000", 18) -> "1.000000000000000000", nil
+//   HumanReadableTokenAmount("1000000", 6) -> "1.000000", nil
+func HumanReadableTokenAmount(amount any, decimals int64) (string, error) {
+	return HumanReadableNumber(amount, decimals)
+}
+
+// HumanReadableBalance is a convenience function for displaying balances
+// It formats numbers with comma separators and a reasonable number of decimal places
+//
+// Parameters:
+//   - balance: Balance amount
+//   - decimals: Number of decimal places to show (default recommendation: 6)
+//
+// Returns:
+//   - string: Human-readable balance
+//   - error: Error if conversion fails
+//
+// Examples:
+//   HumanReadableBalance("1234567890123456789", 6) -> "1,234,567,890.123457", nil
+//   HumanReadableBalance(-1000000, 2) -> "-10.00", nil
+func HumanReadableBalance(balance any, decimals int64) (string, error) {
+	return HumanReadableNumber(balance, decimals)
 }

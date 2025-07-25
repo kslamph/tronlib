@@ -14,15 +14,14 @@ import (
 // HexToBytes converts hex string to bytes
 func HexToBytes(hexStr string) ([]byte, error) {
 	// Remove 0x prefix if present
-	if strings.HasPrefix(hexStr, "0x") {
-		hexStr = hexStr[2:]
-	}
-	
+
+	hexStr = strings.TrimPrefix(hexStr, "0x")
+
 	// Ensure even length
 	if len(hexStr)%2 != 0 {
 		hexStr = "0" + hexStr
 	}
-	
+
 	return hex.DecodeString(hexStr)
 }
 
@@ -36,7 +35,7 @@ func PadLeft(data []byte, length int) []byte {
 	if len(data) >= length {
 		return data
 	}
-	
+
 	padded := make([]byte, length)
 	copy(padded[length-len(data):], data)
 	return padded
@@ -47,7 +46,7 @@ func PadRight(data []byte, length int) []byte {
 	if len(data) >= length {
 		return data
 	}
-	
+
 	padded := make([]byte, length)
 	copy(padded, data)
 	return padded
@@ -71,25 +70,25 @@ func EncodeParameters(abiJSON string, method string, params ...interface{}) ([]b
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse ABI: %v", err)
 	}
-	
+
 	// Find method
 	methodABI, exists := contractABI.Methods[method]
 	if !exists {
 		return nil, fmt.Errorf("method %s not found in ABI", method)
 	}
-	
+
 	// Encode parameters
 	data, err := methodABI.Inputs.Pack(params...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode parameters: %v", err)
 	}
-	
+
 	// Prepend method signature
 	methodSig := methodABI.ID
 	result := make([]byte, 4+len(data))
 	copy(result[:4], methodSig)
 	copy(result[4:], data)
-	
+
 	return result, nil
 }
 
@@ -100,19 +99,19 @@ func DecodeParameters(abiJSON string, method string, data []byte) ([]interface{}
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse ABI: %v", err)
 	}
-	
+
 	// Find method
 	methodABI, exists := contractABI.Methods[method]
 	if !exists {
 		return nil, fmt.Errorf("method %s not found in ABI", method)
 	}
-	
+
 	// Decode parameters
 	results, err := methodABI.Outputs.Unpack(data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode parameters: %v", err)
 	}
-	
+
 	return results, nil
 }
 
@@ -120,24 +119,24 @@ func DecodeParameters(abiJSON string, method string, data []byte) ([]interface{}
 func EncodeTRC20Transfer(to string, amount *big.Int) ([]byte, error) {
 	// Method signature for transfer(address,uint256)
 	methodSig, _ := HexToBytes("a9059cbb")
-	
+
 	// Encode address (32 bytes, left-padded)
 	toAddr, err := HexToBytes(to)
 	if err != nil {
 		return nil, fmt.Errorf("invalid to address: %v", err)
 	}
 	encodedTo := PadLeft(toAddr, 32)
-	
+
 	// Encode amount (32 bytes, left-padded)
 	amountBytes := amount.Bytes()
 	encodedAmount := PadLeft(amountBytes, 32)
-	
+
 	// Combine all parts
 	result := make([]byte, 4+32+32)
 	copy(result[:4], methodSig)
 	copy(result[4:36], encodedTo)
 	copy(result[36:68], encodedAmount)
-	
+
 	return result, nil
 }
 
@@ -145,19 +144,19 @@ func EncodeTRC20Transfer(to string, amount *big.Int) ([]byte, error) {
 func EncodeTRC20BalanceOf(address string) ([]byte, error) {
 	// Method signature for balanceOf(address)
 	methodSig, _ := HexToBytes("70a08231")
-	
+
 	// Encode address (32 bytes, left-padded)
 	addr, err := HexToBytes(address)
 	if err != nil {
 		return nil, fmt.Errorf("invalid address: %v", err)
 	}
 	encodedAddr := PadLeft(addr, 32)
-	
+
 	// Combine method signature and address
 	result := make([]byte, 4+32)
 	copy(result[:4], methodSig)
 	copy(result[4:36], encodedAddr)
-	
+
 	return result, nil
 }
 
@@ -166,7 +165,7 @@ func DecodeTRC20Balance(data []byte) (*big.Int, error) {
 	if len(data) < 32 {
 		return nil, fmt.Errorf("invalid balance data length: %d", len(data))
 	}
-	
+
 	// Balance is encoded as uint256 (32 bytes)
 	balance := new(big.Int).SetBytes(data[:32])
 	return balance, nil
@@ -212,22 +211,22 @@ func EncodeString(str string) []byte {
 	data := []byte(str)
 	// String encoding: offset + length + data (padded to 32-byte boundary)
 	length := len(data)
-	
+
 	// Calculate total size: 32 (offset) + 32 (length) + padded data
 	paddedLength := ((length + 31) / 32) * 32
 	result := make([]byte, 32+32+paddedLength)
-	
+
 	// Offset (pointing to length field)
 	offset := EncodeUint256(big.NewInt(32))
 	copy(result[:32], offset)
-	
+
 	// Length
 	lengthBytes := EncodeUint256(big.NewInt(int64(length)))
 	copy(result[32:64], lengthBytes)
-	
+
 	// Data (padded)
 	copy(result[64:64+length], data)
-	
+
 	return result
 }
 
@@ -236,19 +235,19 @@ func DecodeString(data []byte) (string, error) {
 	if len(data) < 64 {
 		return "", fmt.Errorf("insufficient data for string decoding")
 	}
-	
+
 	// Read offset (should be 32 for standard encoding)
 	offset := DecodeUint256(data[:32]).Int64()
 	if offset != 32 {
 		return "", fmt.Errorf("unexpected string offset: %d", offset)
 	}
-	
+
 	// Read length
 	length := DecodeUint256(data[32:64]).Int64()
 	if length < 0 || int64(len(data)) < 64+length {
 		return "", fmt.Errorf("invalid string length: %d", length)
 	}
-	
+
 	// Read string data
 	stringData := data[64 : 64+length]
 	return string(stringData), nil
@@ -274,7 +273,7 @@ func MapToJSON(data map[string]interface{}) (string, error) {
 func ParseBigInt(str string) (*big.Int, error) {
 	// Remove any whitespace
 	str = strings.TrimSpace(str)
-	
+
 	// Handle hex format
 	if strings.HasPrefix(str, "0x") {
 		result, ok := new(big.Int).SetString(str[2:], 16)
@@ -283,13 +282,13 @@ func ParseBigInt(str string) (*big.Int, error) {
 		}
 		return result, nil
 	}
-	
+
 	// Handle decimal format
 	result, ok := new(big.Int).SetString(str, 10)
 	if !ok {
 		return nil, fmt.Errorf("invalid big integer format: %s", str)
 	}
-	
+
 	return result, nil
 }
 
@@ -298,28 +297,28 @@ func FormatBigInt(value *big.Int, decimals int) string {
 	if decimals <= 0 {
 		return value.String()
 	}
-	
+
 	// Convert to float for decimal formatting
 	divisor := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(decimals)), nil)
 	quotient := new(big.Int).Div(value, divisor)
 	remainder := new(big.Int).Mod(value, divisor)
-	
+
 	if remainder.Sign() == 0 {
 		return quotient.String()
 	}
-	
+
 	// Format with decimals
 	remainderStr := remainder.String()
 	// Pad with leading zeros if necessary
 	for len(remainderStr) < decimals {
 		remainderStr = "0" + remainderStr
 	}
-	
+
 	// Remove trailing zeros
 	remainderStr = strings.TrimRight(remainderStr, "0")
 	if remainderStr == "" {
 		return quotient.String()
 	}
-	
+
 	return quotient.String() + "." + remainderStr
 }
