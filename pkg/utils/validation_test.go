@@ -1,160 +1,452 @@
-package utils_test
+package utils
 
 import (
+	"math/big"
 	"testing"
 
-	"github.com/kslamph/tronlib/pkg/signer"
-	"github.com/kslamph/tronlib/pkg/utils"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
+// Test data migrated from pkg_old/crypto/verify_message_v2_test.go
 func TestVerifyMessageV2(t *testing.T) {
-	// Create a test signer
-	privateKey := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-	s, err := signer.NewPrivateKeySigner(privateKey)
-	if err != nil {
-		t.Fatalf("Failed to create signer: %v", err)
-	}
-
-	testCases := []struct {
-		name    string
-		message string
-	}{
-		{"Simple text", "Hello TRON!"},
-		{"Empty message", ""},
-		{"Unicode message", "Hello 世界! 🌍"},
-		{"Hex message", "0x48656c6c6f"},
-		{"Long message", "This is a very long message that tests the verification of longer strings with various characters and numbers 12345"},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			// Sign the message
-			signature, err := s.SignMessageV2(tc.message)
-			if err != nil {
-				t.Fatalf("Failed to sign message: %v", err)
-			}
-
-			// Verify with correct address
-			valid, err := utils.VerifyMessageV2(tc.message, signature, s.Address().String())
-			if err != nil {
-				t.Fatalf("Failed to verify message: %v", err)
-			}
-
-			if !valid {
-				t.Fatal("Message verification should be valid")
-			}
-
-			// Test with wrong address
-			wrongAddress := "TLyqzVGLV1srkB7dToTAEqgDSfPtXRJZYH" // Random valid address
-			valid, err = utils.VerifyMessageV2(tc.message, signature, wrongAddress)
-			if err != nil {
-				t.Fatalf("Failed to verify message with wrong address: %v", err)
-			}
-
-			if valid {
-				t.Fatal("Message verification should be invalid with wrong address")
-			}
-
-			t.Logf("Test case '%s' passed", tc.name)
-		})
-	}
-}
-
-func TestVerifyMessageV2_InvalidInputs(t *testing.T) {
-	validMessage := "Hello TRON!"
-	validSignature := "0x2c96d0b076b1ea6a2fc3135fadeab9c95e0efd0738e54c65e8cf4f5bbfe184fe45553edceb71d1f9c548c4d90ccd6bfef4b76e7b9c2205c9ee9e76b38f13bf651b"
-	validAddress := "TZ1EafTG8FRtE6ef3H2dhaucDdjv36fzPY"
-
 	testCases := []struct {
 		name      string
+		address   string
 		message   string
 		signature string
-		address   string
-		expectErr bool
+		valid     bool
 	}{
-		{"Invalid signature format", validMessage, "invalid", validAddress, true},
-		{"Signature without 0x", validMessage, "2c96d0b076b1ea6a2fc3135fadeab9c95e0efd0738e54c65e8cf4f5bbfe184fe45553edceb71d1f9c548c4d90ccd6bfef4b76e7b9c2205c9ee9e76b38f13bf651b", validAddress, true},
-		{"Short signature", validMessage, "0x1234", validAddress, true},
-		{"Invalid address", validMessage, validSignature, "invalid_address", true},
-		{"Empty address", validMessage, validSignature, "", true},
+		{
+			name:      "Valid message verification",
+			address:   "TBkfmcE7pM8cwxEhATtkMFwAf1FeQcwY9x",
+			message:   "sign message testing",
+			signature: "0x88bacb8549cbe7c3e26d922b05e88757197b77410fb0db1fabb9f30480202c84691b7025e928d36be962cfd7b4a8d2353b97f36d64bdc14398e9568091b701201b",
+			valid:     true,
+		},
+		{
+			name:      "Wrong message for signature",
+			address:   "TBkfmcE7pM8cwxEhATtkMFwAf1FeQcwY9x",
+			message:   "wrong message",
+			signature: "0x88bacb8549cbe7c3e26d922b05e88757197b77410fb0db1fabb9f30480202c84691b7025e928d36be962cfd7b4a8d2353b97f36d64bdc14398e9568091b701201b",
+			valid:     false,
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			valid, err := utils.VerifyMessageV2(tc.message, tc.signature, tc.address)
-
-			if tc.expectErr {
-				if err == nil {
-					t.Fatal("Expected error but got none")
-				}
-				if valid {
-					t.Fatal("Expected invalid result but got valid")
-				}
-			} else {
-				if err != nil {
-					t.Fatalf("Unexpected error: %v", err)
-				}
-			}
-
-			t.Logf("Test case '%s' passed with expected error: %v", tc.name, err)
+			valid, err := VerifyMessageV2(tc.message, tc.signature, tc.address)
+			require.NoError(t, err)
+			assert.Equal(t, tc.valid, valid)
 		})
 	}
 }
 
-func TestVerifyMessageV2_CrossSigner(t *testing.T) {
-	// Test verification across different signer implementations
-	privateKey := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-	mnemonic := "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+func TestVerifyMessageV2InvalidSignatures(t *testing.T) {
+	address := "TBkfmcE7pM8cwxEhATtkMFwAf1FeQcwY9x"
+	message := "test message"
 
-	// Create signers
-	pkSigner, err := signer.NewPrivateKeySigner(privateKey)
-	if err != nil {
-		t.Fatalf("Failed to create private key signer: %v", err)
-	}
-
-	hdSigner, err := signer.NewHDWalletSigner(mnemonic, "", "")
-	if err != nil {
-		t.Fatalf("Failed to create HD wallet signer: %v", err)
-	}
-
-	message := "Cross-signer verification test"
-
-	// Test private key signer
-	pkSignature, err := pkSigner.SignMessageV2(message)
-	if err != nil {
-		t.Fatalf("Failed to sign with private key signer: %v", err)
-	}
-
-	valid, err := utils.VerifyMessageV2(message, pkSignature, pkSigner.Address().String())
-	if err != nil {
-		t.Fatalf("Failed to verify private key signature: %v", err)
-	}
-	if !valid {
-		t.Fatal("Private key signature should be valid")
+	invalidCases := []struct {
+		name      string
+		signature string
+		errorMsg  string
+	}{
+		{
+			name:      "Invalid signature length",
+			signature: "0x1234",
+			errorMsg:  "signature must be 65 bytes",
+		},
+		{
+			name:      "Missing 0x prefix",
+			signature: "88bacb8549cbe7c3e26d922b05e88757197b77410fb0db1fabb9f30480202c84691b7025e928d36be962cfd7b4a8d2353b97f36d64bdc14398e9568091b701201b",
+			errorMsg:  "signature must start with 0x",
+		},
+		{
+			name:      "Invalid hex characters",
+			signature: "0xZZ",
+			errorMsg:  "signature must be 65 bytes",
+		},
 	}
 
-	// Test HD wallet signer
-	hdSignature, err := hdSigner.SignMessageV2(message)
-	if err != nil {
-		t.Fatalf("Failed to sign with HD wallet signer: %v", err)
+	for _, tc := range invalidCases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := VerifyMessageV2(message, tc.signature, address)
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), tc.errorMsg)
+		})
+	}
+}
+
+// Test data migrated from pkg_old/types/address_test.go
+func TestAddressValidation(t *testing.T) {
+	validCases := []struct {
+		name    string
+		address string
+	}{
+		{
+			name:    "Valid base58 address 1",
+			address: "TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwb",
+		},
+		{
+			name:    "Valid base58 address 2",
+			address: "TXNYeYdao7JL7wBtmzbk7mAie7UZsdgVjx",
+		},
+		{
+			name:    "Valid hex address",
+			address: "e28b3cfd4e0e909077821478e9fcb86b84be786e",
+		},
+		{
+			name:    "Valid hex address with 0x prefix",
+			address: "0xe28b3cfd4e0e909077821478e9fcb86b84be786e",
+		},
 	}
 
-	valid, err = utils.VerifyMessageV2(message, hdSignature, hdSigner.Address().String())
-	if err != nil {
-		t.Fatalf("Failed to verify HD wallet signature: %v", err)
+	for _, tc := range validCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Test IsValidTronAddress
+			assert.True(t, IsValidTronAddress(tc.address))
+			
+			// Test ValidateAddress
+			addr, err := ValidateAddress(tc.address)
+			require.NoError(t, err)
+			assert.NotNil(t, addr)
+			assert.True(t, addr.IsValid())
+		})
 	}
-	if !valid {
-		t.Fatal("HD wallet signature should be valid")
+}
+
+func TestInvalidAddressValidation(t *testing.T) {
+	invalidCases := []struct {
+		name    string
+		address string
+	}{
+		{
+			name:    "Empty address",
+			address: "",
+		},
+		{
+			name:    "Wrong prefix base58",
+			address: "AWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwb",
+		},
+		{
+			name:    "Wrong length base58",
+			address: "TWd4WrZ9wn84f5x1hZhL4DHvk738ns5",
+		},
+		{
+			name:    "Invalid hex characters",
+			address: "x28b3cfd4e0e909077821478e9fcb86b84be786e",
+		},
+		{
+			name:    "Wrong hex prefix",
+			address: "1e28b3cfd4e0e909077821478e9fcb86b84be786e",
+		},
 	}
 
-	// Cross-verify (should fail)
-	valid, err = utils.VerifyMessageV2(message, pkSignature, hdSigner.Address().String())
-	if err != nil {
-		t.Fatalf("Failed to cross-verify: %v", err)
+	for _, tc := range invalidCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Test IsValidTronAddress
+			assert.False(t, IsValidTronAddress(tc.address))
+			
+			// Test ValidateAddress
+			_, err := ValidateAddress(tc.address)
+			assert.Error(t, err)
+		})
 	}
-	if valid {
-		t.Fatal("Cross-verification should fail")
+}
+
+func TestAmountValidation(t *testing.T) {
+	t.Run("Valid amounts", func(t *testing.T) {
+		validAmounts := []*big.Int{
+			big.NewInt(1),                    // 1 SUN
+			big.NewInt(1000000),              // 1 TRX
+			big.NewInt(1000000000),           // 1000 TRX
+			new(big.Int).Mul(big.NewInt(1000000), big.NewInt(1000000)), // 1M TRX
+		}
+
+		for _, amount := range validAmounts {
+			assert.True(t, IsValidAmount(amount))
+			assert.NoError(t, ValidateAmount(amount, nil))
+		}
+	})
+
+	t.Run("Invalid amounts", func(t *testing.T) {
+		invalidCases := []struct {
+			name   string
+			amount *big.Int
+		}{
+			{
+				name:   "Nil amount",
+				amount: nil,
+			},
+			{
+				name:   "Zero amount",
+				amount: big.NewInt(0),
+			},
+			{
+				name:   "Negative amount",
+				amount: big.NewInt(-1),
+			},
+		}
+
+		for _, tc := range invalidCases {
+			t.Run(tc.name, func(t *testing.T) {
+				assert.False(t, IsValidAmount(tc.amount))
+				assert.Error(t, ValidateAmount(tc.amount, nil))
+			})
+		}
+	})
+
+	t.Run("Minimum amount validation", func(t *testing.T) {
+		minAmount := big.NewInt(1000000) // 1 TRX
+		
+		// Valid: above minimum
+		assert.NoError(t, ValidateAmount(big.NewInt(2000000), minAmount))
+		
+		// Invalid: below minimum
+		assert.Error(t, ValidateAmount(big.NewInt(500000), minAmount))
+	})
+}
+
+func TestTRXAmountValidation(t *testing.T) {
+	t.Run("Valid TRX amounts", func(t *testing.T) {
+		validAmounts := []*big.Int{
+			big.NewInt(1),        // 1 SUN
+			big.NewInt(1000000),  // 1 TRX
+			big.NewInt(10000000), // 10 TRX
+		}
+
+		for _, amount := range validAmounts {
+			assert.NoError(t, ValidateTRXAmount(amount))
+		}
+	})
+
+	t.Run("Invalid TRX amounts", func(t *testing.T) {
+		invalidAmounts := []*big.Int{
+			big.NewInt(0),  // Zero
+			big.NewInt(-1), // Negative
+		}
+
+		for _, amount := range invalidAmounts {
+			assert.Error(t, ValidateTRXAmount(amount))
+		}
+	})
+}
+
+func TestFreezeAmountValidation(t *testing.T) {
+	t.Run("Valid freeze amounts", func(t *testing.T) {
+		validAmounts := []*big.Int{
+			big.NewInt(1000000),  // 1 TRX (minimum)
+			big.NewInt(10000000), // 10 TRX
+		}
+
+		for _, amount := range validAmounts {
+			assert.NoError(t, ValidateFreezeAmount(amount))
+		}
+	})
+
+	t.Run("Invalid freeze amounts", func(t *testing.T) {
+		invalidAmounts := []*big.Int{
+			big.NewInt(500000), // Less than 1 TRX
+			big.NewInt(0),      // Zero
+			big.NewInt(-1),     // Negative
+		}
+
+		for _, amount := range invalidAmounts {
+			assert.Error(t, ValidateFreezeAmount(amount))
+		}
+	})
+}
+
+func TestContractValidation(t *testing.T) {
+	t.Run("Valid contract addresses", func(t *testing.T) {
+		validAddresses := []string{
+			"TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwb",
+			"e28b3cfd4e0e909077821478e9fcb86b84be786e",
+		}
+
+		for _, addr := range validAddresses {
+			assert.True(t, IsValidContractAddress(addr))
+		}
+	})
+
+	t.Run("Contract data validation", func(t *testing.T) {
+		// Valid data with method signature
+		validData := []byte{0xa9, 0x05, 0x9c, 0xbb} // transfer(address,uint256) signature
+		assert.NoError(t, ValidateContractData(validData))
+
+		// Invalid: empty data
+		assert.Error(t, ValidateContractData([]byte{}))
+
+		// Invalid: too short (less than 4 bytes)
+		assert.Error(t, ValidateContractData([]byte{0xa9, 0x05}))
+	})
+}
+
+func TestMethodNameValidation(t *testing.T) {
+	validNames := []string{
+		"transfer",
+		"balanceOf",
+		"approve",
+		"_burn",
+		"symbol",
+		"decimals",
 	}
 
-	t.Log("Cross-signer verification test passed")
+	for _, name := range validNames {
+		t.Run("Valid: "+name, func(t *testing.T) {
+			assert.True(t, IsValidMethodName(name))
+			assert.NoError(t, ValidateMethodName(name))
+		})
+	}
+
+	invalidNames := []string{
+		"",           // Empty
+		"123invalid", // Starts with number
+		"invalid-method", // Contains hyphen
+		"invalid method", // Contains space
+	}
+
+	for _, name := range invalidNames {
+		t.Run("Invalid: "+name, func(t *testing.T) {
+			assert.False(t, IsValidMethodName(name))
+			assert.Error(t, ValidateMethodName(name))
+		})
+	}
+}
+
+func TestTokenSymbolValidation(t *testing.T) {
+	validSymbols := []string{
+		"TRX",
+		"USDT",
+		"BTC",
+		"ETH",
+		"USDC123",
+	}
+
+	for _, symbol := range validSymbols {
+		t.Run("Valid: "+symbol, func(t *testing.T) {
+			assert.True(t, IsValidTokenSymbol(symbol))
+			assert.NoError(t, ValidateTokenSymbol(symbol))
+		})
+	}
+
+	invalidSymbols := []string{
+		"",              // Empty
+		"toolongsymbol", // Too long (>10 chars)
+		"invalid-symbol", // Contains hyphen
+		"symbol with space", // Contains space
+		"symbol@",       // Contains special character
+	}
+
+	for _, symbol := range invalidSymbols {
+		t.Run("Invalid: "+symbol, func(t *testing.T) {
+			assert.False(t, IsValidTokenSymbol(symbol))
+			assert.Error(t, ValidateTokenSymbol(symbol))
+		})
+	}
+}
+
+func TestNodeURLValidation(t *testing.T) {
+	validURLs := []string{
+		"127.0.0.1:50051",
+		"grpc.trongrid.io:50051",
+		"grpc://127.0.0.1:50051",
+		"grpcs://grpc.trongrid.io:50051",
+	}
+
+	for _, url := range validURLs {
+		t.Run("Valid: "+url, func(t *testing.T) {
+			assert.True(t, IsValidNodeURL(url))
+			assert.NoError(t, ValidateNodeURL(url))
+		})
+	}
+
+	invalidURLs := []string{
+		"",                    // Empty
+		"invalid-url",         // No port
+		"http://example.com",  // Wrong protocol
+		"127.0.0.1",          // Missing port
+		"127.0.0.1:abc",      // Invalid port
+	}
+
+	for _, url := range invalidURLs {
+		t.Run("Invalid: "+url, func(t *testing.T) {
+			assert.False(t, IsValidNodeURL(url))
+			assert.Error(t, ValidateNodeURL(url))
+		})
+	}
+}
+
+func TestDecimalsValidation(t *testing.T) {
+	validDecimals := []int{0, 6, 8, 18}
+
+	for _, decimals := range validDecimals {
+		t.Run("Valid decimals", func(t *testing.T) {
+			assert.True(t, IsValidDecimals(decimals))
+			assert.NoError(t, ValidateDecimals(decimals))
+		})
+	}
+
+	invalidDecimals := []int{-1, 19, 100}
+
+	for _, decimals := range invalidDecimals {
+		t.Run("Invalid decimals", func(t *testing.T) {
+			assert.False(t, IsValidDecimals(decimals))
+			assert.Error(t, ValidateDecimals(decimals))
+		})
+	}
+}
+
+func TestPermissionIDValidation(t *testing.T) {
+	validIDs := []int32{0, 1, 2, 255}
+
+	for _, id := range validIDs {
+		t.Run("Valid permission ID", func(t *testing.T) {
+			assert.True(t, IsValidPermissionID(id))
+			assert.NoError(t, ValidatePermissionID(id))
+		})
+	}
+
+	invalidIDs := []int32{-1, 256, 1000}
+
+	for _, id := range invalidIDs {
+		t.Run("Invalid permission ID", func(t *testing.T) {
+			assert.False(t, IsValidPermissionID(id))
+			assert.Error(t, ValidatePermissionID(id))
+		})
+	}
+}
+
+func TestBatchValidation(t *testing.T) {
+	t.Run("Valid addresses batch", func(t *testing.T) {
+		addresses := []string{
+			"TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwb",
+			"TXNYeYdao7JL7wBtmzbk7mAie7UZsdgVjx",
+		}
+		assert.NoError(t, ValidateAddresses(addresses))
+	})
+
+	t.Run("Invalid addresses batch", func(t *testing.T) {
+		addresses := []string{
+			"TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwb",
+			"invalid-address",
+		}
+		assert.Error(t, ValidateAddresses(addresses))
+	})
+
+	t.Run("Valid amounts batch", func(t *testing.T) {
+		amounts := []*big.Int{
+			big.NewInt(1000000),
+			big.NewInt(2000000),
+		}
+		assert.NoError(t, ValidateAmounts(amounts, big.NewInt(1000000)))
+	})
+
+	t.Run("Invalid amounts batch", func(t *testing.T) {
+		amounts := []*big.Int{
+			big.NewInt(1000000),
+			big.NewInt(500000), // Below minimum
+		}
+		assert.Error(t, ValidateAmounts(amounts, big.NewInt(1000000)))
+	})
 }

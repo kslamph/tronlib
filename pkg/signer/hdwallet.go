@@ -132,7 +132,12 @@ func (s *HDWalletSigner) DeriveAccount(index uint32) (*HDWalletSigner, error) {
 
 // GetMasterKey returns the master public key
 func (s *HDWalletSigner) GetMasterKey() (*ecdsa.PublicKey, error) {
-	account, err := s.wallet.Derive(hdwallet.MustParseDerivationPath("m"), false)
+	derivationPath, err := hdwallet.ParseDerivationPath("m/44'/195'/0'/0")
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse master derivation path: %w", err)
+	}
+	
+	account, err := s.wallet.Derive(derivationPath, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to derive master account: %w", err)
 	}

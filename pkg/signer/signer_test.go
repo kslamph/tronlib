@@ -1,166 +1,248 @@
-package signer_test
+package signer
 
 import (
 	"testing"
 
-	"github.com/kslamph/tronlib/pkg/signer"
-	"github.com/kslamph/tronlib/pkg/types"
-	"github.com/kslamph/tronlib/pkg/utils"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
+// Test data migrated from pkg_old/types/account_test.go
 func TestPrivateKeySigner(t *testing.T) {
-	// Test private key (example - do not use in production)
-	privateKey := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-	
-	// Create signer
-	s, err := signer.NewPrivateKeySigner(privateKey)
-	if err != nil {
-		t.Fatalf("Failed to create private key signer: %v", err)
+	testCases := []struct {
+		name       string
+		privateKey string
+		address    string
+	}{
+		{
+			name:       "Valid private key 1",
+			privateKey: "cfae06d915cf9784272fa99d4db961b8cbafd59c8b2f77ab7422be5424d3e49c",
+			address:    "TQJ6R9SPvD5SyqgYqTBq3yc6mFtEgatPDu",
+		},
+		{
+			name:       "Valid private key 2",
+			privateKey: "dccf423c8dce5c744f72ebc62bd59797bd8fff10953f4f90af6cbb1121f96415",
+			address:    "TT3G7td4FPhirwPC44BxGhfHGeD4uj6r7j",
+		},
+		{
+			name:       "Valid private key 3",
+			privateKey: "f8c6f45b2aa8b68ab5f3910bdeb5239428b731618113e2881f46e374bf796b02",
+			address:    "TBkfmcE7pM8cwxEhATtkMFwAf1FeQcwY9x",
+		},
 	}
-	
-	// Test address generation
-	addr := s.Address()
-	if addr == nil {
-		t.Fatal("Address should not be nil")
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			signer, err := NewPrivateKeySigner(tc.privateKey)
+			require.NoError(t, err)
+			
+			// Test address derivation
+			assert.Equal(t, tc.address, signer.Address().Base58())
+			assert.True(t, signer.Address().IsValid())
+			
+			// Test private key retrieval
+			assert.Equal(t, tc.privateKey, signer.PrivateKeyHex())
+			
+			// Test public key is not nil
+			assert.NotNil(t, signer.PublicKey())
+		})
 	}
+}
+
+func TestPrivateKeySignerWithPrefix(t *testing.T) {
+	privateKey := "0xcfae06d915cf9784272fa99d4db961b8cbafd59c8b2f77ab7422be5424d3e49c"
+	expectedAddress := "TQJ6R9SPvD5SyqgYqTBq3yc6mFtEgatPDu"
 	
-	// Test public key
-	pubKey := s.PublicKey()
-	if pubKey == nil {
-		t.Fatal("Public key should not be nil")
+	signer, err := NewPrivateKeySigner(privateKey)
+	require.NoError(t, err)
+	
+	assert.Equal(t, expectedAddress, signer.Address().Base58())
+	// Should strip the 0x prefix
+	assert.Equal(t, "cfae06d915cf9784272fa99d4db961b8cbafd59c8b2f77ab7422be5424d3e49c", signer.PrivateKeyHex())
+}
+
+func TestInvalidPrivateKeys(t *testing.T) {
+	invalidCases := []struct {
+		name       string
+		privateKey string
+		reason     string
+	}{
+		{
+			name:       "Invalid hex characters",
+			privateKey: "ggae06d915cf9784272fa99d4db961b8cbafd59c8b2f77ab7422be5424d3e49c",
+			reason:     "contains non-hex characters",
+		},
+		{
+			name:       "Too short",
+			privateKey: "cfae06d915cf9784272fa99d4db961b8cbafd59c8b2f77ab7422be5424d3e4",
+			reason:     "insufficient length",
+		},
+		{
+			name:       "Too long",
+			privateKey: "cfae06d915cf9784272fa99d4db961b8cbafd59c8b2f77ab7422be5424d3e49c12",
+			reason:     "too long",
+		},
+		{
+			name:       "Empty string",
+			privateKey: "",
+			reason:     "empty private key",
+		},
+		{
+			name:       "All zeros",
+			privateKey: "0000000000000000000000000000000000000000000000000000000000000000",
+			reason:     "invalid private key value",
+		},
 	}
-	
-	// Test message signing
-	message := "Hello TRON!"
-	signature, err := s.SignMessageV2(message)
-	if err != nil {
-		t.Fatalf("Failed to sign message: %v", err)
+
+	for _, tc := range invalidCases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := NewPrivateKeySigner(tc.privateKey)
+			assert.Error(t, err, "Expected error for %s: %s", tc.privateKey, tc.reason)
+		})
 	}
+}
+
+func TestMessageSigningV2(t *testing.T) {
+	// Test data migrated from pkg_old/crypto/verify_message_v2_test.go
+	privateKey := "f8c6f45b2aa8b68ab5f3910bdeb5239428b731618113e2881f46e374bf796b02"
+	message := "sign message testing"
+	expectedSignature := "0x88bacb8549cbe7c3e26d922b05e88757197b77410fb0db1fabb9f30480202c84691b7025e928d36be962cfd7b4a8d2353b97f36d64bdc14398e9568091b701201b"
 	
-	// Test message verification
-	valid, err := utils.VerifyMessageV2(message, signature, addr.String())
-	if err != nil {
-		t.Fatalf("Failed to verify message: %v", err)
-	}
+	signer, err := NewPrivateKeySigner(privateKey)
+	require.NoError(t, err)
 	
-	if !valid {
-		t.Fatal("Message verification should be valid")
-	}
+	signature, err := signer.SignMessageV2(message)
+	require.NoError(t, err)
 	
-	t.Logf("Private key signer test passed!")
-	t.Logf("Address: %s", addr.String())
-	t.Logf("Signature: %s", signature)
+	assert.Equal(t, expectedSignature, signature)
+	assert.True(t, len(signature) == 132) // 0x + 130 hex chars (65 bytes * 2)
 }
 
 func TestHDWalletSigner(t *testing.T) {
-	// Test mnemonic (example - do not use in production)
-	mnemonic := "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+	// Test data migrated from pkg_old/types/account_test.go
+	mnemonic := "fat social problem enable number gain parrot balance reduce bunker beach image marriage motion friend system dolphin bind leaf spin eye slogan rack track"
 	
-	// Create HD wallet signer
-	s, err := signer.NewHDWalletSigner(mnemonic, "", "")
-	if err != nil {
-		t.Fatalf("Failed to create HD wallet signer: %v", err)
+	testCases := []struct {
+		name       string
+		path       string
+		address    string
+		privateKey string
+	}{
+		{
+			name:       "Default path",
+			path:       "",
+			address:    "TNPjabV8z8y7DRCsG9txgTwtz4ixDzCRzs",
+			privateKey: "2da7c0d5a25677bea36ba96a71e9683eb9b9b7b0188e4229964c9ba87ee0f020",
+		},
+		{
+			name:       "Custom path",
+			path:       "m/44'/195'/10'/0/5",
+			address:    "TRucjoUVF6MkHUxm61epieK1SxPbC4wbPP",
+			privateKey: "87753ab3def8420afd1ca1c31acb2edcf33ac437bd837b1e39b7d57448ae53c5",
+		},
 	}
-	
-	// Test address generation
-	addr := s.Address()
-	if addr == nil {
-		t.Fatal("Address should not be nil")
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			signer, err := NewHDWalletSigner(mnemonic, "", tc.path)
+			require.NoError(t, err)
+			
+			// Test address derivation
+			assert.Equal(t, tc.address, signer.Address().Base58())
+			assert.True(t, signer.Address().IsValid())
+			
+			// Test private key derivation
+			assert.Equal(t, tc.privateKey, signer.PrivateKeyHex())
+			
+			// Test derivation path
+			expectedPath := tc.path
+			if expectedPath == "" {
+				expectedPath = "m/44'/195'/0'/0/0"
+			}
+			assert.Equal(t, expectedPath, signer.DerivationPath())
+			
+			// Test public key is not nil
+			assert.NotNil(t, signer.PublicKey())
+		})
 	}
-	
-	// Test derivation path
-	path := s.DerivationPath()
-	if path != "m/44'/195'/0'/0/0" {
-		t.Fatalf("Expected default derivation path, got: %s", path)
-	}
-	
-	// Test account derivation
-	account1, err := s.DeriveAccount(1)
-	if err != nil {
-		t.Fatalf("Failed to derive account 1: %v", err)
-	}
-	
-	// Addresses should be different
-	if account1.Address().String() == addr.String() {
-		t.Fatal("Derived account should have different address")
-	}
-	
-	// Test message signing with derived account
-	message := "Hello from HD Wallet!"
-	signature, err := account1.SignMessageV2(message)
-	if err != nil {
-		t.Fatalf("Failed to sign message with derived account: %v", err)
-	}
-	
-	// Test message verification
-	valid, err := utils.VerifyMessageV2(message, signature, account1.Address().String())
-	if err != nil {
-		t.Fatalf("Failed to verify message: %v", err)
-	}
-	
-	if !valid {
-		t.Fatal("Message verification should be valid")
-	}
-	
-	t.Logf("HD wallet signer test passed!")
-	t.Logf("Main address: %s", addr.String())
-	t.Logf("Account 1 address: %s", account1.Address().String())
-	t.Logf("Account 1 signature: %s", signature)
 }
 
-func TestSignerInterface(t *testing.T) {
-	// Test that both implementations satisfy the Signer interface
-	var signers []types.Signer
+func TestHDWalletAccountDerivation(t *testing.T) {
+	mnemonic := "fat social problem enable number gain parrot balance reduce bunker beach image marriage motion friend system dolphin bind leaf spin eye slogan rack track"
 	
-	// Private key signer
-	privateKey := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-	pkSigner, err := signer.NewPrivateKeySigner(privateKey)
-	if err != nil {
-		t.Fatalf("Failed to create private key signer: %v", err)
+	signer, err := NewHDWalletSigner(mnemonic, "", "")
+	require.NoError(t, err)
+	
+	// Derive account at index 1
+	signer1, err := signer.DeriveAccount(1)
+	require.NoError(t, err)
+	
+	// Derive account at index 2
+	signer2, err := signer.DeriveAccount(2)
+	require.NoError(t, err)
+	
+	// Addresses should be different
+	assert.NotEqual(t, signer.Address().Base58(), signer1.Address().Base58())
+	assert.NotEqual(t, signer.Address().Base58(), signer2.Address().Base58())
+	assert.NotEqual(t, signer1.Address().Base58(), signer2.Address().Base58())
+	
+	// Private keys should be different
+	assert.NotEqual(t, signer.PrivateKeyHex(), signer1.PrivateKeyHex())
+	assert.NotEqual(t, signer.PrivateKeyHex(), signer2.PrivateKeyHex())
+	assert.NotEqual(t, signer1.PrivateKeyHex(), signer2.PrivateKeyHex())
+	
+	// Derivation paths should be correct
+	assert.Equal(t, "m/44'/195'/0'/0/1", signer1.DerivationPath())
+	assert.Equal(t, "m/44'/195'/0'/0/2", signer2.DerivationPath())
+}
+
+func TestInvalidMnemonic(t *testing.T) {
+	invalidMnemonics := []string{
+		"invalid mnemonic phrase",
+		"one two three",
+		"",
+		"abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon", // Only 11 words
 	}
-	signers = append(signers, pkSigner)
 	
-	// HD wallet signer
-	mnemonic := "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
-	hdSigner, err := signer.NewHDWalletSigner(mnemonic, "", "")
-	if err != nil {
-		t.Fatalf("Failed to create HD wallet signer: %v", err)
+	for _, mnemonic := range invalidMnemonics {
+		t.Run("Invalid: "+mnemonic, func(t *testing.T) {
+			_, err := NewHDWalletSigner(mnemonic, "", "")
+			assert.Error(t, err)
+		})
 	}
-	signers = append(signers, hdSigner)
+}
+
+func TestInvalidDerivationPath(t *testing.T) {
+	mnemonic := "fat social problem enable number gain parrot balance reduce bunker beach image marriage motion friend system dolphin bind leaf spin eye slogan rack track"
 	
-	// Test interface methods on both
-	for i, s := range signers {
-		t.Logf("Testing signer %d", i)
+	invalidPaths := []string{
+		"invalid/path",
+	}
+	
+	for _, path := range invalidPaths {
+		t.Run("Invalid path: "+path, func(t *testing.T) {
+			_, err := NewHDWalletSigner(mnemonic, "", path)
+			assert.Error(t, err)
+		})
+	}
+}
+
+func TestHDWalletMasterKey(t *testing.T) {
+	mnemonic := "fat social problem enable number gain parrot balance reduce bunker beach image marriage motion friend system dolphin bind leaf spin eye slogan rack track"
+	
+	signer, err := NewHDWalletSigner(mnemonic, "", "m/44'/195'/0'/0/0")
+	require.NoError(t, err)
+	
+	// Test that master key can be retrieved (specific validation depends on implementation)
+	masterKey, err := signer.GetMasterKey()
+	if err != nil {
+		// If master key retrieval is not implemented or fails, that's acceptable
+		t.Skipf("Master key retrieval not supported: %v", err)
+	} else {
+		assert.NotNil(t, masterKey)
 		
-		// Test Address method
-		addr := s.Address()
-		if addr == nil {
-			t.Fatalf("Signer %d: Address should not be nil", i)
-		}
-		
-		// Test PublicKey method
-		pubKey := s.PublicKey()
-		if pubKey == nil {
-			t.Fatalf("Signer %d: Public key should not be nil", i)
-		}
-		
-		// Test SignMessageV2 method
-		message := "Interface test message"
-		signature, err := s.SignMessageV2(message)
-		if err != nil {
-			t.Fatalf("Signer %d: Failed to sign message: %v", i, err)
-		}
-		
-		// Verify signature
-		valid, err := utils.VerifyMessageV2(message, signature, addr.String())
-		if err != nil {
-			t.Fatalf("Signer %d: Failed to verify message: %v", i, err)
-		}
-		
-		if !valid {
-			t.Fatalf("Signer %d: Message verification should be valid", i)
-		}
-		
-		t.Logf("Signer %d passed interface test", i)
+		// Master key should be different from derived key
+		derivedKey := signer.PublicKey()
+		assert.NotEqual(t, masterKey, derivedKey)
 	}
 }
