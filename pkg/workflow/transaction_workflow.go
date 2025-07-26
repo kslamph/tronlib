@@ -357,7 +357,11 @@ func (w *TransactionWorkflow) EstimateFee(ctx context.Context) (int64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("failed to estimate energy: %w", err)
 	}
-
+	contEst, err := lowlevel.TriggerConstantContract(w.client, ctx, req)
+	if err != nil {
+		return 0, fmt.Errorf("failed to trigger constant contract: %w", err)
+	}
+	fmt.Printf("contEst: %+v\n", contEst)
 	energyRequired := energyResp.EnergyRequired // Assuming response has EnergyRequired
 
 	// Estimate bandwidth: tx size in bytes * 1 SUN/byte
@@ -366,7 +370,11 @@ func (w *TransactionWorkflow) EstimateFee(ctx context.Context) (int64, error) {
 
 	// Energy cost: energy * 420 SUN (typical price, could fetch dynamically)
 	energyCost := energyRequired * 420
-
+	fmt.Printf("energyResp: %+v\n", energyResp)
+	fmt.Printf("energyCost: %d\n", energyCost)
+	fmt.Printf("energyRequired: %d\n", energyRequired)
+	fmt.Printf("txBytes: %d\n", len(txBytes))
+	fmt.Printf("bandwidthCost: %d\n", bandwidthCost)
 	return bandwidthCost + energyCost, nil
 }
 
