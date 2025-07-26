@@ -12,6 +12,7 @@ import (
 	"github.com/kslamph/tronlib/pkg/client"
 	"github.com/kslamph/tronlib/pkg/signer"
 	"github.com/kslamph/tronlib/pkg/smartcontract"
+	"github.com/kslamph/tronlib/pkg/trc20"
 	"github.com/kslamph/tronlib/pkg/types"
 	"github.com/kslamph/tronlib/pkg/workflow"
 )
@@ -68,37 +69,34 @@ func main() {
 		return
 	}
 
-	ownerAddress := s.Address().Base58()
-
 	// Build simple TRC20 transfer: transfer 1 unit to a dummy address
 	toAddress := "TBkfmcE7pM8cwxEhATtkMFwAf1FeQcwY9x" // Replace with a valid test address
 	// amount := uint64(5000000000000000000)
 	amount := big.NewInt(math.MaxInt64)
 	amount.Mul(amount, big.NewInt(1))
 
-	contract, err := smartcontract.NewContract(trc20Address, types.ERC20ABI)
+	contract, err := smartcontract.NewContract(cl, types.MustNewAddressFromBase58(trc20Address), trc20.ERC20ABI)
 	if err != nil {
 		fmt.Printf("Failed to create contract: %v\n", err)
 		return
 	}
 
-	data, err := contract.EncodeInput("transfer", toAddress, amount)
-	if err != nil {
-		fmt.Printf("Failed to encode input: %v\n", err)
-		return
-	}
+	// data, err := contract.EncodeInput("transfer", toAddress, amount)
+	// if err != nil {
+	// 	fmt.Printf("Failed to encode input: %v\n", err)
+	// 	return
+	// }
 
 	// Create smartcontract manager
-	scManager := smartcontract.NewManager(cl)
 
 	// Create transaction extension using high-level API
-	ext, err := scManager.TriggerContract(ctx, ownerAddress, trc20Address, data, 0, 0, 0)
+	ext, err := contract.TriggerSmartContract(ctx, s.Address(), 0, "transfer", toAddress, amount)
 	if err != nil {
 		fmt.Printf("Failed to create transaction: %v\n", err)
 		return
 	}
 
-	contEst, err := scManager.TriggerConstantContract(ctx, ownerAddress, trc20Address, data, 0)
+	contEst, err := contract.TriggerConstantContract(ctx, s.Address(), "transfer", toAddress, amount)
 	if err != nil {
 		fmt.Printf("Failed to trigger constant contract: %v\n", err)
 		return

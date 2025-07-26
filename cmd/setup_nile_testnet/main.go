@@ -287,6 +287,52 @@ func (s *NileTestnetSetup) prepareContractParameters() ([]ContractInfo, error) {
 			},
 			EnvVarName: "TRC20_CONTRACT_ADDRESS",
 		},
+		{
+			Name:    "TestComprehensiveTypes",
+			ABIFile: "TestComprehensiveTypes.abi",
+			BinFile: "TestComprehensiveTypes.bin",
+			ConstructorParams: []interface{}{
+				uint8(10), // _myUint8
+				int8(-10), // _myInt8
+				"1000000000000000000000000000000000000000", // _myUint256 (as string for big.Int)
+				"-500000000000000000000000000000000000000", // _myInt256 (as string for big.Int)
+				s.config.Key1Address,                       // _myAddress
+				true,                                       // _myBool
+				"Hello Comprehensive",                      // _myString
+				"0x010203",                                 // _myBytes (hex string)
+				"0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",      // _myBytes32 (hex string)
+				[]interface{}{"1", "2", "3"},                                              // _uintArray (as slice of strings for big.Int)
+				[]interface{}{s.config.Key1Address, "TBkfmcE7pM8cwxEhATtkMFwAf1FeQcwY9x"}, // _addressArray (slice of strings)
+				[]interface{}{"ArrayString1", "ArrayString2"},                             // _stringArray (slice of strings)
+				[]interface{}{"0xaa", "0xbb"},                                             // _bytesArray (slice of hex strings)
+				[]bool{true, false, true},                                                 // _fixedBoolArray (fixed-size array in Go is slice)
+				map[string]interface{}{ // _singleUser (struct)
+					"userAddress": s.config.Key1Address,
+					"userId":      "12345",
+					"name":        "GoUser",
+					"isActive":    true,
+					"dataHash":    "0x1111111111111111111111111111111111111111111111111111111111111111",
+				},
+				[]interface{}{ // _userArray (array of structs)
+					map[string]interface{}{
+						"userAddress": "TRX7YbrtE2mQjF1y41n5X4L7vRjQc4W2d5",
+						"userId":      "67890",
+						"name":        "GoUserArray1",
+						"isActive":    false,
+						"dataHash":    "0x2222222222222222222222222222222222222222222222222222222222222222",
+					},
+					map[string]interface{}{
+						"userAddress": "TRX9UhjnKQxGTCi8q8ZY4pL8otSzgjLj6t",
+						"userId":      "11223",
+						"name":        "GoUserArray2",
+						"isActive":    true,
+						"dataHash":    "0x3333333333333333333333333333333333333333333333333333333333333333",
+					},
+				},
+				0, // Status.Pending (enum value is int in Go)
+			},
+			EnvVarName: "TESTCOMPREHENSIVETYPES_CONTRACT_ADDRESS",
+		},
 	}
 
 	// Verify all contract files exist and load them
@@ -404,13 +450,6 @@ func (s *NileTestnetSetup) deployContract(contract ContractInfo) (DeploymentResu
 		result.Error = err
 		return result, fmt.Errorf("failed to sign transaction: %w", err)
 	}
-
-	txid, tx, err := workflowInstance.GetSignedTransaction()
-	if err != nil {
-		result.Error = err
-		return result, fmt.Errorf("failed to get signed transaction: %w", err)
-	}
-	fmt.Printf("fee limit: %d\n", tx.Transaction.RawData.FeeLimit)
 
 	// Broadcast and wait for confirmation
 	txid, success, broadcastResult, txInfo, err := workflowInstance.Broadcast(ctx, 30) // Wait up to 30 seconds
