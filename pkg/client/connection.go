@@ -10,11 +10,16 @@ import (
 )
 
 // ConnPool manages a pool of gRPC client connections.
+// ConnPool manages a pool of gRPC client connections.
+// For testing purposes, GetFunc can be overridden to mock connection behavior.
 type ConnPool struct {
 	mu          sync.Mutex
 	conns       chan *grpc.ClientConn
 	factory     func(ctx context.Context) (*grpc.ClientConn, error)
 	initialSize int
+
+	// For testing only: A function to override the Get method's behavior.
+	GetFunc func(ctx context.Context) (*grpc.ClientConn, error)
 }
 
 // NewConnPool creates a new connection pool.
@@ -38,6 +43,11 @@ func NewConnPool(factory func(ctx context.Context) (*grpc.ClientConn, error), in
 // Get retrieves a connection from the pool. If no connection is available,
 // it will try to create a new one if the pool has not reached its capacity.
 func (p *ConnPool) Get(ctx context.Context) (*grpc.ClientConn, error) {
+	// If a mock GetFunc is provided, use it
+	if p.GetFunc != nil {
+		return p.GetFunc(ctx)
+	}
+
 	select {
 	case conn := <-p.conns:
 		return conn, nil

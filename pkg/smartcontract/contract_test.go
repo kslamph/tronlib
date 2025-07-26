@@ -2,10 +2,8 @@ package smartcontract
 
 import (
 	"testing"
-	
+
 	"github.com/kslamph/tronlib/pb/core"
-	"github.com/kslamph/tronlib/pkg/client"
-	"github.com/kslamph/tronlib/pkg/types"
 )
 
 // Test ERC20 ABI for testing
@@ -52,26 +50,15 @@ const testERC20ABI = `[
 	}
 ]`
 
-// Helper function to create a mock client for testing
-func createMockClient() *client.Client {
-	return &client.Client{} // This would be a proper mock in real tests
-}
-
-// Helper function to create a mock address for testing
-func createMockAddress() *types.Address {
-	addr, _ := types.NewAddress("TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t")
-	return addr
-}
-
 func TestNewContract(t *testing.T) {
 	// Create a mock client for testing
-	mockClient := createMockClient()
+	mockClient := createMockClient(t)
 	mockAddress := createMockAddress()
-	
+
 	// Test contract creation from ABI string
-	contract, err := NewContract(mockClient, mockAddress, testERC20ABI)
-	if err != nil {
-		t.Fatalf("Failed to create contract: %v", err)
+	contract, err1 := NewContract(mockClient, mockAddress, testERC20ABI)
+	if err1 != nil {
+		t.Fatalf("Failed to create contract: %v", err1)
 	}
 
 	if contract.Address.String() != "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t" {
@@ -88,15 +75,15 @@ func TestNewContract(t *testing.T) {
 }
 
 func TestEncodeInput(t *testing.T) {
-	contract, err := NewContract(createMockClient(), createMockAddress(), testERC20ABI)
-	if err != nil {
-		t.Fatalf("Failed to create contract: %v", err)
+	contract, err1 := NewContract(createMockClient(t), createMockAddress(), testERC20ABI)
+	if err1 != nil {
+		t.Fatalf("Failed to create contract: %v", err1)
 	}
 
 	// Test encoding name() method (no parameters)
-	data, err := contract.EncodeInput("name")
-	if err != nil {
-		t.Fatalf("Failed to encode name method: %v", err)
+	data, err2 := contract.EncodeInput("name")
+	if err2 != nil {
+		t.Fatalf("Failed to encode name method: %v", err2)
 	}
 
 	// name() method signature should be 0x06fdde03
@@ -113,9 +100,9 @@ func TestEncodeInput(t *testing.T) {
 
 	// Test encoding balanceOf(address) method
 	testAddr := "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
-	data, err = contract.EncodeInput("balanceOf", testAddr)
-	if err != nil {
-		t.Fatalf("Failed to encode balanceOf method: %v", err)
+	data, err3 := contract.EncodeInput("balanceOf", testAddr)
+	if err3 != nil {
+		t.Fatalf("Failed to encode balanceOf method: %v", err3)
 	}
 
 	// balanceOf(address) should have method signature + 32 bytes for address
@@ -124,9 +111,9 @@ func TestEncodeInput(t *testing.T) {
 	}
 
 	// Test encoding transfer(address,uint256) method
-	data, err = contract.EncodeInput("transfer", testAddr, "1000000000000000000") // 1 token with 18 decimals
-	if err != nil {
-		t.Fatalf("Failed to encode transfer method: %v", err)
+	data, err4 := contract.EncodeInput("transfer", testAddr, "1000000000000000000") // 1 token with 18 decimals
+	if err4 != nil {
+		t.Fatalf("Failed to encode transfer method: %v", err4)
 	}
 
 	// transfer(address,uint256) should have method signature + 32 bytes for address + 32 bytes for amount
@@ -136,9 +123,9 @@ func TestEncodeInput(t *testing.T) {
 }
 
 func TestDecodeABI(t *testing.T) {
-	abi, err := DecodeABI(testERC20ABI)
-	if err != nil {
-		t.Fatalf("Failed to decode ABI: %v", err)
+	abi, err5 := DecodeABI(testERC20ABI)
+	if err5 != nil {
+		t.Fatalf("Failed to decode ABI: %v", err5)
 	}
 
 	if len(abi.Entrys) != 4 {
@@ -175,48 +162,48 @@ func TestDecodeABI(t *testing.T) {
 }
 
 func TestInvalidInputs(t *testing.T) {
-	mockClient := createMockClient()
+	mockClient := createMockClient(t)
 	mockAddress := createMockAddress()
-	
+
 	// Test nil client
-	_, err := NewContract(nil, mockAddress, testERC20ABI)
-	if err == nil {
+	_, err1 := NewContract(nil, mockAddress, testERC20ABI)
+	if err1 == nil {
 		t.Error("Expected error for nil client")
 	}
 
 	// Test nil address
-	_, err = NewContract(mockClient, nil, testERC20ABI)
-	if err == nil {
+	_, err2 := NewContract(mockClient, nil, testERC20ABI)
+	if err2 == nil {
 		t.Error("Expected error for nil address")
 	}
 
 	// Test empty ABI string
-	_, err = NewContract(mockClient, mockAddress, "")
-	if err == nil {
+	_, err3 := NewContract(mockClient, mockAddress, "")
+	if err3 == nil {
 		t.Error("Expected error for empty ABI")
 	}
 
 	// Test invalid ABI string
-	_, err = NewContract(mockClient, mockAddress, "invalid json")
-	if err == nil {
+	_, err4 := NewContract(mockClient, mockAddress, "invalid json")
+	if err4 == nil {
 		t.Error("Expected error for invalid ABI")
 	}
-	
+
 	// Test nil ABI object
-	_, err = NewContract(mockClient, mockAddress, (*core.SmartContract_ABI)(nil))
-	if err == nil {
+	_, err5 := NewContract(mockClient, mockAddress, (*core.SmartContract_ABI)(nil))
+	if err5 == nil {
 		t.Error("Expected error for nil ABI object")
 	}
-	
+
 	// Test too many ABI arguments
-	_, err = NewContract(mockClient, mockAddress, testERC20ABI, testERC20ABI)
-	if err == nil {
-		t.Error("Expected error for too many ABI arguments")
+	_, err6 := NewContract(mockClient, mockAddress, testERC20ABI, testERC20ABI)
+	if err6 == nil {
+		t.Error("Expected error with too many ABI arguments")
 	}
-	
+
 	// Test invalid ABI type
-	_, err = NewContract(mockClient, mockAddress, 123)
-	if err == nil {
-		t.Error("Expected error for invalid ABI type")
+	_, err7 := NewContract(mockClient, mockAddress, 123)
+	if err7 == nil {
+		t.Error("Expected error with invalid ABI type")
 	}
 }

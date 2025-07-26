@@ -1,4 +1,4 @@
-package types
+package trc20
 
 const (
 	ERC20ABI = `[

@@ -711,7 +711,13 @@ func TestMainnetEventDecoder(t *testing.T) {
 			}
 
 			// Create contract instance using client to retrieve ABI from network
-			contract, err := smartcontract.NewContract(contractAddressHex, client)
+			addr, err := types.NewAddress(contractAddressHex)
+			if err != nil {
+				t.Logf("  ⚠️  Could not parse contract address: %v", err)
+				t.Logf("  Event signature (raw): %s", hex.EncodeToString(topics[0]))
+				continue
+			}
+			contract, err := smartcontract.NewContract(client, addr)
 			if err != nil {
 				t.Logf("  ⚠️  Could not retrieve contract ABI: %v", err)
 				t.Logf("  Event signature (raw): %s", hex.EncodeToString(topics[0]))
@@ -764,7 +770,9 @@ func TestMainnetEventDecoder(t *testing.T) {
 		client, err := client.NewClient(client.DefaultClientConfig(getTestConfig().Endpoint))
 		require.NoError(t, err, "Should create client")
 
-		_, err = smartcontract.NewContract("invalid_address", client)
+		invalidAddr, err := types.NewAddress("invalid_address")
+		require.Error(t, err, "Should fail to create invalid address")
+		_, err = smartcontract.NewContract(client, invalidAddr)
 		assert.Error(t, err, "Should reject invalid contract address")
 
 		t.Logf("✅ Input validation tests passed")
