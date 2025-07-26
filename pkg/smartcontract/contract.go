@@ -16,6 +16,7 @@ import (
 type Contract struct {
 	ABI     *core.SmartContract_ABI
 	Address *types.Address
+	Client  *client.Client
 
 	// Utility instances for encoding/decoding
 	encoder      *utils.ABIEncoder
@@ -24,68 +25,72 @@ type Contract struct {
 	parser       *utils.ABIParser
 }
 
-// NewContract creates a new contract instance from various input types
-// abiOrClient can be:
-// - string: ABI JSON string
-// - *core.SmartContract_ABI: Parsed ABI object
-// - *client.Client: Client to retrieve contract data from network
-func NewContract(address any, abiOrClient interface{}) (*Contract, error) {
-	if address == "" {
-		return nil, fmt.Errorf("empty contract address")
+// NewContract creates a new contract instance
+// tronClient: TRON client instance
+// address: Contract address
+// abi: Optional ABI - can be:
+//   - string: ABI JSON string
+//   - *core.SmartContract_ABI: Parsed ABI object
+//   - omitted: ABI will be retrieved from network
+func NewContract(tronClient *client.Client, address *types.Address, abi ...any) (*Contract, error) {
+	if tronClient == nil {
+		return nil, fmt.Errorf("tron client cannot be nil")
 	}
 
-	// Convert address to bytes
-	addr, err := types.NewAddress(address)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse address: %v", err)
+	if address == nil {
+		return nil, fmt.Errorf("contract address cannot be nil")
 	}
 
-	var abi *core.SmartContract_ABI
+	var contractABI *core.SmartContract_ABI
+	var err error
 
-	switch v := abiOrClient.(type) {
-	case string:
-		// Handle ABI string
-		if v == "" {
-			return nil, fmt.Errorf("empty ABI string")
-		}
-		parser := utils.NewABIParser()
-		abi, err = parser.ParseABI(v)
-		if err != nil {
-			return nil, fmt.Errorf("failed to decode ABI: %v", err)
-		}
-
-	case *core.SmartContract_ABI:
-		// Handle parsed ABI object
-		if v == nil {
-			return nil, fmt.Errorf("ABI cannot be nil")
-		}
-		abi = v
-
-	case *client.Client:
-		// Handle client - retrieve contract from network
-		if v == nil {
-			return nil, fmt.Errorf("client cannot be nil")
-		}
-		contractInfo, err := getContractFromNetwork(context.Background(), v, addr.String())
+	// Process ABI parameter
+	if len(abi) == 0 {
+		// No ABI provided - retrieve from network
+		contractInfo, err := getContractFromNetwork(context.Background(), tronClient, address.String())
 		if err != nil {
 			return nil, fmt.Errorf("failed to retrieve contract from network: %v", err)
 		}
 		if contractInfo.GetAbi() == nil {
 			return nil, fmt.Errorf("contract has no ABI available on network")
 		}
-		abi = contractInfo.GetAbi()
+		contractABI = contractInfo.GetAbi()
+	} else if len(abi) == 1 {
+		// ABI provided - process based on type
+		switch v := abi[0].(type) {
+		case string:
+			// Handle ABI JSON string
+			if v == "" {
+				return nil, fmt.Errorf("empty ABI string")
+			}
+			parser := utils.NewABIParser()
+			contractABI, err = parser.ParseABI(v)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse ABI string: %v", err)
+			}
 
-	default:
-		return nil, fmt.Errorf("abiOrClient must be string, *core.SmartContract_ABI, or *client.Client, got %T", abiOrClient)
+		case *core.SmartContract_ABI:
+			// Handle parsed ABI object
+			if v == nil {
+				return nil, fmt.Errorf("ABI cannot be nil")
+			}
+			contractABI = v
+
+		default:
+			return nil, fmt.Errorf("ABI must be string or *core.SmartContract_ABI, got %T", v)
+		}
+	} else {
+		return nil, fmt.Errorf("too many ABI arguments provided, expected 0 or 1")
 	}
 
 	return &Contract{
-		ABI:     abi,
-		Address: addr,
+		ABI:     contractABI,
+		Address: address,
+		Client:  tronClient,
 
 		encoder:      utils.NewABIEncoder(),
 		decoder:      utils.NewABIDecoder(),
-		eventDecoder: utils.NewEventDecoder(abi),
+		eventDecoder: utils.NewEventDecoder(contractABI),
 		parser:       utils.NewABIParser(),
 	}, nil
 }
@@ -109,6 +114,81 @@ func getContractFromNetwork(ctx context.Context, client *client.Client, contract
 	return lowlevel.GetContract(client, ctx, req)
 }
 
+// TriggerSmartContract builds a smart contract transaction, to be signed and broadcasted
+func (c *Contract) TriggerSmartContract(ctx context.Context, owner *types.Address, callValue int64, method string, params ...interface{}) (*api.TransactionExtention, error) {
+
+	if owner == nil {
+		return nil, fmt.Errorf("owner address cannot be nil")
+	}
+	if callValue < 0 {
+		return nil, fmt.Errorf("call value cannot be negative")
+	}
+
+	// Encode method call data
+	data, err := c.EncodeInput(method, params...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode input for method %s: %v", method, err)
+	}
+
+	// Create trigger smart contract request
+	req := &core.TriggerSmartContract{
+		OwnerAddress:    owner.Bytes(),
+		ContractAddress: c.Address.Bytes(),
+		Data:            data,
+		CallValue:       callValue,
+		CallTokenValue:  0,
+		TokenId:         0,
+	}
+
+	return lowlevel.TriggerContract(c.Client, ctx, req)
+}
+
+// TriggerConstantContract queries a smart contract method and returns decoded result
+func (c *Contract) TriggerConstantContract(ctx context.Context, owner *types.Address, method string, params ...interface{}) (interface{}, error) {
+
+	if owner == nil {
+		return nil, fmt.Errorf("owner address cannot be nil")
+	}
+
+	// Encode method call data
+	data, err := c.EncodeInput(method, params...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode input for method %s: %v", method, err)
+	}
+
+	// Create trigger smart contract request
+	req := &core.TriggerSmartContract{
+		OwnerAddress:    owner.Bytes(),
+		ContractAddress: c.Address.Bytes(),
+		Data:            data,
+		CallValue:       0,
+	}
+
+	// Call the constant contract
+	result, err := lowlevel.TriggerConstantContract(c.Client, ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to trigger constant contract: %v", err)
+	}
+
+	if result == nil {
+		return nil, fmt.Errorf("nil result from constant contract call")
+	}
+
+	// Get the constant result bytes
+	constantResult := result.GetConstantResult()
+	if len(constantResult) == 0 {
+		return nil, fmt.Errorf("empty constant result")
+	}
+
+	// Decode the result using the contract's DecodeResult method
+	decoded, err := c.DecodeResult(method, constantResult)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode result for method %s: %v", method, err)
+	}
+
+	return decoded, nil
+}
+
 // EncodeInput creates contract call data from method name and parameters
 func (c *Contract) EncodeInput(method string, params ...interface{}) ([]byte, error) {
 	// Special handling for constructors (empty method name)
@@ -130,7 +210,7 @@ func (c *Contract) EncodeInput(method string, params ...interface{}) ([]byte, er
 }
 
 // DecodeResult decodes contract call result
-func (c *Contract) DecodeResult(method string, data []byte) (interface{}, error) {
+func (c *Contract) DecodeResult(method string, data [][]byte) (interface{}, error) {
 	// Get method output types from ABI
 	_, outputTypes, err := c.parser.GetMethodTypes(c.ABI, method)
 	if err != nil {
@@ -146,7 +226,29 @@ func (c *Contract) DecodeResult(method string, data []byte) (interface{}, error)
 		}
 	}
 
-	return c.decoder.DecodeResult(data, outputs)
+	// If we have a single result item, decode it directly
+	if len(data) == 1 {
+		return c.decoder.DecodeResult(data[0], outputs)
+	}
+
+	// For multiple result items, decode each one
+	results := make([]interface{}, len(data))
+	for i, resultData := range data {
+		if i < len(outputs) {
+			decoded, err := c.decoder.DecodeResult(resultData, []*core.SmartContract_ABI_Entry_Param{outputs[i]})
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode result %d: %v", i, err)
+			}
+			results[i] = decoded
+		}
+	}
+
+	// If only one output type expected, return the single result
+	if len(outputTypes) == 1 && len(results) > 0 {
+		return results[0], nil
+	}
+
+	return results, nil
 }
 
 // DecodeInputData decodes contract input data

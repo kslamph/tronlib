@@ -2,6 +2,10 @@ package smartcontract
 
 import (
 	"testing"
+	
+	"github.com/kslamph/tronlib/pb/core"
+	"github.com/kslamph/tronlib/pkg/client"
+	"github.com/kslamph/tronlib/pkg/types"
 )
 
 // Test ERC20 ABI for testing
@@ -48,9 +52,24 @@ const testERC20ABI = `[
 	}
 ]`
 
+// Helper function to create a mock client for testing
+func createMockClient() *client.Client {
+	return &client.Client{} // This would be a proper mock in real tests
+}
+
+// Helper function to create a mock address for testing
+func createMockAddress() *types.Address {
+	addr, _ := types.NewAddress("TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t")
+	return addr
+}
+
 func TestNewContract(t *testing.T) {
+	// Create a mock client for testing
+	mockClient := createMockClient()
+	mockAddress := createMockAddress()
+	
 	// Test contract creation from ABI string
-	contract, err := NewContract("TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t", testERC20ABI)
+	contract, err := NewContract(mockClient, mockAddress, testERC20ABI)
 	if err != nil {
 		t.Fatalf("Failed to create contract: %v", err)
 	}
@@ -69,7 +88,7 @@ func TestNewContract(t *testing.T) {
 }
 
 func TestEncodeInput(t *testing.T) {
-	contract, err := NewContract("TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t", testERC20ABI)
+	contract, err := NewContract(createMockClient(), createMockAddress(), testERC20ABI)
 	if err != nil {
 		t.Fatalf("Failed to create contract: %v", err)
 	}
@@ -156,27 +175,48 @@ func TestDecodeABI(t *testing.T) {
 }
 
 func TestInvalidInputs(t *testing.T) {
-	// Test empty ABI
-	_, err := NewContract("", "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t")
+	mockClient := createMockClient()
+	mockAddress := createMockAddress()
+	
+	// Test nil client
+	_, err := NewContract(nil, mockAddress, testERC20ABI)
+	if err == nil {
+		t.Error("Expected error for nil client")
+	}
+
+	// Test nil address
+	_, err = NewContract(mockClient, nil, testERC20ABI)
+	if err == nil {
+		t.Error("Expected error for nil address")
+	}
+
+	// Test empty ABI string
+	_, err = NewContract(mockClient, mockAddress, "")
 	if err == nil {
 		t.Error("Expected error for empty ABI")
 	}
 
-	// Test empty address
-	_, err = NewContract(testERC20ABI, "")
-	if err == nil {
-		t.Error("Expected error for empty address")
-	}
-
-	// Test invalid address
-	_, err = NewContract(testERC20ABI, "invalid_address")
-	if err == nil {
-		t.Error("Expected error for invalid address")
-	}
-
-	// Test invalid ABI
-	_, err = NewContract("invalid json", "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t")
+	// Test invalid ABI string
+	_, err = NewContract(mockClient, mockAddress, "invalid json")
 	if err == nil {
 		t.Error("Expected error for invalid ABI")
+	}
+	
+	// Test nil ABI object
+	_, err = NewContract(mockClient, mockAddress, (*core.SmartContract_ABI)(nil))
+	if err == nil {
+		t.Error("Expected error for nil ABI object")
+	}
+	
+	// Test too many ABI arguments
+	_, err = NewContract(mockClient, mockAddress, testERC20ABI, testERC20ABI)
+	if err == nil {
+		t.Error("Expected error for too many ABI arguments")
+	}
+	
+	// Test invalid ABI type
+	_, err = NewContract(mockClient, mockAddress, 123)
+	if err == nil {
+		t.Error("Expected error for invalid ABI type")
 	}
 }
