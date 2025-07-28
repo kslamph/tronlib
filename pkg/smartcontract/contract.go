@@ -125,7 +125,7 @@ func (c *Contract) TriggerSmartContract(ctx context.Context, owner *types.Addres
 	}
 
 	// Encode method call data
-	data, err := c.EncodeInput(method, params...)
+	data, err := c.Encode(method, params...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode input for method %s: %v", method, err)
 	}
@@ -151,7 +151,7 @@ func (c *Contract) TriggerConstantContract(ctx context.Context, owner *types.Add
 	}
 
 	// Encode method call data
-	data, err := c.EncodeInput(method, params...)
+	data, err := c.Encode(method, params...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode input for method %s: %v", method, err)
 	}
@@ -181,7 +181,15 @@ func (c *Contract) TriggerConstantContract(ctx context.Context, owner *types.Add
 	}
 
 	// Decode the result using the contract's DecodeResult method
-	decoded, err := c.DecodeResult(method, constantResult)
+	// The constant result is typically a single byte slice, but it's returned as a slice of byte slices
+	// We concatenate all the byte slices to form a single byte slice for decoding
+	// This handles cases where the result might be split across multiple slices
+	var concatenatedResult []byte
+	for _, result := range constantResult {
+		concatenatedResult = append(concatenatedResult, result...)
+	}
+
+	decoded, err := c.DecodeResult(method, concatenatedResult)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode result for method %s: %v", method, err)
 	}
@@ -189,8 +197,8 @@ func (c *Contract) TriggerConstantContract(ctx context.Context, owner *types.Add
 	return decoded, nil
 }
 
-// EncodeInput creates contract call data from method name and parameters
-func (c *Contract) EncodeInput(method string, params ...interface{}) ([]byte, error) {
+// Encode creates contract call data from method name and parameters
+func (c *Contract) Encode(method string, params ...interface{}) ([]byte, error) {
 	// Special handling for constructors (empty method name)
 	if method == "" {
 		paramTypes, err := c.parser.GetConstructorTypes(c.ABI)
@@ -210,7 +218,7 @@ func (c *Contract) EncodeInput(method string, params ...interface{}) ([]byte, er
 }
 
 // DecodeResult decodes contract call result
-func (c *Contract) DecodeResult(method string, data [][]byte) (interface{}, error) {
+func (c *Contract) DecodeResult(method string, data []byte) ([]interface{}, error) {
 	// Get method output types from ABI
 	_, outputTypes, err := c.parser.GetMethodTypes(c.ABI, method)
 	if err != nil {
@@ -226,33 +234,17 @@ func (c *Contract) DecodeResult(method string, data [][]byte) (interface{}, erro
 		}
 	}
 
-	// If we have a single result item, decode it directly
-	if len(data) == 1 {
-		return c.decoder.DecodeResult(data[0], outputs)
+	// Decode the result using the decoder's DecodeResult method
+	decoded, err := c.decoder.DecodeResult(data, outputs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode result: %v", err)
 	}
 
-	// For multiple result items, decode each one
-	results := make([]interface{}, len(data))
-	for i, resultData := range data {
-		if i < len(outputs) {
-			decoded, err := c.decoder.DecodeResult(resultData, []*core.SmartContract_ABI_Entry_Param{outputs[i]})
-			if err != nil {
-				return nil, fmt.Errorf("failed to decode result %d: %v", i, err)
-			}
-			results[i] = decoded
-		}
-	}
-
-	// If only one output type expected, return the single result
-	if len(outputTypes) == 1 && len(results) > 0 {
-		return results[0], nil
-	}
-
-	return results, nil
+	return decoded, nil
 }
 
-// DecodeInputData decodes contract input data
-func (c *Contract) DecodeInputData(data []byte) (*utils.DecodedInput, error) {
+// DecodeInput decodes contract input data
+func (c *Contract) DecodeInput(data []byte) (*utils.DecodedInput, error) {
 	return c.decoder.DecodeInputData(data, c.ABI)
 }
 

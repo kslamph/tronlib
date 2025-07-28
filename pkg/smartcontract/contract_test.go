@@ -81,7 +81,7 @@ func TestEncodeInput(t *testing.T) {
 	}
 
 	// Test encoding name() method (no parameters)
-	data, err2 := contract.EncodeInput("name")
+	data, err2 := contract.Encode("name")
 	if err2 != nil {
 		t.Fatalf("Failed to encode name method: %v", err2)
 	}
@@ -100,7 +100,7 @@ func TestEncodeInput(t *testing.T) {
 
 	// Test encoding balanceOf(address) method
 	testAddr := "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
-	data, err3 := contract.EncodeInput("balanceOf", testAddr)
+	data, err3 := contract.Encode("balanceOf", testAddr)
 	if err3 != nil {
 		t.Fatalf("Failed to encode balanceOf method: %v", err3)
 	}
@@ -111,7 +111,7 @@ func TestEncodeInput(t *testing.T) {
 	}
 
 	// Test encoding transfer(address,uint256) method
-	data, err4 := contract.EncodeInput("transfer", testAddr, "1000000000000000000") // 1 token with 18 decimals
+	data, err4 := contract.Encode("transfer", testAddr, "1000000000000000000") // 1 token with 18 decimals
 	if err4 != nil {
 		t.Fatalf("Failed to encode transfer method: %v", err4)
 	}

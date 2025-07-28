@@ -101,7 +101,7 @@ func TestMainnetUSDTContract(t *testing.T) {
 		require.NoError(t, err, "Should create USDT contract instance from network")
 
 		// Test balance of specific address
-		_, err = contract.EncodeInput("balanceOf", testAddress.String())
+		_, err = contract.Encode("balanceOf", testAddress.String())
 		require.NoError(t, err, "Should encode balanceOf call")
 
 		balanceResult, err := contract.TriggerConstantContract(ctx, testAddress, "balanceOf", testAddress.String())
@@ -128,7 +128,7 @@ func TestMainnetUSDTContract(t *testing.T) {
 		require.NoError(t, err, "Should create USDT contract instance from network")
 
 		// Test isBlackListed for the test address
-		_, err = contract.EncodeInput("isBlackListed", testAddress.String())
+		_, err = contract.Encode("isBlackListed", testAddress.String())
 		require.NoError(t, err, "Should encode isBlackListed call")
 
 		blacklistResult, err := contract.TriggerConstantContract(ctx, testAddress, "isBlackListed", testAddress.String())

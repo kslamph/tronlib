@@ -145,17 +145,12 @@ func (d *ABIDecoder) DecodeParameters(data []byte, inputs []*core.SmartContract_
 }
 
 // DecodeResult decodes contract call result
-func (d *ABIDecoder) DecodeResult(data []byte, outputs []*core.SmartContract_ABI_Entry_Param) (interface{}, error) {
+func (d *ABIDecoder) DecodeResult(data []byte, outputs []*core.SmartContract_ABI_Entry_Param) ([]interface{}, error) {
 	if len(outputs) == 0 {
-		return nil, nil
+		return []interface{}{}, nil
 	}
 
-	// For single output, return the value directly
-	if len(outputs) == 1 {
-		return d.decodeSingleValue(data, outputs[0])
-	}
-
-	// For multiple outputs, return a map
+	// Create ethereum ABI arguments for decoding
 	args := make([]eABI.Argument, len(outputs))
 	for i, output := range outputs {
 		abiType, err := eABI.NewType(output.Type, "", nil)
@@ -168,15 +163,17 @@ func (d *ABIDecoder) DecodeResult(data []byte, outputs []*core.SmartContract_ABI
 		}
 	}
 
+	// Unpack the values
 	values, err := eABI.Arguments(args).Unpack(data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unpack result: %v", err)
 	}
 
-	result := make(map[string]interface{})
+	// Format the decoded values and put them in a slice
+	result := make([]interface{}, len(outputs))
 	for i, output := range outputs {
 		if i < len(values) {
-			result[output.Name] = d.formatDecodedValue(values[i], output.Type)
+			result[i] = d.formatDecodedValue(values[i], output.Type)
 		}
 	}
 
@@ -209,24 +206,42 @@ func (d *ABIDecoder) formatDecodedValue(value interface{}, paramType string) int
 	case "address":
 		if addr, ok := value.(eCommon.Address); ok {
 			// Convert to TRON address format
-			tronAddr, err := types.NewAddressFromHex(addr.Hex())
+			tronAddr, err := types.NewAddressFromEVM(addr)
 			if err != nil {
+				// If conversion fails, return the original Ethereum address
+				// This could happen if the address is not a valid TRON address format
 				return value
 			}
 			return tronAddr.String()
 		}
 		return value
 
-	case "uint256", "uint128", "uint64", "uint32", "uint16", "uint8",
-		 "int256", "int128", "int64", "int32", "int16", "int8":
+	case "uint256", "uint128", "uint64", "uint32", "uint16", "uint8":
 		if bigInt, ok := value.(*big.Int); ok {
-			return bigInt.String()
+			// For uint types, if the value fits within uint64, return it as uint64
+			// Otherwise, return the value as *big.Int
+			if bigInt.IsUint64() {
+				return bigInt.Uint64()
+			}
+			return bigInt
+		}
+		return value
+
+	case "int256", "int128", "int64", "int32", "int16", "int8":
+		if bigInt, ok := value.(*big.Int); ok {
+			// For int types, if the value fits within int64, return it as int64
+			// Otherwise, return the value as *big.Int
+			if bigInt.IsInt64() {
+				return bigInt.Int64()
+			}
+			return bigInt
 		}
 		return value
 
 	case "bytes", "bytes32", "bytes16", "bytes8":
+		// For bytes types, return []byte directly
 		if bytes, ok := value.([]byte); ok {
-			return hex.EncodeToString(bytes)
+			return bytes
 		}
 		return value
 
@@ -248,6 +263,9 @@ func (d *ABIDecoder) formatDecodedValue(value interface{}, paramType string) int
 				}
 				return result
 			}
+			// If the value is not a slice, return it as is
+			// This could happen if the ABI type doesn't match the actual value type
+			// TODO: Implement full tuple support for array types
 		}
 		return value
 	}

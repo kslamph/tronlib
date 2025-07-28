@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"strings"
 
+	eCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/mr-tron/base58"
-	"golang.org/x/crypto/sha3"
 )
 
 const (
@@ -21,9 +21,10 @@ const (
 )
 
 // Address represents a TRON address that can be stored in different formats
+// Alwasy use Constructors to create an Address instance
 type Address struct {
-	base58Addr string
-	bytesAddr  []byte
+	base58Addr string //T prefixed 34 chars base58 representation
+	bytesAddr  []byte // 0x41 prefixed 21 bytes address
 }
 
 // NewAddress creates an Address from a string, []byte, or base58 string
@@ -227,6 +228,7 @@ func (a *Address) Bytes() []byte {
 	return a.bytesAddr
 }
 
+// BytesEVM returns the raw bytes of the address (20 bytes without prefix)
 func (a *Address) BytesEVM() []byte {
 	if a == nil {
 		return nil
@@ -234,7 +236,7 @@ func (a *Address) BytesEVM() []byte {
 	return a.bytesAddr[1:]
 }
 
-// Hex returns the hex string of the address (41 prefixed 42 chars)
+// Hex returns the address (41 prefixed 42 chars hex string)
 func (a *Address) Hex() string {
 	if a == nil {
 		return ""
@@ -242,7 +244,7 @@ func (a *Address) Hex() string {
 	return hex.EncodeToString(a.bytesAddr)
 }
 
-// HexWithPrefix returns the address as hex string with 0x prefix
+// HexWithPrefix returns the address (0x prefixed 42 chars hex string)
 func (a *Address) HexEVM() string {
 	if a == nil {
 		return ""
@@ -252,7 +254,8 @@ func (a *Address) HexEVM() string {
 
 // IsValid checks if the address is valid
 func (a *Address) IsValid() bool {
-	return a != nil && len(a.bytesAddr) == 21 && a.bytesAddr[0] == 0x41
+	return a != nil && len(a.bytesAddr) == 21 && a.bytesAddr[0] == 0x41 &&
+		len(a.base58Addr) == tRONAddressLength && strings.HasPrefix(a.base58Addr, "T")
 }
 
 // Equal checks if two addresses are equal
@@ -263,34 +266,18 @@ func (a *Address) Equal(other *Address) bool {
 	return bytes.Equal(a.bytesAddr, other.bytesAddr)
 }
 
-// GenerateContractAddress generates a contract address from creator address and nonce
-func GenerateContractAddress(creatorAddr *Address, nonce uint64) (*Address, error) {
-	if creatorAddr == nil {
-		return nil, errors.New("creator address is nil")
+// EVMAddress converts the TRON address to an Ethereum compatible address
+// It panics if the address is nil
+func (a *Address) EVMAddress() eCommon.Address {
+	if a == nil {
+		panic("nil Address cannot be converted to EVM address")
 	}
+	return eCommon.BytesToAddress(a.BytesEVM())
+}
 
-	// Convert nonce to bytes
-	nonceBytes := make([]byte, 8)
-	for i := 7; i >= 0; i-- {
-		nonceBytes[i] = byte(nonce)
-		nonce >>= 8
-	}
+func NewAddressFromEVM(evmAddr eCommon.Address) (*Address, error) {
 
-	// Concatenate creator address and nonce
-	data := append(creatorAddr.Bytes(), nonceBytes...)
+	return NewAddressFromBytes(evmAddr.Bytes())
+	// Convert EVM address to TRON address format
 
-	// Calculate keccak256 hash
-	hash := sha3.NewLegacyKeccak256()
-	hash.Write(data)
-	hashBytes := hash.Sum(nil)
-
-	// Take last 20 bytes and add TRON prefix
-	contractAddr := make([]byte, 21)
-	contractAddr[0] = 0x41
-	copy(contractAddr[1:], hashBytes[12:])
-
-	return &Address{
-		bytesAddr:  contractAddr,
-		base58Addr: encodeBase58Addr(contractAddr),
-	}, nil
 }

@@ -4,9 +4,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"math/big"
 	"reflect"
-	"strconv"
 	"strings"
 
 	eABI "github.com/ethereum/go-ethereum/accounts/abi"
@@ -98,19 +96,17 @@ func (e *ABIEncoder) convertParameter(param interface{}, paramType string) (inte
 	// Handle array types
 	if strings.HasSuffix(paramType, "[]") {
 		baseType := strings.TrimSuffix(paramType, "[]")
+		// TODO: Implement full tuple support for array types
+		// For now, we handle arrays of basic types
 		return e.convertArrayParameter(param, baseType)
 	}
 
 	// Handle scalar types
+	// Leverage go-ethereum/accounts/abi's native ability to handle various Go integer types
+	// Directly pass the provided interface{} parameter for number types to eABI.Arguments.Pack
 	switch paramType {
 	case "address":
 		return e.convertAddress(param)
-	case "uint8":
-		return e.convertUint8(param)
-	case "uint256", "uint128", "uint64", "uint32", "uint16":
-		return e.convertUint(param)
-	case "int256", "int128", "int64", "int32", "int16", "int8":
-		return e.convertInt(param)
 	case "bool":
 		return e.convertBool(param)
 	case "string":
@@ -118,79 +114,42 @@ func (e *ABIEncoder) convertParameter(param interface{}, paramType string) (inte
 	case "bytes", "bytes32", "bytes16", "bytes8":
 		return e.convertBytes(param)
 	default:
-		return nil, fmt.Errorf("unsupported parameter type: %s", paramType)
+		// For integer types and other types, pass the parameter directly
+		// go-ethereum/accounts/abi will handle the conversion and validation
+		return param, nil
 	}
 }
 
 // convertAddress converts address parameter
 func (e *ABIEncoder) convertAddress(param interface{}) (eCommon.Address, error) {
-	addrStr, ok := param.(string)
-	if !ok {
-		return eCommon.Address{}, fmt.Errorf("address parameter must be a string")
-	}
-
-	if strings.HasPrefix(addrStr, "0x") {
-		return eCommon.HexToAddress(addrStr), nil
-	}
-
-	if strings.HasPrefix(addrStr, "T") {
-		tronAddr, err := types.NewAddressFromBase58(addrStr)
-		if err != nil {
-			return eCommon.Address{}, fmt.Errorf("invalid Tron address: %v", err)
-		}
-		return eCommon.BytesToAddress(tronAddr.Bytes()[1:]), nil
-	}
-
-	// Try hex decoding
-	decoded, err := hex.DecodeString(addrStr)
-	if err != nil {
-		return eCommon.Address{}, fmt.Errorf("invalid address format: %v", err)
-	}
-	if len(decoded) > 20 {
-		decoded = decoded[len(decoded)-20:]
-	}
-	return eCommon.BytesToAddress(decoded), nil
-}
-
-// convertUint converts unsigned integer parameter
-func (e *ABIEncoder) convertUint(param interface{}) (*big.Int, error) {
+	var decoded []byte
 	switch v := param.(type) {
 	case string:
-		n, ok := new(big.Int).SetString(v, 0)
-		if !ok {
-			return nil, fmt.Errorf("invalid number string: %s", v)
+		addr, err := types.NewAddress(v)
+		if err != nil {
+			return eCommon.Address{}, fmt.Errorf("invalid address string: %v", err)
 		}
-		return n, nil
-	case *big.Int:
+		decoded = addr.BytesEVM()
+	case []byte:
+		addr, err := types.NewAddressFromBytes(v)
+		if err != nil {
+			return eCommon.Address{}, fmt.Errorf("invalid address bytes: %v", err)
+		}
+		decoded = addr.BytesEVM()
+	case eCommon.Address:
 		return v, nil
-	case int:
-		return new(big.Int).SetInt64(int64(v)), nil
-	case int64:
-		return new(big.Int).SetInt64(v), nil
-	case uint64:
-		return new(big.Int).SetUint64(v), nil
-	case int32:
-		return new(big.Int).SetInt64(int64(v)), nil
-	case uint32:
-		return new(big.Int).SetUint64(uint64(v)), nil
-	case int16:
-		return new(big.Int).SetInt64(int64(v)), nil
-	case uint16:
-		return new(big.Int).SetUint64(uint64(v)), nil
-	case int8:
-		return new(big.Int).SetInt64(int64(v)), nil
-	case uint8:
-		return new(big.Int).SetUint64(uint64(v)), nil
-	case float64:
-		return new(big.Int).SetInt64(int64(v)), nil
+	case types.Address:
+		decoded = v.BytesEVM()
+	case *types.Address:
+		if v == nil {
+			return eCommon.Address{}, fmt.Errorf("nil Address cannot be converted to EVM address")
+		}
+		decoded = v.BytesEVM()
 	default:
-		return nil, fmt.Errorf("unsupported uint type: %T", param)
+		return eCommon.Address{}, fmt.Errorf("invalid address type: %T", param)
 	}
-}
 
-// convertInt converts signed integer parameter
-func (e *ABIEncoder) convertInt(param interface{}) (*big.Int, error) {
-	return e.convertUint(param) // Same conversion logic
+	return eCommon.BytesToAddress(decoded), nil
 }
 
 // convertBool converts boolean parameter
@@ -220,7 +179,23 @@ func (e *ABIEncoder) convertBytes(param interface{}) ([]byte, error) {
 	case []byte:
 		return v, nil
 	default:
-		return nil, fmt.Errorf("bytes parameter must be string or []byte")
+		// Handle fixed-size byte arrays (e.g., [32]byte)
+		// Check if it's an array of bytes
+		val := reflect.ValueOf(param)
+		if val.Kind() == reflect.Array && val.Type().Elem().Kind() == reflect.Uint8 {
+			// Convert array to slice
+			slice := make([]byte, val.Len())
+			for i := 0; i < val.Len(); i++ {
+				// Ensure the element is a byte
+				elem := val.Index(i)
+				if elem.Kind() != reflect.Uint8 {
+					return nil, fmt.Errorf("fixed-size byte array element at index %d is not a byte", i)
+				}
+				slice[i] = byte(elem.Uint())
+			}
+			return slice, nil
+		}
+		return nil, fmt.Errorf("bytes parameter must be string, []byte, or [N]byte")
 	}
 }
 
@@ -263,25 +238,21 @@ func (e *ABIEncoder) convertArrayElements(elements []interface{}, baseType strin
 		return addresses, nil
 
 	case "uint256", "uint128", "uint64", "uint32", "uint16", "uint8":
-		ints := make([]*big.Int, len(elements))
-		for i, elem := range elements {
-			n, err := e.convertUint(elem)
-			if err != nil {
-				return nil, fmt.Errorf("invalid uint at index %d: %v", i, err)
-			}
-			ints[i] = n
-		}
+		// For integer types, pass the elements directly
+		// go-ethereum/accounts/abi will handle the conversion and validation
+		// We need to create a slice of interface{} to hold the elements
+		// This allows eABI.Arguments.Pack to handle the conversion
+		ints := make([]interface{}, len(elements))
+		copy(ints, elements)
 		return ints, nil
 
 	case "int256", "int128", "int64", "int32", "int16", "int8":
-		ints := make([]*big.Int, len(elements))
-		for i, elem := range elements {
-			n, err := e.convertInt(elem)
-			if err != nil {
-				return nil, fmt.Errorf("invalid int at index %d: %v", i, err)
-			}
-			ints[i] = n
-		}
+		// For integer types, pass the elements directly
+		// go-ethereum/accounts/abi will handle the conversion and validation
+		// We need to create a slice of interface{} to hold the elements
+		// This allows eABI.Arguments.Pack to handle the conversion
+		ints := make([]interface{}, len(elements))
+		copy(ints, elements)
 		return ints, nil
 
 	case "bool":
@@ -321,65 +292,4 @@ func (e *ABIEncoder) GetMethodID(methodSig string) []byte {
 	hasher := sha3.NewLegacyKeccak256()
 	hasher.Write([]byte(methodSig))
 	return hasher.Sum(nil)[:4]
-}
-
-// convertUint8 converts uint8 parameter specifically
-func (e *ABIEncoder) convertUint8(param interface{}) (uint8, error) {
-	switch v := param.(type) {
-	case uint8:
-		return v, nil
-	case int:
-		if v < 0 || v > 255 {
-			return 0, fmt.Errorf("value %d out of range for uint8", v)
-		}
-		return uint8(v), nil
-	case int64:
-		if v < 0 || v > 255 {
-			return 0, fmt.Errorf("value %d out of range for uint8", v)
-		}
-		return uint8(v), nil
-	case uint64:
-		if v > 255 {
-			return 0, fmt.Errorf("value %d out of range for uint8", v)
-		}
-		return uint8(v), nil
-	case int32:
-		if v < 0 || v > 255 {
-			return 0, fmt.Errorf("value %d out of range for uint8", v)
-		}
-		return uint8(v), nil
-	case uint32:
-		if v > 255 {
-			return 0, fmt.Errorf("value %d out of range for uint8", v)
-		}
-		return uint8(v), nil
-	case int16:
-		if v < 0 || v > 255 {
-			return 0, fmt.Errorf("value %d out of range for uint8", v)
-		}
-		return uint8(v), nil
-	case uint16:
-		if v > 255 {
-			return 0, fmt.Errorf("value %d out of range for uint8", v)
-		}
-		return uint8(v), nil
-	case int8:
-		if v < 0 {
-			return 0, fmt.Errorf("value %d out of range for uint8", v)
-		}
-		return uint8(v), nil
-	case float64:
-		if v < 0 || v > 255 {
-			return 0, fmt.Errorf("value %f out of range for uint8", v)
-		}
-		return uint8(v), nil
-	case string:
-		n, err := strconv.ParseUint(v, 0, 8)
-		if err != nil {
-			return 0, fmt.Errorf("invalid uint8 string: %s", v)
-		}
-		return uint8(n), nil
-	default:
-		return 0, fmt.Errorf("unsupported uint8 type: %T", param)
-	}
 }

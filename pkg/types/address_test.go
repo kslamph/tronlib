@@ -228,37 +228,6 @@ func TestNilAddressMethods(t *testing.T) {
 	})
 }
 
-func TestGenerateContractAddress(t *testing.T) {
-	t.Run("Valid contract address generation", func(t *testing.T) {
-		creatorAddr, err := NewAddressFromBase58("TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwb")
-		require.NoError(t, err)
-
-		contractAddr, err := GenerateContractAddress(creatorAddr, 1)
-		require.NoError(t, err)
-		assert.True(t, contractAddr.IsValid())
-		assert.NotEqual(t, creatorAddr.Hex(), contractAddr.Hex())
-	})
-
-	t.Run("Different nonces generate different addresses", func(t *testing.T) {
-		creatorAddr, err := NewAddressFromBase58("TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwb")
-		require.NoError(t, err)
-
-		addr1, err := GenerateContractAddress(creatorAddr, 1)
-		require.NoError(t, err)
-
-		addr2, err := GenerateContractAddress(creatorAddr, 2)
-		require.NoError(t, err)
-
-		assert.False(t, addr1.Equal(addr2))
-	})
-
-	t.Run("Nil creator address", func(t *testing.T) {
-		_, err := GenerateContractAddress(nil, 1)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "creator address is nil")
-	})
-}
-
 func TestHexAddressWithPrefix(t *testing.T) {
 	testCases := []struct {
 		name     string
