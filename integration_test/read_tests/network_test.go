@@ -180,9 +180,7 @@ func TestMainnetGetNowBlock(t *testing.T) {
 
 		// Validate witness signature
 		witnessSignature := blockHeader.GetWitnessSignature()
-		assert.NotEmpty(t, witnessSignature, "Witness signature should not be empty")
 		assert.Len(t, witnessSignature, 65, "Witness signature should be 65 bytes")
-		t.Logf("Witness signature length: %d bytes", len(witnessSignature))
 
 		t.Logf("✅ Block structure validation passed")
 	})

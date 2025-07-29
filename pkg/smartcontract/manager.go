@@ -97,10 +97,10 @@ func (m *Manager) encodeConstructor(abi *core.SmartContract_ABI, constructorPara
 	}
 
 	// Parse ABI to get constructor parameter types
-	parser := utils.NewABIParser()
+	processor := utils.NewABIProcessor(abi)
 
 	// Get constructor parameter types
-	constructorTypes, err := parser.GetConstructorTypes(abi)
+	constructorTypes, err := processor.GetConstructorTypes(abi)
 
 	if err != nil {
 		// If no constructor found, but parameters provided, that's an error
@@ -122,9 +122,7 @@ func (m *Manager) encodeConstructor(abi *core.SmartContract_ABI, constructorPara
 	}
 
 	// Encode constructor parameters
-	encoder := utils.NewABIEncoder()
-
-	encoded, err := encoder.EncodeMethod("", constructorTypes, constructorParams)
+	encoded, err := processor.EncodeMethod("", constructorTypes, constructorParams)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode constructor parameters: %w", err)
 	}

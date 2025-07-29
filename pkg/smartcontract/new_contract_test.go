@@ -24,8 +24,8 @@ func TestNewContractSignature(t *testing.T) {
 	}
 
 	// Test 2: Create contract with parsed ABI
-	parser := utils.NewABIParser()
-	parsedABI, err := parser.ParseABI(testERC20ABI)
+	processor := utils.NewABIProcessor(nil)
+	parsedABI, err := processor.ParseABI(testERC20ABI)
 	if err != nil {
 		t.Fatalf("Failed to parse ABI: %v", err)
 	}

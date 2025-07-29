@@ -2,6 +2,7 @@ package read_tests
 
 import (
 	"context"
+	"math/big"
 	"testing"
 	"time"
 
@@ -90,12 +91,12 @@ func TestMainnetUSDTContract(t *testing.T) {
 		totalSupplyResult, ok := totalSupply.([]interface{})
 		require.True(t, ok, "Should decode totalSupply result as []interface{}")
 		require.Len(t, totalSupplyResult, 1, "Should have one result")
-		totalSupplyDecoded, ok := totalSupplyResult[0].(uint64)
-		require.True(t, ok, "Should decode totalSupply result as uint64, got %T", totalSupplyResult[0])
+		totalSupplyDecoded, ok := totalSupplyResult[0].(*big.Int)
+		require.True(t, ok, "Should decode totalSupply result as bigint, got %T", totalSupplyResult[0])
 
 		// The exact total supply might change, just assert it's a non-zero positive number
 
-		t.Logf("USDT Total Supply: %d", totalSupplyDecoded)
+		t.Logf("USDT Total Supply: %s", totalSupplyDecoded)
 
 		t.Logf("✅ USDT basic info test completed successfully")
 	})
@@ -118,9 +119,9 @@ func TestMainnetUSDTContract(t *testing.T) {
 		balanceValue, ok := balanceResult.([]interface{})
 		require.True(t, ok, "Should decode balanceOf result as []interface{}")
 		require.Len(t, balanceValue, 1, "Should have one result")
-		balanceDecoded, ok := balanceValue[0].(uint64)
-		require.True(t, ok, "Should decode balanceOf result as uint64 , got %T", balanceValue[0])
-		require.Equal(t, uint64(45967732353), balanceDecoded, "Balance should be 45967732353")
+		balanceDecoded, ok := balanceValue[0].(*big.Int)
+		require.True(t, ok, "Should decode balanceOf result as *big.Int , got %T", balanceValue[0])
+		require.Equal(t, big.NewInt(45967732353), balanceDecoded, "Balance should be 45967732353")
 
 		// Convert to human-readable format using utils.HumanReadableNumber
 		humanReadable, err := utils.HumanReadableNumber(balanceDecoded, 6)

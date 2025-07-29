@@ -60,8 +60,8 @@ func NewContract(tronClient *client.Client, address *types.Address, abi ...any) 
 			if v == "" {
 				return nil, fmt.Errorf("empty ABI string")
 			}
-			parser := utils.NewABIParser()
-			contractABI, err = parser.ParseABI(v)
+			processor := utils.NewABIProcessor(nil)
+			contractABI, err = processor.ParseABI(v)
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse ABI string: %v", err)
 			}

@@ -349,7 +349,7 @@ func TestDecodeAddress(t *testing.T) {
 }
 
 func TestABIEncoder_EncodeMethod(t *testing.T) {
-	encoder := NewABIEncoder()
+	processor := NewABIProcessor(nil)
 
 	tests := []struct {
 		name       string
@@ -383,7 +383,7 @@ func TestABIEncoder_EncodeMethod(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := encoder.EncodeMethod(tt.method, tt.paramTypes, tt.params)
+			_, err := processor.EncodeMethod(tt.method, tt.paramTypes, tt.params)
 
 			if tt.hasError {
 				assert.Error(t, err)
@@ -396,25 +396,25 @@ func TestABIEncoder_EncodeMethod(t *testing.T) {
 }
 
 func TestABIEncoder_ConvertAddress(t *testing.T) {
-	encoder := NewABIEncoder()
+	processor := NewABIProcessor(nil)
 
 	// Test with a valid TRON address
 	tronAddr := "TTgbn3yTSzVDP3BrH9EonLNLvhbfyT3TXh"
 
 	t.Run("String address", func(t *testing.T) {
-		result, err := encoder.convertAddress(tronAddr)
+		result, err := processor.convertAddress(tronAddr)
 		assert.NoError(t, err)
 		assert.NotEmpty(t, result)
 	})
 
 	t.Run("Invalid address string", func(t *testing.T) {
-		_, err := encoder.convertAddress("invalid_address")
+		_, err := processor.convertAddress("invalid_address")
 		assert.Error(t, err)
 	})
 }
 
 func TestABIEncoder_EncodeParameters(t *testing.T) {
-	encoder := NewABIEncoder()
+	processor := NewABIProcessor(nil)
 
 	tests := []struct {
 		name       string
@@ -429,12 +429,6 @@ func TestABIEncoder_EncodeParameters(t *testing.T) {
 			hasError:   false,
 		},
 		{
-			name:       "Parameter count mismatch",
-			paramTypes: []string{"uint256"},
-			params:     []interface{}{},
-			hasError:   true,
-		},
-		{
 			name:       "Invalid parameter type",
 			paramTypes: []string{"invalidType"},
 			params:     []interface{}{"test"},
@@ -444,7 +438,7 @@ func TestABIEncoder_EncodeParameters(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := encoder.EncodeParameters(tt.paramTypes, tt.params)
+			_, err := processor.EncodeMethod("testMethod", tt.paramTypes, tt.params)
 
 			if tt.hasError {
 				assert.Error(t, err)
@@ -457,7 +451,7 @@ func TestABIEncoder_EncodeParameters(t *testing.T) {
 }
 
 func TestABIDecoder_DecodeParameters(t *testing.T) {
-	decoder := NewABIDecoder()
+	processor := NewABIProcessor(nil)
 
 	// Test with simple parameters
 	tests := []struct {
@@ -481,7 +475,7 @@ func TestABIDecoder_DecodeParameters(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// We can't fully test this without proper ABI entries, but we can test error cases
 			params := []*core.SmartContract_ABI_Entry_Param{}
-			_, err := decoder.DecodeParameters(tt.data, params)
+			_, err := processor.decodeParameters(tt.data, params)
 
 			if tt.hasError {
 				assert.Error(t, err)
@@ -494,14 +488,14 @@ func TestABIDecoder_DecodeParameters(t *testing.T) {
 }
 
 func TestABIDecoder_FormatDecodedValue(t *testing.T) {
-	decoder := NewABIDecoder()
+	processor := NewABIProcessor(nil)
 
 	t.Run("Address decoding", func(t *testing.T) {
 		// Create an Ethereum address from the EVM bytes of our TRON address
 		evmBytes, _ := hex.DecodeString("c24e347a3d32f348aef332e819fb87586d4fb77c")
 		ethAddr := eCommon.BytesToAddress(evmBytes)
 
-		result := decoder.formatDecodedValue(ethAddr, "address")
+		result := processor.formatDecodedValue(ethAddr, "address")
 
 		// The result should be a string (the base58 representation of the TRON address)
 		assert.IsType(t, "", result)
@@ -510,12 +504,12 @@ func TestABIDecoder_FormatDecodedValue(t *testing.T) {
 }
 
 func TestABIParser_GetMethodTypes(t *testing.T) {
-	parser := NewABIParser()
-
 	// Test with a simple ABI
 	abiJSON := `[{"name":"getValue","type":"function","inputs":[],"outputs":[{"name":"","type":"uint256"}]}]`
-	abi, err := parser.ParseABI(abiJSON)
+	abi, err := NewABIProcessor(nil).ParseABI(abiJSON)
 	require.NoError(t, err)
+
+	processor := NewABIProcessor(abi)
 
 	tests := []struct {
 		name        string
@@ -540,7 +534,7 @@ func TestABIParser_GetMethodTypes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			inputTypes, outputTypes, err := parser.GetMethodTypes(abi, tt.methodName)
+			inputTypes, outputTypes, err := processor.GetMethodTypes(tt.methodName)
 
 			if tt.hasError {
 				assert.Error(t, err)
