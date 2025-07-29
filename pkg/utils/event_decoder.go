@@ -17,7 +17,7 @@ import (
 // EventDecoder handles smart contract event decoding operations
 type EventDecoder struct {
 	abi *core.SmartContract_ABI
-	
+
 	// Event signature caches using sync.Once pattern
 	eventCacheOnce      sync.Once
 	eventSignatureCache map[[32]byte]*core.SmartContract_ABI_Entry
@@ -31,20 +31,6 @@ func NewEventDecoder(abi *core.SmartContract_ABI) *EventDecoder {
 	return &EventDecoder{
 		abi: abi,
 	}
-}
-
-// DecodedEvent represents a decoded event
-type DecodedEvent struct {
-	EventName  string                  `json:"eventName"`
-	Parameters []DecodedEventParameter `json:"parameters"`
-}
-
-// DecodedEventParameter represents a decoded event parameter
-type DecodedEventParameter struct {
-	Name    string `json:"name"`
-	Type    string `json:"type"`
-	Value   string `json:"value"`
-	Indexed bool   `json:"indexed"`
 }
 
 // DecodeEventLog decodes an event log
@@ -237,7 +223,7 @@ func (e *EventDecoder) decodeTopicValue(topic []byte, paramType string) string {
 		}
 		return tronAddr.String()
 	case "uint256", "uint128", "uint64", "uint32", "uint16", "uint8",
-		 "int256", "int128", "int64", "int32", "int16", "int8":
+		"int256", "int128", "int64", "int32", "int16", "int8":
 		return new(big.Int).SetBytes(topic).String()
 	case "bool":
 		if len(topic) > 0 && topic[0] != 0 {
@@ -302,7 +288,7 @@ func (e *EventDecoder) formatEventValue(value interface{}, paramType string) str
 			return tronAddr.String()
 		}
 	case "uint256", "uint128", "uint64", "uint32", "uint16", "uint8",
-		 "int256", "int128", "int64", "int32", "int16", "int8":
+		"int256", "int128", "int64", "int32", "int16", "int8":
 		if bigInt, ok := value.(*big.Int); ok {
 			return bigInt.String()
 		}

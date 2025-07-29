@@ -18,11 +18,8 @@ type Contract struct {
 	Address *types.Address
 	Client  *client.Client
 
-	// Utility instances for encoding/decoding
-	encoder      *utils.ABIEncoder
-	decoder      *utils.ABIDecoder
-	eventDecoder *utils.EventDecoder
-	parser       *utils.ABIParser
+	// Utility instance for encoding/decoding
+	abiProcessor *utils.ABIProcessor
 }
 
 // NewContract creates a new contract instance
@@ -88,10 +85,7 @@ func NewContract(tronClient *client.Client, address *types.Address, abi ...any) 
 		Address: address,
 		Client:  tronClient,
 
-		encoder:      utils.NewABIEncoder(),
-		decoder:      utils.NewABIDecoder(),
-		eventDecoder: utils.NewEventDecoder(contractABI),
-		parser:       utils.NewABIParser(),
+		abiProcessor: utils.NewABIProcessor(contractABI),
 	}, nil
 }
 
@@ -201,26 +195,30 @@ func (c *Contract) TriggerConstantContract(ctx context.Context, owner *types.Add
 func (c *Contract) Encode(method string, params ...interface{}) ([]byte, error) {
 	// Special handling for constructors (empty method name)
 	if method == "" {
-		paramTypes, err := c.parser.GetConstructorTypes(c.ABI)
+		paramTypes, err := c.abiProcessor.GetConstructorTypes(c.ABI)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get constructor types: %v", err)
 		}
-		return c.encoder.EncodeParameters(paramTypes, params)
+		// We need to create a temporary ABIProcessor to encode parameters
+		// since the GetConstructorTypes doesn't return the ABI
+		tempProcessor := utils.NewABIProcessor(c.ABI)
+		// For constructors, we need to pass empty method name and get input types
+		return tempProcessor.EncodeMethod("", paramTypes, params)
 	}
 
 	// Get method parameter types from ABI
-	inputTypes, _, err := c.parser.GetMethodTypes(c.ABI, method)
+	inputTypes, _, err := c.abiProcessor.GetMethodTypes(method)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get method types: %v", err)
 	}
 
-	return c.encoder.EncodeMethod(method, inputTypes, params)
+	return c.abiProcessor.EncodeMethod(method, inputTypes, params)
 }
 
 // DecodeResult decodes contract call result
 func (c *Contract) DecodeResult(method string, data []byte) ([]interface{}, error) {
 	// Get method output types from ABI
-	_, outputTypes, err := c.parser.GetMethodTypes(c.ABI, method)
+	_, outputTypes, err := c.abiProcessor.GetMethodTypes(method)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get method types: %v", err)
 	}
@@ -234,8 +232,8 @@ func (c *Contract) DecodeResult(method string, data []byte) ([]interface{}, erro
 		}
 	}
 
-	// Decode the result using the decoder's DecodeResult method
-	decoded, err := c.decoder.DecodeResult(data, outputs)
+	// Decode the result using the abiProcessor's DecodeResult method
+	decoded, err := c.abiProcessor.DecodeResult(data, outputs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode result: %v", err)
 	}
@@ -245,15 +243,15 @@ func (c *Contract) DecodeResult(method string, data []byte) ([]interface{}, erro
 
 // DecodeInput decodes contract input data
 func (c *Contract) DecodeInput(data []byte) (*utils.DecodedInput, error) {
-	return c.decoder.DecodeInputData(data, c.ABI)
+	return c.abiProcessor.DecodeInputData(data, c.ABI)
 }
 
 // DecodeEventLog decodes an event log
 func (c *Contract) DecodeEventLog(topics [][]byte, data []byte) (*utils.DecodedEvent, error) {
-	return c.eventDecoder.DecodeEventLog(topics, data)
+	return c.abiProcessor.DecodeEventLog(topics, data)
 }
 
 // DecodeEventSignature decodes event signature bytes
 func (c *Contract) DecodeEventSignature(signature []byte) (string, error) {
-	return c.eventDecoder.DecodeEventSignature(signature)
+	return c.abiProcessor.DecodeEventSignature(signature)
 }
