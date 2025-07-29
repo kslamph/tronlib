@@ -86,9 +86,16 @@ func (t *TRC20Client) Name() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to call name method: %w", err)
 	}
-	name, ok := result.(string)
+	nameResult, ok := result.([]interface{})
 	if !ok {
 		return "", fmt.Errorf("unexpected type for name result: %T", result)
+	}
+	if len(nameResult) != 1 {
+		return "", fmt.Errorf("unexpected length for name result: %d", len(nameResult))
+	}
+	name, ok := nameResult[0].(string)
+	if !ok {
+		return "", fmt.Errorf("unexpected type for name value: %T", nameResult[0])
 	}
 	t.cachedName = name
 	return name, nil
@@ -113,9 +120,16 @@ func (t *TRC20Client) Symbol() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to call symbol method: %w", err)
 	}
-	symbol, ok := result.(string)
+	symbolResult, ok := result.([]interface{})
 	if !ok {
 		return "", fmt.Errorf("unexpected type for symbol result: %T", result)
+	}
+	if len(symbolResult) != 1 {
+		return "", fmt.Errorf("unexpected length for symbol result: %d", len(symbolResult))
+	}
+	symbol, ok := symbolResult[0].(string)
+	if !ok {
+		return "", fmt.Errorf("unexpected type for symbol value: %T", symbolResult[0])
 	}
 	t.cachedSymbol = symbol
 	return symbol, nil
@@ -143,16 +157,23 @@ func (t *TRC20Client) Decimals() (uint8, error) {
 
 	// The `go-ethereum/abi` library decodes `uint8` from `uint256` as `*big.Int`
 	// so we need to convert it.
-	decimals, ok := result.(uint8)
+	decimalsResult, ok := result.([]interface{})
 	if !ok {
 		return 0, fmt.Errorf("unexpected type for decimals result: %T", result)
+	}
+	if len(decimalsResult) != 1 {
+		return 0, fmt.Errorf("unexpected length for decimals result: %d", len(decimalsResult))
+	}
+	decimalsValue, ok := decimalsResult[0].(uint8)
+	if !ok {
+		return 0, fmt.Errorf("unexpected type for decimals value: %T", decimalsResult[0])
 	}
 	// if !decimalBigInt.IsUint64() || decimalBigInt.Uint64() > 255 {
 	// 	return 0, fmt.Errorf("decimals value out of range for uint8: %s", decimalBigInt.String())
 	// }
 	// decimals := uint8(decimalBigInt.Uint64())
-	t.cachedDecimals = decimals
-	return decimals, nil
+	t.cachedDecimals = decimalsValue
+	return decimalsValue, nil
 }
 
 // BalanceOf retrieves the balance of an owner address as a decimal.Decimal.
@@ -162,20 +183,27 @@ func (t *TRC20Client) BalanceOf(ownerAddress *types.Address) (decimal.Decimal, e
 		return decimal.Zero, fmt.Errorf("failed to get decimals for BalanceOf: %w", err)
 	}
 
-	result, err := t.contract.TriggerConstantContract(context.Background(), ownerAddress, "balanceOf", ownerAddress.String())
+	result, err := t.contract.TriggerConstantContract(context.Background(), ownerAddress, "balanceOf", ownerAddress)
 	if err != nil {
 		return decimal.Zero, fmt.Errorf("failed to call balanceOf method: %w", err)
 	}
 
-	rawBalance, ok := result.(string)
+	balanceResult, ok := result.([]interface{})
 	if !ok {
 		return decimal.Zero, fmt.Errorf("unexpected type for balanceOf result: %T", result)
 	}
-	bigIntBalance, ok := new(big.Int).SetString(rawBalance, 10)
-	if !ok {
-		return decimal.Zero, fmt.Errorf("failed to parse balance string: %s", rawBalance)
+	if len(balanceResult) != 1 {
+		return decimal.Zero, fmt.Errorf("unexpected length for balanceOf result: %d", len(balanceResult))
 	}
-	convertedBalance, err := fromWei(bigIntBalance, decimals)
+	bitIntBalance, ok := balanceResult[0].(*big.Int)
+	if !ok {
+		return decimal.Zero, fmt.Errorf("unexpected type for balanceOf value: %T", balanceResult[0])
+	}
+	// bigIntBalance, ok := new(big.Int).SetString(rawBalance, 10)
+	// if !ok {
+	// 	return decimal.Zero, fmt.Errorf("failed to parse balance string: %s", rawBalance)
+	// }
+	convertedBalance, err := fromWei(bitIntBalance, decimals)
 	if err != nil {
 		return decimal.Zero, fmt.Errorf("failed to convert raw balance: %w", err)
 	}
@@ -230,20 +258,24 @@ func (t *TRC20Client) Allowance(ownerAddress *types.Address, spenderAddress *typ
 		return decimal.Zero, fmt.Errorf("failed to get decimals for Allowance: %w", err)
 	}
 
-	result, err := t.contract.TriggerConstantContract(context.Background(), ownerAddress, "allowance", ownerAddress.String(), spenderAddress.String())
+	result, err := t.contract.TriggerConstantContract(context.Background(), ownerAddress, "allowance", ownerAddress, spenderAddress)
 	if err != nil {
 		return decimal.Zero, fmt.Errorf("failed to call allowance method: %w", err)
 	}
 
-	rawAllowance, ok := result.(string)
+	allowanceResult, ok := result.([]interface{})
 	if !ok {
 		return decimal.Zero, fmt.Errorf("unexpected type for allowance result: %T", result)
 	}
-	bigIntAllowance, ok := new(big.Int).SetString(rawAllowance, 10)
-	if !ok {
-		return decimal.Zero, fmt.Errorf("failed to parse allowance string: %s", rawAllowance)
+	if len(allowanceResult) != 1 {
+		return decimal.Zero, fmt.Errorf("unexpected length for allowance result: %d", len(allowanceResult))
 	}
-	convertedAllowance, err := fromWei(bigIntAllowance, decimals)
+	rawAllowance, ok := allowanceResult[0].(*big.Int)
+	if !ok {
+		return decimal.Zero, fmt.Errorf("unexpected type for allowance value: %T", allowanceResult[0])
+	}
+
+	convertedAllowance, err := fromWei(rawAllowance, decimals)
 	if err != nil {
 		return decimal.Zero, fmt.Errorf("failed to convert raw allowance: %w", err)
 

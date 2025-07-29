@@ -3,7 +3,6 @@ package utils
 import (
 	"encoding/hex"
 	"fmt"
-	"math/big"
 	"reflect"
 	"strings"
 
@@ -216,27 +215,27 @@ func (d *ABIDecoder) formatDecodedValue(value interface{}, paramType string) int
 		}
 		return value
 
-	case "uint256", "uint128", "uint64", "uint32", "uint16", "uint8":
-		if bigInt, ok := value.(*big.Int); ok {
-			// For uint types, if the value fits within uint64, return it as uint64
-			// Otherwise, return the value as *big.Int
-			if bigInt.IsUint64() {
-				return bigInt.Uint64()
-			}
-			return bigInt
-		}
-		return value
+	// case "uint256", "uint128", "uint64", "uint32", "uint16", "uint8":
+	// 	if bigInt, ok := value.(*big.Int); ok {
+	// 		// For uint types, if the value fits within uint64, return it as uint64
+	// 		// Otherwise, return the value as *big.Int
+	// 		if bigInt.IsUint64() {
+	// 			return bigInt.Uint64()
+	// 		}
+	// 		return bigInt
+	// 	}
+	// 	return value
 
-	case "int256", "int128", "int64", "int32", "int16", "int8":
-		if bigInt, ok := value.(*big.Int); ok {
-			// For int types, if the value fits within int64, return it as int64
-			// Otherwise, return the value as *big.Int
-			if bigInt.IsInt64() {
-				return bigInt.Int64()
-			}
-			return bigInt
-		}
-		return value
+	// case "int256", "int128", "int64", "int32", "int16", "int8":
+	// 	if bigInt, ok := value.(*big.Int); ok {
+	// 		// For int types, if the value fits within int64, return it as int64
+	// 		// Otherwise, return the value as *big.Int
+	// 		if bigInt.IsInt64() {
+	// 			return bigInt.Int64()
+	// 		}
+	// 		return bigInt
+	// 	}
+	// 	return value
 
 	case "bytes", "bytes32", "bytes16", "bytes8":
 		// For bytes types, return []byte directly

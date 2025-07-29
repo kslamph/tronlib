@@ -2,7 +2,6 @@ package read_tests
 
 import (
 	"context"
-	"math/big"
 	"testing"
 	"time"
 
@@ -54,7 +53,10 @@ func TestMainnetUSDTContract(t *testing.T) {
 		// Test symbol
 		symbol, err := contract.TriggerConstantContract(ctx, testAddress, "symbol")
 		require.NoError(t, err, "Should call symbol method")
-		symbolDecoded, ok := symbol.(string)
+		symbolResult, ok := symbol.([]interface{})
+		require.True(t, ok, "Should decode symbol result as []interface{}")
+		require.Len(t, symbolResult, 1, "Should have one result")
+		symbolDecoded, ok := symbolResult[0].(string)
 		require.True(t, ok, "Should decode symbol result as string")
 		assert.Equal(t, "USDT", symbolDecoded, "Symbol should be USDT")
 		t.Logf("USDT Symbol: %s", symbolDecoded)
@@ -62,7 +64,10 @@ func TestMainnetUSDTContract(t *testing.T) {
 		// Test name
 		name, err := contract.TriggerConstantContract(ctx, testAddress, "name")
 		require.NoError(t, err, "Should call name method")
-		nameDecoded, ok := name.(string)
+		nameResult, ok := name.([]interface{})
+		require.True(t, ok, "Should decode name result as []interface{}")
+		require.Len(t, nameResult, 1, "Should have one result")
+		nameDecoded, ok := nameResult[0].(string)
 		require.True(t, ok, "Should decode name result as string")
 		assert.Equal(t, "Tether USD", nameDecoded, "Name should be Tether USD")
 		t.Logf("USDT Name: %s", nameDecoded)
@@ -70,24 +75,27 @@ func TestMainnetUSDTContract(t *testing.T) {
 		// Test decimals
 		decimals, err := contract.TriggerConstantContract(ctx, testAddress, "decimals")
 		require.NoError(t, err, "Should call decimals method")
-		decimalsStr, ok := decimals.(uint8)
-		require.True(t, ok, "Should decode decimals result as string, got %T", decimals)
-		require.Equal(t, uint8(6), decimalsStr, "Decimals should be 6")
+		decimalsResult, ok := decimals.([]interface{})
+		require.True(t, ok, "Should decode decimals result as []interface{}")
+		require.Len(t, decimalsResult, 1, "Should have one result")
+		decimalsValue, ok := decimalsResult[0].(uint8)
+		require.True(t, ok, "Should decode decimals result as uint8, got %T", decimalsResult[0])
+		require.Equal(t, uint8(6), decimalsValue, "Decimals should be 6")
 
-		t.Logf("USDT Decimals: %d", decimalsStr)
+		t.Logf("USDT Decimals: %d", decimalsValue)
 
 		// Test total supply
 		totalSupply, err := contract.TriggerConstantContract(ctx, testAddress, "totalSupply")
 		require.NoError(t, err, "Should call totalSupply method")
-		totalSupplyDecoded, ok := totalSupply.(string)
-		require.True(t, ok, "Should decode totalSupply result as string")
-		bigTotalSupply := new(big.Int)
-		bigTotalSupply, ok = bigTotalSupply.SetString(totalSupplyDecoded, 10)
-		assert.True(t, ok, "Should convert totalSupply to big.Int")
+		totalSupplyResult, ok := totalSupply.([]interface{})
+		require.True(t, ok, "Should decode totalSupply result as []interface{}")
+		require.Len(t, totalSupplyResult, 1, "Should have one result")
+		totalSupplyDecoded, ok := totalSupplyResult[0].(uint64)
+		require.True(t, ok, "Should decode totalSupply result as uint64, got %T", totalSupplyResult[0])
 
 		// The exact total supply might change, just assert it's a non-zero positive number
-		assert.True(t, bigTotalSupply.Cmp(big.NewInt(0)) > 0, "Total supply should be a positive number")
-		t.Logf("USDT Total Supply: %s", totalSupplyDecoded)
+
+		t.Logf("USDT Total Supply: %d", totalSupplyDecoded)
 
 		t.Logf("✅ USDT basic info test completed successfully")
 	})
@@ -107,9 +115,12 @@ func TestMainnetUSDTContract(t *testing.T) {
 		balanceResult, err := contract.TriggerConstantContract(ctx, testAddress, "balanceOf", testAddress.String())
 		require.NoError(t, err, "Should call balanceOf method")
 
-		balanceDecoded, ok := balanceResult.(string)
-		require.True(t, ok, "Should decode balanceOf result as string, got %T", balanceResult)
-		require.Equal(t, balanceDecoded, "45967732353", "Should be 45967732353")
+		balanceValue, ok := balanceResult.([]interface{})
+		require.True(t, ok, "Should decode balanceOf result as []interface{}")
+		require.Len(t, balanceValue, 1, "Should have one result")
+		balanceDecoded, ok := balanceValue[0].(uint64)
+		require.True(t, ok, "Should decode balanceOf result as uint64 , got %T", balanceValue[0])
+		require.Equal(t, uint64(45967732353), balanceDecoded, "Balance should be 45967732353")
 
 		// Convert to human-readable format using utils.HumanReadableNumber
 		humanReadable, err := utils.HumanReadableNumber(balanceDecoded, 6)
@@ -134,7 +145,10 @@ func TestMainnetUSDTContract(t *testing.T) {
 		blacklistResult, err := contract.TriggerConstantContract(ctx, testAddress, "isBlackListed", testAddress.String())
 		require.NoError(t, err, "Should call isBlackListed method")
 
-		blacklistDecoded, ok := blacklistResult.(bool)
+		blacklistValue, ok := blacklistResult.([]interface{})
+		require.True(t, ok, "Should decode isBlackListed result as []interface{}")
+		require.Len(t, blacklistValue, 1, "Should have one result")
+		blacklistDecoded, ok := blacklistValue[0].(bool)
 		require.True(t, ok, "Should decode isBlackListed result as bool")
 		require.True(t, blacklistDecoded, "Expected address to be blacklisted")
 

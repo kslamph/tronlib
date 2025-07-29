@@ -1,6 +1,7 @@
 package smartcontract
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/kslamph/tronlib/pb/core"
@@ -111,7 +112,8 @@ func TestEncodeInput(t *testing.T) {
 	}
 
 	// Test encoding transfer(address,uint256) method
-	data, err4 := contract.Encode("transfer", testAddr, "1000000000000000000") // 1 token with 18 decimals
+	amount := big.NewInt(1000000000000000000) // 1 token with 18 decimals
+	data, err4 := contract.Encode("transfer", testAddr, amount)
 	if err4 != nil {
 		t.Fatalf("Failed to encode transfer method: %v", err4)
 	}
