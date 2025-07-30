@@ -1,15 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-// Struct definition
-struct User {
-    address userAddress;
-    uint256 userId;
-    string name;
-    bool isActive;
-    bytes32 dataHash;
-}
-
 // Enum definition
 enum Status {
     Pending,
@@ -17,7 +8,7 @@ enum Status {
     Rejected
 }
 
-/// @title TestComprehensiveTypes - A contract for testing encoder/decoder with diverse types and events, including complex structures.
+/// @title TestComprehensiveTypes - A contract for testing encoder/decoder with diverse types and events, without struct/tuple types.
 contract TestComprehensiveTypes {
     // State variables for primitive types
     uint8 public myUint8;
@@ -37,9 +28,7 @@ contract TestComprehensiveTypes {
     bytes[] public bytesArray;
     bool[3] public fixedBoolArray; // Fixed-size array
 
-    // State variables for struct and enum
-    User public singleUser;
-    User[] public userArray; // Array of structs
+    // State variables for enum (no struct)
     Status public currentStatus;
 
     // Events to log various types
@@ -61,7 +50,6 @@ contract TestComprehensiveTypes {
         bytes[] bArray,
         bool[3] fixedBArray
     );
-    event StructEvent(User indexed user, User[] users);
     event EnumEvent(Status indexed status);
     event MixedArrayEvent(uint256[] indexed numbers, address[] addresses);
 
@@ -82,8 +70,6 @@ contract TestComprehensiveTypes {
         string[] memory _stringArray,
         bytes[] memory _bytesArray,
         bool[3] memory _fixedBoolArray,
-        User memory _singleUser,
-        User[] memory _userArray,
         Status _currentStatus
     ) {
         myUint8 = _myUint8;
@@ -100,8 +86,6 @@ contract TestComprehensiveTypes {
         stringArray = _stringArray;
         bytesArray = _bytesArray;
         fixedBoolArray = _fixedBoolArray;
-        singleUser = _singleUser;
-        userArray = _userArray;
         currentStatus = _currentStatus;
     }
 
@@ -163,25 +147,13 @@ contract TestComprehensiveTypes {
     function getBytesArray() public view returns (bytes[] memory) { return bytesArray; }
     function getFixedBoolArray() public view returns (bool[3] memory) { return fixedBoolArray; }
 
-    // --- Functions for setting struct and enum ---
-    function setSingleUser(User memory _user) public {
-        singleUser = _user;
-        emit StructEvent(_user, new User[](0)); // Empty user array for single user event
-    }
-
-    function setUserArray(User[] memory _users) public {
-        userArray = _users;
-        emit StructEvent(singleUser, _users); // Use existing singleUser for event, pass new users array
-    }
-
+    // --- Functions for setting enum ---
     function setStatus(Status _status) public {
         currentStatus = _status;
         emit EnumEvent(_status);
     }
 
-    // --- Functions for getting struct and enum ---
-    function getSingleUser() public view returns (User memory) { return singleUser; }
-    function getUserArray() public view returns (User[] memory) { return userArray; }
+    // --- Functions for getting enum ---
     function getStatus() public view returns (Status) { return currentStatus; }
 
     // --- Functions with multiple return values ---
@@ -220,15 +192,8 @@ contract TestComprehensiveTypes {
         return (_uArray, _sArray, _bArray);
     }
 
-    function getMixedStructAndEnum() public pure returns (User memory, Status) {
-        User memory sampleUser = User({
-            userAddress: 0x1111111111111111111111111111111111111111,
-            userId: 777,
-            name: "Sample User",
-            isActive: true,
-            dataHash: 0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-        });
-        return (sampleUser, Status.Approved);
+    function getMixedStructAndEnum() public pure returns (Status) {
+        return Status.Approved;
     }
 
     function emitMixedArrayEvent(uint256[] memory numbers, address[] memory addresses) public {

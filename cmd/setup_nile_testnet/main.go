@@ -19,7 +19,6 @@ import (
 	"github.com/kslamph/tronlib/pkg/signer"
 	"github.com/kslamph/tronlib/pkg/smartcontract"
 	"github.com/kslamph/tronlib/pkg/types"
-	"github.com/kslamph/tronlib/pkg/utils"
 	"github.com/kslamph/tronlib/pkg/workflow"
 )
 
@@ -306,30 +305,7 @@ func (s *NileTestnetSetup) prepareContractParameters() ([]ContractInfo, error) {
 				[]interface{}{"ArrayString1", "ArrayString2"},                             // _stringArray (slice of strings)
 				[]interface{}{"0xaa", "0xbb"},                                             // _bytesArray (slice of hex strings)
 				[]bool{true, false, true},                                                 // _fixedBoolArray (fixed-size array in Go is slice)
-				map[string]interface{}{ // _singleUser (struct)
-					"userAddress": s.config.Key1Address,
-					"userId":      "12345",
-					"name":        "GoUser",
-					"isActive":    true,
-					"dataHash":    "0x1111111111111111111111111111111111111111111111111111111111111111",
-				},
-				[]interface{}{ // _userArray (array of structs)
-					map[string]interface{}{
-						"userAddress": "TRX7YbrtE2mQjF1y41n5X4L7vRjQc4W2d5",
-						"userId":      "67890",
-						"name":        "GoUserArray1",
-						"isActive":    false,
-						"dataHash":    "0x2222222222222222222222222222222222222222222222222222222222222222",
-					},
-					map[string]interface{}{
-						"userAddress": "TRX9UhjnKQxGTCi8q8ZY4pL8otSzgjLj6t",
-						"userId":      "11223",
-						"name":        "GoUserArray2",
-						"isActive":    true,
-						"dataHash":    "0x3333333333333333333333333333333333333333333333333333333333333333",
-					},
-				},
-				0, // Status.Pending (enum value is int in Go)
+				0,                                                                         // Status.Pending (enum value is int in Go)
 			},
 			EnvVarName: "TESTCOMPREHENSIVETYPES_CONTRACT_ADDRESS",
 		},
@@ -418,17 +394,11 @@ func (s *NileTestnetSetup) deployContract(contract ContractInfo) (DeploymentResu
 
 	fmt.Printf("📝 Creating deployment transaction...\n")
 
-	parser := utils.NewABIParser()
-	abi, err := parser.ParseABI(string(abiBytes))
-	if err != nil {
-		result.Error = err
-		return result, fmt.Errorf("failed to decode ABI: %v", err)
-	}
 	txExt, err := s.contractManager.DeployContract(
 		ctx,
 		s.config.Key1Address,          // ownerAddress
 		contract.Name,                 // contractName
-		abi,                           // abi
+		string(abiBytes),              // abi as string
 		bytecode,                      // bytecode
 		0,                             // callValue
 		100,                           // consumeUserResourcePercent

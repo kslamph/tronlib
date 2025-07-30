@@ -314,8 +314,14 @@ func (p *ABIProcessor) convertParameter(param interface{}, paramType string) (in
 		return p.convertBool(param)
 	case "string":
 		return p.convertString(param)
-	case "bytes", "bytes32", "bytes16", "bytes8":
-		return p.convertBytes(param)
+	case "bytes":
+		return p.convertBytes(param, 0) // 0 indicates dynamic bytes
+	case "bytes32":
+		return p.convertBytes(param, 32) // 32 indicates fixed-size 32 bytes
+	case "bytes16":
+		return p.convertBytes(param, 16) // 16 indicates fixed-size 16 bytes
+	case "bytes8":
+		return p.convertBytes(param, 8) // 8 indicates fixed-size 8 bytes
 	default:
 		// For integer types and other types, pass the parameter directly
 		// go-ethereum/accounts/abi will handle the conversion and validation
@@ -372,31 +378,87 @@ func (p *ABIProcessor) convertString(param interface{}) (string, error) {
 }
 
 // convertBytes converts bytes parameter
-func (p *ABIProcessor) convertBytes(param interface{}) ([]byte, error) {
+func (p *ABIProcessor) convertBytes(param interface{}, fixedSize int) (interface{}, error) {
 	switch v := param.(type) {
 	case string:
+		var data []byte
+		var err error
 		if strings.HasPrefix(v, "0x") {
-			return eCommon.FromHex(v), nil
+			data = eCommon.FromHex(v)
+		} else {
+			data, err = hex.DecodeString(v)
+			if err != nil {
+				return nil, err
+			}
 		}
-		return hex.DecodeString(v)
+
+		// If fixedSize is specified, convert to fixed-size array
+		if fixedSize > 0 {
+			if len(data) != fixedSize {
+				return nil, fmt.Errorf("bytes length mismatch: expected %d, got %d", fixedSize, len(data))
+			}
+			// Create fixed-size array
+			switch fixedSize {
+			case 32:
+				var array [32]byte
+				copy(array[:], data)
+				return array, nil
+			case 16:
+				var array [16]byte
+				copy(array[:], data)
+				return array, nil
+			case 8:
+				var array [8]byte
+				copy(array[:], data)
+				return array, nil
+			default:
+				// For other sizes, create generic array
+				arrayValue := reflect.New(reflect.ArrayOf(fixedSize, reflect.TypeOf(byte(0)))).Elem()
+				for i := 0; i < len(data) && i < fixedSize; i++ {
+					arrayValue.Index(i).Set(reflect.ValueOf(data[i]))
+				}
+				return arrayValue.Interface(), nil
+			}
+		}
+		return data, nil
 	case []byte:
+		// If fixedSize is specified, convert to fixed-size array
+		if fixedSize > 0 {
+			if len(v) != fixedSize {
+				return nil, fmt.Errorf("bytes length mismatch: expected %d, got %d", fixedSize, len(v))
+			}
+			// Create fixed-size array
+			switch fixedSize {
+			case 32:
+				var array [32]byte
+				copy(array[:], v)
+				return array, nil
+			case 16:
+				var array [16]byte
+				copy(array[:], v)
+				return array, nil
+			case 8:
+				var array [8]byte
+				copy(array[:], v)
+				return array, nil
+			default:
+				// For other sizes, create generic array
+				arrayValue := reflect.New(reflect.ArrayOf(fixedSize, reflect.TypeOf(byte(0)))).Elem()
+				for i := 0; i < len(v) && i < fixedSize; i++ {
+					arrayValue.Index(i).Set(reflect.ValueOf(v[i]))
+				}
+				return arrayValue.Interface(), nil
+			}
+		}
 		return v, nil
 	default:
 		// Handle fixed-size byte arrays (e.g., [32]byte)
 		// Check if it's an array of bytes
 		val := reflect.ValueOf(param)
 		if val.Kind() == reflect.Array && val.Type().Elem().Kind() == reflect.Uint8 {
-			// Convert array to slice
-			slice := make([]byte, val.Len())
-			for i := 0; i < val.Len(); i++ {
-				// Ensure the element is a byte
-				elem := val.Index(i)
-				if elem.Kind() != reflect.Uint8 {
-					return nil, fmt.Errorf("fixed-size byte array element at index %d is not a byte", i)
-				}
-				slice[i] = byte(elem.Uint())
-			}
-			return slice, nil
+			// For fixed-size byte arrays, return the original value
+			// The go-ethereum ABI package expects the original fixed-size array type
+			return param, nil
 		}
 		return nil, fmt.Errorf("bytes parameter must be string, []byte, or [N]byte")
 	}
@@ -415,12 +477,21 @@ func (p *ABIProcessor) convertArrayParameter(param interface{}, baseType string)
 
 	// Handle slice directly
 	if reflect.TypeOf(param).Kind() == reflect.Slice {
-		slice := reflect.ValueOf(param)
-		elements := make([]interface{}, slice.Len())
-		for i := 0; i < slice.Len(); i++ {
-			elements[i] = slice.Index(i).Interface()
+		// For integer types, return the slice directly
+		// The go-ethereum ABI package expects the actual slice type
+		switch baseType {
+		case "uint256", "uint128", "uint64", "uint32", "uint16", "uint8",
+			"int256", "int128", "int64", "int32", "int16", "int8":
+			return param, nil
+		default:
+			// For other types, convert elements individually
+			slice := reflect.ValueOf(param)
+			elements := make([]interface{}, slice.Len())
+			for i := 0; i < slice.Len(); i++ {
+				elements[i] = slice.Index(i).Interface()
+			}
+			return p.convertArrayElements(elements, baseType)
 		}
-		return p.convertArrayElements(elements, baseType)
 	}
 
 	return nil, fmt.Errorf("array parameter must be JSON string or slice")
@@ -441,22 +512,14 @@ func (p *ABIProcessor) convertArrayElements(elements []interface{}, baseType str
 		return addresses, nil
 
 	case "uint256", "uint128", "uint64", "uint32", "uint16", "uint8":
-		// For integer types, pass the elements directly
-		// go-ethereum/accounts/abi will handle the conversion and validation
-		// We need to create a slice of interface{} to hold the elements
-		// This allows eABI.Arguments.Pack to handle the conversion
-		ints := make([]interface{}, len(elements))
-		copy(ints, elements)
-		return ints, nil
+		// For integer types, return the elements directly
+		// go-ethereum/accounts/abi expects the actual slice of values
+		return elements, nil
 
 	case "int256", "int128", "int64", "int32", "int16", "int8":
-		// For integer types, pass the elements directly
-		// go-ethereum/accounts/abi will handle the conversion and validation
-		// We need to create a slice of interface{} to hold the elements
-		// This allows eABI.Arguments.Pack to handle the conversion
-		ints := make([]interface{}, len(elements))
-		copy(ints, elements)
-		return ints, nil
+		// For integer types, return the elements directly
+		// go-ethereum/accounts/abi expects the actual slice of values
+		return elements, nil
 
 	case "bool":
 		bools := make([]bool, len(elements))

@@ -25,7 +25,11 @@ func NewManager(client *client.Client) *Manager {
 }
 
 // DeployContract deploys a smart contract with constructor parameters
-func (m *Manager) DeployContract(ctx context.Context, ownerAddress, contractName string, abi *core.SmartContract_ABI, bytecode []byte, callValue, consumeUserResourcePercent, originEnergyLimit int64, constructorParams ...interface{}) (*api.TransactionExtention, error) {
+// abi: ABI can be:
+//   - string: ABI JSON string
+//   - *core.SmartContract_ABI: Parsed ABI object
+//   - nil: No ABI provided
+func (m *Manager) DeployContract(ctx context.Context, ownerAddress, contractName string, abi any, bytecode []byte, callValue, consumeUserResourcePercent, originEnergyLimit int64, constructorParams ...interface{}) (*api.TransactionExtention, error) {
 	// Validate inputs
 	if err := utils.ValidateContractName(contractName); err != nil {
 		return nil, fmt.Errorf("invalid contract name: %w", err)
@@ -48,14 +52,41 @@ func (m *Manager) DeployContract(ctx context.Context, ownerAddress, contractName
 		return nil, fmt.Errorf("invalid owner address: %w", err)
 	}
 
+	// Process ABI parameter similar to NewContract
+	var contractABI *core.SmartContract_ABI
+	if abi != nil {
+		switch v := abi.(type) {
+		case string:
+			// Handle ABI JSON string
+			if v == "" {
+				return nil, fmt.Errorf("empty ABI string")
+			}
+			processor := utils.NewABIProcessor(nil)
+			contractABI, err = processor.ParseABI(v)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse ABI string: %v", err)
+			}
+
+		case *core.SmartContract_ABI:
+			// Handle parsed ABI object
+			if v == nil {
+				return nil, fmt.Errorf("ABI cannot be nil")
+			}
+			contractABI = v
+
+		default:
+			return nil, fmt.Errorf("ABI must be string or *core.SmartContract_ABI, got %T", v)
+		}
+	}
+
 	// Encode constructor parameters if provided
 	finalBytecode := bytecode
 	if len(constructorParams) > 0 {
-		if abi == nil {
+		if contractABI == nil {
 			return nil, fmt.Errorf("ABI is required when constructor parameters are provided")
 		}
 
-		encodedParams, err := m.encodeConstructor(abi, constructorParams)
+		encodedParams, err := m.encodeConstructor(contractABI, constructorParams)
 		if err != nil {
 			return nil, fmt.Errorf("failed to encode constructor parameters: %w", err)
 		}
@@ -68,7 +99,7 @@ func (m *Manager) DeployContract(ctx context.Context, ownerAddress, contractName
 	newContract := &core.SmartContract{
 		OriginAddress:              addr.Bytes(),
 		ContractAddress:            nil, // Will be generated
-		Abi:                        abi,
+		Abi:                        contractABI,
 		Bytecode:                   finalBytecode,
 		CallValue:                  callValue,
 		ConsumeUserResourcePercent: consumeUserResourcePercent,
