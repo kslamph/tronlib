@@ -56,37 +56,13 @@ contract TestComprehensiveTypes {
 
     // --- Constructor ---
     constructor(
-        uint8 _myUint8,
-        int8 _myInt8,
-        uint256 _myUint256,
-        int256 _myInt256,
+        Status _currentStatus,
         address _myAddress,
-        bool _myBool,
-        string memory _myString,
-        bytes memory _myBytes,
-        bytes32 _myBytes32,
-        uint256[] memory _uintArray,
-        address[] memory _addressArray,
-        string[] memory _stringArray,
-        bytes[] memory _bytesArray,
-        bool[3] memory _fixedBoolArray,
-        Status _currentStatus
+        uint256[] memory _uintArray
     ) {
-        myUint8 = _myUint8;
-        myInt8 = _myInt8;
-        myUint256 = _myUint256;
-        myInt256 = _myInt256;
-        myAddress = _myAddress;
-        myBool = _myBool;
-        myString = _myString;
-        myBytes = _myBytes;
-        myBytes32 = _myBytes32;
-        uintArray = _uintArray;
-        addressArray = _addressArray;
-        stringArray = _stringArray;
-        bytesArray = _bytesArray;
-        fixedBoolArray = _fixedBoolArray;
         currentStatus = _currentStatus;
+        myAddress = _myAddress;
+        uintArray = _uintArray;
     }
 
     // --- Functions for setting primitive types ---

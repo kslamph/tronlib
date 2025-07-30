@@ -7,7 +7,7 @@ This program automates the deployment of test contracts to the TRON Nile testnet
 The setup program deploys 3 smart contracts to Nile testnet:
 1. **MinimalContract** - Simple contract with no constructor parameters
 2. **TRC20** - Token contract with constructor parameters (name, symbol, decimals, initialSupply)
-3. **TestAllTypes** - Complex contract for testing various data types
+3. **TestComprehensiveTypes** - Complex contract for testing various data types
 
 ## Prerequisites
 
@@ -64,8 +64,10 @@ The program automatically loads configuration from:
 - Energy limit: 10,000,000
 - Fee limit: 10 TRX
 
-### TestAllTypes Contract
+### TestComprehensiveTypes Contract
+- **currentStatus**: Pending (0)
 - **myAddress**: Key1 address
+- **uintArray**: [1, 2, 3]
 - **myBool**: true
 - **myUint**: 42
 - Energy limit: 10,000,000

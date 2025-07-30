@@ -18,7 +18,7 @@ I have successfully implemented the Nile testnet contract deployment and testing
 - ✅ **Step 3**: Prepare contract deployment parameters
 - ✅ **Step 4**: Deploy MinimalContract (no constructor params)
 - ✅ **Step 5**: Deploy TRC20 contract (4 constructor params)
-- ✅ **Step 6**: Deploy TestAllTypes contract (3 constructor params)
+- ✅ **Step 6**: Deploy TestComprehensiveTypes contract (3 constructor params)
 - ✅ **Step 7**: Update environment configuration files
 - ✅ **Step 8**: Verify contract deployments
 
@@ -39,7 +39,7 @@ I have successfully implemented the Nile testnet contract deployment and testing
 #### 4. **Constructor Parameter Handling**
 - **MinimalContract**: No parameters (empty slice)
 - **TRC20**: 4 parameters (name="TronLib Test", symbol="TLT", decimals=18, initialSupply=1M tokens)
-- **TestAllTypes**: 3 parameters (myAddress=Key1, myBool=true, myUint=42)
+- **TestComprehensiveTypes**: 3 parameters (currentStatus=Pending, myAddress=Key1, uintArray=[1,2,3])
 
 #### 5. **Environment File Updates**
 - Updates `integration_test/test.env`

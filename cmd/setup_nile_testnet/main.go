@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math/big"
 	"os"
 	"path/filepath"
 	"strings"
@@ -34,8 +35,7 @@ const (
 	TRC20Decimals      = 18
 	TRC20InitialSupply = "1000000000000000000000000" // 1M tokens with 18 decimals
 
-	TestAllTypesMyBool = true
-	TestAllTypesMyUint = 42
+	TestComprehensiveTypesStatus = 0 // Status.Pending
 )
 
 // SetupConfig holds the configuration for the setup process
@@ -264,17 +264,6 @@ func (s *NileTestnetSetup) prepareContractParameters() ([]ContractInfo, error) {
 			EnvVarName:        "MINIMAL_CONTRACT_ADDRESS",
 		},
 		{
-			Name:    "TestAllTypes",
-			ABIFile: "TestAllTypes.abi",
-			BinFile: "TestAllTypes.bin",
-			ConstructorParams: []interface{}{
-				s.config.Key1Address, // _myAddress
-				TestAllTypesMyBool,   // _myBool
-				TestAllTypesMyUint,   // _myUint
-			},
-			EnvVarName: "TESTALLTYPES_CONTRACT_ADDRESS",
-		},
-		{
 			Name:    "TRC20",
 			ABIFile: "TRC20.abi",
 			BinFile: "TRC20.bin",
@@ -291,21 +280,9 @@ func (s *NileTestnetSetup) prepareContractParameters() ([]ContractInfo, error) {
 			ABIFile: "TestComprehensiveTypes.abi",
 			BinFile: "TestComprehensiveTypes.bin",
 			ConstructorParams: []interface{}{
-				uint8(10), // _myUint8
-				int8(-10), // _myInt8
-				"1000000000000000000000000000000000000000", // _myUint256 (as string for big.Int)
-				"-500000000000000000000000000000000000000", // _myInt256 (as string for big.Int)
-				s.config.Key1Address,                       // _myAddress
-				true,                                       // _myBool
-				"Hello Comprehensive",                      // _myString
-				"0x010203",                                 // _myBytes (hex string)
-				"0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",      // _myBytes32 (hex string)
-				[]interface{}{"1", "2", "3"},                                              // _uintArray (as slice of strings for big.Int)
-				[]interface{}{s.config.Key1Address, "TBkfmcE7pM8cwxEhATtkMFwAf1FeQcwY9x"}, // _addressArray (slice of strings)
-				[]interface{}{"ArrayString1", "ArrayString2"},                             // _stringArray (slice of strings)
-				[]interface{}{"0xaa", "0xbb"},                                             // _bytesArray (slice of hex strings)
-				[]bool{true, false, true},                                                 // _fixedBoolArray (fixed-size array in Go is slice)
-				0,                                                                         // Status.Pending (enum value is int in Go)
+				uint8(TestComprehensiveTypesStatus),                     // _currentStatus (enum)
+				s.config.Key1Address,                                    // _myAddress
+				[]*big.Int{big.NewInt(1), big.NewInt(2), big.NewInt(3)}, // _uintArray
 			},
 			EnvVarName: "TESTCOMPREHENSIVETYPES_CONTRACT_ADDRESS",
 		},
@@ -413,7 +390,7 @@ func (s *NileTestnetSetup) deployContract(contract ContractInfo) (DeploymentResu
 	// Sign and broadcast transaction
 	fmt.Printf("✍️  Signing and broadcasting transaction...\n")
 	workflowInstance := workflow.NewWorkflow(s.client, txExt)
-	workflowInstance.SetFeeLimit(500000000)
+	workflowInstance.SetFeeLimit(2000000000)
 	// Sign the transaction
 	workflowInstance.Sign(s.signer)
 	if err := workflowInstance.GetError(); err != nil {
@@ -653,8 +630,6 @@ func getEnvVarName(contractName string) string {
 		return "MINIMAL_CONTRACT_ADDRESS"
 	case "TRC20":
 		return "TRC20_CONTRACT_ADDRESS"
-	case "TestAllTypes":
-		return "TESTALLTYPES_CONTRACT_ADDRESS"
 	default:
 		return strings.ToUpper(contractName) + "_CONTRACT_ADDRESS"
 	}
