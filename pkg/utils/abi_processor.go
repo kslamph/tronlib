@@ -725,7 +725,7 @@ func (p *ABIProcessor) formatDecodedValue(value interface{}, paramType string) i
 				// This could happen if the address is not a valid TRON address format
 				return value
 			}
-			return tronAddr.String()
+			return tronAddr
 		}
 		return value
 

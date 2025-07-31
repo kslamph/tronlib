@@ -191,6 +191,49 @@ func (c *Contract) TriggerConstantContract(ctx context.Context, owner *types.Add
 	return decoded, nil
 }
 
+type SimulateResult struct {
+	Energy    int64
+	APIResult *api.Return
+	Logs      []*core.TransactionInfo_Log
+}
+
+func (c *Contract) Simulate(ctx context.Context, owner *types.Address, callValue int64, method string, params ...interface{}) (*SimulateResult, error) {
+
+	if owner == nil {
+		return nil, fmt.Errorf("owner address cannot be nil")
+	}
+
+	// Encode method call data
+	data, err := c.Encode(method, params...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode input for method %s: %v", method, err)
+	}
+
+	// Create trigger smart contract request
+	req := &core.TriggerSmartContract{
+		OwnerAddress:    owner.Bytes(),
+		ContractAddress: c.Address.Bytes(),
+		Data:            data,
+		CallValue:       0,
+	}
+
+	// Call the constant contract
+	result, err := lowlevel.TriggerConstantContract(c.Client, ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to trigger constant contract: %v", err)
+	}
+
+	if result == nil {
+		return nil, fmt.Errorf("nil result from constant contract call")
+	}
+	return &SimulateResult{
+		Energy:    result.GetEnergyUsed(),
+		APIResult: result.GetResult(),
+		Logs:      result.GetLogs(),
+	}, nil
+
+}
+
 // Encode creates contract call data from method name and parameters
 func (c *Contract) Encode(method string, params ...interface{}) ([]byte, error) {
 	// Special handling for constructors (empty method name)
