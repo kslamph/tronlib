@@ -58,13 +58,7 @@ func main() {
 		fmt.Printf("Failed to create client: %v\n", err)
 		return
 	}
-
-	// Create signer
-	// s, err := signer.NewPrivateKeySigner(privateKeyHex)
-	if err != nil {
-		fmt.Printf("Failed to create signer: %v\n", err)
-		return
-	}
+	defer cl.Close()
 
 	// Build simple TRC20 transfer: transfer 1 unit to a dummy address
 	toAddress := "TBkfmcE7pM8cwxEhATtkMFwAf1FeQcwY9x" // Replace with a valid test address
