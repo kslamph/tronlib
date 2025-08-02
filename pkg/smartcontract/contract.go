@@ -259,7 +259,8 @@ func (c *Contract) Encode(method string, params ...interface{}) ([]byte, error) 
 }
 
 // DecodeResult decodes contract call result
-func (c *Contract) DecodeResult(method string, data []byte) ([]interface{}, error) {
+// Return type changed to interface{} to allow single value returns like *big.Int, []byte, int64, uint64, *types.Address, etc.
+func (c *Contract) DecodeResult(method string, data []byte) (interface{}, error) {
 	// Get method output types from ABI
 	_, outputTypes, err := c.abiProcessor.GetMethodTypes(method)
 	if err != nil {

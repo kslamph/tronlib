@@ -658,9 +658,13 @@ func (p *ABIProcessor) decodeParameters(data []byte, inputs []*core.SmartContrac
 }
 
 // DecodeResult decodes contract call result
-func (p *ABIProcessor) DecodeResult(data []byte, outputs []*core.SmartContract_ABI_Entry_Param) ([]interface{}, error) {
+// Now returns interface{} instead of []interface{}:
+// - If there are no outputs: returns nil
+// - If there is one output: returns the single decoded value directly
+// - If there are multiple outputs: returns []interface{} as an interface{}
+func (p *ABIProcessor) DecodeResult(data []byte, outputs []*core.SmartContract_ABI_Entry_Param) (interface{}, error) {
 	if len(outputs) == 0 {
-		return []interface{}{}, nil
+		return nil, nil
 	}
 
 	// Create ethereum ABI arguments for decoding
@@ -682,14 +686,21 @@ func (p *ABIProcessor) DecodeResult(data []byte, outputs []*core.SmartContract_A
 		return nil, fmt.Errorf("failed to unpack result: %v", err)
 	}
 
-	// Format the decoded values and put them in a slice
+	// Single output: return the single decoded value directly
+	if len(outputs) == 1 {
+		if len(values) == 0 {
+			return nil, nil
+		}
+		return p.formatDecodedValue(values[0], outputs[0].Type), nil
+	}
+
+	// Multiple outputs: return as []interface{} (still satisfies interface{})
 	result := make([]interface{}, len(outputs))
 	for i, output := range outputs {
 		if i < len(values) {
 			result[i] = p.formatDecodedValue(values[i], output.Type)
 		}
 	}
-
 	return result, nil
 }
 

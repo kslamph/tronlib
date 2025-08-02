@@ -86,16 +86,10 @@ func (t *TRC20Client) Name() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to call name method: %w", err)
 	}
-	nameResult, ok := result.([]interface{})
+
+	name, ok := result.(string)
 	if !ok {
-		return "", fmt.Errorf("unexpected type for name result: %T", result)
-	}
-	if len(nameResult) != 1 {
-		return "", fmt.Errorf("unexpected length for name result: %d", len(nameResult))
-	}
-	name, ok := nameResult[0].(string)
-	if !ok {
-		return "", fmt.Errorf("unexpected type for name value: %T", nameResult[0])
+		return "", fmt.Errorf("unexpected type for name value: %T", result)
 	}
 	t.cachedName = name
 	return name, nil
@@ -120,16 +114,10 @@ func (t *TRC20Client) Symbol() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to call symbol method: %w", err)
 	}
-	symbolResult, ok := result.([]interface{})
+
+	symbol, ok := result.(string)
 	if !ok {
-		return "", fmt.Errorf("unexpected type for symbol result: %T", result)
-	}
-	if len(symbolResult) != 1 {
-		return "", fmt.Errorf("unexpected length for symbol result: %d", len(symbolResult))
-	}
-	symbol, ok := symbolResult[0].(string)
-	if !ok {
-		return "", fmt.Errorf("unexpected type for symbol value: %T", symbolResult[0])
+		return "", fmt.Errorf("unexpected type for symbol value: %T", result)
 	}
 	t.cachedSymbol = symbol
 	return symbol, nil
@@ -157,23 +145,12 @@ func (t *TRC20Client) Decimals() (uint8, error) {
 
 	// The `go-ethereum/abi` library decodes `uint8` from `uint256` as `*big.Int`
 	// so we need to convert it.
-	decimalsResult, ok := result.([]interface{})
+	decimalsResult, ok := result.(uint8)
 	if !ok {
-		return 0, fmt.Errorf("unexpected type for decimals result: %T", result)
+		return 0, fmt.Errorf("unexpected type for uint8 result: %T", result)
 	}
-	if len(decimalsResult) != 1 {
-		return 0, fmt.Errorf("unexpected length for decimals result: %d", len(decimalsResult))
-	}
-	decimalsValue, ok := decimalsResult[0].(uint8)
-	if !ok {
-		return 0, fmt.Errorf("unexpected type for decimals value: %T", decimalsResult[0])
-	}
-	// if !decimalBigInt.IsUint64() || decimalBigInt.Uint64() > 255 {
-	// 	return 0, fmt.Errorf("decimals value out of range for uint8: %s", decimalBigInt.String())
-	// }
-	// decimals := uint8(decimalBigInt.Uint64())
-	t.cachedDecimals = decimalsValue
-	return decimalsValue, nil
+	t.cachedDecimals = decimalsResult
+	return decimalsResult, nil
 }
 
 // BalanceOf retrieves the balance of an owner address as a decimal.Decimal.
@@ -188,16 +165,9 @@ func (t *TRC20Client) BalanceOf(ownerAddress *types.Address) (decimal.Decimal, e
 		return decimal.Zero, fmt.Errorf("failed to call balanceOf method: %w", err)
 	}
 
-	balanceResult, ok := result.([]interface{})
+	bitIntBalance, ok := result.(*big.Int)
 	if !ok {
-		return decimal.Zero, fmt.Errorf("unexpected type for balanceOf result: %T", result)
-	}
-	if len(balanceResult) != 1 {
-		return decimal.Zero, fmt.Errorf("unexpected length for balanceOf result: %d", len(balanceResult))
-	}
-	bitIntBalance, ok := balanceResult[0].(*big.Int)
-	if !ok {
-		return decimal.Zero, fmt.Errorf("unexpected type for balanceOf value: %T", balanceResult[0])
+		return decimal.Zero, fmt.Errorf("unexpected type for balanceOf value: %T", result)
 	}
 	// bigIntBalance, ok := new(big.Int).SetString(rawBalance, 10)
 	// if !ok {
@@ -263,16 +233,9 @@ func (t *TRC20Client) Allowance(ownerAddress *types.Address, spenderAddress *typ
 		return decimal.Zero, fmt.Errorf("failed to call allowance method: %w", err)
 	}
 
-	allowanceResult, ok := result.([]interface{})
+	rawAllowance, ok := result.(*big.Int)
 	if !ok {
-		return decimal.Zero, fmt.Errorf("unexpected type for allowance result: %T", result)
-	}
-	if len(allowanceResult) != 1 {
-		return decimal.Zero, fmt.Errorf("unexpected length for allowance result: %d", len(allowanceResult))
-	}
-	rawAllowance, ok := allowanceResult[0].(*big.Int)
-	if !ok {
-		return decimal.Zero, fmt.Errorf("unexpected type for allowance value: %T", allowanceResult[0])
+		return decimal.Zero, fmt.Errorf("unexpected type for allowance value: %T", result)
 	}
 
 	convertedAllowance, err := fromWei(rawAllowance, decimals)

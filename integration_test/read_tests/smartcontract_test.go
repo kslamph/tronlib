@@ -54,33 +54,27 @@ func TestMainnetUSDTContract(t *testing.T) {
 		// Test symbol
 		symbol, err := contract.TriggerConstantContract(ctx, testAddress, "symbol")
 		require.NoError(t, err, "Should call symbol method")
-		symbolResult, ok := symbol.([]interface{})
-		require.True(t, ok, "Should decode symbol result as []interface{}")
-		require.Len(t, symbolResult, 1, "Should have one result")
-		symbolDecoded, ok := symbolResult[0].(string)
-		require.True(t, ok, "Should decode symbol result as string")
+		// Single output should be concrete string
+		symbolDecoded, ok := symbol.(string)
+		require.True(t, ok, "Should decode symbol as string, got %T", symbol)
 		assert.Equal(t, "USDT", symbolDecoded, "Symbol should be USDT")
 		t.Logf("USDT Symbol: %s", symbolDecoded)
 
 		// Test name
 		name, err := contract.TriggerConstantContract(ctx, testAddress, "name")
 		require.NoError(t, err, "Should call name method")
-		nameResult, ok := name.([]interface{})
-		require.True(t, ok, "Should decode name result as []interface{}")
-		require.Len(t, nameResult, 1, "Should have one result")
-		nameDecoded, ok := nameResult[0].(string)
-		require.True(t, ok, "Should decode name result as string")
+		// Single output should be concrete string
+		nameDecoded, ok := name.(string)
+		require.True(t, ok, "Should decode name as string, got %T", name)
 		assert.Equal(t, "Tether USD", nameDecoded, "Name should be Tether USD")
 		t.Logf("USDT Name: %s", nameDecoded)
 
 		// Test decimals
 		decimals, err := contract.TriggerConstantContract(ctx, testAddress, "decimals")
 		require.NoError(t, err, "Should call decimals method")
-		decimalsResult, ok := decimals.([]interface{})
-		require.True(t, ok, "Should decode decimals result as []interface{}")
-		require.Len(t, decimalsResult, 1, "Should have one result")
-		decimalsValue, ok := decimalsResult[0].(uint8)
-		require.True(t, ok, "Should decode decimals result as uint8, got %T", decimalsResult[0])
+		// Single output should be concrete uint8
+		decimalsValue, ok := decimals.(uint8)
+		require.True(t, ok, "Should decode decimals result as uint8, got %T", decimals)
 		require.Equal(t, uint8(6), decimalsValue, "Decimals should be 6")
 
 		t.Logf("USDT Decimals: %d", decimalsValue)
@@ -88,11 +82,9 @@ func TestMainnetUSDTContract(t *testing.T) {
 		// Test total supply
 		totalSupply, err := contract.TriggerConstantContract(ctx, testAddress, "totalSupply")
 		require.NoError(t, err, "Should call totalSupply method")
-		totalSupplyResult, ok := totalSupply.([]interface{})
-		require.True(t, ok, "Should decode totalSupply result as []interface{}")
-		require.Len(t, totalSupplyResult, 1, "Should have one result")
-		totalSupplyDecoded, ok := totalSupplyResult[0].(*big.Int)
-		require.True(t, ok, "Should decode totalSupply result as bigint, got %T", totalSupplyResult[0])
+		// Single output should be *big.Int
+		totalSupplyDecoded, ok := totalSupply.(*big.Int)
+		require.True(t, ok, "Should decode totalSupply result as *big.Int, got %T", totalSupply)
 
 		// The exact total supply might change, just assert it's a non-zero positive number
 
@@ -116,11 +108,9 @@ func TestMainnetUSDTContract(t *testing.T) {
 		balanceResult, err := contract.TriggerConstantContract(ctx, testAddress, "balanceOf", testAddress.String())
 		require.NoError(t, err, "Should call balanceOf method")
 
-		balanceValue, ok := balanceResult.([]interface{})
-		require.True(t, ok, "Should decode balanceOf result as []interface{}")
-		require.Len(t, balanceValue, 1, "Should have one result")
-		balanceDecoded, ok := balanceValue[0].(*big.Int)
-		require.True(t, ok, "Should decode balanceOf result as *big.Int , got %T", balanceValue[0])
+		// Single output should be *big.Int
+		balanceDecoded, ok := balanceResult.(*big.Int)
+		require.True(t, ok, "Should decode balanceOf result as *big.Int , got %T", balanceResult)
 		require.Equal(t, big.NewInt(45967732353), balanceDecoded, "Balance should be 45967732353")
 
 		// Convert to human-readable format using utils.HumanReadableNumber
@@ -146,10 +136,8 @@ func TestMainnetUSDTContract(t *testing.T) {
 		blacklistResult, err := contract.TriggerConstantContract(ctx, testAddress, "isBlackListed", testAddress.String())
 		require.NoError(t, err, "Should call isBlackListed method")
 
-		blacklistValue, ok := blacklistResult.([]interface{})
-		require.True(t, ok, "Should decode isBlackListed result as []interface{}")
-		require.Len(t, blacklistValue, 1, "Should have one result")
-		blacklistDecoded, ok := blacklistValue[0].(bool)
+		// Single output should be bool
+		blacklistDecoded, ok := blacklistResult.(bool)
 		require.True(t, ok, "Should decode isBlackListed result as bool")
 		require.True(t, blacklistDecoded, "Expected address to be blacklisted")
 

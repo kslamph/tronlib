@@ -195,24 +195,18 @@ func TestNileTestComprehensiveTypesContract(t *testing.T) {
 		result, err := contract.TriggerConstantContract(ctx, testAddress, "getUint8")
 		require.NoError(t, err, "Should call getUint8 method")
 
-		resultSlice, ok := result.([]interface{})
-		require.True(t, ok, "Should decode result as []interface{}")
-		require.Len(t, resultSlice, 1, "Should have one result")
-
-		uint8Value, ok := resultSlice[0].(uint8)
-		require.True(t, ok, "Should decode uint8 result as uint8, got %T", resultSlice[0])
+		// Single return should be concrete value (e.g., uint8)
+		uint8Value, ok := result.(uint8)
+		require.True(t, ok, "Should decode uint8 result as uint8, got %T", result)
 		t.Logf("getUint8 returned: %d", uint8Value)
 
 		// Test getAddress
 		result, err = contract.TriggerConstantContract(ctx, testAddress, "getAddress")
 		require.NoError(t, err, "Should call getAddress method")
 
-		resultSlice, ok = result.([]interface{})
-		require.True(t, ok, "Should decode result as []interface{}")
-		require.Len(t, resultSlice, 1, "Should have one result")
-
-		addressValue, ok := resultSlice[0].(*types.Address)
-		require.True(t, ok, "Should decode address result as *types.Address, got %T", resultSlice[0])
+		// Single return should be concrete value (*types.Address)
+		addressValue, ok := result.(*types.Address)
+		require.True(t, ok, "Should decode address result as *types.Address, got %T", result)
 		require.NotNil(t, addressValue, "Address should not be nil")
 		t.Logf("getAddress returned: %s", addressValue.String())
 
@@ -220,13 +214,9 @@ func TestNileTestComprehensiveTypesContract(t *testing.T) {
 		result, err = contract.TriggerConstantContract(ctx, testAddress, "getUintArray")
 		require.NoError(t, err, "Should call getUintArray method")
 
-		resultSlice, ok = result.([]interface{})
-		require.True(t, ok, "Should decode result as []interface{}")
-		require.Len(t, resultSlice, 1, "Should have one result")
-
-		// Array results are returned as slices
-		arrayValue, ok := resultSlice[0].([]interface{})
-		require.True(t, ok, "Should decode array result as []interface{}, got %T", resultSlice[0])
+		// Single return but it is an array → returned as []interface{}
+		arrayValue, ok := result.([]interface{})
+		require.True(t, ok, "Should decode array result as []interface{}, got %T", result)
 		t.Logf("getUintArray returned %d elements", len(arrayValue))
 
 		t.Logf("✅ Get functions return value decoding test completed successfully")
@@ -240,7 +230,7 @@ func TestNileTestComprehensiveTypesContract(t *testing.T) {
 		require.NoError(t, err, "Should call getMixedPrimitives method")
 
 		resultSlice, ok := result.([]interface{})
-		require.True(t, ok, "Should decode result as []interface{}")
+		require.True(t, ok, "Should decode result as []interface{} when multiple outputs")
 		require.Len(t, resultSlice, 5, "Should have five results")
 
 		// Check each return value
