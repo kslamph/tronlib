@@ -184,7 +184,7 @@ func (w *TransactionWorkflow) Sign(s *signer.PrivateKeySigner) *TransactionWorkf
 		return w
 	}
 
-	signedTx, err := s.Sign(w.transaction)
+	err := s.Sign(w.transaction)
 	if err != nil {
 		w.err = fmt.Errorf("failed to sign transaction: %w", err)
 		w.state = StateError
@@ -192,43 +192,9 @@ func (w *TransactionWorkflow) Sign(s *signer.PrivateKeySigner) *TransactionWorkf
 	}
 
 	// Update transaction with new signature
-	w.transaction = signedTx
+
 	w.state = StateSigned
-	w.txid = fmt.Sprintf("%x", types.GetTransactionID(signedTx))
-
-	return w
-}
-
-// MultiSign signs the transaction with the provided signer and permission ID
-// Can be called multiple times to accumulate multi-signatures
-func (w *TransactionWorkflow) MultiSign(s *signer.PrivateKeySigner, permissionID int32) *TransactionWorkflow {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-
-	if w.err != nil {
-		return w
-	}
-
-	if w.state == StateBroadcasted {
-		w.err = fmt.Errorf("cannot multi-sign broadcasted transaction")
-		w.state = StateError
-		return w
-	}
-
-	// For multi-signature, we need to implement permission-based signing
-	// This is a simplified implementation - in practice, multi-sig requires
-	// more complex permission validation and signature aggregation
-	signedTx, err := s.Sign(w.transaction)
-	if err != nil {
-		w.err = fmt.Errorf("failed to multi-sign transaction: %w", err)
-		w.state = StateError
-		return w
-	}
-
-	// Update transaction with new signature
-	w.transaction = signedTx
-	w.state = StateSigned
-	w.txid = fmt.Sprintf("%x", types.GetTransactionID(signedTx))
+	w.txid = fmt.Sprintf("%x", types.GetTransactionID(w.transaction))
 
 	return w
 }

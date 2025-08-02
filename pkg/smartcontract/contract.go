@@ -135,6 +135,7 @@ func (c *Contract) TriggerSmartContract(ctx context.Context, owner *types.Addres
 	}
 
 	return lowlevel.TriggerContract(c.Client, ctx, req)
+
 }
 
 // TriggerConstantContract queries a smart contract method and returns decoded result

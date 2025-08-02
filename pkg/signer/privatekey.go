@@ -9,9 +9,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/kslamph/tronlib/pb/api"
+	"github.com/kslamph/tronlib/pb/core"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/types"
 )
 
@@ -92,38 +93,56 @@ func (s *PrivateKeySigner) PrivateKeyHex() string {
 	return hex.EncodeToString(privateKeyBytes)
 }
 
-// Sign signs a transaction with permissionID 2 (active permission)
-func (s *PrivateKeySigner) Sign(tx *core.Transaction) (*core.Transaction, error) {
-	return s.SignWithPermissionID(tx, 2)
-}
+// Sign signs a transaction using the private key
+// It supports both core.Transaction and api.TransactionExtention types
+func (s *PrivateKeySigner) Sign(tx any) error {
 
-// SignWithPermissionID signs a transaction with the specified permissionID
-func (s *PrivateKeySigner) SignWithPermissionID(tx *core.Transaction, permissionID int32) (*core.Transaction, error) {
-	// Set permission ID for active permission
-	tx.GetRawData().GetContract()[0].PermissionId = permissionID
+	if tx == nil {
+		return fmt.Errorf("transaction cannot be nil")
+	}
+	switch t := tx.(type) {
 
-	// Marshal raw data for signing
-	rawData, err := proto.Marshal(tx.GetRawData())
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal transaction: %w", err)
+	case *core.Transaction:
+
+		rawData, err := proto.Marshal(t.GetRawData())
+		if err != nil {
+			return fmt.Errorf("failed to marshal transaction: %w", err)
+		}
+		// Calculate hash
+		h256h := sha256.New()
+		h256h.Write(rawData)
+		hash := h256h.Sum(nil)
+
+		// Sign the hash
+		signature, err := crypto.Sign(hash, s.privKey)
+		if err != nil {
+			return fmt.Errorf("failed to sign transaction: %w", err)
+		}
+
+		t.Signature = append(t.Signature, signature)
+
+	case *api.TransactionExtention:
+		rawData, err := proto.Marshal(t.GetTransaction().GetRawData())
+		if err != nil {
+			return fmt.Errorf("failed to marshal transaction: %w", err)
+		}
+		// Calculate hash
+		h256h := sha256.New()
+		h256h.Write(rawData)
+		hash := h256h.Sum(nil)
+
+		// Sign the hash
+		signature, err := crypto.Sign(hash, s.privKey)
+		if err != nil {
+			return fmt.Errorf("failed to sign transaction: %w", err)
+		}
+
+		t.Transaction.Signature = append(t.Transaction.Signature, signature)
+	default:
+		return fmt.Errorf("unsupported transaction type: %T", tx)
 	}
 
-	// Calculate hash
-	h256h := sha256.New()
-	h256h.Write(rawData)
-	hash := h256h.Sum(nil)
-
-	// Sign the hash
-	signature, err := crypto.Sign(hash, s.privKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to sign transaction: %w", err)
-	}
-
-	// Clear any existing signatures and add the new one
-	tx.Signature = nil
-	tx.Signature = append(tx.Signature, signature)
-
-	return tx, nil
+	return nil
 }
 
 // SignMessageV2 signs a message using TIP-191 format (v2)

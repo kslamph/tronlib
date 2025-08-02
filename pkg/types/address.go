@@ -42,24 +42,40 @@ func NewAddress(address any) (*Address, error) {
 			return addr, nil
 		}
 		return nil, fmt.Errorf("invalid address: %v", err)
+
 	case []byte:
 		addr, err := NewAddressFromBytes(v)
 		if err == nil {
 			return addr, nil
 		}
 		return nil, fmt.Errorf("invalid address: %v", err)
+
+	case *Address:
+		if v == nil {
+			return nil, fmt.Errorf("invalid address: nil Address")
+		}
+		return v, nil
+
+	case *eCommon.Address:
+		if v == nil {
+			return nil, fmt.Errorf("invalid address: nil EVM Address")
+		}
+		return NewAddressFromBytes(v.Bytes())
+
 	case [20]byte:
 		addr, err := NewAddressFromBytes(v[:])
 		if err == nil {
 			return addr, nil
 		}
 		return nil, fmt.Errorf("invalid address: %v", err)
+
 	case [21]byte:
 		addr, err := NewAddressFromBytes(v[:])
 		if err == nil {
 			return addr, nil
 		}
 		return nil, fmt.Errorf("invalid address: %v", err)
+
 	default:
 		return nil, fmt.Errorf("invalid address: %v", address)
 	}

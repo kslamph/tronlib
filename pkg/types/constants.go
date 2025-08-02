@@ -10,56 +10,58 @@ const (
 	TronMainNet = "mainnet"
 	TronTestNet = "testnet"
 	TronNileNet = "nile"
-	
+
 	// Address constants
-	AddressLength     = 21
-	AddressHexLength  = 42 // Including 0x prefix
+	AddressLength       = 21
+	AddressHexLength    = 42 // Including 0x prefix
 	AddressBase58Length = 34
-	
+
 	// Transaction constants
-	DefaultFeeLimit          = 1000000  // 1 TRX in SUN
+	DefaultFeeLimit           = 1000000 // 1 TRX in SUN
 	DefaultTransactionTimeout = 30 * time.Second
-	DefaultExpiration        = 10 * time.Minute
-	
+	DefaultExpiration         = 10 * time.Minute
+
 	// Energy constants
 	DefaultEnergyLimit = 10000000
-	EnergyPerByte     = 1
-	
+	EnergyPerByte      = 1
+
 	// Bandwidth constants
 	DefaultBandwidthLimit = 5000
-	BandwidthPerByte     = 1
-	
+	BandwidthPerByte      = 1
+
 	// Resource constants
 	SunPerTRX = 1000000 // 1 TRX = 1,000,000 SUN
-	
+
 	// Contract constants
 	DefaultContractCallValue = 0
-	MaxContractSize         = 65536 // 64KB
-	
+	MaxContractSize          = 65536 // 64KB
+
 	// TRC20 constants
-	TRC20TransferMethodID   = "a9059cbb" // transfer(address,uint256)
-	TRC20BalanceOfMethodID  = "70a08231" // balanceOf(address)
-	TRC20ApproveMethodID    = "095ea7b3" // approve(address,uint256)
-	TRC20AllowanceMethodID  = "dd62ed3e" // allowance(address,address)
+	TRC20TransferMethodID    = "a9059cbb" // transfer(address,uint256)
+	TRC20BalanceOfMethodID   = "70a08231" // balanceOf(address)
+	TRC20ApproveMethodID     = "095ea7b3" // approve(address,uint256)
+	TRC20AllowanceMethodID   = "dd62ed3e" // allowance(address,address)
 	TRC20TotalSupplyMethodID = "18160ddd" // totalSupply()
-	TRC20NameMethodID       = "06fdde03" // name()
-	TRC20SymbolMethodID     = "95d89b41" // symbol()
-	TRC20DecimalsMethodID   = "313ce567" // decimals()
-	
+	TRC20NameMethodID        = "06fdde03" // name()
+	TRC20SymbolMethodID      = "95d89b41" // symbol()
+	TRC20DecimalsMethodID    = "313ce567" // decimals()
+
 	// Block constants
 	BlockTimeMS = 3000 // 3 seconds per block
-	
+
 	// Voting constants
 	VotesPerTRX = 1 // 1 TRX = 1 vote
-	
+
 	// Freeze constants
-	MinFreezeAmount    = 1000000 // 1 TRX minimum
-	FreezeMinDuration  = 3       // 3 days minimum
-	
+	MinFreezeAmount   = 1000000 // 1 TRX minimum
+	FreezeMinDuration = 3       // 3 days minimum
+
 	// Permission constants
 	OwnerPermissionID   = 0
 	WitnessPermissionID = 1
 	ActivePermissionID  = 2
+
+	MaxResultSize = 64 // used for bandwidth estimation
 )
 
 // Network represents a TRON network
@@ -79,7 +81,7 @@ var (
 			"grpc.shasta.trongrid.io:50051",
 		},
 	}
-	
+
 	TestNet = Network{
 		Name:    TronTestNet,
 		ChainID: "0x94a9059e",
@@ -87,7 +89,7 @@ var (
 			"grpc.shasta.trongrid.io:50051",
 		},
 	}
-	
+
 	NileNet = Network{
 		Name:    TronNileNet,
 		ChainID: "0xcd8690dc",

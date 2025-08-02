@@ -81,4 +81,13 @@ func main() {
 	}
 	fmt.Println("Simulation Result:", simResult)
 
+	apiext, err := contract.TriggerSmartContract(ctx, from, 0, "transfer", toAddress, amount)
+	if err != nil {
+		fmt.Printf("Failed to trigger smart contract: %v\n", err)
+		return
+	}
+	fmt.Println("Transaction ID:", apiext)
+	en := apiext.GetEnergyUsed()
+	fmt.Println("Energy Used:", en)
+
 }

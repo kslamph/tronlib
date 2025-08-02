@@ -2,8 +2,6 @@ package types
 
 import (
 	"crypto/ecdsa"
-
-	"github.com/kslamph/tronlib/pb/core"
 )
 
 // Signer defines the interface for signing Tron transactions and messages
@@ -14,11 +12,9 @@ type Signer interface {
 	// PublicKey returns the account's public key
 	PublicKey() *ecdsa.PublicKey
 
-	// Sign signs a transaction with permissionID 2 (active permission)
-	Sign(tx *core.Transaction) (*core.Transaction, error)
-
-	// SignWithPermissionID signs a transaction with the specified permissionID
-	SignWithPermissionID(tx *core.Transaction, permissionID int32) (*core.Transaction, error)
+	// Sign signs a transaction, supporting both core.Transaction and api.TransactionExtention types
+	// It modifies the transaction in place by appending the signature
+	Sign(tx any) error
 
 	// SignMessageV2 signs a message using TIP-191 format (v2)
 	SignMessageV2(message string) (string, error)

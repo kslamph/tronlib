@@ -39,9 +39,9 @@ func workflowExample() {
 	fmt.Println("\n=== Example 2: Smart Contract with Fee Limit ===")
 	demonstrateSmartContractWithFeeLimit(client, signer)
 
-	// Example 3: Multi-Signature Workflow
-	fmt.Println("\n=== Example 3: Multi-Signature Workflow ===")
-	demonstrateMultiSignature(client, signer)
+	// // Example 3: Multi-Signature Workflow
+	// fmt.Println("\n=== Example 3: Multi-Signature Workflow ===")
+	// demonstrateMultiSignature(client, signer)
 
 	// Example 4: Sign Only (No Broadcast)
 	fmt.Println("\n=== Example 4: Sign Only for External Broadcast ===")
@@ -118,42 +118,6 @@ func demonstrateSmartContractWithFeeLimit(client *client.Client, signer *signer.
 		fmt.Printf("  Block Number: %d\n", txInfo.BlockNumber)
 		fmt.Printf("  Contract Result: %v\n", txInfo.ContractResult)
 	}
-}
-
-func demonstrateMultiSignature(client *client.Client, signer1 *signer.PrivateKeySigner) {
-	// Create a second signer for multi-signature
-	privateKey2 := "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210"
-	signer2, err := signer.NewPrivateKeySigner(privateKey2)
-	if err != nil {
-		log.Printf("Failed to create second signer: %v", err)
-		return
-	}
-
-	// Create a mock transaction
-	mockTx := createMockTransferTransaction()
-
-	// Multi-signature workflow: Sign with multiple signers
-	wf := workflow.NewWorkflow(client, mockTx).
-		SetTimeout(time.Now().Add(30*time.Minute).UnixMilli()).
-		Sign(signer1).        // First signature
-		MultiSign(signer2, 1) // Second signature with permission ID
-
-	if err := wf.GetError(); err != nil {
-		fmt.Printf("Multi-signature workflow error: %v\n", err)
-		return
-	}
-
-	// Get the signed transaction for external handling
-	txID, signedTx, err := wf.GetSignedTransaction()
-	if err != nil {
-		fmt.Printf("Failed to get signed transaction: %v\n", err)
-		return
-	}
-
-	fmt.Printf("Multi-Signature Result:\n")
-	fmt.Printf("  TX ID: %s\n", txID)
-	fmt.Printf("  Signatures Count: %d\n", len(signedTx.Transaction.Signature))
-	fmt.Printf("  Ready for broadcast: %t\n", len(signedTx.Transaction.Signature) >= 2)
 }
 
 func demonstrateSignOnly(client *client.Client, signer *signer.PrivateKeySigner) {
