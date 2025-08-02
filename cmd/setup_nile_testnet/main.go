@@ -373,7 +373,7 @@ func (s *NileTestnetSetup) deployContract(contract ContractInfo) (DeploymentResu
 	// NOTE: DeployContract expects ownerAddress as string. Convert *types.Address to base58 string.
 	txExt, err := s.contractManager.DeployContract(
 		ctx,
-		s.config.Key1Address.String(), // ownerAddress as string
+		s.config.Key1Address,          // ownerAddress as *types.Address
 		contract.Name,                 // contractName
 		string(abiBytes),              // abi as string
 		bytecode,                      // bytecode
@@ -485,8 +485,11 @@ func (s *NileTestnetSetup) verifyDeployments() error {
 		}
 
 		fmt.Printf("🔍 Verifying %s at %s...\n", result.ContractName, result.Address)
-
-		contract, err := s.contractManager.GetContract(ctx, result.Address)
+		addr, err := types.NewAddress(result.Address)
+		if err != nil {
+			return fmt.Errorf("invalid address %s: %w", result.Address, err)
+		}
+		contract, err := s.contractManager.GetContract(ctx, addr)
 		if err != nil {
 			return fmt.Errorf("failed to verify %s: %w", result.ContractName, err)
 		}

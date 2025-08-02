@@ -8,7 +8,7 @@ import (
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/client"
-	"github.com/kslamph/tronlib/pkg/utils"
+	"github.com/kslamph/tronlib/pkg/types"
 )
 
 // Manager provides high-level TRC20 token operations
@@ -24,7 +24,8 @@ func NewManager(client *client.Client) *Manager {
 }
 
 // CreateAssetIssue2 creates an asset issue (TRC10 token) (v2)
-func (m *Manager) CreateAssetIssue2(ctx context.Context, ownerAddress string, name string, abbr string, totalSupply int64, trxNum int32, icoNum int32, startTime int64, endTime int64, description string, url string, freeAssetNetLimit int64, publicFreeAssetNetLimit int64, frozenSupply []FrozenSupply) (*api.TransactionExtention, error) {
+// CreateAssetIssue2 creates an asset issue (TRC10 token) (v2)
+func (m *Manager) CreateAssetIssue2(ctx context.Context, ownerAddress *types.Address, name string, abbr string, totalSupply int64, trxNum int32, icoNum int32, startTime int64, endTime int64, description string, url string, freeAssetNetLimit int64, publicFreeAssetNetLimit int64, frozenSupply []FrozenSupply) (*api.TransactionExtention, error) {
 	// Validate inputs
 	if name == "" {
 		return nil, fmt.Errorf("asset name cannot be empty")
@@ -44,10 +45,8 @@ func (m *Manager) CreateAssetIssue2(ctx context.Context, ownerAddress string, na
 	if startTime >= endTime {
 		return nil, fmt.Errorf("start time must be before end time")
 	}
-
-	addr, err := utils.ValidateAddress(ownerAddress)
-	if err != nil {
-		return nil, fmt.Errorf("invalid owner address: %w", err)
+	if ownerAddress == nil {
+		return nil, fmt.Errorf("invalid owner address: nil")
 	}
 
 	// Convert frozen supply
@@ -67,7 +66,7 @@ func (m *Manager) CreateAssetIssue2(ctx context.Context, ownerAddress string, na
 	}
 
 	req := &core.AssetIssueContract{
-		OwnerAddress:            addr.Bytes(),
+		OwnerAddress:            ownerAddress.Bytes(),
 		Name:                    []byte(name),
 		Abbr:                    []byte(abbr),
 		TotalSupply:             totalSupply,
@@ -92,14 +91,13 @@ type FrozenSupply struct {
 }
 
 // UpdateAsset2 updates an asset (v2)
-func (m *Manager) UpdateAsset2(ctx context.Context, ownerAddress string, description string, url string, newLimit int64, newPublicLimit int64) (*api.TransactionExtention, error) {
-	addr, err := utils.ValidateAddress(ownerAddress)
-	if err != nil {
-		return nil, fmt.Errorf("invalid owner address: %w", err)
+func (m *Manager) UpdateAsset2(ctx context.Context, ownerAddress *types.Address, description string, url string, newLimit int64, newPublicLimit int64) (*api.TransactionExtention, error) {
+	if ownerAddress == nil {
+		return nil, fmt.Errorf("invalid owner address: nil")
 	}
 
 	req := &core.UpdateAssetContract{
-		OwnerAddress:   addr.Bytes(),
+		OwnerAddress:   ownerAddress.Bytes(),
 		Description:    []byte(description),
 		Url:            []byte(url),
 		NewLimit:       newLimit,
@@ -110,7 +108,7 @@ func (m *Manager) UpdateAsset2(ctx context.Context, ownerAddress string, descrip
 }
 
 // TransferAsset2 transfers an asset (TRC10 token) (v2)
-func (m *Manager) TransferAsset2(ctx context.Context, ownerAddress string, toAddress string, assetName string, amount int64) (*api.TransactionExtention, error) {
+func (m *Manager) TransferAsset2(ctx context.Context, ownerAddress, toAddress *types.Address, assetName string, amount int64) (*api.TransactionExtention, error) {
 	// Validate inputs
 	if assetName == "" {
 		return nil, fmt.Errorf("asset name cannot be empty")
@@ -118,25 +116,21 @@ func (m *Manager) TransferAsset2(ctx context.Context, ownerAddress string, toAdd
 	if amount <= 0 {
 		return nil, fmt.Errorf("amount must be positive")
 	}
-
-	ownerAddr, err := utils.ValidateAddress(ownerAddress)
-	if err != nil {
-		return nil, fmt.Errorf("invalid owner address: %w", err)
+	if ownerAddress == nil {
+		return nil, fmt.Errorf("invalid owner address: nil")
+	}
+	if toAddress == nil {
+		return nil, fmt.Errorf("invalid to address: nil")
 	}
 
-	toAddr, err := utils.ValidateAddress(toAddress)
-	if err != nil {
-		return nil, fmt.Errorf("invalid to address: %w", err)
-	}
-
-	if ownerAddr.String() == toAddr.String() {
+	if ownerAddress.String() == toAddress.String() {
 		return nil, fmt.Errorf("owner and to addresses cannot be the same")
 	}
 
 	req := &core.TransferAssetContract{
 		AssetName:    []byte(assetName),
-		OwnerAddress: ownerAddr.Bytes(),
-		ToAddress:    toAddr.Bytes(),
+		OwnerAddress: ownerAddress.Bytes(),
+		ToAddress:    toAddress.Bytes(),
 		Amount:       amount,
 	}
 
@@ -144,7 +138,7 @@ func (m *Manager) TransferAsset2(ctx context.Context, ownerAddress string, toAdd
 }
 
 // ParticipateAssetIssue2 participates in asset issue (v2)
-func (m *Manager) ParticipateAssetIssue2(ctx context.Context, ownerAddress string, toAddress string, assetName string, amount int64) (*api.TransactionExtention, error) {
+func (m *Manager) ParticipateAssetIssue2(ctx context.Context, ownerAddress, toAddress *types.Address, assetName string, amount int64) (*api.TransactionExtention, error) {
 	// Validate inputs
 	if assetName == "" {
 		return nil, fmt.Errorf("asset name cannot be empty")
@@ -152,20 +146,16 @@ func (m *Manager) ParticipateAssetIssue2(ctx context.Context, ownerAddress strin
 	if amount <= 0 {
 		return nil, fmt.Errorf("amount must be positive")
 	}
-
-	ownerAddr, err := utils.ValidateAddress(ownerAddress)
-	if err != nil {
-		return nil, fmt.Errorf("invalid owner address: %w", err)
+	if ownerAddress == nil {
+		return nil, fmt.Errorf("invalid owner address: nil")
 	}
-
-	toAddr, err := utils.ValidateAddress(toAddress)
-	if err != nil {
-		return nil, fmt.Errorf("invalid to address: %w", err)
+	if toAddress == nil {
+		return nil, fmt.Errorf("invalid to address: nil")
 	}
 
 	req := &core.ParticipateAssetIssueContract{
-		OwnerAddress: ownerAddr.Bytes(),
-		ToAddress:    toAddr.Bytes(),
+		OwnerAddress: ownerAddress.Bytes(),
+		ToAddress:    toAddress.Bytes(),
 		AssetName:    []byte(assetName),
 		Amount:       amount,
 	}
@@ -174,28 +164,26 @@ func (m *Manager) ParticipateAssetIssue2(ctx context.Context, ownerAddress strin
 }
 
 // UnfreezeAsset2 unfreezes an asset (v2)
-func (m *Manager) UnfreezeAsset2(ctx context.Context, ownerAddress string) (*api.TransactionExtention, error) {
-	addr, err := utils.ValidateAddress(ownerAddress)
-	if err != nil {
-		return nil, fmt.Errorf("invalid owner address: %w", err)
+func (m *Manager) UnfreezeAsset2(ctx context.Context, ownerAddress *types.Address) (*api.TransactionExtention, error) {
+	if ownerAddress == nil {
+		return nil, fmt.Errorf("invalid owner address: nil")
 	}
 
 	req := &core.UnfreezeAssetContract{
-		OwnerAddress: addr.Bytes(),
+		OwnerAddress: ownerAddress.Bytes(),
 	}
 
 	return m.client.UnfreezeAsset2(ctx, req)
 }
 
 // GetAssetIssueByAccount gets asset issues by account
-func (m *Manager) GetAssetIssueByAccount(ctx context.Context, address string) (*api.AssetIssueList, error) {
-	addr, err := utils.ValidateAddress(address)
-	if err != nil {
-		return nil, fmt.Errorf("invalid address: %w", err)
+func (m *Manager) GetAssetIssueByAccount(ctx context.Context, address *types.Address) (*api.AssetIssueList, error) {
+	if address == nil {
+		return nil, fmt.Errorf("invalid address: nil")
 	}
 
 	req := &core.Account{
-		Address: addr.Bytes(),
+		Address: address.Bytes(),
 	}
 
 	return m.client.GetAssetIssueByAccount(ctx, req)

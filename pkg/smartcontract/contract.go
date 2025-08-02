@@ -43,7 +43,7 @@ func NewContract(tronClient *client.Client, address *types.Address, abi ...any) 
 	// Process ABI parameter
 	if len(abi) == 0 {
 		// No ABI provided - retrieve from network
-		contractInfo, err := getContractFromNetwork(context.Background(), tronClient, address.String())
+		contractInfo, err := getContractFromNetwork(context.Background(), tronClient, address)
 		if err != nil {
 			return nil, fmt.Errorf("failed to retrieve contract from network: %v", err)
 		}
@@ -89,20 +89,13 @@ func NewContract(tronClient *client.Client, address *types.Address, abi ...any) 
 }
 
 // getContractFromNetwork retrieves smart contract information from the network
-func getContractFromNetwork(ctx context.Context, client *client.Client, contractAddress string) (*core.SmartContract, error) {
-	// Handle both hex and base58 addresses
-	var contractAddressBytes []byte
-	var err error
-
-	// Try to parse as base58 first (standard TRON address)
-	addr, err := types.NewAddress(contractAddress)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse address: %v", err)
+func getContractFromNetwork(ctx context.Context, client *client.Client, contractAddress *types.Address) (*core.SmartContract, error) {
+	if contractAddress == nil {
+		return nil, fmt.Errorf("contract address cannot be nil")
 	}
-	contractAddressBytes = addr.Bytes()
 
 	req := &api.BytesMessage{
-		Value: contractAddressBytes,
+		Value: contractAddress.Bytes(),
 	}
 	return client.GetContract(ctx, req)
 }

@@ -8,7 +8,7 @@ import (
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/client"
-
+	"github.com/kslamph/tronlib/pkg/types"
 	"github.com/kslamph/tronlib/pkg/utils"
 )
 
@@ -29,7 +29,7 @@ func NewManager(client *client.Client) *Manager {
 //   - string: ABI JSON string
 //   - *core.SmartContract_ABI: Parsed ABI object
 //   - nil: No ABI provided
-func (m *Manager) DeployContract(ctx context.Context, ownerAddress, contractName string, abi any, bytecode []byte, callValue, consumeUserResourcePercent, originEnergyLimit int64, constructorParams ...interface{}) (*api.TransactionExtention, error) {
+func (m *Manager) DeployContract(ctx context.Context, ownerAddress *types.Address, contractName string, abi any, bytecode []byte, callValue, consumeUserResourcePercent, originEnergyLimit int64, constructorParams ...interface{}) (*api.TransactionExtention, error) {
 	// Validate inputs
 	if err := utils.ValidateContractName(contractName); err != nil {
 		return nil, fmt.Errorf("invalid contract name: %w", err)
@@ -46,14 +46,13 @@ func (m *Manager) DeployContract(ctx context.Context, ownerAddress, contractName
 	if originEnergyLimit < 0 {
 		return nil, fmt.Errorf("origin energy limit cannot be negative")
 	}
-
-	addr, err := utils.ValidateAddress(ownerAddress)
-	if err != nil {
-		return nil, fmt.Errorf("invalid owner address: %w", err)
+	if ownerAddress == nil {
+		return nil, fmt.Errorf("invalid owner address: nil")
 	}
 
 	// Process ABI parameter similar to NewContract
 	var contractABI *core.SmartContract_ABI
+	var err error
 	if abi != nil {
 		switch v := abi.(type) {
 		case string:
@@ -97,7 +96,7 @@ func (m *Manager) DeployContract(ctx context.Context, ownerAddress, contractName
 
 	// Create new contract
 	newContract := &core.SmartContract{
-		OriginAddress:              addr.Bytes(),
+		OriginAddress:              ownerAddress.Bytes(),
 		ContractAddress:            nil, // Will be generated
 		Abi:                        contractABI,
 		Bytecode:                   finalBytecode,
@@ -108,7 +107,7 @@ func (m *Manager) DeployContract(ctx context.Context, ownerAddress, contractName
 	}
 
 	req := &core.CreateSmartContract{
-		OwnerAddress:   addr.Bytes(),
+		OwnerAddress:   ownerAddress.Bytes(),
 		NewContract:    newContract,
 		CallTokenValue: 0,
 		TokenId:        0,
@@ -162,7 +161,7 @@ func (m *Manager) encodeConstructor(abi *core.SmartContract_ABI, constructorPara
 }
 
 // EstimateEnergy estimates energy required for smart contract execution
-func (m *Manager) EstimateEnergy(ctx context.Context, ownerAddress string, contractAddress string, data []byte, callValue int64) (*api.EstimateEnergyMessage, error) {
+func (m *Manager) EstimateEnergy(ctx context.Context, ownerAddress, contractAddress *types.Address, data []byte, callValue int64) (*api.EstimateEnergyMessage, error) {
 	// Validate inputs
 	if len(data) == 0 {
 		return nil, fmt.Errorf("contract data cannot be empty")
@@ -170,15 +169,11 @@ func (m *Manager) EstimateEnergy(ctx context.Context, ownerAddress string, contr
 	if callValue < 0 {
 		return nil, fmt.Errorf("call value cannot be negative")
 	}
-
-	ownerAddr, err := utils.ValidateAddress(ownerAddress)
-	if err != nil {
-		return nil, fmt.Errorf("invalid owner address: %w", err)
+	if ownerAddress == nil {
+		return nil, fmt.Errorf("invalid owner address: nil")
 	}
-
-	contractAddr, err := utils.ValidateAddress(contractAddress)
-	if err != nil {
-		return nil, fmt.Errorf("invalid contract address: %w", err)
+	if contractAddress == nil {
+		return nil, fmt.Errorf("invalid contract address: nil")
 	}
 
 	if err := utils.ValidateContractData(data); err != nil {
@@ -186,8 +181,8 @@ func (m *Manager) EstimateEnergy(ctx context.Context, ownerAddress string, contr
 	}
 
 	req := &core.TriggerSmartContract{
-		OwnerAddress:    ownerAddr.Bytes(),
-		ContractAddress: contractAddr.Bytes(),
+		OwnerAddress:    ownerAddress.Bytes(),
+		ContractAddress: contractAddress.Bytes(),
 		Data:            data,
 		CallValue:       callValue,
 	}
@@ -196,52 +191,46 @@ func (m *Manager) EstimateEnergy(ctx context.Context, ownerAddress string, contr
 }
 
 // GetContract gets smart contract information
-func (m *Manager) GetContract(ctx context.Context, contractAddress string) (*core.SmartContract, error) {
-	addr, err := utils.ValidateAddress(contractAddress)
-	if err != nil {
-		return nil, fmt.Errorf("invalid contract address: %w", err)
+func (m *Manager) GetContract(ctx context.Context, contractAddress *types.Address) (*core.SmartContract, error) {
+	if contractAddress == nil {
+		return nil, fmt.Errorf("invalid contract address: nil")
 	}
 
 	req := &api.BytesMessage{
-		Value: addr.Bytes(),
+		Value: contractAddress.Bytes(),
 	}
 
 	return m.client.GetContract(ctx, req)
 }
 
 // GetContractInfo gets smart contract detailed information
-func (m *Manager) GetContractInfo(ctx context.Context, contractAddress string) (*core.SmartContractDataWrapper, error) {
-	addr, err := utils.ValidateAddress(contractAddress)
-	if err != nil {
-		return nil, fmt.Errorf("invalid contract address: %w", err)
+func (m *Manager) GetContractInfo(ctx context.Context, contractAddress *types.Address) (*core.SmartContractDataWrapper, error) {
+	if contractAddress == nil {
+		return nil, fmt.Errorf("invalid contract address: nil")
 	}
 
 	req := &api.BytesMessage{
-		Value: addr.Bytes(),
+		Value: contractAddress.Bytes(),
 	}
 
 	return m.client.GetContractInfo(ctx, req)
 }
 
 // UpdateSetting updates smart contract settings
-func (m *Manager) UpdateSetting(ctx context.Context, ownerAddress string, contractAddress string, consumeUserResourcePercent int64) (*api.TransactionExtention, error) {
+func (m *Manager) UpdateSetting(ctx context.Context, ownerAddress, contractAddress *types.Address, consumeUserResourcePercent int64) (*api.TransactionExtention, error) {
 	if consumeUserResourcePercent < 0 || consumeUserResourcePercent > 100 {
 		return nil, fmt.Errorf("consume user resource percent must be between 0 and 100")
 	}
-
-	ownerAddr, err := utils.ValidateAddress(ownerAddress)
-	if err != nil {
-		return nil, fmt.Errorf("invalid owner address: %w", err)
+	if ownerAddress == nil {
+		return nil, fmt.Errorf("invalid owner address: nil")
 	}
-
-	contractAddr, err := utils.ValidateAddress(contractAddress)
-	if err != nil {
-		return nil, fmt.Errorf("invalid contract address: %w", err)
+	if contractAddress == nil {
+		return nil, fmt.Errorf("invalid contract address: nil")
 	}
 
 	req := &core.UpdateSettingContract{
-		OwnerAddress:               ownerAddr.Bytes(),
-		ContractAddress:            contractAddr.Bytes(),
+		OwnerAddress:               ownerAddress.Bytes(),
+		ContractAddress:            contractAddress.Bytes(),
 		ConsumeUserResourcePercent: consumeUserResourcePercent,
 	}
 
@@ -249,24 +238,20 @@ func (m *Manager) UpdateSetting(ctx context.Context, ownerAddress string, contra
 }
 
 // UpdateEnergyLimit updates smart contract energy limit
-func (m *Manager) UpdateEnergyLimit(ctx context.Context, ownerAddress string, contractAddress string, originEnergyLimit int64) (*api.TransactionExtention, error) {
+func (m *Manager) UpdateEnergyLimit(ctx context.Context, ownerAddress, contractAddress *types.Address, originEnergyLimit int64) (*api.TransactionExtention, error) {
 	if originEnergyLimit < 0 {
 		return nil, fmt.Errorf("origin energy limit cannot be negative")
 	}
-
-	ownerAddr, err := utils.ValidateAddress(ownerAddress)
-	if err != nil {
-		return nil, fmt.Errorf("invalid owner address: %w", err)
+	if ownerAddress == nil {
+		return nil, fmt.Errorf("invalid owner address: nil")
 	}
-
-	contractAddr, err := utils.ValidateAddress(contractAddress)
-	if err != nil {
-		return nil, fmt.Errorf("invalid contract address: %w", err)
+	if contractAddress == nil {
+		return nil, fmt.Errorf("invalid contract address: nil")
 	}
 
 	req := &core.UpdateEnergyLimitContract{
-		OwnerAddress:      ownerAddr.Bytes(),
-		ContractAddress:   contractAddr.Bytes(),
+		OwnerAddress:      ownerAddress.Bytes(),
+		ContractAddress:   contractAddress.Bytes(),
 		OriginEnergyLimit: originEnergyLimit,
 	}
 
@@ -274,20 +259,17 @@ func (m *Manager) UpdateEnergyLimit(ctx context.Context, ownerAddress string, co
 }
 
 // ClearContractABI clears smart contract ABI
-func (m *Manager) ClearContractABI(ctx context.Context, ownerAddress string, contractAddress string) (*api.TransactionExtention, error) {
-	ownerAddr, err := utils.ValidateAddress(ownerAddress)
-	if err != nil {
-		return nil, fmt.Errorf("invalid owner address: %w", err)
+func (m *Manager) ClearContractABI(ctx context.Context, ownerAddress, contractAddress *types.Address) (*api.TransactionExtention, error) {
+	if ownerAddress == nil {
+		return nil, fmt.Errorf("invalid owner address: nil")
 	}
-
-	contractAddr, err := utils.ValidateAddress(contractAddress)
-	if err != nil {
-		return nil, fmt.Errorf("invalid contract address: %w", err)
+	if contractAddress == nil {
+		return nil, fmt.Errorf("invalid contract address: nil")
 	}
 
 	req := &core.ClearABIContract{
-		OwnerAddress:    ownerAddr.Bytes(),
-		ContractAddress: contractAddr.Bytes(),
+		OwnerAddress:    ownerAddress.Bytes(),
+		ContractAddress: contractAddress.Bytes(),
 	}
 
 	return m.client.ClearContractABI(ctx, req)

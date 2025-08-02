@@ -19,3 +19,11 @@ func createMockAddress() *types.Address {
 	addr, _ := types.NewAddress("TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t")
 	return addr
 }
+
+func mustAddr(t *testing.T, s string) *types.Address {
+	a, err := types.NewAddress(s)
+	if err != nil {
+		t.Fatalf("failed to create address from string %q: %v", s, err)
+	}
+	return a
+}

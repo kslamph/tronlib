@@ -6,6 +6,7 @@ import (
 
 	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/client"
+	"github.com/kslamph/tronlib/pkg/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -18,9 +19,10 @@ func TestDeployContractValidation(t *testing.T) {
 	ctx := context.Background()
 
 	// Test cases for validation
+	// Test cases for validation
 	tests := []struct {
 		name                       string
-		ownerAddress               string
+		ownerAddress               *types.Address
 		contractName               string
 		abi                        *core.SmartContract_ABI
 		bytecode                   []byte
@@ -33,7 +35,7 @@ func TestDeployContractValidation(t *testing.T) {
 	}{
 		{
 			name:                       "Valid empty contract name",
-			ownerAddress:               "TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g",
+			ownerAddress:               mustAddr(t, "TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g"),
 			contractName:               "",
 			abi:                        nil,
 			bytecode:                   []byte("608060405234801561001057600080fd5b50"),
@@ -45,7 +47,7 @@ func TestDeployContractValidation(t *testing.T) {
 		},
 		{
 			name:                       "Valid contract name with spaces",
-			ownerAddress:               "TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g",
+			ownerAddress:               mustAddr(t, "TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g"),
 			contractName:               "My Test Contract",
 			abi:                        nil,
 			bytecode:                   []byte("608060405234801561001057600080fd5b50"),
@@ -57,7 +59,7 @@ func TestDeployContractValidation(t *testing.T) {
 		},
 		{
 			name:                       "Invalid contract name with control characters",
-			ownerAddress:               "TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g",
+			ownerAddress:               mustAddr(t, "TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g"),
 			contractName:               "Test\x00Contract",
 			abi:                        nil,
 			bytecode:                   []byte("608060405234801561001057600080fd5b50"),
@@ -70,7 +72,7 @@ func TestDeployContractValidation(t *testing.T) {
 		},
 		{
 			name:                       "Empty bytecode",
-			ownerAddress:               "TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g",
+			ownerAddress:               mustAddr(t, "TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g"),
 			contractName:               "TestContract",
 			abi:                        nil,
 			bytecode:                   []byte{},
@@ -83,7 +85,7 @@ func TestDeployContractValidation(t *testing.T) {
 		},
 		{
 			name:                       "Negative call value",
-			ownerAddress:               "TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g",
+			ownerAddress:               mustAddr(t, "TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g"),
 			contractName:               "TestContract",
 			abi:                        nil,
 			bytecode:                   []byte("608060405234801561001057600080fd5b50"),
@@ -96,7 +98,7 @@ func TestDeployContractValidation(t *testing.T) {
 		},
 		{
 			name:                       "Invalid consume user resource percent - negative",
-			ownerAddress:               "TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g",
+			ownerAddress:               mustAddr(t, "TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g"),
 			contractName:               "TestContract",
 			abi:                        nil,
 			bytecode:                   []byte("608060405234801561001057600080fd5b50"),
@@ -109,7 +111,7 @@ func TestDeployContractValidation(t *testing.T) {
 		},
 		{
 			name:                       "Invalid consume user resource percent - over 100",
-			ownerAddress:               "TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g",
+			ownerAddress:               mustAddr(t, "TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g"),
 			contractName:               "TestContract",
 			abi:                        nil,
 			bytecode:                   []byte("608060405234801561001057600080fd5b50"),
@@ -122,7 +124,7 @@ func TestDeployContractValidation(t *testing.T) {
 		},
 		{
 			name:                       "Negative origin energy limit",
-			ownerAddress:               "TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g",
+			ownerAddress:               mustAddr(t, "TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g"),
 			contractName:               "TestContract",
 			abi:                        nil,
 			bytecode:                   []byte("608060405234801561001057600080fd5b50"),
@@ -135,7 +137,7 @@ func TestDeployContractValidation(t *testing.T) {
 		},
 		{
 			name:                       "Invalid owner address",
-			ownerAddress:               "invalid-address",
+			ownerAddress:               nil,
 			contractName:               "TestContract",
 			abi:                        nil,
 			bytecode:                   []byte("608060405234801561001057600080fd5b50"),
@@ -148,7 +150,7 @@ func TestDeployContractValidation(t *testing.T) {
 		},
 		{
 			name:                       "Constructor params without ABI",
-			ownerAddress:               "TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g",
+			ownerAddress:               mustAddr(t, "TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g"),
 			contractName:               "TestContract",
 			abi:                        nil,
 			bytecode:                   []byte("608060405234801561001057600080fd5b50"),
@@ -160,7 +162,6 @@ func TestDeployContractValidation(t *testing.T) {
 			errMsg:                     "ABI cannot be nil",
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Note: This will fail at the lowlevel.DeployContract call since we don't have a real connection

@@ -193,7 +193,7 @@ func (t *TRC20Client) Transfer(fromAddress *types.Address, toAddress *types.Addr
 		return "", fmt.Errorf("invalid amount: %w", err)
 	}
 
-	txExt, err := t.contract.TriggerSmartContract(context.Background(), fromAddress, 0, "transfer", toAddress.String(), rawAmount)
+	txExt, err := t.contract.TriggerSmartContract(context.Background(), fromAddress, 0, "transfer", toAddress, rawAmount)
 	if err != nil {
 		return "", fmt.Errorf("failed to call transfer method: %w", err)
 	}
@@ -213,7 +213,7 @@ func (t *TRC20Client) Approve(ownerAddress *types.Address, spenderAddress *types
 		return "", fmt.Errorf("invalid amount: %w", err)
 	}
 
-	txExt, err := t.contract.TriggerSmartContract(context.Background(), ownerAddress, 0, "approve", spenderAddress.String(), rawAmount)
+	txExt, err := t.contract.TriggerSmartContract(context.Background(), ownerAddress, 0, "approve", spenderAddress, rawAmount)
 	if err != nil {
 		return "", fmt.Errorf("failed to call approve method: %w", err)
 	}

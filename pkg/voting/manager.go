@@ -8,7 +8,7 @@ import (
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/client"
-	"github.com/kslamph/tronlib/pkg/utils"
+	"github.com/kslamph/tronlib/pkg/types"
 )
 
 // Manager provides high-level voting and witness operations
@@ -24,21 +24,20 @@ func NewManager(client *client.Client) *Manager {
 }
 
 // Vote represents a single vote for a witness
+// Vote represents a single vote for a witness
 type Vote struct {
-	WitnessAddress string
+	WitnessAddress *types.Address
 	VoteCount      int64
 }
 
 // VoteWitnessAccount2 votes for witnesses (v2)
-func (m *Manager) VoteWitnessAccount2(ctx context.Context, ownerAddress string, votes []Vote) (*api.TransactionExtention, error) {
+func (m *Manager) VoteWitnessAccount2(ctx context.Context, ownerAddress *types.Address, votes []Vote) (*api.TransactionExtention, error) {
 	// Validate inputs
 	if len(votes) == 0 {
 		return nil, fmt.Errorf("votes list cannot be empty")
 	}
-
-	addr, err := utils.ValidateAddress(ownerAddress)
-	if err != nil {
-		return nil, fmt.Errorf("invalid owner address: %w", err)
+	if ownerAddress == nil {
+		return nil, fmt.Errorf("invalid owner address: nil")
 	}
 
 	// Convert votes to protocol format
@@ -47,20 +46,18 @@ func (m *Manager) VoteWitnessAccount2(ctx context.Context, ownerAddress string, 
 		if vote.VoteCount <= 0 {
 			return nil, fmt.Errorf("vote count must be positive for vote %d", i)
 		}
-
-		witnessAddr, err := utils.ValidateAddress(vote.WitnessAddress)
-		if err != nil {
-			return nil, fmt.Errorf("invalid witness address for vote %d: %w", i, err)
+		if vote.WitnessAddress == nil {
+			return nil, fmt.Errorf("invalid witness address for vote %d: nil", i)
 		}
 
 		protoVotes = append(protoVotes, &core.VoteWitnessContract_Vote{
-			VoteAddress: witnessAddr.Bytes(),
+			VoteAddress: vote.WitnessAddress.Bytes(),
 			VoteCount:   vote.VoteCount,
 		})
 	}
 
 	req := &core.VoteWitnessContract{
-		OwnerAddress: addr.Bytes(),
+		OwnerAddress: ownerAddress.Bytes(),
 		Votes:        protoVotes,
 	}
 
@@ -68,32 +65,29 @@ func (m *Manager) VoteWitnessAccount2(ctx context.Context, ownerAddress string, 
 }
 
 // WithdrawBalance2 withdraws balance (claim rewards) (v2)
-func (m *Manager) WithdrawBalance2(ctx context.Context, ownerAddress string) (*api.TransactionExtention, error) {
-	addr, err := utils.ValidateAddress(ownerAddress)
-	if err != nil {
-		return nil, fmt.Errorf("invalid owner address: %w", err)
+func (m *Manager) WithdrawBalance2(ctx context.Context, ownerAddress *types.Address) (*api.TransactionExtention, error) {
+	if ownerAddress == nil {
+		return nil, fmt.Errorf("invalid owner address: nil")
 	}
 
 	req := &core.WithdrawBalanceContract{
-		OwnerAddress: addr.Bytes(),
+		OwnerAddress: ownerAddress.Bytes(),
 	}
 
 	return m.client.WithdrawBalance2(ctx, req)
 }
 
 // CreateWitness2 creates a witness (v2)
-func (m *Manager) CreateWitness2(ctx context.Context, ownerAddress string, url string) (*api.TransactionExtention, error) {
+func (m *Manager) CreateWitness2(ctx context.Context, ownerAddress *types.Address, url string) (*api.TransactionExtention, error) {
 	if url == "" {
 		return nil, fmt.Errorf("witness URL cannot be empty")
 	}
-
-	addr, err := utils.ValidateAddress(ownerAddress)
-	if err != nil {
-		return nil, fmt.Errorf("invalid owner address: %w", err)
+	if ownerAddress == nil {
+		return nil, fmt.Errorf("invalid owner address: nil")
 	}
 
 	req := &core.WitnessCreateContract{
-		OwnerAddress: addr.Bytes(),
+		OwnerAddress: ownerAddress.Bytes(),
 		Url:          []byte(url),
 	}
 
@@ -101,18 +95,16 @@ func (m *Manager) CreateWitness2(ctx context.Context, ownerAddress string, url s
 }
 
 // UpdateWitness2 updates witness information (v2)
-func (m *Manager) UpdateWitness2(ctx context.Context, ownerAddress string, updateUrl string) (*api.TransactionExtention, error) {
+func (m *Manager) UpdateWitness2(ctx context.Context, ownerAddress *types.Address, updateUrl string) (*api.TransactionExtention, error) {
 	if updateUrl == "" {
 		return nil, fmt.Errorf("update URL cannot be empty")
 	}
-
-	addr, err := utils.ValidateAddress(ownerAddress)
-	if err != nil {
-		return nil, fmt.Errorf("invalid owner address: %w", err)
+	if ownerAddress == nil {
+		return nil, fmt.Errorf("invalid owner address: nil")
 	}
 
 	req := &core.WitnessUpdateContract{
-		OwnerAddress: addr.Bytes(),
+		OwnerAddress: ownerAddress.Bytes(),
 		UpdateUrl:    []byte(updateUrl),
 	}
 
@@ -126,46 +118,42 @@ func (m *Manager) ListWitnesses(ctx context.Context) (*api.WitnessList, error) {
 }
 
 // GetRewardInfo gets reward information for an address
-func (m *Manager) GetRewardInfo(ctx context.Context, address string) (*api.NumberMessage, error) {
-	addr, err := utils.ValidateAddress(address)
-	if err != nil {
-		return nil, fmt.Errorf("invalid address: %w", err)
+func (m *Manager) GetRewardInfo(ctx context.Context, address *types.Address) (*api.NumberMessage, error) {
+	if address == nil {
+		return nil, fmt.Errorf("invalid address: nil")
 	}
 
 	req := &api.BytesMessage{
-		Value: addr.Bytes(),
+		Value: address.Bytes(),
 	}
 
 	return m.client.GetRewardInfo(ctx, req)
 }
 
 // GetBrokerageInfo gets brokerage information for an address
-func (m *Manager) GetBrokerageInfo(ctx context.Context, address string) (*api.NumberMessage, error) {
-	addr, err := utils.ValidateAddress(address)
-	if err != nil {
-		return nil, fmt.Errorf("invalid address: %w", err)
+func (m *Manager) GetBrokerageInfo(ctx context.Context, address *types.Address) (*api.NumberMessage, error) {
+	if address == nil {
+		return nil, fmt.Errorf("invalid address: nil")
 	}
 
 	req := &api.BytesMessage{
-		Value: addr.Bytes(),
+		Value: address.Bytes(),
 	}
 
 	return m.client.GetBrokerageInfo(ctx, req)
 }
 
 // UpdateBrokerage updates brokerage percentage
-func (m *Manager) UpdateBrokerage(ctx context.Context, ownerAddress string, brokerage int32) (*api.TransactionExtention, error) {
+func (m *Manager) UpdateBrokerage(ctx context.Context, ownerAddress *types.Address, brokerage int32) (*api.TransactionExtention, error) {
 	if brokerage < 0 || brokerage > 100 {
 		return nil, fmt.Errorf("brokerage must be between 0 and 100")
 	}
-
-	addr, err := utils.ValidateAddress(ownerAddress)
-	if err != nil {
-		return nil, fmt.Errorf("invalid owner address: %w", err)
+	if ownerAddress == nil {
+		return nil, fmt.Errorf("invalid owner address: nil")
 	}
 
 	req := &core.UpdateBrokerageContract{
-		OwnerAddress: addr.Bytes(),
+		OwnerAddress: ownerAddress.Bytes(),
 		Brokerage:    brokerage,
 	}
 
