@@ -10,7 +10,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pkg/types"
 )
 
@@ -43,7 +42,7 @@ func DefaultClientConfig(nodeAddress string) ClientConfig {
 
 // Client manages connection to a single Tron node with connection pooling
 type Client struct {
-	pool        *ConnPool
+	pool        *connPool
 	timeout     time.Duration
 	nodeAddress string
 	closed      int32
@@ -75,7 +74,7 @@ func NewClient(config ClientConfig) (*Client, error) {
 	}
 
 	// Use the same timeout for connection pool
-	pool, err := NewConnPool(factory, initConnections, maxConnections)
+	pool, err := newConnPool(factory, initConnections, maxConnections)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +107,7 @@ func (c *Client) GetConnection(ctx context.Context) (*grpc.ClientConn, error) {
 		defer cancel()
 	}
 
-	return c.pool.Get(ctx)
+	return c.pool.get(ctx)
 }
 
 // ReturnConnection safely returns a connection to the pool
@@ -116,7 +115,7 @@ func (c *Client) ReturnConnection(conn *grpc.ClientConn) {
 	if atomic.LoadInt32(&c.closed) == 1 {
 		return
 	}
-	c.pool.Put(conn)
+	c.pool.put(conn)
 }
 
 // Close closes the client and all connections in the pool
@@ -124,7 +123,7 @@ func (c *Client) Close() {
 	if !atomic.CompareAndSwapInt32(&c.closed, 0, 1) {
 		return // Already closed
 	}
-	c.pool.Close()
+	c.pool.close()
 }
 
 // GetTimeout returns the client's configured timeout
@@ -144,62 +143,6 @@ func (c *Client) IsConnected() bool {
 
 // ValidationFunc is a function type for validating gRPC call results
 // T represents the return type of the gRPC call
-type ValidationFunc[T any] func(result T, operation string) error
+// type ValidationFunc[T any] func(result T, operation string) error
 
-// grpcGenericCallWrapper wraps common gRPC call patterns with proper connection management
-// T represents the return type of the gRPC call
-// This generic wrapper can handle any gRPC operation return type while maintaining type safety
-func grpcGenericCallWrapper[T any](c *Client, ctx context.Context, operation string, call func(client api.WalletClient, ctx context.Context) (T, error), validateFunc ...ValidationFunc[T]) (T, error) {
-	var zero T // zero value for type T
-	
-	// Get connection from pool
-	conn, err := c.pool.Get(ctx)
-	if err != nil {
-		return zero, fmt.Errorf("failed to get connection for %s: %w", operation, err)
-	}
-	defer c.pool.Put(conn)
-
-	// Create wallet client
-	walletClient := api.NewWalletClient(conn)
-
-	// fallback to context with timeout if no deadline is set
-	var cancel context.CancelFunc
-	if _, ok := ctx.Deadline(); !ok {
-		ctx, cancel = context.WithTimeout(ctx, c.GetTimeout())
-		defer cancel()
-	}
-
-	// Execute the call with proper context
-	result, err := call(walletClient, ctx)
-	if err != nil {
-		return zero, fmt.Errorf("failed to execute %s: %w", operation, err)
-	}
-
-	// Apply validation if provided
-	if len(validateFunc) > 0 && validateFunc[0] != nil {
-		if err := validateFunc[0](result, operation); err != nil {
-			return zero, err
-		}
-	}
-
-	return result, nil
-}
-
-// validateTransactionResult checks the common result pattern for transaction operations
-func validateTransactionResult(result *api.TransactionExtention, operation string) error {
-	if result == nil {
-		return fmt.Errorf("nil result for %s", operation)
-	}
-	if result.Result == nil {
-		return fmt.Errorf("nil result field for %s", operation)
-	}
-	if !result.Result.Result {
-		return types.WrapTransactionResult(result.Result, operation)
-	}
-	return nil
-}
-
-// grpcTransactionCallWrapper wraps gRPC calls that return TransactionExtention
-func (c *Client) grpcTransactionCallWrapper(ctx context.Context, operation string, call func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error)) (*api.TransactionExtention, error) {
-	return grpcGenericCallWrapper(c, ctx, operation, call, validateTransactionResult)
-}
+// Account-related gRPC calls

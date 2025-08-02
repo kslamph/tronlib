@@ -9,26 +9,26 @@ import (
 	"google.golang.org/grpc"
 )
 
-// ConnPool manages a pool of gRPC client connections.
-// ConnPool manages a pool of gRPC client connections.
+// connPool manages a pool of gRPC client connections.
+// connPool manages a pool of gRPC client connections.
 // For testing purposes, GetFunc can be overridden to mock connection behavior.
-type ConnPool struct {
+type connPool struct {
 	mu          sync.Mutex
 	conns       chan *grpc.ClientConn
 	factory     func(ctx context.Context) (*grpc.ClientConn, error)
 	initialSize int
 
 	// For testing only: A function to override the Get method's behavior.
-	GetFunc func(ctx context.Context) (*grpc.ClientConn, error)
+	getFunc func(ctx context.Context) (*grpc.ClientConn, error)
 }
 
-// NewConnPool creates a new connection pool.
-func NewConnPool(factory func(ctx context.Context) (*grpc.ClientConn, error), initialSize int, capacity int) (*ConnPool, error) {
+// newConnPool creates a new connection pool.
+func newConnPool(factory func(ctx context.Context) (*grpc.ClientConn, error), initialSize int, capacity int) (*connPool, error) {
 	if initialSize < 0 || capacity <= 0 || initialSize > capacity {
 		return nil, fmt.Errorf("invalid pool configuration")
 	}
 
-	p := &ConnPool{
+	p := &connPool{
 		conns:       make(chan *grpc.ClientConn, capacity),
 		factory:     factory,
 		initialSize: initialSize,
@@ -40,12 +40,12 @@ func NewConnPool(factory func(ctx context.Context) (*grpc.ClientConn, error), in
 	return p, nil
 }
 
-// Get retrieves a connection from the pool. If no connection is available,
+// get retrieves a connection from the pool. If no connection is available,
 // it will try to create a new one if the pool has not reached its capacity.
-func (p *ConnPool) Get(ctx context.Context) (*grpc.ClientConn, error) {
+func (p *connPool) get(ctx context.Context) (*grpc.ClientConn, error) {
 	// If a mock GetFunc is provided, use it
-	if p.GetFunc != nil {
-		return p.GetFunc(ctx)
+	if p.getFunc != nil {
+		return p.getFunc(ctx)
 	}
 
 	select {
@@ -74,8 +74,8 @@ func (p *ConnPool) Get(ctx context.Context) (*grpc.ClientConn, error) {
 	}
 }
 
-// Put returns a connection to the pool.
-func (p *ConnPool) Put(conn *grpc.ClientConn) {
+// put returns a connection to the pool.
+func (p *connPool) put(conn *grpc.ClientConn) {
 	if conn == nil {
 		return
 	}
@@ -88,8 +88,8 @@ func (p *ConnPool) Put(conn *grpc.ClientConn) {
 	}
 }
 
-// Close closes all connections in the pool.
-func (p *ConnPool) Close() {
+// close closes all connections in the pool.
+func (p *connPool) close() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 

@@ -7,6 +7,7 @@ import (
 
 	eCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/kslamph/tronlib/pb/core"
+	"github.com/kslamph/tronlib/pkg/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -496,10 +497,10 @@ func TestABIDecoder_FormatDecodedValue(t *testing.T) {
 		ethAddr := eCommon.BytesToAddress(evmBytes)
 
 		result := processor.formatDecodedValue(ethAddr, "address")
-
+		exp := types.MustNewAddressFromBase58("TTgbn3yTSzVDP3BrH9EonLNLvhbfyT3TXh")
 		// The result should be a string (the base58 representation of the TRON address)
-		assert.IsType(t, "", result)
-		assert.Equal(t, "TTgbn3yTSzVDP3BrH9EonLNLvhbfyT3TXh", result)
+		assert.IsType(t, exp, result)
+		assert.Equal(t, exp, result)
 	})
 }
 
