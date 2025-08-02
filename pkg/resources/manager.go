@@ -16,6 +16,9 @@ type Manager struct {
 	client *client.Client
 }
 
+// ResourceManager is an explicit alias of Manager for discoverability and future clarity.
+type ResourceManager = Manager
+
 // NewManager creates a new resource manager
 func NewManager(client *client.Client) *Manager {
 	return &Manager{
@@ -35,10 +38,10 @@ const (
 func (m *Manager) FreezeBalanceV2(ctx context.Context, ownerAddress *types.Address, frozenBalance int64, resource ResourceType) (*api.TransactionExtention, error) {
 	// Validate inputs
 	if frozenBalance <= 0 {
-		return nil, fmt.Errorf("frozen balance must be positive")
+		return nil, fmt.Errorf("%w: value must be positive", types.ErrInvalidAmount)
 	}
 	if ownerAddress == nil {
-		return nil, fmt.Errorf("invalid owner address: nil")
+		return nil, fmt.Errorf("%w: invalid owner address: nil", types.ErrInvalidAddress)
 	}
 
 	req := &core.FreezeBalanceV2Contract{
@@ -54,10 +57,10 @@ func (m *Manager) FreezeBalanceV2(ctx context.Context, ownerAddress *types.Addre
 func (m *Manager) UnfreezeBalanceV2(ctx context.Context, ownerAddress *types.Address, unfreezeBalance int64, resource ResourceType) (*api.TransactionExtention, error) {
 	// Validate inputs
 	if unfreezeBalance <= 0 {
-		return nil, fmt.Errorf("unfreeze balance must be positive")
+		return nil, fmt.Errorf("%w: value must be positive", types.ErrInvalidAmount)
 	}
 	if ownerAddress == nil {
-		return nil, fmt.Errorf("invalid owner address: nil")
+		return nil, fmt.Errorf("%w: invalid owner address: nil", types.ErrInvalidAddress)
 	}
 
 	req := &core.UnfreezeBalanceV2Contract{
@@ -73,17 +76,17 @@ func (m *Manager) UnfreezeBalanceV2(ctx context.Context, ownerAddress *types.Add
 func (m *Manager) DelegateResource(ctx context.Context, ownerAddress, receiverAddress *types.Address, balance int64, resource ResourceType, lock bool) (*api.TransactionExtention, error) {
 	// Validate inputs
 	if balance <= 0 {
-		return nil, fmt.Errorf("balance must be positive")
+		return nil, fmt.Errorf("%w: value must be positive", types.ErrInvalidAmount)
 	}
 	if ownerAddress == nil {
-		return nil, fmt.Errorf("invalid owner address: nil")
+		return nil, fmt.Errorf("%w: invalid owner address: nil", types.ErrInvalidAddress)
 	}
 	if receiverAddress == nil {
-		return nil, fmt.Errorf("invalid receiver address: nil")
+		return nil, fmt.Errorf("%w: invalid receiver address: nil", types.ErrInvalidAddress)
 	}
 
 	if ownerAddress.String() == receiverAddress.String() {
-		return nil, fmt.Errorf("owner and receiver addresses cannot be the same")
+		return nil, fmt.Errorf("%w: owner and receiver addresses cannot be the same", types.ErrInvalidParameter)
 	}
 
 	req := &core.DelegateResourceContract{
@@ -101,13 +104,13 @@ func (m *Manager) DelegateResource(ctx context.Context, ownerAddress, receiverAd
 func (m *Manager) UnDelegateResource(ctx context.Context, ownerAddress, receiverAddress *types.Address, balance int64, resource ResourceType) (*api.TransactionExtention, error) {
 	// Validate inputs
 	if balance <= 0 {
-		return nil, fmt.Errorf("balance must be positive")
+		return nil, fmt.Errorf("%w: value must be positive", types.ErrInvalidAmount)
 	}
 	if ownerAddress == nil {
-		return nil, fmt.Errorf("invalid owner address: nil")
+		return nil, fmt.Errorf("%w: invalid owner address: nil", types.ErrInvalidAddress)
 	}
 	if receiverAddress == nil {
-		return nil, fmt.Errorf("invalid receiver address: nil")
+		return nil, fmt.Errorf("%w: invalid receiver address: nil", types.ErrInvalidAddress)
 	}
 
 	req := &core.UnDelegateResourceContract{
@@ -123,7 +126,7 @@ func (m *Manager) UnDelegateResource(ctx context.Context, ownerAddress, receiver
 // CancelAllUnfreezeV2 cancels all unfreeze operations (v2)
 func (m *Manager) CancelAllUnfreezeV2(ctx context.Context, ownerAddress *types.Address) (*api.TransactionExtention, error) {
 	if ownerAddress == nil {
-		return nil, fmt.Errorf("invalid owner address: nil")
+		return nil, fmt.Errorf("%w: invalid owner address: nil", types.ErrInvalidAddress)
 	}
 
 	req := &core.CancelAllUnfreezeV2Contract{
@@ -136,7 +139,7 @@ func (m *Manager) CancelAllUnfreezeV2(ctx context.Context, ownerAddress *types.A
 // WithdrawExpireUnfreeze withdraws expired unfreeze amount
 func (m *Manager) WithdrawExpireUnfreeze(ctx context.Context, ownerAddress *types.Address) (*api.TransactionExtention, error) {
 	if ownerAddress == nil {
-		return nil, fmt.Errorf("invalid owner address: nil")
+		return nil, fmt.Errorf("%w: invalid owner address: nil", types.ErrInvalidAddress)
 	}
 
 	req := &core.WithdrawExpireUnfreezeContract{
@@ -149,10 +152,10 @@ func (m *Manager) WithdrawExpireUnfreeze(ctx context.Context, ownerAddress *type
 // GetDelegatedResourceV2 gets delegated resource information (v2)
 func (m *Manager) GetDelegatedResourceV2(ctx context.Context, fromAddress, toAddress *types.Address) (*api.DelegatedResourceList, error) {
 	if fromAddress == nil {
-		return nil, fmt.Errorf("invalid from address: nil")
+		return nil, fmt.Errorf("%w: invalid from address: nil", types.ErrInvalidAddress)
 	}
 	if toAddress == nil {
-		return nil, fmt.Errorf("invalid to address: nil")
+		return nil, fmt.Errorf("%w: invalid to address: nil", types.ErrInvalidAddress)
 	}
 
 	req := &api.DelegatedResourceMessage{
@@ -166,7 +169,7 @@ func (m *Manager) GetDelegatedResourceV2(ctx context.Context, fromAddress, toAdd
 // GetDelegatedResourceAccountIndexV2 gets delegated resource account index (v2)
 func (m *Manager) GetDelegatedResourceAccountIndexV2(ctx context.Context, address *types.Address) (*core.DelegatedResourceAccountIndex, error) {
 	if address == nil {
-		return nil, fmt.Errorf("invalid address: nil")
+		return nil, fmt.Errorf("%w: invalid address: nil", types.ErrInvalidAddress)
 	}
 
 	req := &api.BytesMessage{
@@ -179,7 +182,7 @@ func (m *Manager) GetDelegatedResourceAccountIndexV2(ctx context.Context, addres
 // GetCanDelegatedMaxSize gets maximum delegatable resource size
 func (m *Manager) GetCanDelegatedMaxSize(ctx context.Context, ownerAddress *types.Address, delegateType int32) (*api.CanDelegatedMaxSizeResponseMessage, error) {
 	if ownerAddress == nil {
-		return nil, fmt.Errorf("invalid owner address: nil")
+		return nil, fmt.Errorf("%w: invalid owner address: nil", types.ErrInvalidAddress)
 	}
 
 	req := &api.CanDelegatedMaxSizeRequestMessage{
@@ -193,7 +196,7 @@ func (m *Manager) GetCanDelegatedMaxSize(ctx context.Context, ownerAddress *type
 // GetAvailableUnfreezeCount gets available unfreeze count
 func (m *Manager) GetAvailableUnfreezeCount(ctx context.Context, ownerAddress *types.Address) (*api.GetAvailableUnfreezeCountResponseMessage, error) {
 	if ownerAddress == nil {
-		return nil, fmt.Errorf("invalid owner address: nil")
+		return nil, fmt.Errorf("%w: invalid owner address: nil", types.ErrInvalidAddress)
 	}
 
 	req := &api.GetAvailableUnfreezeCountRequestMessage{
@@ -206,7 +209,7 @@ func (m *Manager) GetAvailableUnfreezeCount(ctx context.Context, ownerAddress *t
 // GetCanWithdrawUnfreezeAmount gets withdrawable unfreeze amount
 func (m *Manager) GetCanWithdrawUnfreezeAmount(ctx context.Context, ownerAddress *types.Address, timestamp int64) (*api.CanWithdrawUnfreezeAmountResponseMessage, error) {
 	if ownerAddress == nil {
-		return nil, fmt.Errorf("invalid owner address: nil")
+		return nil, fmt.Errorf("%w: invalid owner address: nil", types.ErrInvalidAddress)
 	}
 
 	req := &api.CanWithdrawUnfreezeAmountRequestMessage{

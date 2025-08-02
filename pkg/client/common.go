@@ -26,7 +26,12 @@ func grpcGenericCallWrapper[T any](c *Client, ctx context.Context, operation str
 	if err != nil {
 		return zero, fmt.Errorf("failed to get connection for %s: %w", operation, err)
 	}
-	defer c.ReturnConnection(conn)
+	// Ensure we always return or close the connection safely.
+	defer func() {
+		if conn != nil && c != nil && c.pool != nil {
+			c.ReturnConnection(conn)
+		}
+	}()
 
 	// Create wallet client
 	walletClient := api.NewWalletClient(conn)

@@ -15,10 +15,22 @@ import (
 
 // Provide high level sign and broadcast workflows
 type BroadcastOptions struct {
-	FeeLimit       int64 // Fee limit for the transaction
-	PermissionID   int32 // Permission ID for the transaction
-	WaitForReceipt bool  // Wait for transaction receipt
-	WaitTimeout    int64 // Timeout for waiting for receipt
+	FeeLimit       int64         // Fee limit for the transaction
+	PermissionID   int32         // Permission ID for the transaction
+	WaitForReceipt bool          // Wait for transaction receipt
+	WaitTimeout    int64         // Timeout for waiting for receipt (seconds)
+	PollInterval   time.Duration // Polling interval when waiting for receipt
+}
+
+// DefaultBroadcastOptions returns sane defaults for broadcasting transactions.
+func DefaultBroadcastOptions() BroadcastOptions {
+	return BroadcastOptions{
+		FeeLimit:       150_000_000,
+		PermissionID:   0,
+		WaitForReceipt: true,
+		WaitTimeout:    15,                  // seconds
+		PollInterval:   3 * time.Second,     // polling cadence
+	}
 }
 
 type BroadcastResult struct {
@@ -75,6 +87,24 @@ func (c *Client) Simulate(ctx context.Context, anytx any) (*api.TransactionExten
 }
 
 func (c *Client) SignAndBroadcast(ctx context.Context, anytx any, opt BroadcastOptions, signers ...types.Signer) (*BroadcastResult, error) {
+	// Apply defaults for zero-values without breaking explicit non-zero caller values.
+	def := DefaultBroadcastOptions()
+	if opt.FeeLimit == 0 {
+		opt.FeeLimit = def.FeeLimit
+	}
+	if opt.PermissionID == 0 {
+		// default 0 already, nothing to change; keep for clarity
+	}
+	if !opt.WaitForReceipt && def.WaitForReceipt {
+		// honor explicit false, only set default when zero value ambiguity matters; WaitForReceipt is boolean so
+		// leave as is to respect caller. If caller provides zero value (false) intentionally, we keep it.
+	}
+	if opt.WaitTimeout == 0 {
+		opt.WaitTimeout = def.WaitTimeout
+	}
+	if opt.PollInterval == 0 {
+		opt.PollInterval = def.PollInterval
+	}
 	// Trigger the smart contract with the given parameters
 	if anytx == nil {
 		return nil, fmt.Errorf("transaction cannot be nil")
@@ -135,11 +165,7 @@ func (c *Client) SignAndBroadcast(ctx context.Context, anytx any, opt BroadcastO
 
 	}
 
-	if opt.WaitTimeout == 0 {
-		opt.WaitTimeout = 30
-	}
-
-	txInfo := c.waitForTransactionInfo(ctx, txid, opt.WaitTimeout)
+	txInfo := c.waitForTransactionInfo(ctx, txid, opt.WaitTimeout, opt.PollInterval)
 	if txInfo == nil {
 		return result, nil
 	}
@@ -149,12 +175,15 @@ func (c *Client) SignAndBroadcast(ctx context.Context, anytx any, opt BroadcastO
 	return result, nil
 }
 
-func (c *Client) waitForTransactionInfo(ctx context.Context, txid []byte, waitSeconds int64) *core.TransactionInfo {
+func (c *Client) waitForTransactionInfo(ctx context.Context, txid []byte, waitSeconds int64, pollInterval time.Duration) *core.TransactionInfo {
 	timeout := time.Duration(waitSeconds) * time.Second
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	ticker := time.NewTicker(1 * time.Second)
+	if pollInterval <= 0 {
+		pollInterval = 3 * time.Second
+	}
+	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
 
 	for {

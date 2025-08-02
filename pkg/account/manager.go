@@ -16,6 +16,9 @@ type Manager struct {
 	client *client.Client
 }
 
+// AccountManager is an explicit alias of Manager for discoverability and future clarity.
+type AccountManager = Manager
+
 // NewManager creates a new account manager
 func NewManager(client *client.Client) *Manager {
 	return &Manager{
@@ -32,7 +35,7 @@ type TransferOptions struct {
 // GetAccount retrieves account information by address
 func (m *Manager) GetAccount(ctx context.Context, address *types.Address) (*core.Account, error) {
 	if address == nil {
-		return nil, fmt.Errorf("invalid address: nil")
+		return nil, fmt.Errorf("%w: invalid address: nil", types.ErrInvalidAddress)
 	}
 	// Prepare gRPC parameters
 	req := &core.Account{
@@ -46,7 +49,7 @@ func (m *Manager) GetAccount(ctx context.Context, address *types.Address) (*core
 // GetAccountNet retrieves account bandwidth information
 func (m *Manager) GetAccountNet(ctx context.Context, address *types.Address) (*api.AccountNetMessage, error) {
 	if address == nil {
-		return nil, fmt.Errorf("invalid address: nil")
+		return nil, fmt.Errorf("%w: invalid address: nil", types.ErrInvalidAddress)
 	}
 
 	// Prepare gRPC parameters
@@ -61,7 +64,7 @@ func (m *Manager) GetAccountNet(ctx context.Context, address *types.Address) (*a
 // GetAccountResource retrieves account energy information
 func (m *Manager) GetAccountResource(ctx context.Context, address *types.Address) (*api.AccountResourceMessage, error) {
 	if address == nil {
-		return nil, fmt.Errorf("invalid address: nil")
+		return nil, fmt.Errorf("%w: invalid address: nil", types.ErrInvalidAddress)
 	}
 
 	// Prepare gRPC parameters
@@ -111,26 +114,26 @@ func (m *Manager) TransferTRX(ctx context.Context, from *types.Address, to *type
 func (m *Manager) validateTransferInputs(from *types.Address, to *types.Address, amount int64) error {
 	// Validate addresses
 	if from == nil {
-		return fmt.Errorf("from address cannot be nil")
+		return fmt.Errorf("%w: from address cannot be nil", types.ErrInvalidAddress)
 	}
 	if to == nil {
-		return fmt.Errorf("to address cannot be nil")
+		return fmt.Errorf("%w: to address cannot be nil", types.ErrInvalidAddress)
 	}
 
 	// Validate amount (must be positive, in SUN units)
 	if amount <= 0 {
-		return fmt.Errorf("amount must be positive")
+		return fmt.Errorf("%w: amount must be positive", types.ErrInvalidAmount)
 	}
 
 	// Check reasonable upper bound (less than total TRX supply in SUN)
 	maxSupply := int64(100_000_000_000 * types.SunPerTRX) // 100B TRX in SUN
 	if amount > maxSupply {
-		return fmt.Errorf("amount %d exceeds maximum supply", amount)
+		return fmt.Errorf("%w: amount %d exceeds maximum supply", types.ErrInvalidAmount, amount)
 	}
 
 	// Check addresses are different
 	if from.String() == to.String() {
-		return fmt.Errorf("from and to addresses cannot be the same")
+		return fmt.Errorf("%w: from and to addresses cannot be the same", types.ErrInvalidParameter)
 	}
 
 	return nil

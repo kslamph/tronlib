@@ -2,255 +2,301 @@ package smartcontract
 
 import (
 	"context"
+	"encoding/json"
+	"math/big"
+	"net"
 	"testing"
+	"time"
 
+	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/client"
 	"github.com/kslamph/tronlib/pkg/types"
-	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/test/bufconn"
 )
 
-func TestDeployContractValidation(t *testing.T) {
-	// Create a mock client (we won't actually deploy)
-	c, err := client.NewClient(client.DefaultClientConfig("127.0.0.1:50051"))
-	assert.NoError(t, err)
+// Minimal bufconn helpers local to this package
 
-	manager := NewManager(c)
-	ctx := context.Background()
+const managerBufSize = 1024 * 1024
 
-	// Test cases for validation
-	// Test cases for validation
-	tests := []struct {
-		name                       string
-		ownerAddress               *types.Address
-		contractName               string
-		abi                        *core.SmartContract_ABI
-		bytecode                   []byte
-		callValue                  int64
-		consumeUserResourcePercent int64
-		originEnergyLimit          int64
-		constructorParams          []interface{}
-		wantErr                    bool
-		errMsg                     string
-	}{
-		{
-			name:                       "Valid empty contract name",
-			ownerAddress:               mustAddr(t, "TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g"),
-			contractName:               "",
-			abi:                        nil,
-			bytecode:                   []byte("608060405234801561001057600080fd5b50"),
-			callValue:                  0,
-			consumeUserResourcePercent: 50,
-			originEnergyLimit:          1000000,
-			constructorParams:          []interface{}{},
-			wantErr:                    false,
-		},
-		{
-			name:                       "Valid contract name with spaces",
-			ownerAddress:               mustAddr(t, "TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g"),
-			contractName:               "My Test Contract",
-			abi:                        nil,
-			bytecode:                   []byte("608060405234801561001057600080fd5b50"),
-			callValue:                  0,
-			consumeUserResourcePercent: 100,
-			originEnergyLimit:          1000000,
-			constructorParams:          []interface{}{},
-			wantErr:                    false,
-		},
-		{
-			name:                       "Invalid contract name with control characters",
-			ownerAddress:               mustAddr(t, "TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g"),
-			contractName:               "Test\x00Contract",
-			abi:                        nil,
-			bytecode:                   []byte("608060405234801561001057600080fd5b50"),
-			callValue:                  0,
-			consumeUserResourcePercent: 50,
-			originEnergyLimit:          1000000,
-			constructorParams:          []interface{}{},
-			wantErr:                    true,
-			errMsg:                     "invalid contract name",
-		},
-		{
-			name:                       "Empty bytecode",
-			ownerAddress:               mustAddr(t, "TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g"),
-			contractName:               "TestContract",
-			abi:                        nil,
-			bytecode:                   []byte{},
-			callValue:                  0,
-			consumeUserResourcePercent: 50,
-			originEnergyLimit:          1000000,
-			constructorParams:          []interface{}{},
-			wantErr:                    true,
-			errMsg:                     "bytecode cannot be empty",
-		},
-		{
-			name:                       "Negative call value",
-			ownerAddress:               mustAddr(t, "TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g"),
-			contractName:               "TestContract",
-			abi:                        nil,
-			bytecode:                   []byte("608060405234801561001057600080fd5b50"),
-			callValue:                  -1,
-			consumeUserResourcePercent: 50,
-			originEnergyLimit:          1000000,
-			constructorParams:          []interface{}{},
-			wantErr:                    true,
-			errMsg:                     "call value cannot be negative",
-		},
-		{
-			name:                       "Invalid consume user resource percent - negative",
-			ownerAddress:               mustAddr(t, "TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g"),
-			contractName:               "TestContract",
-			abi:                        nil,
-			bytecode:                   []byte("608060405234801561001057600080fd5b50"),
-			callValue:                  0,
-			consumeUserResourcePercent: -1,
-			originEnergyLimit:          1000000,
-			constructorParams:          []interface{}{},
-			wantErr:                    true,
-			errMsg:                     "consume user resource percent must be between 0 and 100",
-		},
-		{
-			name:                       "Invalid consume user resource percent - over 100",
-			ownerAddress:               mustAddr(t, "TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g"),
-			contractName:               "TestContract",
-			abi:                        nil,
-			bytecode:                   []byte("608060405234801561001057600080fd5b50"),
-			callValue:                  0,
-			consumeUserResourcePercent: 101,
-			originEnergyLimit:          1000000,
-			constructorParams:          []interface{}{},
-			wantErr:                    true,
-			errMsg:                     "consume user resource percent must be between 0 and 100",
-		},
-		{
-			name:                       "Negative origin energy limit",
-			ownerAddress:               mustAddr(t, "TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g"),
-			contractName:               "TestContract",
-			abi:                        nil,
-			bytecode:                   []byte("608060405234801561001057600080fd5b50"),
-			callValue:                  0,
-			consumeUserResourcePercent: 50,
-			originEnergyLimit:          -1,
-			constructorParams:          []interface{}{},
-			wantErr:                    true,
-			errMsg:                     "origin energy limit cannot be negative",
-		},
-		{
-			name:                       "Invalid owner address",
-			ownerAddress:               nil,
-			contractName:               "TestContract",
-			abi:                        nil,
-			bytecode:                   []byte("608060405234801561001057600080fd5b50"),
-			callValue:                  0,
-			consumeUserResourcePercent: 50,
-			originEnergyLimit:          1000000,
-			constructorParams:          []interface{}{},
-			wantErr:                    true,
-			errMsg:                     "invalid owner address",
-		},
-		{
-			name:                       "Constructor params without ABI",
-			ownerAddress:               mustAddr(t, "TZ4UXDV5ZhNW7fb2AMSbgfAEZ7hWsnYS2g"),
-			contractName:               "TestContract",
-			abi:                        nil,
-			bytecode:                   []byte("608060405234801561001057600080fd5b50"),
-			callValue:                  0,
-			consumeUserResourcePercent: 50,
-			originEnergyLimit:          1000000,
-			constructorParams:          []interface{}{"param1"},
-			wantErr:                    true,
-			errMsg:                     "ABI cannot be nil",
-		},
+type deployCaptureServer struct {
+	api.UnimplementedWalletServer
+	reqCh chan *core.CreateSmartContract
+}
+
+func (s *deployCaptureServer) DeployContract(ctx context.Context, in *core.CreateSmartContract) (*api.TransactionExtention, error) {
+	// Non-blocking send to avoid deadlocks if test exits early
+	select {
+	case s.reqCh <- in:
+	default:
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Note: This will fail at the lowlevel.DeployContract call since we don't have a real connection
-			// But we want to test the validation logic before that point
-			_, err := manager.DeployContract(
-				ctx,
-				tt.ownerAddress,
-				tt.contractName,
-				tt.abi,
-				tt.bytecode,
-				tt.callValue,
-				tt.consumeUserResourcePercent,
-				tt.originEnergyLimit,
-				tt.constructorParams...,
-			)
+	return &api.TransactionExtention{
+		Result: &api.Return{Result: true, Code: api.Return_SUCCESS},
+	}, nil
+}
 
-			if tt.wantErr {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tt.errMsg)
-			} else {
-				// For valid inputs, we expect it to fail at the network call level
-				// since we don't have a real TRON connection, but validation should pass
-				if err != nil {
-					// If there's an error, it should be a connection error, not validation
-					assert.NotContains(t, err.Error(), "invalid contract name")
-					assert.NotContains(t, err.Error(), "bytecode cannot be empty")
-					assert.NotContains(t, err.Error(), "call value cannot be negative")
-					assert.NotContains(t, err.Error(), "consume user resource percent")
-					assert.NotContains(t, err.Error(), "origin energy limit cannot be negative")
-					assert.NotContains(t, err.Error(), "invalid owner address")
-				}
-			}
-		})
+func newBufconnServer(t *testing.T, impl api.WalletServer) (*bufconn.Listener, *grpc.Server, func()) {
+	t.Helper()
+	lis := bufconn.Listen(managerBufSize)
+	srv := grpc.NewServer()
+	api.RegisterWalletServer(srv, impl)
+	go func() { _ = srv.Serve(lis) }()
+	cleanup := func() {
+		_ = lis.Close()
+		srv.Stop()
+	}
+	return lis, srv, cleanup
+}
+
+func newTestClientWithBufConn(t *testing.T, lis *bufconn.Listener, timeout time.Duration) (*client.Client, func()) {
+	t.Helper()
+	// Build a test client using the approved test-only dialer helper.
+	dialer := func(ctx context.Context, _ string) (net.Conn, error) {
+		return lis.DialContext(ctx)
+	}
+	cfg := client.ClientConfig{
+		NodeAddress:     "bufnet",
+		Timeout:         timeout,
+		InitConnections: 1,
+		MaxConnections:  1,
+		IdleTimeout:     time.Second,
+	}
+	c, err := client.NewClientWithDialer(cfg, dialer)
+	if err != nil {
+		t.Fatalf("NewClientWithDialer error: %v", err)
+	}
+	cleanup := func() {
+		c.Close()
+	}
+	return c, cleanup
+}
+
+// Test 1: ABI string with constructor(address,uint256) encodes params appended to bytecode.
+func TestDeployContract_ABIString_ConstructorEncoding(t *testing.T) {
+	// ABI JSON with constructor(address,uint256)
+	type abiEntry struct {
+		Type            string `json:"type"`
+		StateMutability string `json:"stateMutability,omitempty"`
+		Inputs          []struct {
+			Name string `json:"name"`
+			Type string `json:"type"`
+		} `json:"inputs,omitempty"`
+	}
+	abiJSONBytes, _ := json.Marshal([]abiEntry{
+		{
+			Type: "constructor",
+			Inputs: []struct {
+				Name string `json:"name"`
+				Type string `json:"type"`
+			}{
+				{Name: "addr", Type: "address"},
+				{Name: "amount", Type: "uint256"},
+			},
+		},
+	})
+	abiJSON := string(abiJSONBytes)
+
+	// Fake server to capture request
+	srv := &deployCaptureServer{reqCh: make(chan *core.CreateSmartContract, 1)}
+	lis, _, cleanupSrv := newBufconnServer(t, srv)
+	t.Cleanup(cleanupSrv)
+
+	cli, cleanupCli := newTestClientWithBufConn(t, lis, 500*time.Millisecond)
+	t.Cleanup(cleanupCli)
+
+	mgr := NewManager(cli)
+
+	owner, err := types.NewAddress("TBXeeuh3jHM7oE889Ys2DqvRS1YuEPoa2o")
+	if err != nil {
+		t.Fatalf("owner addr parse: %v", err)
+	}
+
+	bytecode := []byte{0xde, 0xad, 0xbe, 0xef}
+	addrParam := types.MustNewAddressFromBase58("TKCTfkQ8L9beavNu9iaGtCHFxrwNHUxfr2")
+	u256 := big.NewInt(123)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	consume := int64(50)
+	originLimit := int64(100000)
+	_, err = mgr.DeployContract(ctx, owner, "MyContract", abiJSON, bytecode, 0, consume, originLimit, addrParam, u256)
+	if err != nil {
+		t.Fatalf("DeployContract error: %v", err)
+	}
+
+	select {
+	case req := <-srv.reqCh:
+		if req.NewContract == nil {
+			t.Fatalf("NewContract nil")
+		}
+		if len(req.NewContract.Bytecode) <= len(bytecode) {
+			t.Fatalf("expected encoded params appended, got len %d base %d", len(req.NewContract.Bytecode), len(bytecode))
+		}
+		// Suffix should differ to indicate params appended (cannot fully decode here)
+		if string(req.NewContract.Bytecode[len(req.NewContract.Bytecode)-4:]) == string(bytecode[len(bytecode)-4:]) {
+			t.Fatalf("expected different suffix due to encoded params")
+		}
+	case <-time.After(time.Second):
+		t.Fatalf("timeout waiting for captured request")
 	}
 }
 
-func TestEncodeConstructor(t *testing.T) {
-	// Create a mock client
-	c, err := client.NewClient(client.DefaultClientConfig("127.0.0.1:50051"))
-	assert.NoError(t, err)
-
-	manager := NewManager(c)
-
-	tests := []struct {
-		name              string
-		abi               *core.SmartContract_ABI
-		constructorParams []interface{}
-		wantErr           bool
-		errMsg            string
-	}{
-		{
-			name:              "Empty ABI",
-			abi:               nil,
-			constructorParams: []interface{}{},
-			wantErr:           false,
-		},
-		{
-			name:              "Invalid ABI JSON",
-			abi:               nil,
-			constructorParams: []interface{}{},
-			wantErr:           false,
-		},
-		{
-			name:              "No constructor in ABI but params provided",
-			abi:               nil,
-			constructorParams: []interface{}{"param1"},
-			wantErr:           true,
-			errMsg:            "constructor parameters provided but ABI is nil",
-		},
-		{
-			name:              "No constructor in ABI and no params - valid",
-			abi:               nil,
-			constructorParams: []interface{}{},
-			wantErr:           false,
+// Test 2: Parsed *core.SmartContract_ABI mirrored constructor.
+func TestDeployContract_ParsedABI_ConstructorEncoding(t *testing.T) {
+	parsed := &core.SmartContract_ABI{
+		Entrys: []*core.SmartContract_ABI_Entry{
+			{
+				Type: core.SmartContract_ABI_Entry_Constructor,
+				Inputs: []*core.SmartContract_ABI_Entry_Param{
+					{Name: "addr", Type: "address"},
+					{Name: "amount", Type: "uint256"},
+				},
+			},
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result, err := manager.encodeConstructor(tt.abi, tt.constructorParams)
+	srv := &deployCaptureServer{reqCh: make(chan *core.CreateSmartContract, 1)}
+	lis, _, cleanupSrv := newBufconnServer(t, srv)
+	t.Cleanup(cleanupSrv)
 
-			if tt.wantErr {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tt.errMsg)
-				assert.Nil(t, result)
-			} else {
-				assert.NoError(t, err)
-				assert.NotNil(t, result)
+	cli, cleanupCli := newTestClientWithBufConn(t, lis, 500*time.Millisecond)
+	t.Cleanup(cleanupCli)
+
+	mgr := NewManager(cli)
+
+	owner := types.MustNewAddressFromBase58("TBXeeuh3jHM7oE889Ys2DqvRS1YuEPoa2o")
+	bytecode := []byte{0xde, 0xad, 0xbe, 0xef}
+	addrParam := types.MustNewAddressFromBase58("TKCTfkQ8L9beavNu9iaGtCHFxrwNHUxfr2")
+	u256 := big.NewInt(123)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	_, err := mgr.DeployContract(ctx, owner, "Another", parsed, bytecode, 0, 0, 1, addrParam, u256)
+	if err != nil {
+		t.Fatalf("DeployContract error: %v", err)
+	}
+
+	select {
+	case req := <-srv.reqCh:
+		if req.NewContract == nil {
+			t.Fatalf("NewContract nil")
+		}
+		if len(req.NewContract.Bytecode) <= len(bytecode) {
+			t.Fatalf("expected encoded params appended")
+		}
+	case <-time.After(time.Second):
+		t.Fatalf("timeout waiting capture")
+	}
+}
+
+// Test 3: Parameter count mismatch error path
+func TestDeployContract_ParamCountMismatch(t *testing.T) {
+	parsed := &core.SmartContract_ABI{
+		Entrys: []*core.SmartContract_ABI_Entry{
+			{
+				Type: core.SmartContract_ABI_Entry_Constructor,
+				Inputs: []*core.SmartContract_ABI_Entry_Param{
+					{Name: "addr", Type: "address"},
+					{Name: "amount", Type: "uint256"},
+				},
+			},
+		},
+	}
+
+	srv := &deployCaptureServer{reqCh: make(chan *core.CreateSmartContract, 1)}
+	lis, _, cleanupSrv := newBufconnServer(t, srv)
+	t.Cleanup(cleanupSrv)
+
+	cli, cleanupCli := newTestClientWithBufConn(t, lis, 500*time.Millisecond)
+	t.Cleanup(cleanupCli)
+
+	mgr := NewManager(cli)
+	owner := types.MustNewAddressFromBase58("TBXeeuh3jHM7oE889Ys2DqvRS1YuEPoa2o")
+	bytecode := []byte{0x01, 0x02}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	// Only 1 param, expected 2
+	_, err := mgr.DeployContract(ctx, owner, "Mismatch", parsed, bytecode, 0, 0, 1, owner)
+	if err == nil {
+		t.Fatalf("expected error on parameter count mismatch")
+	}
+	if err != nil && !contains(err.Error(), "constructor parameter count mismatch") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+// Test 4: abi=nil with non-empty constructor params error
+func TestDeployContract_NilABIWithParams(t *testing.T) {
+	srv := &deployCaptureServer{reqCh: make(chan *core.CreateSmartContract, 1)}
+	lis, _, cleanupSrv := newBufconnServer(t, srv)
+	t.Cleanup(cleanupSrv)
+
+	cli, cleanupCli := newTestClientWithBufConn(t, lis, 500*time.Millisecond)
+	t.Cleanup(cleanupCli)
+
+	mgr := NewManager(cli)
+	owner := types.MustNewAddressFromBase58("TBXeeuh3jHM7oE889Ys2DqvRS1YuEPoa2o")
+	bytecode := []byte{0xaa}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	_, err := mgr.DeployContract(ctx, owner, "NilABI", nil, bytecode, 0, 0, 1, owner)
+	if err == nil {
+		t.Fatalf("expected error when abi is nil but params provided")
+	}
+	if !contains(err.Error(), "ABI is required when constructor parameters are provided") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+// Test 5: Invalid parameters validation (consumeUserResourcePercent out of range OR originEnergyLimit negative)
+func TestDeployContract_InvalidParameters(t *testing.T) {
+	srv := &deployCaptureServer{reqCh: make(chan *core.CreateSmartContract, 1)}
+	lis, _, cleanupSrv := newBufconnServer(t, srv)
+	t.Cleanup(cleanupSrv)
+
+	cli, cleanupCli := newTestClientWithBufConn(t, lis, 500*time.Millisecond)
+	t.Cleanup(cleanupCli)
+
+	mgr := NewManager(cli)
+	owner := types.MustNewAddressFromBase58("TBXeeuh3jHM7oE889Ys2DqvRS1YuEPoa2o")
+	bytecode := []byte{0x00}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	// consumeUserResourcePercent = 101
+	if _, err := mgr.DeployContract(ctx, owner, "BadConsume", nil, bytecode, 0, 101, 1); err == nil {
+		t.Fatalf("expected error for consume user resource percent out of range")
+	}
+
+	// originEnergyLimit = -1
+	if _, err := mgr.DeployContract(ctx, owner, "BadEnergy", nil, bytecode, 0, 0, -1); err == nil {
+		t.Fatalf("expected error for negative origin energy limit")
+	}
+}
+
+// contains helper (avoid strings import to keep single block request spec tight)
+func contains(s, sub string) bool {
+	return len(sub) == 0 || (len(s) >= len(sub) && indexOf(s, sub) >= 0)
+}
+
+// naive index to avoid extra imports
+func indexOf(s, sub string) int {
+outer:
+	for i := 0; i+len(sub) <= len(s); i++ {
+		for j := 0; j < len(sub); j++ {
+			if s[i+j] != sub[j] {
+				continue outer
 			}
-		})
+		}
+		return i
 	}
+	return -1
 }

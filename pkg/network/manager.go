@@ -10,12 +10,16 @@ import (
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/client"
+	"github.com/kslamph/tronlib/pkg/types"
 )
 
 // Manager provides high-level network operations
 type Manager struct {
 	client *client.Client
 }
+
+// NetworkManager is an explicit alias of Manager for discoverability and future clarity.
+type NetworkManager = Manager
 
 // NewManager creates a new network manager
 func NewManager(client *client.Client) *Manager {
@@ -45,7 +49,7 @@ func (m *Manager) ListNodes(ctx context.Context) (*api.NodeList, error) {
 // GetBlockByNumber retrieves a block by its number
 func (m *Manager) GetBlockByNumber(ctx context.Context, blockNumber int64) (*api.BlockExtention, error) {
 	if blockNumber < 0 {
-		return nil, fmt.Errorf("block number must be non-negative")
+		return nil, fmt.Errorf("%w: block number must be non-negative", types.ErrInvalidParameter)
 	}
 
 	req := &api.NumberMessage{
@@ -57,7 +61,7 @@ func (m *Manager) GetBlockByNumber(ctx context.Context, blockNumber int64) (*api
 // GetBlockById retrieves a block by its ID (hash)
 func (m *Manager) GetBlockById(ctx context.Context, blockId []byte) (*core.Block, error) {
 	if len(blockId) == 0 {
-		return nil, fmt.Errorf("block ID cannot be empty")
+		return nil, fmt.Errorf("%w: block ID cannot be empty", types.ErrInvalidParameter)
 	}
 
 	req := &api.BytesMessage{
@@ -69,13 +73,13 @@ func (m *Manager) GetBlockById(ctx context.Context, blockId []byte) (*core.Block
 // GetBlocksByLimit retrieves blocks by limit and next parameters
 func (m *Manager) GetBlocksByLimit(ctx context.Context, startNum int64, endNum int64) (*api.BlockListExtention, error) {
 	if startNum < 0 {
-		return nil, fmt.Errorf("start number must be non-negative")
+		return nil, fmt.Errorf("%w: start number must be non-negative", types.ErrInvalidParameter)
 	}
 	if endNum < startNum {
-		return nil, fmt.Errorf("end number must be greater than or equal to start number")
+		return nil, fmt.Errorf("%w: end number must be greater than or equal to start number", types.ErrInvalidParameter)
 	}
 	if endNum-startNum > 100 {
-		return nil, fmt.Errorf("cannot request more than 100 blocks at once")
+		return nil, fmt.Errorf("%w: cannot request more than 100 blocks at once", types.ErrInvalidParameter)
 	}
 
 	req := &api.BlockLimit{
@@ -88,10 +92,10 @@ func (m *Manager) GetBlocksByLimit(ctx context.Context, startNum int64, endNum i
 // GetLatestBlocks retrieves the latest blocks by count
 func (m *Manager) GetLatestBlocks(ctx context.Context, count int64) (*api.BlockListExtention, error) {
 	if count <= 0 {
-		return nil, fmt.Errorf("count must be positive")
+		return nil, fmt.Errorf("%w: count must be positive", types.ErrInvalidParameter)
 	}
 	if count > 100 {
-		return nil, fmt.Errorf("cannot request more than 100 blocks at once")
+		return nil, fmt.Errorf("%w: cannot request more than 100 blocks at once", types.ErrInvalidParameter)
 	}
 
 	req := &api.NumberMessage{
@@ -109,7 +113,7 @@ func (m *Manager) GetNowBlock(ctx context.Context) (*api.BlockExtention, error) 
 // GetTransactionInfoById retrieves transaction information by transaction ID (hex string)
 func (m *Manager) GetTransactionInfoById(ctx context.Context, txIdHex string) (*core.TransactionInfo, error) {
 	if txIdHex == "" {
-		return nil, fmt.Errorf("transaction ID cannot be empty")
+		return nil, fmt.Errorf("%w: transaction ID cannot be empty", types.ErrInvalidParameter)
 	}
 
 	// Remove 0x prefix if present
@@ -119,13 +123,13 @@ func (m *Manager) GetTransactionInfoById(ctx context.Context, txIdHex string) (*
 
 	// Validate hex string length (should be 64 characters for 32 bytes)
 	if len(txIdHex) != 64 {
-		return nil, fmt.Errorf("transaction ID must be 64 hex characters (32 bytes), got %d characters", len(txIdHex))
+		return nil, fmt.Errorf("%w: transaction ID must be 64 hex characters (32 bytes), got %d", types.ErrInvalidParameter, len(txIdHex))
 	}
 
 	// Convert hex string to bytes
 	txIdBytes, err := hex.DecodeString(txIdHex)
 	if err != nil {
-		return nil, fmt.Errorf("invalid hex string: %v", err)
+		return nil, fmt.Errorf("%w: invalid hex string: %w", types.ErrInvalidParameter, err)
 	}
 
 	req := &api.BytesMessage{

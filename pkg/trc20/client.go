@@ -13,7 +13,6 @@ import (
 	"github.com/kslamph/tronlib/pkg/smartcontract"
 	"github.com/kslamph/tronlib/pkg/types"
 	"github.com/shopspring/decimal"
-	// For ABIEncoder, ABIDecoder, etc.
 )
 
 // TRC20Client provides a high-level, type-safe interface for TRC20 token interactions.
@@ -68,6 +67,16 @@ func NewTRC20Client(tronClient *client.Client, contractAddress *types.Address) (
 	}
 
 	return c, nil
+}
+
+// ToWeiWithDecimals is a convenience wrapper that converts the given amount using explicit decimals.
+func ToWeiWithDecimals(amount decimal.Decimal, decimals uint8) (*big.Int, error) {
+	return ToWei(amount, decimals)
+}
+
+// FromWeiWithDecimals is a convenience wrapper that converts the given value using explicit decimals.
+func FromWeiWithDecimals(value *big.Int, decimals uint8) (decimal.Decimal, error) {
+	return FromWei(value, decimals)
 }
 
 // Name returns the name of the TRC20 token, fetching and caching it on first call.

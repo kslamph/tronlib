@@ -107,6 +107,15 @@ func (c *Client) GetConnection(ctx context.Context) (*grpc.ClientConn, error) {
 		defer cancel()
 	}
 
+	if c.pool == nil {
+		return nil, ErrConnectionFailed
+	}
+	if c.pool == nil {
+		return nil, ErrConnectionFailed
+	}
+	if c.pool == nil {
+		return nil, ErrConnectionFailed
+	}
 	return c.pool.get(ctx)
 }
 
@@ -115,7 +124,11 @@ func (c *Client) ReturnConnection(conn *grpc.ClientConn) {
 	if atomic.LoadInt32(&c.closed) == 1 {
 		return
 	}
-	c.pool.put(conn)
+	if c.pool != nil {
+		if c.pool != nil {
+			c.pool.put(conn)
+		}
+	}
 }
 
 // Close closes the client and all connections in the pool
@@ -123,7 +136,13 @@ func (c *Client) Close() {
 	if !atomic.CompareAndSwapInt32(&c.closed, 0, 1) {
 		return // Already closed
 	}
-	c.pool.close()
+	if c.pool != nil {
+		if c.pool != nil {
+			if c.pool != nil {
+				c.pool.close()
+			}
+		}
+	}
 }
 
 // GetTimeout returns the client's configured timeout

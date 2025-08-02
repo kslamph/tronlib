@@ -17,6 +17,9 @@ type Manager struct {
 	client *client.Client
 }
 
+// SmartContractManager is an explicit alias of Manager for discoverability and future clarity.
+type SmartContractManager = Manager
+
 // NewManager creates a new smart contract manager
 func NewManager(client *client.Client) *Manager {
 	return &Manager{

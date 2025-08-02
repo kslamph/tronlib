@@ -79,6 +79,11 @@ func (p *connPool) put(conn *grpc.ClientConn) {
 	if conn == nil {
 		return
 	}
+	if p.conns == nil {
+		// No backing channel (tests override get); close to avoid leaks.
+		_ = conn.Close()
+		return
+	}
 
 	select {
 	case p.conns <- conn:
@@ -92,6 +97,11 @@ func (p *connPool) put(conn *grpc.ClientConn) {
 func (p *connPool) close() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
+	if p.conns == nil {
+		// Nothing to close in test/fake pools.
+		return
+	}
 
 	close(p.conns)
 	for conn := range p.conns {

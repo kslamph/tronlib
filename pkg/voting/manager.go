@@ -16,6 +16,9 @@ type Manager struct {
 	client *client.Client
 }
 
+// VotingManager is an explicit alias of Manager for discoverability and future clarity.
+type VotingManager = Manager
+
 // NewManager creates a new voting manager
 func NewManager(client *client.Client) *Manager {
 	return &Manager{
