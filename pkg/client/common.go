@@ -1,6 +1,6 @@
-// Package lowlevel provides 1:1 wrappers around WalletClient gRPC methods
+// package client provides 1:1 wrappers around WalletClient gRPC methods
 // This package contains raw gRPC calls with minimal business logic
-package lowlevel
+package client
 
 import (
 	"context"
@@ -18,7 +18,7 @@ type ValidationFunc[T any] func(result T, operation string) error
 // grpcGenericCallWrapper wraps common gRPC call patterns with proper connection management
 // T represents the return type of the gRPC call
 // This generic wrapper can handle any gRPC operation return type while maintaining type safety
-func grpcGenericCallWrapper[T any](c *client.Client, ctx context.Context, operation string, call func(client api.WalletClient, ctx context.Context) (T, error), validateFunc ...ValidationFunc[T]) (T, error) {
+func (c *Client) grpcGenericCallWrapper[T any](ctx context.Context, operation string, call func(client api.WalletClient, ctx context.Context) (T, error), validateFunc ...ValidationFunc[T]) (T, error) {
 	var zero T // zero value for type T
 	
 	// Get connection from pool
@@ -69,6 +69,6 @@ func validateTransactionResult(result *api.TransactionExtention, operation strin
 }
 
 // grpcTransactionCallWrapper wraps gRPC calls that return TransactionExtention
-func grpcTransactionCallWrapper(c *client.Client, ctx context.Context, operation string, call func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error)) (*api.TransactionExtention, error) {
-	return grpcGenericCallWrapper(c, ctx, operation, call, validateTransactionResult)
+func (c *Client) grpcTransactionCallWrapper(ctx context.Context, operation string, call func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error)) (*api.TransactionExtention, error) {
+	return c.grpcGenericCallWrapper(ctx, operation, call, validateTransactionResult)
 }

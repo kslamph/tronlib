@@ -6,7 +6,7 @@ import (
 
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pkg/client"
-	"github.com/kslamph/tronlib/pkg/client/lowlevel"
+
 	"github.com/kslamph/tronlib/pkg/types"
 )
 

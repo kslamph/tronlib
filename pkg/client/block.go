@@ -1,5 +1,5 @@
-// Package lowlevel provides 1:1 wrappers around WalletClient gRPC methods
-package lowlevel
+// package client provides 1:1 wrappers around WalletClient gRPC methods
+package client
 
 import (
 	"context"
