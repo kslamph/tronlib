@@ -43,20 +43,20 @@ func TestTRC20MainnetUSDTContract(t *testing.T) {
 	testAddress := "TUHwTn3JhQqdys4ckqQ86EsWk3KC2p2tZc"
 
 	trc20Client := setupTRC20TestClient(t, usdtAddress)
-	_ = context.Background() // Keep context for future use, remove unused warning
+	ctx := context.Background()
 
 	t.Run("USDT_BasicInfo", func(t *testing.T) {
-		name, err := trc20Client.Name()
+		name, err := trc20Client.Name(ctx)
 		require.NoError(t, err, "Should get USDT name")
 		assert.Equal(t, "Tether USD", name, "USDT name should be 'Tether USD'")
 		t.Logf("USDT Name: %s", name)
 
-		symbol, err := trc20Client.Symbol()
+		symbol, err := trc20Client.Symbol(ctx)
 		require.NoError(t, err, "Should get USDT symbol")
 		assert.Equal(t, "USDT", symbol, "USDT symbol should be 'USDT'")
 		t.Logf("USDT Symbol: %s", symbol)
 
-		decimals, err := trc20Client.Decimals()
+		decimals, err := trc20Client.Decimals(ctx)
 		require.NoError(t, err, "Should get USDT decimals")
 		assert.Equal(t, uint8(6), decimals, "USDT decimals should be 6")
 		t.Logf("USDT Decimals: %d", decimals)
@@ -68,7 +68,7 @@ func TestTRC20MainnetUSDTContract(t *testing.T) {
 		ownerAddr, err := types.NewAddress(testAddress)
 		require.NoError(t, err, "Should create owner address")
 
-		balance, err := trc20Client.BalanceOf(ownerAddr)
+		balance, err := trc20Client.BalanceOf(ctx, ownerAddr)
 		require.NoError(t, err, "Should get USDT balance")
 		expectedBalance, _ := decimal.NewFromString("45967.732353")
 		assert.True(t, balance.Equal(expectedBalance), "USDT balance should be %s, got %s", expectedBalance.String(), balance.String())
@@ -88,18 +88,18 @@ func TestTRC20MainnetTRC20Contract(t *testing.T) {
 	spenderAddress := "TQrq2p1aoAkNK94q3Q69ubJcv5nQ9y675R"
 
 	trc20Client := setupTRC20TestClient(t, trc20Address)
-	_ = context.Background() // Keep context for future use, remove unused warning
+	ctx := context.Background()
 
 	t.Run("TRC20_BasicInfo", func(t *testing.T) {
-		name, err := trc20Client.Name()
+		name, err := trc20Client.Name(ctx)
 		require.NoError(t, err, "Should get TRC20 name")
 		t.Logf("TRC20 Name: %s", name)
 
-		symbol, err := trc20Client.Symbol()
+		symbol, err := trc20Client.Symbol(ctx)
 		require.NoError(t, err, "Should get TRC20 symbol")
 		t.Logf("TRC20 Symbol: %s", symbol)
 
-		decimals, err := trc20Client.Decimals()
+		decimals, err := trc20Client.Decimals(ctx)
 		require.NoError(t, err, "Should get TRC20 decimals")
 		t.Logf("TRC20 Decimals: %d", decimals)
 
@@ -110,7 +110,7 @@ func TestTRC20MainnetTRC20Contract(t *testing.T) {
 		ownerAddr, err := types.NewAddress(testAddress)
 		require.NoError(t, err, "Should create owner address")
 
-		balance, err := trc20Client.BalanceOf(ownerAddr)
+		balance, err := trc20Client.BalanceOf(ctx, ownerAddr)
 		require.NoError(t, err, "Should get TRC20 balance")
 		t.Logf("TRC20 Balance of %s: %s", testAddress, balance.String())
 
@@ -123,7 +123,7 @@ func TestTRC20MainnetTRC20Contract(t *testing.T) {
 		spenderAddr, err := types.NewAddress(spenderAddress)
 		require.NoError(t, err, "Should create spender address")
 
-		allowance, err := trc20Client.Allowance(ownerAddr, spenderAddr)
+		allowance, err := trc20Client.Allowance(ctx, ownerAddr, spenderAddr)
 		require.NoError(t, err, "Should get TRC20 allowance")
 		t.Logf("TRC20 Allowance from %s to %s: %s", testAddress, spenderAddress, allowance.String())
 
@@ -131,7 +131,7 @@ func TestTRC20MainnetTRC20Contract(t *testing.T) {
 		// We'll check if it's a very large number (effectively unlimited for practical purposes)
 		maxUint256 := new(big.Int).Sub(new(big.Int).Exp(big.NewInt(2), big.NewInt(256), nil), big.NewInt(1))
 		expectedAllowance, _ := decimal.NewFromString(maxUint256.String())
-		decimals, err := trc20Client.Decimals()
+		decimals, err := trc20Client.Decimals(ctx)
 		require.NoError(t, err, "Should get TRC20 decimals for allowance check")
 		// Adjust expected allowance based on decimals
 		expectedAllowance = expectedAllowance.Shift(-int32(decimals))

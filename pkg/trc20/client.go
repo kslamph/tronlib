@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pkg/client"
 	"github.com/kslamph/tronlib/pkg/smartcontract"
 	"github.com/kslamph/tronlib/pkg/types"
@@ -50,16 +51,18 @@ func NewTRC20Client(tronClient *client.Client, contractAddress *types.Address) (
 		trc20ABI: &parsedABI,
 	}
 
-	// Pre-fetch immutable properties
-	_, err = c.Decimals() // This will populate cachedDecimals
+	// Pre-fetch immutable properties using a non-cancellable context
+	prefetchCtx := context.TODO()
+
+	_, err = c.Decimals(prefetchCtx) // This will populate cachedDecimals
 	if err != nil {
 		return nil, fmt.Errorf("failed to pre-fetch decimals: %w", err)
 	}
-	_, err = c.Name() // This will populate cachedName
+	_, err = c.Name(prefetchCtx) // This will populate cachedName
 	if err != nil {
 		return nil, fmt.Errorf("failed to pre-fetch name: %w", err)
 	}
-	_, err = c.Symbol() // This will populate cachedSymbol
+	_, err = c.Symbol(prefetchCtx) // This will populate cachedSymbol
 	if err != nil {
 		return nil, fmt.Errorf("failed to pre-fetch symbol: %w", err)
 	}
@@ -68,7 +71,7 @@ func NewTRC20Client(tronClient *client.Client, contractAddress *types.Address) (
 }
 
 // Name returns the name of the TRC20 token, fetching and caching it on first call.
-func (t *TRC20Client) Name() (string, error) {
+func (t *TRC20Client) Name(ctx context.Context) (string, error) {
 	t.mu.RLock()
 	if t.cachedName != "" {
 		defer t.mu.RUnlock()
@@ -82,7 +85,7 @@ func (t *TRC20Client) Name() (string, error) {
 		return t.cachedName, nil
 	}
 
-	result, err := t.contract.TriggerConstantContract(context.Background(), t.contract.Address, "name")
+	result, err := t.contract.TriggerConstantContract(ctx, t.contract.Address, "name")
 	if err != nil {
 		return "", fmt.Errorf("failed to call name method: %w", err)
 	}
@@ -96,7 +99,7 @@ func (t *TRC20Client) Name() (string, error) {
 }
 
 // Symbol returns the symbol of the TRC20 token, fetching and caching it on first call.
-func (t *TRC20Client) Symbol() (string, error) {
+func (t *TRC20Client) Symbol(ctx context.Context) (string, error) {
 	t.mu.RLock()
 	if t.cachedSymbol != "" {
 		defer t.mu.RUnlock()
@@ -110,7 +113,7 @@ func (t *TRC20Client) Symbol() (string, error) {
 		return t.cachedSymbol, nil
 	}
 
-	result, err := t.contract.TriggerConstantContract(context.Background(), t.contract.Address, "symbol")
+	result, err := t.contract.TriggerConstantContract(ctx, t.contract.Address, "symbol")
 	if err != nil {
 		return "", fmt.Errorf("failed to call symbol method: %w", err)
 	}
@@ -124,7 +127,7 @@ func (t *TRC20Client) Symbol() (string, error) {
 }
 
 // Decimals returns the number of decimal places of the TRC20 token, fetching and caching it on first call.
-func (t *TRC20Client) Decimals() (uint8, error) {
+func (t *TRC20Client) Decimals(ctx context.Context) (uint8, error) {
 	t.mu.RLock()
 	if t.cachedDecimals != 0 { // Assuming 0 is not a valid decimal count for a TRC20 token
 		defer t.mu.RUnlock()
@@ -138,7 +141,7 @@ func (t *TRC20Client) Decimals() (uint8, error) {
 		return t.cachedDecimals, nil
 	}
 
-	result, err := t.contract.TriggerConstantContract(context.Background(), t.contract.Address, "decimals")
+	result, err := t.contract.TriggerConstantContract(ctx, t.contract.Address, "decimals")
 	if err != nil {
 		return 0, fmt.Errorf("failed to call decimals method: %w", err)
 	}
@@ -154,13 +157,13 @@ func (t *TRC20Client) Decimals() (uint8, error) {
 }
 
 // BalanceOf retrieves the balance of an owner address as a decimal.Decimal.
-func (t *TRC20Client) BalanceOf(ownerAddress *types.Address) (decimal.Decimal, error) {
-	decimals, err := t.Decimals()
+func (t *TRC20Client) BalanceOf(ctx context.Context, ownerAddress *types.Address) (decimal.Decimal, error) {
+	decimals, err := t.Decimals(ctx)
 	if err != nil {
 		return decimal.Zero, fmt.Errorf("failed to get decimals for BalanceOf: %w", err)
 	}
 
-	result, err := t.contract.TriggerConstantContract(context.Background(), ownerAddress, "balanceOf", ownerAddress)
+	result, err := t.contract.TriggerConstantContract(ctx, ownerAddress, "balanceOf", ownerAddress)
 	if err != nil {
 		return decimal.Zero, fmt.Errorf("failed to call balanceOf method: %w", err)
 	}
@@ -182,53 +185,55 @@ func (t *TRC20Client) BalanceOf(ownerAddress *types.Address) (decimal.Decimal, e
 }
 
 // Transfer transfers tokens from the caller to a recipient, taking a decimal.Decimal amount.
-func (t *TRC20Client) Transfer(fromAddress *types.Address, toAddress *types.Address, amount decimal.Decimal) (string, error) {
-	decimals, err := t.Decimals()
+func (t *TRC20Client) Transfer(ctx context.Context, fromAddress *types.Address, toAddress *types.Address, amount decimal.Decimal) (string, *api.TransactionExtention, error) {
+	decimals, err := t.Decimals(ctx)
 	if err != nil {
-		return "", fmt.Errorf("failed to get decimals for Transfer: %w", err)
+		return "", nil, fmt.Errorf("%w: failed to get decimals for Transfer", err)
 	}
 
 	rawAmount, err := toWei(amount, decimals)
 	if err != nil {
-		return "", fmt.Errorf("invalid amount: %w", err)
+		return "", nil, fmt.Errorf("%w: invalid amount", err)
 	}
 
-	txExt, err := t.contract.TriggerSmartContract(context.Background(), fromAddress, 0, "transfer", toAddress, rawAmount)
+	txExt, err := t.contract.TriggerSmartContract(ctx, fromAddress, 0, "transfer", toAddress, rawAmount)
 	if err != nil {
-		return "", fmt.Errorf("failed to call transfer method: %w", err)
+		return "", nil, fmt.Errorf("%w: failed to call transfer method", err)
 	}
 
-	return fmt.Sprintf("%x", txExt.GetTxid()), nil
+	txidHex := fmt.Sprintf("%x", txExt.GetTxid())
+	return txidHex, txExt, nil
 }
 
 // Approve approves a spender to spend tokens on behalf of the caller.
-func (t *TRC20Client) Approve(ownerAddress *types.Address, spenderAddress *types.Address, amount decimal.Decimal) (string, error) {
-	decimals, err := t.Decimals()
+func (t *TRC20Client) Approve(ctx context.Context, ownerAddress *types.Address, spenderAddress *types.Address, amount decimal.Decimal) (string, *api.TransactionExtention, error) {
+	decimals, err := t.Decimals(ctx)
 	if err != nil {
-		return "", fmt.Errorf("failed to get decimals for Approve: %w", err)
+		return "", nil, fmt.Errorf("%w: failed to get decimals for Approve", err)
 	}
 
 	rawAmount, err := toWei(amount, decimals)
 	if err != nil {
-		return "", fmt.Errorf("invalid amount: %w", err)
+		return "", nil, fmt.Errorf("%w: invalid amount", err)
 	}
 
-	txExt, err := t.contract.TriggerSmartContract(context.Background(), ownerAddress, 0, "approve", spenderAddress, rawAmount)
+	txExt, err := t.contract.TriggerSmartContract(ctx, ownerAddress, 0, "approve", spenderAddress, rawAmount)
 	if err != nil {
-		return "", fmt.Errorf("failed to call approve method: %w", err)
+		return "", nil, fmt.Errorf("%w: failed to call approve method", err)
 	}
 
-	return fmt.Sprintf("%x", txExt.GetTxid()), nil
+	txidHex := fmt.Sprintf("%x", txExt.GetTxid())
+	return txidHex, txExt, nil
 }
 
 // Allowance retrieves the allowance amount a spender has over an owner's tokens.
-func (t *TRC20Client) Allowance(ownerAddress *types.Address, spenderAddress *types.Address) (decimal.Decimal, error) {
-	decimals, err := t.Decimals()
+func (t *TRC20Client) Allowance(ctx context.Context, ownerAddress *types.Address, spenderAddress *types.Address) (decimal.Decimal, error) {
+	decimals, err := t.Decimals(ctx)
 	if err != nil {
 		return decimal.Zero, fmt.Errorf("failed to get decimals for Allowance: %w", err)
 	}
 
-	result, err := t.contract.TriggerConstantContract(context.Background(), ownerAddress, "allowance", ownerAddress, spenderAddress)
+	result, err := t.contract.TriggerConstantContract(ctx, ownerAddress, "allowance", ownerAddress, spenderAddress)
 	if err != nil {
 		return decimal.Zero, fmt.Errorf("failed to call allowance method: %w", err)
 	}

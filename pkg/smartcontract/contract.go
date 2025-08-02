@@ -28,12 +28,12 @@ type Contract struct {
 //   - string: ABI JSON string
 //   - *core.SmartContract_ABI: Parsed ABI object
 //   - omitted: ABI will be retrieved from network
-func NewContract(tronClient *client.Client, address *types.Address, abi ...any) (*Contract, error) {
+func NewContract(tronClient *client.Client, contractAddress *types.Address, abi ...any) (*Contract, error) {
 	if tronClient == nil {
 		return nil, fmt.Errorf("tron client cannot be nil")
 	}
 
-	if address == nil {
+	if contractAddress == nil {
 		return nil, fmt.Errorf("contract address cannot be nil")
 	}
 
@@ -43,7 +43,7 @@ func NewContract(tronClient *client.Client, address *types.Address, abi ...any) 
 	// Process ABI parameter
 	if len(abi) == 0 {
 		// No ABI provided - retrieve from network
-		contractInfo, err := getContractFromNetwork(context.Background(), tronClient, address)
+		contractInfo, err := getContractFromNetwork(context.Background(), tronClient, contractAddress)
 		if err != nil {
 			return nil, fmt.Errorf("failed to retrieve contract from network: %v", err)
 		}
@@ -81,7 +81,7 @@ func NewContract(tronClient *client.Client, address *types.Address, abi ...any) 
 
 	return &Contract{
 		ABI:     contractABI,
-		Address: address,
+		Address: contractAddress,
 		Client:  tronClient,
 
 		abiProcessor: utils.NewABIProcessor(contractABI),
