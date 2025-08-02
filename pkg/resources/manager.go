@@ -8,7 +8,6 @@ import (
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/client"
-	"github.com/kslamph/tronlib/pkg/client/lowlevel"
 	"github.com/kslamph/tronlib/pkg/utils"
 )
 
@@ -50,7 +49,7 @@ func (m *Manager) FreezeBalanceV2(ctx context.Context, ownerAddress string, froz
 		Resource:      core.ResourceCode(resource),
 	}
 
-	return lowlevel.FreezeBalanceV2(m.client, ctx, req)
+	return m.client.FreezeBalanceV2(ctx, req)
 }
 
 // UnfreezeBalanceV2 unfreezes balance (v2)
@@ -71,7 +70,7 @@ func (m *Manager) UnfreezeBalanceV2(ctx context.Context, ownerAddress string, un
 		Resource:        core.ResourceCode(resource),
 	}
 
-	return lowlevel.UnfreezeBalanceV2(m.client, ctx, req)
+	return m.client.UnfreezeBalanceV2(ctx, req)
 }
 
 // DelegateResource delegates resources to another account
@@ -103,7 +102,7 @@ func (m *Manager) DelegateResource(ctx context.Context, ownerAddress string, rec
 		Lock:            lock,
 	}
 
-	return lowlevel.DelegateResource(m.client, ctx, req)
+	return m.client.DelegateResource(ctx, req)
 }
 
 // UnDelegateResource undelegates resources from another account
@@ -130,7 +129,7 @@ func (m *Manager) UnDelegateResource(ctx context.Context, ownerAddress string, r
 		Resource:        core.ResourceCode(resource),
 	}
 
-	return lowlevel.UnDelegateResource(m.client, ctx, req)
+	return m.client.UnDelegateResource(ctx, req)
 }
 
 // CancelAllUnfreezeV2 cancels all unfreeze operations (v2)
@@ -144,7 +143,7 @@ func (m *Manager) CancelAllUnfreezeV2(ctx context.Context, ownerAddress string) 
 		OwnerAddress: addr.Bytes(),
 	}
 
-	return lowlevel.CancelAllUnfreezeV2(m.client, ctx, req)
+	return m.client.CancelAllUnfreezeV2(ctx, req)
 }
 
 // WithdrawExpireUnfreeze withdraws expired unfreeze amount
@@ -158,7 +157,7 @@ func (m *Manager) WithdrawExpireUnfreeze(ctx context.Context, ownerAddress strin
 		OwnerAddress: addr.Bytes(),
 	}
 
-	return lowlevel.WithdrawExpireUnfreeze(m.client, ctx, req)
+	return m.client.WithdrawExpireUnfreeze(ctx, req)
 }
 
 // GetDelegatedResourceV2 gets delegated resource information (v2)
@@ -178,7 +177,7 @@ func (m *Manager) GetDelegatedResourceV2(ctx context.Context, fromAddress string
 		ToAddress:   toAddr.Bytes(),
 	}
 
-	return lowlevel.GetDelegatedResourceV2(m.client, ctx, req)
+	return m.client.GetDelegatedResourceV2(ctx, req)
 }
 
 // GetDelegatedResourceAccountIndexV2 gets delegated resource account index (v2)
@@ -192,7 +191,7 @@ func (m *Manager) GetDelegatedResourceAccountIndexV2(ctx context.Context, addres
 		Value: addr.Bytes(),
 	}
 
-	return lowlevel.GetDelegatedResourceAccountIndexV2(m.client, ctx, req)
+	return m.client.GetDelegatedResourceAccountIndexV2(ctx, req)
 }
 
 // GetCanDelegatedMaxSize gets maximum delegatable resource size
@@ -207,7 +206,7 @@ func (m *Manager) GetCanDelegatedMaxSize(ctx context.Context, ownerAddress strin
 		Type:         delegateType,
 	}
 
-	return lowlevel.GetCanDelegatedMaxSize(m.client, ctx, req)
+	return m.client.GetCanDelegatedMaxSize(ctx, req)
 }
 
 // GetAvailableUnfreezeCount gets available unfreeze count
@@ -221,7 +220,7 @@ func (m *Manager) GetAvailableUnfreezeCount(ctx context.Context, ownerAddress st
 		OwnerAddress: addr.Bytes(),
 	}
 
-	return lowlevel.GetAvailableUnfreezeCount(m.client, ctx, req)
+	return m.client.GetAvailableUnfreezeCount(ctx, req)
 }
 
 // GetCanWithdrawUnfreezeAmount gets withdrawable unfreeze amount
@@ -236,5 +235,5 @@ func (m *Manager) GetCanWithdrawUnfreezeAmount(ctx context.Context, ownerAddress
 		Timestamp:    timestamp,
 	}
 
-	return lowlevel.GetCanWithdrawUnfreezeAmount(m.client, ctx, req)
+	return m.client.GetCanWithdrawUnfreezeAmount(ctx, req)
 }

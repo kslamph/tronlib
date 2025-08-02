@@ -8,7 +8,6 @@ import (
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/client"
-	"github.com/kslamph/tronlib/pkg/client/lowlevel"
 	"github.com/kslamph/tronlib/pkg/utils"
 )
 
@@ -65,7 +64,7 @@ func (m *Manager) VoteWitnessAccount2(ctx context.Context, ownerAddress string, 
 		Votes:        protoVotes,
 	}
 
-	return lowlevel.VoteWitnessAccount2(m.client, ctx, req)
+	return m.client.VoteWitnessAccount2(ctx, req)
 }
 
 // WithdrawBalance2 withdraws balance (claim rewards) (v2)
@@ -79,7 +78,7 @@ func (m *Manager) WithdrawBalance2(ctx context.Context, ownerAddress string) (*a
 		OwnerAddress: addr.Bytes(),
 	}
 
-	return lowlevel.WithdrawBalance2(m.client, ctx, req)
+	return m.client.WithdrawBalance2(ctx, req)
 }
 
 // CreateWitness2 creates a witness (v2)
@@ -98,7 +97,7 @@ func (m *Manager) CreateWitness2(ctx context.Context, ownerAddress string, url s
 		Url:          []byte(url),
 	}
 
-	return lowlevel.CreateWitness2(m.client, ctx, req)
+	return m.client.CreateWitness2(ctx, req)
 }
 
 // UpdateWitness2 updates witness information (v2)
@@ -117,13 +116,13 @@ func (m *Manager) UpdateWitness2(ctx context.Context, ownerAddress string, updat
 		UpdateUrl:    []byte(updateUrl),
 	}
 
-	return lowlevel.UpdateWitness2(m.client, ctx, req)
+	return m.client.UpdateWitness2(ctx, req)
 }
 
 // ListWitnesses gets list of witnesses
 func (m *Manager) ListWitnesses(ctx context.Context) (*api.WitnessList, error) {
 	req := &api.EmptyMessage{}
-	return lowlevel.ListWitnesses(m.client, ctx, req)
+	return m.client.ListWitnesses(ctx, req)
 }
 
 // GetRewardInfo gets reward information for an address
@@ -137,7 +136,7 @@ func (m *Manager) GetRewardInfo(ctx context.Context, address string) (*api.Numbe
 		Value: addr.Bytes(),
 	}
 
-	return lowlevel.GetRewardInfo(m.client, ctx, req)
+	return m.client.GetRewardInfo(ctx, req)
 }
 
 // GetBrokerageInfo gets brokerage information for an address
@@ -151,7 +150,7 @@ func (m *Manager) GetBrokerageInfo(ctx context.Context, address string) (*api.Nu
 		Value: addr.Bytes(),
 	}
 
-	return lowlevel.GetBrokerageInfo(m.client, ctx, req)
+	return m.client.GetBrokerageInfo(ctx, req)
 }
 
 // UpdateBrokerage updates brokerage percentage
@@ -170,5 +169,5 @@ func (m *Manager) UpdateBrokerage(ctx context.Context, ownerAddress string, brok
 		Brokerage:    brokerage,
 	}
 
-	return lowlevel.UpdateBrokerage(m.client, ctx, req)
+	return m.client.UpdateBrokerage(ctx, req)
 }

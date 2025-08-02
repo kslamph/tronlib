@@ -8,7 +8,7 @@ import (
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/client"
-	"github.com/kslamph/tronlib/pkg/client/lowlevel"
+
 	"github.com/kslamph/tronlib/pkg/utils"
 )
 
@@ -114,7 +114,7 @@ func (m *Manager) DeployContract(ctx context.Context, ownerAddress, contractName
 		TokenId:        0,
 	}
 
-	return lowlevel.DeployContract(m.client, ctx, req)
+	return m.client.DeployContract(ctx, req)
 }
 
 // encodeConstructor encodes constructor parameters for contract deployment
@@ -192,7 +192,7 @@ func (m *Manager) EstimateEnergy(ctx context.Context, ownerAddress string, contr
 		CallValue:       callValue,
 	}
 
-	return lowlevel.EstimateEnergy(m.client, ctx, req)
+	return m.client.EstimateEnergy(ctx, req)
 }
 
 // GetContract gets smart contract information
@@ -206,7 +206,7 @@ func (m *Manager) GetContract(ctx context.Context, contractAddress string) (*cor
 		Value: addr.Bytes(),
 	}
 
-	return lowlevel.GetContract(m.client, ctx, req)
+	return m.client.GetContract(ctx, req)
 }
 
 // GetContractInfo gets smart contract detailed information
@@ -220,7 +220,7 @@ func (m *Manager) GetContractInfo(ctx context.Context, contractAddress string) (
 		Value: addr.Bytes(),
 	}
 
-	return lowlevel.GetContractInfo(m.client, ctx, req)
+	return m.client.GetContractInfo(ctx, req)
 }
 
 // UpdateSetting updates smart contract settings
@@ -245,7 +245,7 @@ func (m *Manager) UpdateSetting(ctx context.Context, ownerAddress string, contra
 		ConsumeUserResourcePercent: consumeUserResourcePercent,
 	}
 
-	return lowlevel.UpdateSetting(m.client, ctx, req)
+	return m.client.UpdateSetting(ctx, req)
 }
 
 // UpdateEnergyLimit updates smart contract energy limit
@@ -270,7 +270,7 @@ func (m *Manager) UpdateEnergyLimit(ctx context.Context, ownerAddress string, co
 		OriginEnergyLimit: originEnergyLimit,
 	}
 
-	return lowlevel.UpdateEnergyLimit(m.client, ctx, req)
+	return m.client.UpdateEnergyLimit(ctx, req)
 }
 
 // ClearContractABI clears smart contract ABI
@@ -290,5 +290,5 @@ func (m *Manager) ClearContractABI(ctx context.Context, ownerAddress string, con
 		ContractAddress: contractAddr.Bytes(),
 	}
 
-	return lowlevel.ClearContractABI(m.client, ctx, req)
+	return m.client.ClearContractABI(ctx, req)
 }

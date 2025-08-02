@@ -7,7 +7,6 @@ import (
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/client"
-	"github.com/kslamph/tronlib/pkg/client/lowlevel"
 	"github.com/kslamph/tronlib/pkg/types"
 	"github.com/kslamph/tronlib/pkg/utils"
 )
@@ -105,7 +104,7 @@ func getContractFromNetwork(ctx context.Context, client *client.Client, contract
 	req := &api.BytesMessage{
 		Value: contractAddressBytes,
 	}
-	return lowlevel.GetContract(client, ctx, req)
+	return client.GetContract(ctx, req)
 }
 
 // TriggerSmartContract builds a smart contract transaction, to be signed and broadcasted
@@ -134,7 +133,7 @@ func (c *Contract) TriggerSmartContract(ctx context.Context, owner *types.Addres
 		TokenId:         0,
 	}
 
-	return lowlevel.TriggerContract(c.Client, ctx, req)
+	return c.Client.TriggerContract(ctx, req)
 
 }
 
@@ -160,7 +159,7 @@ func (c *Contract) TriggerConstantContract(ctx context.Context, owner *types.Add
 	}
 
 	// Call the constant contract
-	result, err := lowlevel.TriggerConstantContract(c.Client, ctx, req)
+	result, err := c.Client.TriggerConstantContract(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to trigger constant contract: %v", err)
 	}
@@ -219,7 +218,7 @@ func (c *Contract) Simulate(ctx context.Context, owner *types.Address, callValue
 	}
 
 	// Call the constant contract
-	result, err := lowlevel.TriggerConstantContract(c.Client, ctx, req)
+	result, err := c.Client.TriggerConstantContract(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to trigger constant contract: %v", err)
 	}

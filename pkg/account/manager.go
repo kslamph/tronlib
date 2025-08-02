@@ -8,7 +8,6 @@ import (
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/client"
-	"github.com/kslamph/tronlib/pkg/client/lowlevel"
 	"github.com/kslamph/tronlib/pkg/types"
 	"github.com/kslamph/tronlib/pkg/utils"
 )
@@ -44,8 +43,8 @@ func (m *Manager) GetAccount(ctx context.Context, address string) (*core.Account
 		Address: addr.Bytes(),
 	}
 
-	// Call lowlevel function
-	return lowlevel.GetAccount(m.client, ctx, req)
+	// Call client package function
+	return m.client.GetAccount(ctx, req)
 }
 
 // GetAccountNet retrieves account bandwidth information
@@ -61,8 +60,8 @@ func (m *Manager) GetAccountNet(ctx context.Context, address string) (*api.Accou
 		Address: addr.Bytes(),
 	}
 
-	// Call lowlevel function
-	return lowlevel.GetAccountNet(m.client, ctx, req)
+	// Call client package function
+	return m.client.GetAccountNet(ctx, req)
 }
 
 // GetAccountResource retrieves account energy information
@@ -78,8 +77,8 @@ func (m *Manager) GetAccountResource(ctx context.Context, address string) (*api.
 		Address: addr.Bytes(),
 	}
 
-	// Call lowlevel function
-	return lowlevel.GetAccountResource(m.client, ctx, req)
+	// Call client package function
+	return m.client.GetAccountResource(ctx, req)
 }
 
 // GetBalance retrieves the TRX balance for an address (convenience method)
@@ -123,8 +122,8 @@ func (m *Manager) TransferTRX(ctx context.Context, from string, to string, amoun
 		Amount:       amount,
 	}
 
-	// Call lowlevel function
-	return lowlevel.CreateTransaction2(m.client, ctx, req)
+	// Call client package function
+	return m.client.CreateTransaction2(ctx, req)
 }
 
 // validateTransferInputs validates common transfer parameters

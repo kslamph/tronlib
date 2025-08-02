@@ -8,7 +8,6 @@ import (
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/client"
-	"github.com/kslamph/tronlib/pkg/client/lowlevel"
 	"github.com/kslamph/tronlib/pkg/utils"
 )
 
@@ -68,22 +67,22 @@ func (m *Manager) CreateAssetIssue2(ctx context.Context, ownerAddress string, na
 	}
 
 	req := &core.AssetIssueContract{
-		OwnerAddress:             addr.Bytes(),
-		Name:                     []byte(name),
-		Abbr:                     []byte(abbr),
-		TotalSupply:              totalSupply,
-		TrxNum:                   trxNum,
-		Num:                      icoNum,
-		StartTime:                startTime,
-		EndTime:                  endTime,
-		Description:              []byte(description),
-		Url:                      []byte(url),
-		FreeAssetNetLimit:        freeAssetNetLimit,
-		PublicFreeAssetNetLimit:  publicFreeAssetNetLimit,
-		FrozenSupply:             protoFrozenSupply,
+		OwnerAddress:            addr.Bytes(),
+		Name:                    []byte(name),
+		Abbr:                    []byte(abbr),
+		TotalSupply:             totalSupply,
+		TrxNum:                  trxNum,
+		Num:                     icoNum,
+		StartTime:               startTime,
+		EndTime:                 endTime,
+		Description:             []byte(description),
+		Url:                     []byte(url),
+		FreeAssetNetLimit:       freeAssetNetLimit,
+		PublicFreeAssetNetLimit: publicFreeAssetNetLimit,
+		FrozenSupply:            protoFrozenSupply,
 	}
 
-	return lowlevel.CreateAssetIssue2(m.client, ctx, req)
+	return m.client.CreateAssetIssue2(ctx, req)
 }
 
 // FrozenSupply represents frozen supply for asset creation
@@ -100,14 +99,14 @@ func (m *Manager) UpdateAsset2(ctx context.Context, ownerAddress string, descrip
 	}
 
 	req := &core.UpdateAssetContract{
-		OwnerAddress:            addr.Bytes(),
-		Description:             []byte(description),
-		Url:                     []byte(url),
-		NewLimit:                newLimit,
-		NewPublicLimit:          newPublicLimit,
+		OwnerAddress:   addr.Bytes(),
+		Description:    []byte(description),
+		Url:            []byte(url),
+		NewLimit:       newLimit,
+		NewPublicLimit: newPublicLimit,
 	}
 
-	return lowlevel.UpdateAsset2(m.client, ctx, req)
+	return m.client.UpdateAsset2(ctx, req)
 }
 
 // TransferAsset2 transfers an asset (TRC10 token) (v2)
@@ -141,7 +140,7 @@ func (m *Manager) TransferAsset2(ctx context.Context, ownerAddress string, toAdd
 		Amount:       amount,
 	}
 
-	return lowlevel.TransferAsset2(m.client, ctx, req)
+	return m.client.TransferAsset2(ctx, req)
 }
 
 // ParticipateAssetIssue2 participates in asset issue (v2)
@@ -171,7 +170,7 @@ func (m *Manager) ParticipateAssetIssue2(ctx context.Context, ownerAddress strin
 		Amount:       amount,
 	}
 
-	return lowlevel.ParticipateAssetIssue2(m.client, ctx, req)
+	return m.client.ParticipateAssetIssue2(ctx, req)
 }
 
 // UnfreezeAsset2 unfreezes an asset (v2)
@@ -185,7 +184,7 @@ func (m *Manager) UnfreezeAsset2(ctx context.Context, ownerAddress string) (*api
 		OwnerAddress: addr.Bytes(),
 	}
 
-	return lowlevel.UnfreezeAsset2(m.client, ctx, req)
+	return m.client.UnfreezeAsset2(ctx, req)
 }
 
 // GetAssetIssueByAccount gets asset issues by account
@@ -199,7 +198,7 @@ func (m *Manager) GetAssetIssueByAccount(ctx context.Context, address string) (*
 		Address: addr.Bytes(),
 	}
 
-	return lowlevel.GetAssetIssueByAccount(m.client, ctx, req)
+	return m.client.GetAssetIssueByAccount(ctx, req)
 }
 
 // GetAssetIssueByName gets asset issue by name
@@ -212,7 +211,7 @@ func (m *Manager) GetAssetIssueByName(ctx context.Context, assetName string) (*c
 		Value: []byte(assetName),
 	}
 
-	return lowlevel.GetAssetIssueByName(m.client, ctx, req)
+	return m.client.GetAssetIssueByName(ctx, req)
 }
 
 // GetAssetIssueListByName gets asset issue list by name
@@ -225,7 +224,7 @@ func (m *Manager) GetAssetIssueListByName(ctx context.Context, assetName string)
 		Value: []byte(assetName),
 	}
 
-	return lowlevel.GetAssetIssueListByName(m.client, ctx, req)
+	return m.client.GetAssetIssueListByName(ctx, req)
 }
 
 // GetAssetIssueById gets asset issue by ID
@@ -238,13 +237,13 @@ func (m *Manager) GetAssetIssueById(ctx context.Context, assetId []byte) (*core.
 		Value: assetId,
 	}
 
-	return lowlevel.GetAssetIssueById(m.client, ctx, req)
+	return m.client.GetAssetIssueById(ctx, req)
 }
 
 // GetAssetIssueList gets all asset issues
 func (m *Manager) GetAssetIssueList(ctx context.Context) (*api.AssetIssueList, error) {
 	req := &api.EmptyMessage{}
-	return lowlevel.GetAssetIssueList(m.client, ctx, req)
+	return m.client.GetAssetIssueList(ctx, req)
 }
 
 // GetPaginatedAssetIssueList gets paginated asset issue list
@@ -264,5 +263,5 @@ func (m *Manager) GetPaginatedAssetIssueList(ctx context.Context, offset int64, 
 		Limit:  limit,
 	}
 
-	return lowlevel.GetPaginatedAssetIssueList(m.client, ctx, req)
+	return m.client.GetPaginatedAssetIssueList(ctx, req)
 }
