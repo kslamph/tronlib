@@ -83,8 +83,8 @@ func (p *connPool) put(conn *grpc.ClientConn) {
 	select {
 	case p.conns <- conn:
 	default:
-		// Pool is full, close the connection
-		conn.Close()
+		// Pool is full, close the connection and ignore close error
+		_ = conn.Close()
 	}
 }
 
@@ -95,6 +95,6 @@ func (p *connPool) close() {
 
 	close(p.conns)
 	for conn := range p.conns {
-		conn.Close()
+		_ = conn.Close()
 	}
 }

@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/kslamph/tronlib/pb/api"
-	"github.com/kslamph/tronlib/pkg/client"
+
 	"github.com/kslamph/tronlib/pkg/types"
 )
 
@@ -18,9 +18,9 @@ type ValidationFunc[T any] func(result T, operation string) error
 // grpcGenericCallWrapper wraps common gRPC call patterns with proper connection management
 // T represents the return type of the gRPC call
 // This generic wrapper can handle any gRPC operation return type while maintaining type safety
-func (c *Client) grpcGenericCallWrapper[T any](ctx context.Context, operation string, call func(client api.WalletClient, ctx context.Context) (T, error), validateFunc ...ValidationFunc[T]) (T, error) {
+func grpcGenericCallWrapper[T any](c *Client, ctx context.Context, operation string, call func(client api.WalletClient, ctx context.Context) (T, error), validateFunc ...ValidationFunc[T]) (T, error) {
 	var zero T // zero value for type T
-	
+
 	// Get connection from pool
 	conn, err := c.GetConnection(ctx)
 	if err != nil {
@@ -69,6 +69,9 @@ func validateTransactionResult(result *api.TransactionExtention, operation strin
 }
 
 // grpcTransactionCallWrapper wraps gRPC calls that return TransactionExtention
+// NOTE: Go does not support type parameters on methods. This helper remains a normal method without generics,
+//
+//	delegating to the generic function above via a type-specific call.
 func (c *Client) grpcTransactionCallWrapper(ctx context.Context, operation string, call func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error)) (*api.TransactionExtention, error) {
-	return c.grpcGenericCallWrapper(ctx, operation, call, validateTransactionResult)
+	return grpcGenericCallWrapper(c, ctx, operation, call, validateTransactionResult)
 }

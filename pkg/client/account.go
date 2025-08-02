@@ -12,28 +12,28 @@ import (
 
 // GetAccount gets account information by address
 func (c *Client) GetAccount(ctx context.Context, req *core.Account) (*core.Account, error) {
-	return c.grpcGenericCallWrapper(ctx, "get account", func(client api.WalletClient, ctx context.Context) (*core.Account, error) {
+	return grpcGenericCallWrapper(c, ctx, "get account", func(client api.WalletClient, ctx context.Context) (*core.Account, error) {
 		return client.GetAccount(ctx, req)
 	})
 }
 
 // GetAccountById gets account information by account ID
 func (c *Client) GetAccountById(ctx context.Context, req *core.Account) (*core.Account, error) {
-	return c.grpcGenericCallWrapper(ctx, "get account by id", func(client api.WalletClient, ctx context.Context) (*core.Account, error) {
+	return grpcGenericCallWrapper(c, ctx, "get account by id", func(client api.WalletClient, ctx context.Context) (*core.Account, error) {
 		return client.GetAccountById(ctx, req)
 	})
 }
 
 // GetAccountNet gets account network information (bandwidth usage)
 func (c *Client) GetAccountNet(ctx context.Context, req *core.Account) (*api.AccountNetMessage, error) {
-	return c.grpcGenericCallWrapper(ctx, "get account net", func(client api.WalletClient, ctx context.Context) (*api.AccountNetMessage, error) {
+	return grpcGenericCallWrapper(c, ctx, "get account net", func(client api.WalletClient, ctx context.Context) (*api.AccountNetMessage, error) {
 		return client.GetAccountNet(ctx, req)
 	})
 }
 
 // GetAccountResource gets account resource information (energy usage)
 func (c *Client) GetAccountResource(ctx context.Context, req *core.Account) (*api.AccountResourceMessage, error) {
-	return c.grpcGenericCallWrapper(ctx, "get account resource", func(client api.WalletClient, ctx context.Context) (*api.AccountResourceMessage, error) {
+	return grpcGenericCallWrapper(c, ctx, "get account resource", func(client api.WalletClient, ctx context.Context) (*api.AccountResourceMessage, error) {
 		return client.GetAccountResource(ctx, req)
 	})
 }
@@ -54,7 +54,7 @@ func (c *Client) UpdateAccount2(ctx context.Context, req *core.AccountUpdateCont
 
 // SetAccountId sets account ID
 func (c *Client) SetAccountId(ctx context.Context, req *core.SetAccountIdContract) (*core.Transaction, error) {
-	return c.grpcGenericCallWrapper(ctx, "set account id", func(client api.WalletClient, ctx context.Context) (*core.Transaction, error) {
+	return grpcGenericCallWrapper(c, ctx, "set account id", func(client api.WalletClient, ctx context.Context) (*core.Transaction, error) {
 		return client.SetAccountId(ctx, req)
 	})
 }
