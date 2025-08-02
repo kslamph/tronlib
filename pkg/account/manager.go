@@ -9,7 +9,6 @@ import (
 	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/client"
 	"github.com/kslamph/tronlib/pkg/types"
-	"github.com/kslamph/tronlib/pkg/utils"
 )
 
 // Manager provides high-level account operations
@@ -31,16 +30,13 @@ type TransferOptions struct {
 }
 
 // GetAccount retrieves account information by address
-func (m *Manager) GetAccount(ctx context.Context, address string) (*core.Account, error) {
-	// Validate address
-	addr, err := utils.ValidateAddress(address)
-	if err != nil {
-		return nil, fmt.Errorf("invalid address: %w", err)
+func (m *Manager) GetAccount(ctx context.Context, address *types.Address) (*core.Account, error) {
+	if address == nil {
+		return nil, fmt.Errorf("invalid address: nil")
 	}
-
 	// Prepare gRPC parameters
 	req := &core.Account{
-		Address: addr.Bytes(),
+		Address: address.Bytes(),
 	}
 
 	// Call client package function
@@ -48,16 +44,14 @@ func (m *Manager) GetAccount(ctx context.Context, address string) (*core.Account
 }
 
 // GetAccountNet retrieves account bandwidth information
-func (m *Manager) GetAccountNet(ctx context.Context, address string) (*api.AccountNetMessage, error) {
-	// Validate address
-	addr, err := utils.ValidateAddress(address)
-	if err != nil {
-		return nil, fmt.Errorf("invalid address: %w", err)
+func (m *Manager) GetAccountNet(ctx context.Context, address *types.Address) (*api.AccountNetMessage, error) {
+	if address == nil {
+		return nil, fmt.Errorf("invalid address: nil")
 	}
 
 	// Prepare gRPC parameters
 	req := &core.Account{
-		Address: addr.Bytes(),
+		Address: address.Bytes(),
 	}
 
 	// Call client package function
@@ -65,16 +59,14 @@ func (m *Manager) GetAccountNet(ctx context.Context, address string) (*api.Accou
 }
 
 // GetAccountResource retrieves account energy information
-func (m *Manager) GetAccountResource(ctx context.Context, address string) (*api.AccountResourceMessage, error) {
-	// Validate address
-	addr, err := utils.ValidateAddress(address)
-	if err != nil {
-		return nil, fmt.Errorf("invalid address: %w", err)
+func (m *Manager) GetAccountResource(ctx context.Context, address *types.Address) (*api.AccountResourceMessage, error) {
+	if address == nil {
+		return nil, fmt.Errorf("invalid address: nil")
 	}
 
 	// Prepare gRPC parameters
 	req := &core.Account{
-		Address: addr.Bytes(),
+		Address: address.Bytes(),
 	}
 
 	// Call client package function
@@ -82,7 +74,7 @@ func (m *Manager) GetAccountResource(ctx context.Context, address string) (*api.
 }
 
 // GetBalance retrieves the TRX balance for an address (convenience method)
-func (m *Manager) GetBalance(ctx context.Context, address string) (int64, error) {
+func (m *Manager) GetBalance(ctx context.Context, address *types.Address) (int64, error) {
 	// Get account info
 	account, err := m.GetAccount(ctx, address)
 	if err != nil {
@@ -93,7 +85,7 @@ func (m *Manager) GetBalance(ctx context.Context, address string) (int64, error)
 }
 
 // TransferTRX creates an unsigned TRX transfer transaction
-func (m *Manager) TransferTRX(ctx context.Context, from string, to string, amount int64, opts *TransferOptions) (*api.TransactionExtention, error) {
+func (m *Manager) TransferTRX(ctx context.Context, from *types.Address, to *types.Address, amount int64, opts *TransferOptions) (*api.TransactionExtention, error) {
 	// Validate inputs
 	if err := m.validateTransferInputs(from, to, amount); err != nil {
 		return nil, err
@@ -104,21 +96,10 @@ func (m *Manager) TransferTRX(ctx context.Context, from string, to string, amoun
 		opts = &TransferOptions{}
 	}
 
-	// Validate addresses
-	fromAddr, err := utils.ValidateAddress(from)
-	if err != nil {
-		return nil, fmt.Errorf("invalid from address: %w", err)
-	}
-
-	toAddr, err := utils.ValidateAddress(to)
-	if err != nil {
-		return nil, fmt.Errorf("invalid to address: %w", err)
-	}
-
 	// Prepare gRPC parameters
 	req := &core.TransferContract{
-		OwnerAddress: fromAddr.Bytes(),
-		ToAddress:    toAddr.Bytes(),
+		OwnerAddress: from.Bytes(),
+		ToAddress:    to.Bytes(),
 		Amount:       amount,
 	}
 
@@ -127,15 +108,13 @@ func (m *Manager) TransferTRX(ctx context.Context, from string, to string, amoun
 }
 
 // validateTransferInputs validates common transfer parameters
-func (m *Manager) validateTransferInputs(from string, to string, amount int64) error {
-	// Validate from address
-	if from == "" {
-		return fmt.Errorf("from address cannot be empty")
+func (m *Manager) validateTransferInputs(from *types.Address, to *types.Address, amount int64) error {
+	// Validate addresses
+	if from == nil {
+		return fmt.Errorf("from address cannot be nil")
 	}
-
-	// Validate to address
-	if to == "" {
-		return fmt.Errorf("to address cannot be empty")
+	if to == nil {
+		return fmt.Errorf("to address cannot be nil")
 	}
 
 	// Validate amount (must be positive, in SUN units)
@@ -150,17 +129,7 @@ func (m *Manager) validateTransferInputs(from string, to string, amount int64) e
 	}
 
 	// Check addresses are different
-	fromAddr, err := utils.ValidateAddress(from)
-	if err != nil {
-		return fmt.Errorf("invalid from address: %w", err)
-	}
-
-	toAddr, err := utils.ValidateAddress(to)
-	if err != nil {
-		return fmt.Errorf("invalid to address: %w", err)
-	}
-
-	if fromAddr.String() == toAddr.String() {
+	if from.String() == to.String() {
 		return fmt.Errorf("from and to addresses cannot be the same")
 	}
 

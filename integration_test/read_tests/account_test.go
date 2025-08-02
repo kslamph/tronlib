@@ -9,6 +9,8 @@ import (
 	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/account"
 	"github.com/kslamph/tronlib/pkg/client"
+	"github.com/kslamph/tronlib/pkg/types"
+	"github.com/kslamph/tronlib/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -224,7 +226,8 @@ func TestMainnetGetAccount(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			account, err := manager.GetAccount(ctx, tc.address)
+			addr := types.MustNewAddressFromBase58(tc.address)
+			account, err := manager.GetAccount(ctx, addr)
 			require.NoError(t, err, "GetAccount should succeed")
 
 			tc.validate(t, account)
@@ -347,7 +350,8 @@ func TestMainnetGetAccountResource(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			resource, err := manager.GetAccountResource(ctx, tc.address)
+			addrPtr, _ := utils.ValidateAddress(tc.address)
+			resource, err := manager.GetAccountResource(ctx, addrPtr)
 			require.NoError(t, err, "GetAccountResource should succeed")
 
 			tc.validate(t, resource)
@@ -425,7 +429,8 @@ func TestMainnetGetAccountNet(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			net, err := manager.GetAccountNet(ctx, tc.address)
+			addrPtr2, _ := utils.ValidateAddress(tc.address)
+			net, err := manager.GetAccountNet(ctx, addrPtr2)
 			require.NoError(t, err, "GetAccountNet should succeed")
 
 			tc.validate(t, net)

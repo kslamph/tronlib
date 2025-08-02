@@ -19,6 +19,7 @@ import (
 	"github.com/kslamph/tronlib/pkg/signer"
 	"github.com/kslamph/tronlib/pkg/smartcontract"
 	"github.com/kslamph/tronlib/pkg/types"
+	"github.com/kslamph/tronlib/pkg/utils"
 )
 
 const (
@@ -40,7 +41,7 @@ const (
 type SetupConfig struct {
 	NodeURL          string
 	Key1PrivateKey   string
-	Key1Address      string
+	Key1Address      *types.Address
 	ProjectRoot      string
 	ContractBuildDir string
 	TestEnvFiles     []string
@@ -59,7 +60,7 @@ type ContractInfo struct {
 // DeploymentResult holds the result of a contract deployment
 type DeploymentResult struct {
 	ContractName    string
-	Address         string
+	Address         string // keep as string for env writing and display
 	TxID            string
 	Success         bool
 	BroadcastResult *api.Return
@@ -129,7 +130,7 @@ func NewNileTestnetSetup() (*NileTestnetSetup, error) {
 func (s *NileTestnetSetup) Run() error {
 	fmt.Println("🚀 Starting Nile Testnet Contract Deployment Setup")
 	fmt.Printf("📍 Node URL: %s\n", s.config.NodeURL)
-	fmt.Printf("👤 Key1 Address: %s\n", s.config.Key1Address)
+	fmt.Printf("👤 Key1 Address: %s\n", s.config.Key1Address.String())
 	fmt.Printf("🏗️  Project Root: %s\n", s.config.ProjectRoot)
 
 	if s.config.DryRun {
@@ -228,7 +229,7 @@ func (s *NileTestnetSetup) verifyAccountBalance() error {
 	defer cancel()
 
 	if s.config.DryRun {
-		fmt.Printf("🔍 DRY RUN: Would check balance for address %s\n", s.config.Key1Address)
+		fmt.Printf("🔍 DRY RUN: Would check balance for address %s\n", s.config.Key1Address.String())
 		fmt.Printf("🔍 DRY RUN: Would verify balance ≥ %d TRX\n", MinimumBalanceTRX)
 		return nil
 	}
@@ -369,9 +370,10 @@ func (s *NileTestnetSetup) deployContract(contract ContractInfo) (DeploymentResu
 
 	fmt.Printf("📝 Creating deployment transaction...\n")
 
+	// NOTE: DeployContract expects ownerAddress as string. Convert *types.Address to base58 string.
 	txExt, err := s.contractManager.DeployContract(
 		ctx,
-		s.config.Key1Address,          // ownerAddress
+		s.config.Key1Address.String(), // ownerAddress as string
 		contract.Name,                 // contractName
 		string(abiBytes),              // abi as string
 		bytecode,                      // bytecode
@@ -554,9 +556,10 @@ func loadSetupConfig() (SetupConfig, error) {
 	key1Address := signer.Address().String()
 
 	config := SetupConfig{
-		NodeURL:          "grpc.nile.trongrid.io:50051",
-		Key1PrivateKey:   key1PrivateKey,
-		Key1Address:      key1Address,
+		NodeURL:        "grpc.nile.trongrid.io:50051",
+		Key1PrivateKey: key1PrivateKey,
+		// Convert string key1Address from env to *types.Address
+		Key1Address:      func() *types.Address { addr, _ := utils.ValidateAddress(key1Address); return addr }(),
 		ProjectRoot:      currentFolder,
 		ContractBuildDir: filepath.Join(currentFolder, "test_contract", "build"),
 		TestEnvFiles: []string{

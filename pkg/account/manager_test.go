@@ -7,6 +7,7 @@ import (
 	"github.com/kslamph/tronlib/pkg/account"
 	"github.com/kslamph/tronlib/pkg/client"
 	"github.com/kslamph/tronlib/pkg/types"
+	"github.com/kslamph/tronlib/pkg/utils"
 )
 
 // Mock client for testing (will be replaced with actual client in integration tests)
@@ -21,11 +22,11 @@ func createTestClient() *client.Client {
 func TestNewManager(t *testing.T) {
 	client := createTestClient()
 	manager := account.NewManager(client)
-	
+
 	if manager == nil {
 		t.Fatal("Manager should not be nil")
 	}
-	
+
 	t.Log("Account manager created successfully")
 }
 
@@ -110,8 +111,10 @@ func TestTransferValidation(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Note: This will fail with network error since we don't have a real TRON node
 			// But it will test our validation logic before the network call
-			_, err := manager.TransferTRX(ctx, tc.from, tc.to, tc.amount, nil)
-			
+			fromAddr, _ := utils.ValidateAddress(tc.from)
+			toAddr, _ := utils.ValidateAddress(tc.to)
+			_, err := manager.TransferTRX(ctx, fromAddr, toAddr, tc.amount, nil)
+
 			if tc.expectError {
 				if err == nil {
 					t.Fatalf("Expected error for test case '%s', but got none", tc.name)
@@ -143,15 +146,19 @@ func TestTransferOptions(t *testing.T) {
 	amount := int64(1000000) // 1 TRX in SUN
 
 	// This will fail with network error, but tests option handling
-	_, err := manager.TransferTRX(ctx, from, to, amount, opts)
-	
+	fromAddr, _ := utils.ValidateAddress(from)
+	toAddr, _ := utils.ValidateAddress(to)
+	_, err := manager.TransferTRX(ctx, fromAddr, toAddr, amount, opts)
+
 	// We expect a network error since no real TRON node is connected
 	if err != nil {
 		t.Logf("Transfer with options failed with expected network error: %v", err)
 	}
 
 	// Test with nil options (should use defaults)
-	_, err = manager.TransferTRX(ctx, from, to, amount, nil)
+	fromAddr2, _ := utils.ValidateAddress(from)
+	toAddr2, _ := utils.ValidateAddress(to)
+	_, err = manager.TransferTRX(ctx, fromAddr2, toAddr2, amount, nil)
 	if err != nil {
 		t.Logf("Transfer with nil options failed with expected network error: %v", err)
 	}
@@ -163,13 +170,14 @@ func TestGetAccount(t *testing.T) {
 	ctx := context.Background()
 
 	// Test valid address
-	_, err := manager.GetAccount(ctx, "TZ1EafTG8FRtE6ef3H2dhaucDdjv36fzPY")
+	addr := types.MustNewAddressFromBase58("TZ1EafTG8FRtE6ef3H2dhaucDdjv36fzPY")
+	_, err := manager.GetAccount(ctx, addr)
 	if err != nil {
 		t.Logf("GetAccount failed with expected network error: %v", err)
 	}
 
 	// Test invalid address
-	_, err = manager.GetAccount(ctx, "invalid_address")
+	_, err = manager.GetAccount(ctx, &types.Address{})
 	if err == nil {
 		t.Fatal("Expected error for invalid address")
 	}
@@ -182,13 +190,14 @@ func TestGetAccountNet(t *testing.T) {
 	ctx := context.Background()
 
 	// Test valid address
-	_, err := manager.GetAccountNet(ctx, "TZ1EafTG8FRtE6ef3H2dhaucDdjv36fzPY")
+	addrOk, _ := utils.ValidateAddress("TZ1EafTG8FRtE6ef3H2dhaucDdjv36fzPY")
+	_, err := manager.GetAccountNet(ctx, addrOk)
 	if err != nil {
 		t.Logf("GetAccountNet failed with expected network error: %v", err)
 	}
 
 	// Test invalid address
-	_, err = manager.GetAccountNet(ctx, "invalid_address")
+	_, err = manager.GetAccountNet(ctx, (*types.Address)(nil))
 	if err == nil {
 		t.Fatal("Expected error for invalid address")
 	}
@@ -201,13 +210,14 @@ func TestGetAccountResource(t *testing.T) {
 	ctx := context.Background()
 
 	// Test valid address
-	_, err := manager.GetAccountResource(ctx, "TZ1EafTG8FRtE6ef3H2dhaucDdjv36fzPY")
+	addrOk2, _ := utils.ValidateAddress("TZ1EafTG8FRtE6ef3H2dhaucDdjv36fzPY")
+	_, err := manager.GetAccountResource(ctx, addrOk2)
 	if err != nil {
 		t.Logf("GetAccountResource failed with expected network error: %v", err)
 	}
 
 	// Test invalid address
-	_, err = manager.GetAccountResource(ctx, "invalid_address")
+	_, err = manager.GetAccountResource(ctx, (*types.Address)(nil))
 	if err == nil {
 		t.Fatal("Expected error for invalid address")
 	}
@@ -220,13 +230,14 @@ func TestGetBalance(t *testing.T) {
 	ctx := context.Background()
 
 	// Test valid address
-	_, err := manager.GetBalance(ctx, "TZ1EafTG8FRtE6ef3H2dhaucDdjv36fzPY")
+	addrOk3, _ := utils.ValidateAddress("TZ1EafTG8FRtE6ef3H2dhaucDdjv36fzPY")
+	_, err := manager.GetBalance(ctx, addrOk3)
 	if err != nil {
 		t.Logf("GetBalance failed with expected network error: %v", err)
 	}
 
 	// Test invalid address
-	_, err = manager.GetBalance(ctx, "invalid_address")
+	_, err = manager.GetBalance(ctx, (*types.Address)(nil))
 	if err == nil {
 		t.Fatal("Expected error for invalid address")
 	}
@@ -250,11 +261,11 @@ func TestAmountConversions(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Convert TRX to SUN (int64)
 			sun := int64(tc.trx * float64(types.SunPerTRX))
-			
+
 			if sun != tc.expected {
 				t.Errorf("Expected %d SUN, got %d SUN", tc.expected, sun)
 			}
-			
+
 			t.Logf("%s = %d SUN", tc.name, sun)
 		})
 	}
@@ -264,40 +275,42 @@ func TestAmountConversions(t *testing.T) {
 func demonstrateUsage() {
 	// This is an example of how the account package would be used
 	// In a real application with a connected TRON node
-	
+
 	// Create client
 	config := client.DefaultClientConfig("grpc://api.trongrid.io:50051")
 	client, _ := client.NewClient(config)
-	
+
 	// Create account manager
 	manager := account.NewManager(client)
-	
+
 	// Get account information
 	ctx := context.Background()
-	address := "TLyqzVGLV1srkB7dToTAEqgDSfPtXRJZYH"
-	
+	address := types.MustNewAddressFromBase58("TLyqzVGLV1srkB7dToTAEqgDSfPtXRJZYH")
+
 	// Individual calls (following design guidelines)
 	account, _ := manager.GetAccount(ctx, address)
 	_ = account
-	
+
 	accountNet, _ := manager.GetAccountNet(ctx, address)
 	_ = accountNet
-	
+
 	accountResource, _ := manager.GetAccountResource(ctx, address)
 	_ = accountResource
-	
+
 	// Get balance (convenience method)
 	balance, _ := manager.GetBalance(ctx, address)
 	_ = balance
-	
+
 	// Create transfer transaction
 	from := "TZ1EafTG8FRtE6ef3H2dhaucDdjv36fzPY"
 	to := "TLyqzVGLV1srkB7dToTAEqgDSfPtXRJZYH"
 	amount := int64(1000000) // 1 TRX in SUN
-	
-	txExt, _ := manager.TransferTRX(ctx, from, to, amount, nil)
+
+	fromOk, _ := utils.ValidateAddress(from)
+	toOk, _ := utils.ValidateAddress(to)
+	txExt, _ := manager.TransferTRX(ctx, fromOk, toOk, amount, nil)
 	_ = txExt
-	
+
 	// Note: Signing and broadcasting are handled by separate workflows
 	// as per design guidelines
 }
