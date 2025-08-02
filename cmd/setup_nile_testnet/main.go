@@ -14,13 +14,11 @@ import (
 	"time"
 
 	"github.com/kslamph/tronlib/pb/api"
-	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/account"
 	"github.com/kslamph/tronlib/pkg/client"
 	"github.com/kslamph/tronlib/pkg/signer"
 	"github.com/kslamph/tronlib/pkg/smartcontract"
 	"github.com/kslamph/tronlib/pkg/types"
-	"github.com/kslamph/tronlib/pkg/workflow"
 )
 
 const (
@@ -389,50 +387,14 @@ func (s *NileTestnetSetup) deployContract(contract ContractInfo) (DeploymentResu
 
 	// Sign and broadcast transaction
 	fmt.Printf("✍️  Signing and broadcasting transaction...\n")
-	workflowInstance := workflow.NewWorkflow(s.client, txExt)
-	workflowInstance.SetFeeLimit(2000000000)
-	// Sign the transaction
-	workflowInstance.Sign(s.signer)
-	if err := workflowInstance.GetError(); err != nil {
-		result.Error = err
-		return result, fmt.Errorf("failed to sign transaction: %w", err)
-	}
-
-	// Broadcast and wait for confirmation
-	txid, success, broadcastResult, txInfo, err := workflowInstance.Broadcast(ctx, 30) // Wait up to 30 seconds
+	rst, err := s.client.SignAndBroadcast(ctx, txExt, client.BroadcastOptions{FeeLimit: 2000000000, WaitForReceipt: true}, s.signer)
 	if err != nil {
-		result.Error = err
-		return result, fmt.Errorf("failed to broadcast transaction: %w", err)
-	}
-
-	result.TxID = txid
-	result.Success = success
-	result.BroadcastResult = broadcastResult
-	if !success {
-		result.Error = fmt.Errorf("transaction failed")
-		return result, fmt.Errorf("deployment transaction failed")
-	}
-
-	// Extract contract address from transaction info
-	if txInfo != nil && len(txInfo.ContractAddress) > 0 {
-		addr, err := types.NewAddressFromBytes(txInfo.ContractAddress)
-		if err != nil {
-			result.Error = err
-			return result, fmt.Errorf("failed to parse contract address: %w", err)
-		}
-		result.Address = addr.String()
-		if txInfo.GetResult() != core.TransactionInfo_SUCESS {
-			result.Error = fmt.Errorf("transaction failed")
-			return result, fmt.Errorf("transaction failed: %s ,%s", txInfo.GetResult(), string(txInfo.GetResMessage()))
-		}
-	} else {
-		result.Error = fmt.Errorf("no contract address in transaction info")
-		return result, fmt.Errorf("deployment successful but no contract address found")
+		fmt.Printf("X broadcast failed \n")
 	}
 
 	fmt.Printf("✅ %s deployed successfully!\n", contract.Name)
 	fmt.Printf("📍 Contract Address: %s\n", result.Address)
-	fmt.Printf("🔗 Transaction ID: %s\n", result.TxID)
+	fmt.Printf("🔗 Transaction ID: %s\n", rst.TxID)
 
 	return result, nil
 }

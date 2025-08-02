@@ -30,54 +30,46 @@ type Address struct {
 // NewAddress creates an Address from a string, []byte, or base58 string
 // it will try to parse the address as base58 first, then hex, then bytes
 // performance penalty is expected
-func NewAddress(address any) (*Address, error) {
-	switch v := address.(type) {
+type addressAllowed interface {
+	~string | ~[]byte | *Address | *eCommon.Address | [20]byte | [21]byte
+}
+
+func NewAddress[T addressAllowed](v T) (*Address, error) {
+	switch any(v).(type) {
 	case string:
-		addr, err := NewAddressFromBase58(v)
+		s := any(v).(string)
+		addr, err := NewAddressFromBase58(s)
 		if err == nil {
 			return addr, nil
 		}
-		addr, err = NewAddressFromHex(v)
-		if err == nil {
-			return addr, nil
-		}
-		return nil, fmt.Errorf("invalid address: %v", err)
+
+		return NewAddressFromHex(s)
 
 	case []byte:
-		addr, err := NewAddressFromBytes(v)
-		if err == nil {
-			return addr, nil
-		}
-		return nil, fmt.Errorf("invalid address: %v", err)
+		b := any(v).([]byte)
+		return NewAddressFromBytes(b)
 
 	case *Address:
-		if v == nil {
+		a := any(v).(*Address)
+		if a == nil {
 			return nil, fmt.Errorf("invalid address: nil Address")
 		}
-		return v, nil
+		return a, nil
 
 	case *eCommon.Address:
-		if v == nil {
-			return nil, fmt.Errorf("invalid address: nil EVM Address")
-		}
-		return NewAddressFromBytes(v.Bytes())
+		ea := any(v).(eCommon.Address)
+		return NewAddressFromBytes(ea.Bytes())
 
 	case [20]byte:
-		addr, err := NewAddressFromBytes(v[:])
-		if err == nil {
-			return addr, nil
-		}
-		return nil, fmt.Errorf("invalid address: %v", err)
+		b := any(v).([20]byte)
+		return NewAddressFromBytes(b[:])
 
 	case [21]byte:
-		addr, err := NewAddressFromBytes(v[:])
-		if err == nil {
-			return addr, nil
-		}
-		return nil, fmt.Errorf("invalid address: %v", err)
+		b := any(v).([21]byte)
+		return NewAddressFromBytes(b[:])
 
 	default:
-		return nil, fmt.Errorf("invalid address: %v", address)
+		return nil, fmt.Errorf("invalid address: %v", v)
 	}
 }
 
