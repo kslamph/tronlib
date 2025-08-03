@@ -94,7 +94,7 @@ type TransactionInfoTestData struct {
 }
 
 // setupNetworkTestManager creates a test network manager instance
-func setupNetworkTestManager(t *testing.T) *network.Manager {
+func setupNetworkTestManager(t *testing.T) *network.NetworkManager {
 	config := getTestConfig()
 
 	clientConfig := client.DefaultClientConfig(config.Endpoint)

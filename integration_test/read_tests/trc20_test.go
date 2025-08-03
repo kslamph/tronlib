@@ -16,7 +16,7 @@ import (
 )
 
 // setupTRC20TestClient creates a test TRC20 client instance
-func setupTRC20TestClient(t *testing.T, contractAddress string) *trc20.TRC20Client {
+func setupTRC20TestClient(t *testing.T, contractAddress string) *trc20.TRC20Manager {
 	config := getTestConfig()
 
 	clientConfig := client.DefaultClientConfig(config.Endpoint)
@@ -29,7 +29,7 @@ func setupTRC20TestClient(t *testing.T, contractAddress string) *trc20.TRC20Clie
 	addr, err := types.NewAddress(contractAddress)
 	require.NoError(t, err, "Failed to parse contract address")
 
-	trc20Client, err := trc20.NewTRC20Client(tronClient, addr)
+	trc20Client, err := trc20.NewManager(tronClient, addr)
 	require.NoError(t, err, "Failed to create TRC20 client")
 
 	return trc20Client

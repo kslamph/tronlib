@@ -11,17 +11,14 @@ import (
 	"github.com/kslamph/tronlib/pkg/types"
 )
 
-// Manager provides high-level resource management operations
-type Manager struct {
+// ResourcesManager provides high-level resource management operations
+type ResourcesManager struct {
 	client *client.Client
 }
 
-// ResourceManager is an explicit alias of Manager for discoverability and future clarity.
-type ResourceManager = Manager
-
 // NewManager creates a new resource manager
-func NewManager(client *client.Client) *Manager {
-	return &Manager{
+func NewManager(client *client.Client) *ResourcesManager {
+	return &ResourcesManager{
 		client: client,
 	}
 }
@@ -35,7 +32,7 @@ const (
 )
 
 // FreezeBalanceV2 freezes balance for resources (v2)
-func (m *Manager) FreezeBalanceV2(ctx context.Context, ownerAddress *types.Address, frozenBalance int64, resource ResourceType) (*api.TransactionExtention, error) {
+func (m *ResourcesManager) FreezeBalanceV2(ctx context.Context, ownerAddress *types.Address, frozenBalance int64, resource ResourceType) (*api.TransactionExtention, error) {
 	// Validate inputs
 	if frozenBalance <= 0 {
 		return nil, fmt.Errorf("%w: value must be positive", types.ErrInvalidAmount)
@@ -54,7 +51,7 @@ func (m *Manager) FreezeBalanceV2(ctx context.Context, ownerAddress *types.Addre
 }
 
 // UnfreezeBalanceV2 unfreezes balance (v2)
-func (m *Manager) UnfreezeBalanceV2(ctx context.Context, ownerAddress *types.Address, unfreezeBalance int64, resource ResourceType) (*api.TransactionExtention, error) {
+func (m *ResourcesManager) UnfreezeBalanceV2(ctx context.Context, ownerAddress *types.Address, unfreezeBalance int64, resource ResourceType) (*api.TransactionExtention, error) {
 	// Validate inputs
 	if unfreezeBalance <= 0 {
 		return nil, fmt.Errorf("%w: value must be positive", types.ErrInvalidAmount)
@@ -73,7 +70,7 @@ func (m *Manager) UnfreezeBalanceV2(ctx context.Context, ownerAddress *types.Add
 }
 
 // DelegateResource delegates resources to another account
-func (m *Manager) DelegateResource(ctx context.Context, ownerAddress, receiverAddress *types.Address, balance int64, resource ResourceType, lock bool) (*api.TransactionExtention, error) {
+func (m *ResourcesManager) DelegateResource(ctx context.Context, ownerAddress, receiverAddress *types.Address, balance int64, resource ResourceType, lock bool) (*api.TransactionExtention, error) {
 	// Validate inputs
 	if balance <= 0 {
 		return nil, fmt.Errorf("%w: value must be positive", types.ErrInvalidAmount)
@@ -101,7 +98,7 @@ func (m *Manager) DelegateResource(ctx context.Context, ownerAddress, receiverAd
 }
 
 // UnDelegateResource undelegates resources from another account
-func (m *Manager) UnDelegateResource(ctx context.Context, ownerAddress, receiverAddress *types.Address, balance int64, resource ResourceType) (*api.TransactionExtention, error) {
+func (m *ResourcesManager) UnDelegateResource(ctx context.Context, ownerAddress, receiverAddress *types.Address, balance int64, resource ResourceType) (*api.TransactionExtention, error) {
 	// Validate inputs
 	if balance <= 0 {
 		return nil, fmt.Errorf("%w: value must be positive", types.ErrInvalidAmount)
@@ -124,7 +121,7 @@ func (m *Manager) UnDelegateResource(ctx context.Context, ownerAddress, receiver
 }
 
 // CancelAllUnfreezeV2 cancels all unfreeze operations (v2)
-func (m *Manager) CancelAllUnfreezeV2(ctx context.Context, ownerAddress *types.Address) (*api.TransactionExtention, error) {
+func (m *ResourcesManager) CancelAllUnfreezeV2(ctx context.Context, ownerAddress *types.Address) (*api.TransactionExtention, error) {
 	if ownerAddress == nil {
 		return nil, fmt.Errorf("%w: invalid owner address: nil", types.ErrInvalidAddress)
 	}
@@ -137,7 +134,7 @@ func (m *Manager) CancelAllUnfreezeV2(ctx context.Context, ownerAddress *types.A
 }
 
 // WithdrawExpireUnfreeze withdraws expired unfreeze amount
-func (m *Manager) WithdrawExpireUnfreeze(ctx context.Context, ownerAddress *types.Address) (*api.TransactionExtention, error) {
+func (m *ResourcesManager) WithdrawExpireUnfreeze(ctx context.Context, ownerAddress *types.Address) (*api.TransactionExtention, error) {
 	if ownerAddress == nil {
 		return nil, fmt.Errorf("%w: invalid owner address: nil", types.ErrInvalidAddress)
 	}
@@ -150,7 +147,7 @@ func (m *Manager) WithdrawExpireUnfreeze(ctx context.Context, ownerAddress *type
 }
 
 // GetDelegatedResourceV2 gets delegated resource information (v2)
-func (m *Manager) GetDelegatedResourceV2(ctx context.Context, fromAddress, toAddress *types.Address) (*api.DelegatedResourceList, error) {
+func (m *ResourcesManager) GetDelegatedResourceV2(ctx context.Context, fromAddress, toAddress *types.Address) (*api.DelegatedResourceList, error) {
 	if fromAddress == nil {
 		return nil, fmt.Errorf("%w: invalid from address: nil", types.ErrInvalidAddress)
 	}
@@ -167,7 +164,7 @@ func (m *Manager) GetDelegatedResourceV2(ctx context.Context, fromAddress, toAdd
 }
 
 // GetDelegatedResourceAccountIndexV2 gets delegated resource account index (v2)
-func (m *Manager) GetDelegatedResourceAccountIndexV2(ctx context.Context, address *types.Address) (*core.DelegatedResourceAccountIndex, error) {
+func (m *ResourcesManager) GetDelegatedResourceAccountIndexV2(ctx context.Context, address *types.Address) (*core.DelegatedResourceAccountIndex, error) {
 	if address == nil {
 		return nil, fmt.Errorf("%w: invalid address: nil", types.ErrInvalidAddress)
 	}
@@ -180,7 +177,7 @@ func (m *Manager) GetDelegatedResourceAccountIndexV2(ctx context.Context, addres
 }
 
 // GetCanDelegatedMaxSize gets maximum delegatable resource size
-func (m *Manager) GetCanDelegatedMaxSize(ctx context.Context, ownerAddress *types.Address, delegateType int32) (*api.CanDelegatedMaxSizeResponseMessage, error) {
+func (m *ResourcesManager) GetCanDelegatedMaxSize(ctx context.Context, ownerAddress *types.Address, delegateType int32) (*api.CanDelegatedMaxSizeResponseMessage, error) {
 	if ownerAddress == nil {
 		return nil, fmt.Errorf("%w: invalid owner address: nil", types.ErrInvalidAddress)
 	}
@@ -194,7 +191,7 @@ func (m *Manager) GetCanDelegatedMaxSize(ctx context.Context, ownerAddress *type
 }
 
 // GetAvailableUnfreezeCount gets available unfreeze count
-func (m *Manager) GetAvailableUnfreezeCount(ctx context.Context, ownerAddress *types.Address) (*api.GetAvailableUnfreezeCountResponseMessage, error) {
+func (m *ResourcesManager) GetAvailableUnfreezeCount(ctx context.Context, ownerAddress *types.Address) (*api.GetAvailableUnfreezeCountResponseMessage, error) {
 	if ownerAddress == nil {
 		return nil, fmt.Errorf("%w: invalid owner address: nil", types.ErrInvalidAddress)
 	}
@@ -207,7 +204,7 @@ func (m *Manager) GetAvailableUnfreezeCount(ctx context.Context, ownerAddress *t
 }
 
 // GetCanWithdrawUnfreezeAmount gets withdrawable unfreeze amount
-func (m *Manager) GetCanWithdrawUnfreezeAmount(ctx context.Context, ownerAddress *types.Address, timestamp int64) (*api.CanWithdrawUnfreezeAmountResponseMessage, error) {
+func (m *ResourcesManager) GetCanWithdrawUnfreezeAmount(ctx context.Context, ownerAddress *types.Address, timestamp int64) (*api.CanWithdrawUnfreezeAmountResponseMessage, error) {
 	if ownerAddress == nil {
 		return nil, fmt.Errorf("%w: invalid owner address: nil", types.ErrInvalidAddress)
 	}

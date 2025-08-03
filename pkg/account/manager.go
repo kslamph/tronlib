@@ -11,17 +11,14 @@ import (
 	"github.com/kslamph/tronlib/pkg/types"
 )
 
-// Manager provides high-level account operations
-type Manager struct {
+// AccountManager provides high-level account operations
+type AccountManager struct {
 	client *client.Client
 }
 
-// AccountManager is an explicit alias of Manager for discoverability and future clarity.
-type AccountManager = Manager
-
 // NewManager creates a new account manager
-func NewManager(client *client.Client) *Manager {
-	return &Manager{
+func NewManager(client *client.Client) *AccountManager {
+	return &AccountManager{
 		client: client,
 	}
 }
@@ -33,7 +30,7 @@ type TransferOptions struct {
 }
 
 // GetAccount retrieves account information by address
-func (m *Manager) GetAccount(ctx context.Context, address *types.Address) (*core.Account, error) {
+func (m *AccountManager) GetAccount(ctx context.Context, address *types.Address) (*core.Account, error) {
 	if address == nil {
 		return nil, fmt.Errorf("%w: invalid address: nil", types.ErrInvalidAddress)
 	}
@@ -47,7 +44,7 @@ func (m *Manager) GetAccount(ctx context.Context, address *types.Address) (*core
 }
 
 // GetAccountNet retrieves account bandwidth information
-func (m *Manager) GetAccountNet(ctx context.Context, address *types.Address) (*api.AccountNetMessage, error) {
+func (m *AccountManager) GetAccountNet(ctx context.Context, address *types.Address) (*api.AccountNetMessage, error) {
 	if address == nil {
 		return nil, fmt.Errorf("%w: invalid address: nil", types.ErrInvalidAddress)
 	}
@@ -62,7 +59,7 @@ func (m *Manager) GetAccountNet(ctx context.Context, address *types.Address) (*a
 }
 
 // GetAccountResource retrieves account energy information
-func (m *Manager) GetAccountResource(ctx context.Context, address *types.Address) (*api.AccountResourceMessage, error) {
+func (m *AccountManager) GetAccountResource(ctx context.Context, address *types.Address) (*api.AccountResourceMessage, error) {
 	if address == nil {
 		return nil, fmt.Errorf("%w: invalid address: nil", types.ErrInvalidAddress)
 	}
@@ -77,7 +74,7 @@ func (m *Manager) GetAccountResource(ctx context.Context, address *types.Address
 }
 
 // GetBalance retrieves the TRX balance for an address (convenience method)
-func (m *Manager) GetBalance(ctx context.Context, address *types.Address) (int64, error) {
+func (m *AccountManager) GetBalance(ctx context.Context, address *types.Address) (int64, error) {
 	// Get account info
 	account, err := m.GetAccount(ctx, address)
 	if err != nil {
@@ -88,7 +85,7 @@ func (m *Manager) GetBalance(ctx context.Context, address *types.Address) (int64
 }
 
 // TransferTRX creates an unsigned TRX transfer transaction
-func (m *Manager) TransferTRX(ctx context.Context, from *types.Address, to *types.Address, amount int64, opts *TransferOptions) (*api.TransactionExtention, error) {
+func (m *AccountManager) TransferTRX(ctx context.Context, from *types.Address, to *types.Address, amount int64, opts *TransferOptions) (*api.TransactionExtention, error) {
 	// Validate inputs
 	if err := m.validateTransferInputs(from, to, amount); err != nil {
 		return nil, err
@@ -111,7 +108,7 @@ func (m *Manager) TransferTRX(ctx context.Context, from *types.Address, to *type
 }
 
 // validateTransferInputs validates common transfer parameters
-func (m *Manager) validateTransferInputs(from *types.Address, to *types.Address, amount int64) error {
+func (m *AccountManager) validateTransferInputs(from *types.Address, to *types.Address, amount int64) error {
 	// Validate addresses
 	if from == nil {
 		return fmt.Errorf("%w: from address cannot be nil", types.ErrInvalidAddress)

@@ -30,7 +30,7 @@ func getTestConfig() TestConfig {
 }
 
 // setupTestManager creates a test manager instance
-func setupTestManager(t *testing.T) *account.Manager {
+func setupTestManager(t *testing.T) *account.AccountManager {
 	config := getTestConfig()
 
 	clientConfig := client.DefaultClientConfig(config.Endpoint)

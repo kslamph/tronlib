@@ -71,8 +71,8 @@ type DeploymentResult struct {
 type NileTestnetSetup struct {
 	config            SetupConfig
 	client            *client.Client
-	accountManager    *account.Manager
-	contractManager   *smartcontract.Manager
+	accountManager    *account.AccountManager
+	contractManager   *smartcontract.SmartcontractManager
 	signer            *signer.PrivateKeySigner
 	deploymentResults []DeploymentResult
 }

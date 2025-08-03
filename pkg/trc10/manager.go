@@ -11,21 +11,21 @@ import (
 	"github.com/kslamph/tronlib/pkg/types"
 )
 
-// Manager provides high-level TRC20 token operations
-type Manager struct {
+// TRC10Manager provides high-level TRC10 token operations
+type TRC10Manager struct {
 	client *client.Client
 }
 
-// NewManager creates a new TRC20 manager
-func NewManager(client *client.Client) *Manager {
-	return &Manager{
+// NewManager creates a new TRC10 manager
+func NewManager(client *client.Client) *TRC10Manager {
+	return &TRC10Manager{
 		client: client,
 	}
 }
 
 // CreateAssetIssue2 creates an asset issue (TRC10 token) (v2)
 // CreateAssetIssue2 creates an asset issue (TRC10 token) (v2)
-func (m *Manager) CreateAssetIssue2(ctx context.Context, ownerAddress *types.Address, name string, abbr string, totalSupply int64, trxNum int32, icoNum int32, startTime int64, endTime int64, description string, url string, freeAssetNetLimit int64, publicFreeAssetNetLimit int64, frozenSupply []FrozenSupply) (*api.TransactionExtention, error) {
+func (m *TRC10Manager) CreateAssetIssue2(ctx context.Context, ownerAddress *types.Address, name string, abbr string, totalSupply int64, trxNum int32, icoNum int32, startTime int64, endTime int64, description string, url string, freeAssetNetLimit int64, publicFreeAssetNetLimit int64, frozenSupply []FrozenSupply) (*api.TransactionExtention, error) {
 	// Validate inputs
 	if name == "" {
 		return nil, fmt.Errorf("asset name cannot be empty")
@@ -91,7 +91,7 @@ type FrozenSupply struct {
 }
 
 // UpdateAsset2 updates an asset (v2)
-func (m *Manager) UpdateAsset2(ctx context.Context, ownerAddress *types.Address, description string, url string, newLimit int64, newPublicLimit int64) (*api.TransactionExtention, error) {
+func (m *TRC10Manager) UpdateAsset2(ctx context.Context, ownerAddress *types.Address, description string, url string, newLimit int64, newPublicLimit int64) (*api.TransactionExtention, error) {
 	if ownerAddress == nil {
 		return nil, fmt.Errorf("invalid owner address: nil")
 	}
@@ -108,7 +108,7 @@ func (m *Manager) UpdateAsset2(ctx context.Context, ownerAddress *types.Address,
 }
 
 // TransferAsset2 transfers an asset (TRC10 token) (v2)
-func (m *Manager) TransferAsset2(ctx context.Context, ownerAddress, toAddress *types.Address, assetName string, amount int64) (*api.TransactionExtention, error) {
+func (m *TRC10Manager) TransferAsset2(ctx context.Context, ownerAddress, toAddress *types.Address, assetName string, amount int64) (*api.TransactionExtention, error) {
 	// Validate inputs
 	if assetName == "" {
 		return nil, fmt.Errorf("asset name cannot be empty")
@@ -138,7 +138,7 @@ func (m *Manager) TransferAsset2(ctx context.Context, ownerAddress, toAddress *t
 }
 
 // ParticipateAssetIssue2 participates in asset issue (v2)
-func (m *Manager) ParticipateAssetIssue2(ctx context.Context, ownerAddress, toAddress *types.Address, assetName string, amount int64) (*api.TransactionExtention, error) {
+func (m *TRC10Manager) ParticipateAssetIssue2(ctx context.Context, ownerAddress, toAddress *types.Address, assetName string, amount int64) (*api.TransactionExtention, error) {
 	// Validate inputs
 	if assetName == "" {
 		return nil, fmt.Errorf("asset name cannot be empty")
@@ -164,7 +164,7 @@ func (m *Manager) ParticipateAssetIssue2(ctx context.Context, ownerAddress, toAd
 }
 
 // UnfreezeAsset2 unfreezes an asset (v2)
-func (m *Manager) UnfreezeAsset2(ctx context.Context, ownerAddress *types.Address) (*api.TransactionExtention, error) {
+func (m *TRC10Manager) UnfreezeAsset2(ctx context.Context, ownerAddress *types.Address) (*api.TransactionExtention, error) {
 	if ownerAddress == nil {
 		return nil, fmt.Errorf("invalid owner address: nil")
 	}
@@ -177,7 +177,7 @@ func (m *Manager) UnfreezeAsset2(ctx context.Context, ownerAddress *types.Addres
 }
 
 // GetAssetIssueByAccount gets asset issues by account
-func (m *Manager) GetAssetIssueByAccount(ctx context.Context, address *types.Address) (*api.AssetIssueList, error) {
+func (m *TRC10Manager) GetAssetIssueByAccount(ctx context.Context, address *types.Address) (*api.AssetIssueList, error) {
 	if address == nil {
 		return nil, fmt.Errorf("invalid address: nil")
 	}
@@ -190,7 +190,7 @@ func (m *Manager) GetAssetIssueByAccount(ctx context.Context, address *types.Add
 }
 
 // GetAssetIssueByName gets asset issue by name
-func (m *Manager) GetAssetIssueByName(ctx context.Context, assetName string) (*core.AssetIssueContract, error) {
+func (m *TRC10Manager) GetAssetIssueByName(ctx context.Context, assetName string) (*core.AssetIssueContract, error) {
 	if assetName == "" {
 		return nil, fmt.Errorf("asset name cannot be empty")
 	}
@@ -203,7 +203,7 @@ func (m *Manager) GetAssetIssueByName(ctx context.Context, assetName string) (*c
 }
 
 // GetAssetIssueListByName gets asset issue list by name
-func (m *Manager) GetAssetIssueListByName(ctx context.Context, assetName string) (*api.AssetIssueList, error) {
+func (m *TRC10Manager) GetAssetIssueListByName(ctx context.Context, assetName string) (*api.AssetIssueList, error) {
 	if assetName == "" {
 		return nil, fmt.Errorf("asset name cannot be empty")
 	}
@@ -216,7 +216,7 @@ func (m *Manager) GetAssetIssueListByName(ctx context.Context, assetName string)
 }
 
 // GetAssetIssueById gets asset issue by ID
-func (m *Manager) GetAssetIssueById(ctx context.Context, assetId []byte) (*core.AssetIssueContract, error) {
+func (m *TRC10Manager) GetAssetIssueById(ctx context.Context, assetId []byte) (*core.AssetIssueContract, error) {
 	if len(assetId) == 0 {
 		return nil, fmt.Errorf("asset ID cannot be empty")
 	}
@@ -229,13 +229,13 @@ func (m *Manager) GetAssetIssueById(ctx context.Context, assetId []byte) (*core.
 }
 
 // GetAssetIssueList gets all asset issues
-func (m *Manager) GetAssetIssueList(ctx context.Context) (*api.AssetIssueList, error) {
+func (m *TRC10Manager) GetAssetIssueList(ctx context.Context) (*api.AssetIssueList, error) {
 	req := &api.EmptyMessage{}
 	return m.client.GetAssetIssueList(ctx, req)
 }
 
 // GetPaginatedAssetIssueList gets paginated asset issue list
-func (m *Manager) GetPaginatedAssetIssueList(ctx context.Context, offset int64, limit int64) (*api.AssetIssueList, error) {
+func (m *TRC10Manager) GetPaginatedAssetIssueList(ctx context.Context, offset int64, limit int64) (*api.AssetIssueList, error) {
 	if offset < 0 {
 		return nil, fmt.Errorf("offset cannot be negative")
 	}
