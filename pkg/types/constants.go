@@ -12,6 +12,7 @@ const (
 	TronNileNet = "nile"
 
 	// Address constants
+	AddressPrefixByte   = 0x41
 	AddressLength       = 21
 	AddressHexLength    = 42 // Including 0x prefix
 	AddressBase58Length = 34

@@ -26,7 +26,7 @@ const (
 	// Deployment configuration
 	MinimumBalanceTRX  = 3000
 	DefaultFeeLimit    = 10 * types.SunPerTRX // 10 TRX fee limit per deployment
-	DefaultEnergyLimit = 10000000             // 10M energy limit
+	DefaultEnergyLimit = types.DefaultEnergyLimit
 
 	// Contract deployment parameters
 	TRC20Name          = "TronLib Test"

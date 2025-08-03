@@ -1,6 +1,5 @@
-// Package utils provides encoding and decoding utilities for the TRON SDK
+ // Package utils provides encoding and decoding utilities for the TRON SDK
 package utils
-
 import (
 	"encoding/hex"
 	"encoding/json"
@@ -9,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	types "github.com/kslamph/tronlib/pkg/types"
 )
-
 // HexToBytes converts hex string to bytes
 func HexToBytes(hexStr string) ([]byte, error) {
 	// Remove 0x prefix if present
@@ -117,7 +116,7 @@ func DecodeParameters(abiJSON string, method string, data []byte) ([]interface{}
 // EncodeTRC20Transfer encodes a TRC20 transfer call
 func EncodeTRC20Transfer(to string, amount *big.Int) ([]byte, error) {
 	// Method signature for transfer(address,uint256)
-	methodSig, _ := HexToBytes("a9059cbb")
+	methodSig, _ := HexToBytes(types.TRC20TransferMethodID)
 
 	// Encode address (32 bytes, left-padded)
 	toAddr, err := HexToBytes(to)
@@ -142,7 +141,7 @@ func EncodeTRC20Transfer(to string, amount *big.Int) ([]byte, error) {
 // EncodeTRC20BalanceOf encodes a TRC20 balanceOf call
 func EncodeTRC20BalanceOf(address string) ([]byte, error) {
 	// Method signature for balanceOf(address)
-	methodSig, _ := HexToBytes("70a08231")
+	methodSig, _ := HexToBytes(types.TRC20BalanceOfMethodID)
 
 	// Encode address (32 bytes, left-padded)
 	addr, err := HexToBytes(address)

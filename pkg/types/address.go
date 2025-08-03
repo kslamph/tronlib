@@ -14,10 +14,7 @@ import (
 )
 
 const (
-	addressPrefixByte = 0x41
-	addressLength     = 21                                   // Raw address length in bytes (1 byte prefix + 20 bytes address)
-	tRONAddressLength = 34                                   // TRON base58 address length
-	BlackHoleAddress  = "T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb" // Black hole address prefix
+	BlackHoleAddress = "T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb" // Black hole address prefix
 )
 
 // Address represents a TRON address that can be stored in different formats
@@ -80,8 +77,8 @@ func NewAddressFromBase58(base58Addr string) (*Address, error) {
 		return nil, fmt.Errorf("invalid address: must start with T")
 	}
 	// Address must be 34 chars long
-	if len(base58Addr) != tRONAddressLength {
-		return nil, fmt.Errorf("invalid address length: expected %d, got %d", tRONAddressLength, len(base58Addr))
+	if len(base58Addr) != AddressBase58Length {
+		return nil, fmt.Errorf("invalid address length: expected %d, got %d", AddressBase58Length, len(base58Addr))
 	}
 
 	decoded, err := base58.Decode(base58Addr)
@@ -89,17 +86,17 @@ func NewAddressFromBase58(base58Addr string) (*Address, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid base58 encoding: %w", err)
 	}
-	// Address hex must be prefixed with 0x41
-	if decoded[0] != 0x41 {
-		return nil, fmt.Errorf("invalid address prefix: expected 0x41, got 0x%x", decoded[0])
+	// Address hex must be prefixed with AddressPrefixByte
+	if decoded[0] != AddressPrefixByte {
+		return nil, fmt.Errorf("invalid address prefix: expected 0x%x, got 0x%x", AddressPrefixByte, decoded[0])
 	}
 	// Address hex must be 21 bytes long
-	if len(decoded) != addressLength+4 { // 21 bytes address + 4 bytes checksum
+	if len(decoded) != AddressLength+4 { // 21 bytes address + 4 bytes checksum
 		return nil, errors.New("invalid decoded address length")
 	}
 
-	addressBytes := decoded[:addressLength]
-	checksum := decoded[addressLength:]
+	addressBytes := decoded[:AddressLength]
+	checksum := decoded[AddressLength:]
 
 	// Verify checksum: first 4 bytes of sha256(sha256(addressBytes)) must be equal to checksum
 	h1 := sha256.Sum256(addressBytes)
@@ -128,13 +125,13 @@ func NewAddressFromHex(hexAddr string) (*Address, error) {
 
 	switch len(decoded) {
 	case 21:
-		if decoded[0] != addressPrefixByte {
-			return nil, fmt.Errorf("invalid hex address: must start with %x", addressPrefixByte)
+		if decoded[0] != AddressPrefixByte {
+			return nil, fmt.Errorf("invalid hex address: must start with %x", AddressPrefixByte)
 		}
 	case 20:
 		// Valid address - add prefix
 		prefixed := make([]byte, 21)
-		prefixed[0] = addressPrefixByte
+		prefixed[0] = AddressPrefixByte
 		copy(prefixed[1:], decoded)
 		decoded = prefixed
 	default:
@@ -151,13 +148,13 @@ func NewAddressFromHex(hexAddr string) (*Address, error) {
 func NewAddressFromBytes(byteAddress []byte) (*Address, error) {
 	switch len(byteAddress) {
 	case 21:
-		if byteAddress[0] != 0x41 {
-			return nil, fmt.Errorf("invalid address prefix: expected 0x41, got 0x%x", byteAddress[0])
+		if byteAddress[0] != AddressPrefixByte {
+			return nil, fmt.Errorf("invalid address prefix: expected 0x%x, got 0x%x", AddressPrefixByte, byteAddress[0])
 		}
 	case 20:
 		// Valid address - add prefix
 		prefixed := make([]byte, 21)
-		prefixed[0] = addressPrefixByte
+		prefixed[0] = AddressPrefixByte
 		copy(prefixed[1:], byteAddress)
 		byteAddress = prefixed
 	default:
@@ -262,8 +259,8 @@ func (a *Address) HexEVM() string {
 
 // IsValid checks if the address is valid
 func (a *Address) IsValid() bool {
-	return a != nil && len(a.bytesAddr) == 21 && a.bytesAddr[0] == 0x41 &&
-		len(a.base58Addr) == tRONAddressLength && strings.HasPrefix(a.base58Addr, "T")
+	return a != nil && len(a.bytesAddr) == AddressLength && a.bytesAddr[0] == AddressPrefixByte &&
+		len(a.base58Addr) == AddressBase58Length && strings.HasPrefix(a.base58Addr, "T")
 }
 
 // Equal checks if two addresses are equal

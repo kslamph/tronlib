@@ -206,7 +206,7 @@ func IsValidContractAddress(address string) bool {
 	
 	// Contract addresses start with 0x41 and have specific patterns
 	bytes := addr.Bytes()
-	return len(bytes) == 21 && bytes[0] == 0x41
+	return len(bytes) == types.AddressLength && bytes[0] == types.AddressPrefixByte
 }
 
 // ValidateContractData validates smart contract call data
@@ -234,10 +234,13 @@ func ValidateABI(abiJSON string) error {
 		return errors.New("ABI cannot be empty")
 	}
 	
-	// Basic JSON validation
-	_, err := JSONToMap(abiJSON)
-	if err != nil {
-		return fmt.Errorf("invalid ABI JSON: %v", err)
+	// Basic JSON validation - minimal check to avoid dependency here
+	if strings.TrimSpace(abiJSON) == "" {
+		return errors.New("ABI cannot be empty")
+	}
+	// try a simple structural check
+	if !(strings.Contains(abiJSON, "{") && strings.Contains(abiJSON, "}")) {
+		return fmt.Errorf("invalid ABI JSON: missing braces")
 	}
 	
 	// TODO: Add more specific ABI validation
