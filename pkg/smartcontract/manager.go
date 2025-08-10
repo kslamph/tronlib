@@ -12,14 +12,14 @@ import (
 	"github.com/kslamph/tronlib/pkg/utils"
 )
 
-// SmartcontractManager provides high-level smart contract operations
-type SmartcontractManager struct {
+// SmartContractManager provides high-level smart contract operations
+type SmartContractManager struct {
 	client *client.Client
 }
 
 // NewManager creates a new smart contract manager
-func NewManager(client *client.Client) *SmartcontractManager {
-	return &SmartcontractManager{
+func NewManager(client *client.Client) *SmartContractManager {
+	return &SmartContractManager{
 		client: client,
 	}
 }
@@ -29,7 +29,7 @@ func NewManager(client *client.Client) *SmartcontractManager {
 //   - string: ABI JSON string
 //   - *core.SmartContract_ABI: Parsed ABI object
 //   - nil: No ABI provided
-func (m *SmartcontractManager) DeployContract(ctx context.Context, ownerAddress *types.Address, contractName string, abi any, bytecode []byte, callValue, consumeUserResourcePercent, originEnergyLimit int64, constructorParams ...interface{}) (*api.TransactionExtention, error) {
+func (m *SmartContractManager) DeployContract(ctx context.Context, ownerAddress *types.Address, contractName string, abi any, bytecode []byte, callValue, consumeUserResourcePercent, originEnergyLimit int64, constructorParams ...interface{}) (*api.TransactionExtention, error) {
 	// Validate inputs
 	if err := utils.ValidateContractName(contractName); err != nil {
 		return nil, fmt.Errorf("%w: invalid contract name: %w", types.ErrInvalidParameter, err)
@@ -117,7 +117,7 @@ func (m *SmartcontractManager) DeployContract(ctx context.Context, ownerAddress 
 }
 
 // encodeConstructor encodes constructor parameters for contract deployment
-func (m *SmartcontractManager) encodeConstructor(abi *core.SmartContract_ABI, constructorParams []interface{}) ([]byte, error) {
+func (m *SmartContractManager) encodeConstructor(abi *core.SmartContract_ABI, constructorParams []interface{}) ([]byte, error) {
 	if abi == nil {
 		if len(constructorParams) > 0 {
 			return nil, fmt.Errorf("%w: constructor parameters provided but ABI is nil", types.ErrInvalidParameter)
@@ -161,7 +161,7 @@ func (m *SmartcontractManager) encodeConstructor(abi *core.SmartContract_ABI, co
 }
 
 // EstimateEnergy estimates energy required for smart contract execution
-func (m *SmartcontractManager) EstimateEnergy(ctx context.Context, ownerAddress, contractAddress *types.Address, data []byte, callValue int64) (*api.EstimateEnergyMessage, error) {
+func (m *SmartContractManager) EstimateEnergy(ctx context.Context, ownerAddress, contractAddress *types.Address, data []byte, callValue int64) (*api.EstimateEnergyMessage, error) {
 	// Validate inputs
 	if len(data) == 0 {
 		return nil, fmt.Errorf("%w: contract data cannot be empty", types.ErrInvalidParameter)
@@ -191,7 +191,7 @@ func (m *SmartcontractManager) EstimateEnergy(ctx context.Context, ownerAddress,
 }
 
 // GetContract gets smart contract information
-func (m *SmartcontractManager) GetContract(ctx context.Context, contractAddress *types.Address) (*core.SmartContract, error) {
+func (m *SmartContractManager) GetContract(ctx context.Context, contractAddress *types.Address) (*core.SmartContract, error) {
 	if contractAddress == nil {
 		return nil, fmt.Errorf("%w: invalid contract address: nil", types.ErrInvalidAddress)
 	}
@@ -204,7 +204,7 @@ func (m *SmartcontractManager) GetContract(ctx context.Context, contractAddress 
 }
 
 // GetContractInfo gets smart contract detailed information
-func (m *SmartcontractManager) GetContractInfo(ctx context.Context, contractAddress *types.Address) (*core.SmartContractDataWrapper, error) {
+func (m *SmartContractManager) GetContractInfo(ctx context.Context, contractAddress *types.Address) (*core.SmartContractDataWrapper, error) {
 	if contractAddress == nil {
 		return nil, fmt.Errorf("%w: invalid contract address: nil", types.ErrInvalidAddress)
 	}
@@ -217,7 +217,7 @@ func (m *SmartcontractManager) GetContractInfo(ctx context.Context, contractAddr
 }
 
 // UpdateSetting updates smart contract settings
-func (m *SmartcontractManager) UpdateSetting(ctx context.Context, ownerAddress, contractAddress *types.Address, consumeUserResourcePercent int64) (*api.TransactionExtention, error) {
+func (m *SmartContractManager) UpdateSetting(ctx context.Context, ownerAddress, contractAddress *types.Address, consumeUserResourcePercent int64) (*api.TransactionExtention, error) {
 	if consumeUserResourcePercent < 0 || consumeUserResourcePercent > 100 {
 		return nil, fmt.Errorf("%w: consume user resource percent must be between 0 and 100", types.ErrInvalidParameter)
 	}
@@ -238,7 +238,7 @@ func (m *SmartcontractManager) UpdateSetting(ctx context.Context, ownerAddress, 
 }
 
 // UpdateEnergyLimit updates smart contract energy limit
-func (m *SmartcontractManager) UpdateEnergyLimit(ctx context.Context, ownerAddress, contractAddress *types.Address, originEnergyLimit int64) (*api.TransactionExtention, error) {
+func (m *SmartContractManager) UpdateEnergyLimit(ctx context.Context, ownerAddress, contractAddress *types.Address, originEnergyLimit int64) (*api.TransactionExtention, error) {
 	if originEnergyLimit < 0 {
 		return nil, fmt.Errorf("%w: origin energy limit cannot be negative", types.ErrInvalidParameter)
 	}
@@ -259,7 +259,7 @@ func (m *SmartcontractManager) UpdateEnergyLimit(ctx context.Context, ownerAddre
 }
 
 // ClearContractABI clears smart contract ABI
-func (m *SmartcontractManager) ClearContractABI(ctx context.Context, ownerAddress, contractAddress *types.Address) (*api.TransactionExtention, error) {
+func (m *SmartContractManager) ClearContractABI(ctx context.Context, ownerAddress, contractAddress *types.Address) (*api.TransactionExtention, error) {
 	if ownerAddress == nil {
 		return nil, fmt.Errorf("%w: invalid owner address: nil", types.ErrInvalidAddress)
 	}

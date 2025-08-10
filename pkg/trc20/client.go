@@ -49,7 +49,8 @@ func NewManager(tronClient *client.Client, contractAddress *types.Address) (*TRC
 	}
 
 	// Pre-fetch immutable properties using a non-cancellable context
-	prefetchCtx := context.TODO()
+	prefetchCtx, cancel := context.WithTimeout(context.Background(), tronClient.GetTimeout())
+	defer cancel()
 
 	_, err = c.Decimals(prefetchCtx) // This will populate cachedDecimals
 	if err != nil {

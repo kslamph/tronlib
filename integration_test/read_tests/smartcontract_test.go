@@ -15,7 +15,7 @@ import (
 )
 
 // setupSmartContractTestManager creates a test smart contract manager instance
-func setupSmartContractTestManager(t *testing.T) *smartcontract.SmartcontractManager {
+func setupSmartContractTestManager(t *testing.T) *smartcontract.SmartContractManager {
 	config := getTestConfig()
 
 	clientConfig := client.DefaultClientConfig(config.Endpoint)

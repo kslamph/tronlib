@@ -18,7 +18,7 @@ type BroadcastOptions struct {
 	FeeLimit       int64         // Fee limit for the transaction
 	PermissionID   int32         // Permission ID for the transaction
 	WaitForReceipt bool          // Wait for transaction receipt
-	WaitTimeout    int64         // Timeout for waiting for receipt (seconds)
+	WaitTimeout    time.Duration // Timeout for waiting for receipt
 	PollInterval   time.Duration // Polling interval when waiting for receipt
 }
 
@@ -28,8 +28,8 @@ func DefaultBroadcastOptions() BroadcastOptions {
 		FeeLimit:       150_000_000,
 		PermissionID:   0,
 		WaitForReceipt: true,
-		WaitTimeout:    15,                  // seconds
-		PollInterval:   3 * time.Second,     // polling cadence
+		WaitTimeout:    15,              // seconds
+		PollInterval:   3 * time.Second, // polling cadence
 	}
 }
 
@@ -70,7 +70,7 @@ func (c *Client) Simulate(ctx context.Context, anytx any) (*api.TransactionExten
 	if len(coretx.GetRawData().GetContract()) != 1 {
 		return nil, fmt.Errorf("transaction must have exactly one contract, got %d", len(coretx.GetRawData().GetContract()))
 	}
-	if coretx.GetRawData().GetExpiration() < time.Now().UnixNano() {
+	if coretx.GetRawData().GetExpiration() < time.Now().UnixMilli() {
 		return nil, fmt.Errorf("transaction expiration must be in the future")
 	}
 
@@ -175,8 +175,8 @@ func (c *Client) SignAndBroadcast(ctx context.Context, anytx any, opt BroadcastO
 	return result, nil
 }
 
-func (c *Client) waitForTransactionInfo(ctx context.Context, txid []byte, waitSeconds int64, pollInterval time.Duration) *core.TransactionInfo {
-	timeout := time.Duration(waitSeconds) * time.Second
+func (c *Client) waitForTransactionInfo(ctx context.Context, txid []byte, waitTimeout time.Duration, pollInterval time.Duration) *core.TransactionInfo {
+	timeout := waitTimeout
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 

@@ -43,7 +43,9 @@ func NewContract(tronClient *client.Client, contractAddress *types.Address, abi 
 	// Process ABI parameter
 	if len(abi) == 0 {
 		// No ABI provided - retrieve from network
-		contractInfo, err := getContractFromNetwork(context.Background(), tronClient, contractAddress)
+		ctx, cancel := context.WithTimeout(context.Background(), tronClient.GetTimeout())
+		defer cancel()
+		contractInfo, err := getContractFromNetwork(ctx, tronClient, contractAddress)
 		if err != nil {
 			return nil, fmt.Errorf("failed to retrieve contract from network: %v", err)
 		}

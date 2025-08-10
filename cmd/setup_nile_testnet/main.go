@@ -72,7 +72,7 @@ type NileTestnetSetup struct {
 	config            SetupConfig
 	client            *client.Client
 	accountManager    *account.AccountManager
-	contractManager   *smartcontract.SmartcontractManager
+	contractManager   *smartcontract.SmartContractManager
 	signer            *signer.PrivateKeySigner
 	deploymentResults []DeploymentResult
 }

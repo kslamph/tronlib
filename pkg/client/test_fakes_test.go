@@ -80,7 +80,7 @@ func newTestClientWithBufConn(t *testing.T, lis *bufconn.Listener, timeout time.
 		Timeout:         timeout,
 		InitConnections: 1,
 		MaxConnections:  2,
-		IdleTimeout:     time.Second,
+		// IdleTimeout:     time.Second,
 	}
 	c, err := NewClient(cfg)
 	if err != nil {

@@ -26,7 +26,7 @@ type ClientConfig struct {
 	Timeout         time.Duration // Universal timeout for all operations (connection + RPC calls)
 	InitConnections int           // Initial number of connections in pool
 	MaxConnections  int           // Maximum number of connections in pool
-	IdleTimeout     time.Duration // How long connections can be idle
+	// IdleTimeout     time.Duration // How long connections can be idle
 }
 
 // DefaultClientConfig returns a default client configuration
@@ -36,7 +36,7 @@ func DefaultClientConfig(nodeAddress string) ClientConfig {
 		Timeout:         30 * time.Second,
 		InitConnections: 1,
 		MaxConnections:  5,
-		IdleTimeout:     5 * time.Minute,
+		// IdleTimeout:     5 * time.Minute,
 	}
 }
 
@@ -110,12 +110,7 @@ func (c *Client) GetConnection(ctx context.Context) (*grpc.ClientConn, error) {
 	if c.pool == nil {
 		return nil, ErrConnectionFailed
 	}
-	if c.pool == nil {
-		return nil, ErrConnectionFailed
-	}
-	if c.pool == nil {
-		return nil, ErrConnectionFailed
-	}
+
 	return c.pool.get(ctx)
 }
 
