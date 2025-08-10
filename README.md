@@ -1,313 +1,241 @@
-# tronlib
+## tronlib
 
-A Go client library for interacting with the TRON blockchain, providing high-level managers for accounts, resources, network, voting, smart contracts, and TRC20 helpers.
+Go library for interacting with the TRON blockchain. It exposes:
+- A core gRPC `client` with connection pooling and timeouts
+- High-level managers: `account`, `resources`, `network`, `smartcontract`, `trc10`, `trc20`
 
-## Quickstart
+### Install
 
-Minimal example showing client setup, context usage, and broadcast options.
+```bash
+go get github.com/kslamph/tronlib
+```
+
+### Quickstart
 
 ```go
 package main
 
 import (
-	"context"
-	"log"
-	"time"
+    "context"
+    "log"
+    "time"
 
-	"github.com/kslamph/tronlib/pkg/client"
-	"github.com/kslamph/tronlib/pkg/types"
+    "github.com/kslamph/tronlib/pkg/client"
 )
 
 func main() {
-	// Always use a context; prefer per-operation timeouts.
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+    ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+    defer cancel()
 
-	// Create a client using DefaultClientConfig and remember to Close.
-	cfg := client.DefaultClientConfig()
-	cli, err := client.NewClient(cfg)
-	if err != nil {
-		log.Fatalf("new client: %v", err)
-	}
-	defer cli.Close()
+    // Replace with your gRPC node address (mainnet/testnet/full node)
+    node := "your.tron.node:port"
+    cfg := client.DefaultClientConfig(node)
+    cli, err := client.NewClient(cfg)
+    if err != nil {
+        log.Fatalf("new client: %v", err)
+    }
+    defer cli.Close()
 
-	// Default broadcast options (copy/paste friendly).
-	opts := client.DefaultBroadcastOptions()
-	// Override any fields as needed (examples):
-	opts.WaitTimeout = 45 * time.Second
-	opts.FeeLimit = 50_000_000 // 50 TRX in SUN
-
-	// Example address usage
-	addr, err := types.NewAddressFromBase58("TXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX") // replace with real address
-	if err != nil {
-		log.Fatalf("parse addr: %v", err)
-	}
-
-	_ = ctx
-	_ = addr
-	_ = opts
-	_ = cli
+    // Use cli with high-level managers below
 }
 ```
 
 Notes on context:
-- Pass context to every call. Use short per-operation timeouts.
-- For polling operations, ensure WaitTimeout and PollInterval align with your context deadline.
+- Pass `context.Context` to every call. Prefer short per-operation timeouts.
+- If your context has no deadline, the client applies its own default timeout.
 
-## Accounts and Resources
-
-Demonstrates explicit manager aliases for discoverability.
+### Accounts and Resources
 
 ```go
-package accounts_resources_example
+package main
 
 import (
-	"context"
-	"log"
-	"time"
+    "context"
+    "log"
+    "time"
 
-	"github.com/kslamph/tronlib/pkg/account"
-	"github.com/kslamph/tronlib/pkg/client"
-	"github.com/kslamph/tronlib/pkg/resources"
-	"github.com/kslamph/tronlib/pkg/types"
+    "github.com/kslamph/tronlib/pkg/account"
+    "github.com/kslamph/tronlib/pkg/client"
+    "github.com/kslamph/tronlib/pkg/resources"
+    "github.com/kslamph/tronlib/pkg/signer"
+    "github.com/kslamph/tronlib/pkg/types"
 )
 
-func Example() {
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
+func exampleAccounts(node string) {
+    ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+    defer cancel()
 
-	cli, err := client.NewClient(client.DefaultClientConfig())
-	if err != nil {
-		log.Fatalf("client: %v", err)
-	}
-	defer cli.Close()
+    cli, err := client.NewClient(client.DefaultClientConfig(node))
+    if err != nil { log.Fatal(err) }
+    defer cli.Close()
 
-	// Aliases for discoverability:
-	//   type AccountManager = account.Manager
-	//   type ResourceManager = resources.Manager
-	var am account.AccountManager = account.NewManager(cli)
-	var rm resources.ResourceManager = resources.NewManager(cli)
+    am := account.NewManager(cli)
+    rm := resources.NewManager(cli)
 
-	owner, _ := types.NewAddressFromBase58("Txxxxxxxxxxxxxxxxxxxxxxxxxxxxxx1")
-	peer, _ := types.NewAddressFromBase58("Txxxxxxxxxxxxxxxxxxxxxxxxxxxxxx2")
+    from, _ := types.NewAddress("Txxxxxxxxxxxxxxxxxxxxxxxxxxxxxx1")
+    to, _ := types.NewAddress("Tyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy2")
 
-	// Get balance
-	bal, err := am.GetBalance(ctx, owner)
-	if err != nil {
-		log.Fatalf("get balance: %v", err)
-	}
-	_ = bal
+    // Get account balance
+    bal, err := am.GetBalance(ctx, from)
+    if err != nil { log.Fatal(err) }
+    _ = bal
 
-	// Freeze/Unfreeze with resource type constants
-	// Bandwidth = ResourceTypeBandwidth, Energy = ResourceTypeEnergy
-	_, err = rm.FreezeBalanceV2(ctx, owner, 1_000_000, resources.ResourceTypeEnergy) // 1 TRX in SUN
-	if err != nil {
-		log.Fatalf("freeze: %v", err)
-	}
+    // Build a TRX transfer (unsigned)
+    txExt, err := am.TransferTRX(ctx, from, to, 1_000_000, nil) // 1 TRX = 1_000_000 SUN
+    if err != nil { log.Fatal(err) }
 
-	_, err = rm.UnfreezeBalanceV2(ctx, owner, 1_000_000, resources.ResourceTypeEnergy)
-	if err != nil {
-		log.Fatalf("unfreeze: %v", err)
-	}
+    // Sign & broadcast
+    pk, _ := signer.NewPrivateKeySigner("0x<hex-privkey>")
+    res, err := cli.SignAndBroadcast(ctx, txExt, client.DefaultBroadcastOptions(), pk)
+    if err != nil { log.Fatal(err) }
+    if !res.Success { log.Printf("broadcast failed: %s", res.Message) }
 
-	// Delegate/Undelegate example
-	_, _ = rm.DelegateResource(ctx, owner, peer, 2_000_000, resources.ResourceTypeBandwidth, false)
-	_, _ = rm.UnDelegateResource(ctx, owner, peer, 2_000_000, resources.ResourceTypeBandwidth)
+    // Freeze/Unfreeze resources
+    _, _ = rm.FreezeBalanceV2(ctx, from, 1_000_000, resources.ResourceTypeEnergy)
+    _, _ = rm.UnfreezeBalanceV2(ctx, from, 1_000_000, resources.ResourceTypeEnergy)
 }
 ```
 
-## Smart Contract
+### Smart Contracts
 
-Deploy and trigger examples using the SmartContractManager alias.
+Deploy and interact using `smartcontract.Manager` or a typed `smartcontract.Contract`.
 
 ```go
-package smartcontract_example
+package main
 
 import (
-	"context"
-	"encoding/hex"
-	"log"
-	"time"
+    "context"
+    "encoding/hex"
+    "log"
+    "time"
 
-	"github.com/kslamph/tronlib/pkg/client"
-	"github.com/kslamph/tronlib/pkg/smartcontract"
-	"github.com/kslamph/tronlib/pkg/types"
+    "github.com/kslamph/tronlib/pkg/client"
+    "github.com/kslamph/tronlib/pkg/signer"
+    "github.com/kslamph/tronlib/pkg/smartcontract"
+    "github.com/kslamph/tronlib/pkg/types"
 )
 
-func Deploy() {
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
+func exampleSmartContract(node string) {
+    ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+    defer cancel()
 
-	cli, err := client.NewClient(client.DefaultClientConfig())
-	if err != nil {
-		log.Fatalf("client: %v", err)
-	}
-	defer cli.Close()
+    cli, _ := client.NewClient(client.DefaultClientConfig(node))
+    defer cli.Close()
 
-	var scm smartcontract.SmartContractManager = smartcontract.NewManager(cli)
+    mgr := smartcontract.NewManager(cli)
+    owner, _ := types.NewAddress("Townerxxxxxxxxxxxxxxxxxxxxxxxxxx")
 
-	owner, _ := types.NewAddressFromBase58("Txxxxxxxxxxxxxxxxxxxxxxxxxxxxxx1")
+    abiJSON := `{"entrys":[{"type":"constructor","inputs":[{"name":"_owner","type":"address"}]},{"type":"function","name":"setValue","inputs":[{"name":"v","type":"uint256"}]},{"type":"function","name":"getValue","inputs":[],"outputs":[{"name":"","type":"uint256"}],"constant":true}]}`
+    bytecode, _ := hex.DecodeString("60806040...deadbeef")
 
-	// Prepare ABI JSON and bytecode (dummy ABI and hex for illustration)
-	abiJSON := `{"entrys":[{"name":"constructor","inputs":[{"name":"_owner","type":"address"}],"type":"constructor"},{"name":"setValue","inputs":[{"name":"v","type":"uint256"}],"type":"function"},{"name":"getValue","inputs":[],"type":"function","constant":true,"outputs":[{"name":"","type":"uint256"}]}]}`
-	bytecode, _ := hex.DecodeString("6080604052348015600f57600080fd5b...deadbeef") // dummy hex
+    // Deploy
+    txExt, err := mgr.DeployContract(ctx, owner, "MyContract", abiJSON, bytecode, 0, 100, 30000, owner.Bytes())
+    if err != nil { log.Fatal(err) }
+    pk, _ := signer.NewPrivateKeySigner("0x<hex-privkey>")
+    _, _ = cli.SignAndBroadcast(ctx, txExt, client.DefaultBroadcastOptions(), pk)
 
-	// Deploy with constructor params (e.g., owner address as bytes)
-	_, err = scm.DeployContract(
-		ctx,
-		owner,
-		"MyContract",
-		abiJSON,
-		bytecode,
-		0,      // callValue
-		100,    // consumeUserResourcePercent
-		3_0000, // originEnergyLimit
-		owner.Bytes(), // constructor param example
-	)
-	if err != nil {
-		log.Fatalf("deploy: %v", err)
-	}
-}
+    // Interact via Contract
+    contractAddr, _ := types.NewAddress("Tcontractxxxxxxxxxxxxxxxxxxxxxxxx")
+    c, err := smartcontract.NewContract(cli, contractAddr, abiJSON)
+    if err != nil { log.Fatal(err) }
 
-func Trigger() {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+    // State-changing call (build tx only)
+    txExt, err = c.TriggerSmartContract(ctx, owner, 0, "setValue", uint64(42))
+    if err != nil { log.Fatal(err) }
+    _, _ = cli.SignAndBroadcast(ctx, txExt, client.DefaultBroadcastOptions(), pk)
 
-	cli, _ := client.NewClient(client.DefaultClientConfig())
-	defer cli.Close()
-
-	var scm smartcontract.SmartContractManager = smartcontract.NewManager(cli)
-
-	owner, _ := types.NewAddressFromBase58("Txxxxxxxxxxxxxxxxxxxxxxxxxxxxxx1")
-	contractAddr, _ := types.NewAddressFromBase58("Tyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy")
-
-	// Construct Contract with NewContract (constant calls and triggers typically use ABI)
-	contract, err := smartcontract.NewContract(
-		contractAddr,
-		`{"entrys":[{"name":"setValue","inputs":[{"name":"v","type":"uint256"}],"type":"function"},{"name":"getValue","inputs":[],"type":"function","constant":true,"outputs":[{"name":"","type":"uint256"}]}]}`,
-	)
-	if err != nil {
-		log.Fatalf("new contract: %v", err)
-	}
-
-	// Trigger a state-changing method (requires signing/broadcasting)
-	_, err = contract.TriggerSmartContract(ctx, cli, owner, "setValue", uint64(42))
-	if err != nil {
-		log.Fatalf("trigger: %v", err)
-	}
-
-	// Constant (read-only) call
-	_, err = contract.TriggerConstantContract(ctx, cli, owner, "getValue")
-	if err != nil {
-		log.Fatalf("constant: %v", err)
-	}
+    // Constant (read-only) call
+    out, err := c.TriggerConstantContract(ctx, owner, "getValue")
+    if err != nil { log.Fatal(err) }
+    _ = out // decoded single return, e.g., *big.Int
 }
 ```
 
-## TRC20
+### TRC20
 
-Read and write paths plus unit conversion helpers.
+Read and write helpers plus exact unit conversion using `shopspring/decimal`.
 
 ```go
-package trc20_example
+package main
 
 import (
-	"context"
-	"log"
-	"math/big"
-	"time"
+    "context"
+    "log"
+    "time"
 
-	"github.com/kslamph/tronlib/pkg/client"
-	"github.com/kslamph/tronlib/pkg/trc20"
-	"github.com/kslamph/tronlib/pkg/types"
+    "github.com/shopspring/decimal"
+
+    "github.com/kslamph/tronlib/pkg/client"
+    "github.com/kslamph/tronlib/pkg/signer"
+    "github.com/kslamph/tronlib/pkg/trc20"
+    "github.com/kslamph/tronlib/pkg/types"
 )
 
-func Example() {
-	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
-	defer cancel()
+func exampleTRC20(node string) {
+    ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+    defer cancel()
 
-	cli, _ := client.NewClient(client.DefaultClientConfig())
-	defer cli.Close()
+    cli, _ := client.NewClient(client.DefaultClientConfig(node))
+    defer cli.Close()
 
-	tokenAddr, _ := types.NewAddressFromBase58("Tzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz")
-	holder, _ := types.NewAddressFromBase58("Tholderxxxxxxxxxxxxxxxxxxxxxxxxx")
-	spender, _ := types.NewAddressFromBase58("Tspenderxxxxxxxxxxxxxxxxxxxxxxxx")
+    token, _ := types.NewAddress("Ttokenxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+    holder, _ := types.NewAddress("Tholderxxxxxxxxxxxxxxxxxxxxxxxxx")
+    recipient, _ := types.NewAddress("Trecipientxxxxxxxxxxxxxxxxxxxxx")
+    spender, _ := types.NewAddress("Tspenderxxxxxxxxxxxxxxxxxxxxxxxx")
 
-	erc20 := trc20.NewClient(cli, tokenAddr)
+    erc20, err := trc20.NewManager(cli, token)
+    if err != nil { log.Fatal(err) }
 
-	// Read paths
-	name, _ := erc20.Name(ctx)
-	symbol, _ := erc20.Symbol(ctx)
-	decimals, _ := erc20.Decimals(ctx)
-	bal, _ := erc20.BalanceOf(ctx, holder)
-	allowance, _ := erc20.Allowance(ctx, holder, spender)
+    // Reads
+    name, _ := erc20.Name(ctx)
+    symbol, _ := erc20.Symbol(ctx)
+    decimals, _ := erc20.Decimals(ctx)
+    bal, _ := erc20.BalanceOf(ctx, holder)
+    allowance, _ := erc20.Allowance(ctx, holder, spender)
+    _ = name; _ = symbol; _ = bal; _ = allowance
 
-	_ = name
-	_ = symbol
-	_ = decimals
-	_ = bal
-	_ = allowance
-
-	// Write paths (sign/broadcast separately)
-	// Convert human amount -> wei using token decimals; FromWei for reverse.
-	amount := trc20.ToWei(big.NewFloat(12.34), int32(decimals))
-	// Ensure exact scale (no fractional part beyond decimals) to avoid precision loss.
-	_, _ = erc20.Transfer(ctx, holder, tokenAddr, amount)
-	_, _ = erc20.Approve(ctx, holder, spender, amount)
+    // Write (build tx then sign & broadcast)
+    amount := decimal.NewFromFloat(12.34)
+    txid, txExt, err := erc20.Transfer(ctx, holder, recipient, amount)
+    if err != nil { log.Fatal(err) }
+    _ = txid
+    pk, _ := signer.NewPrivateKeySigner("0x<hex-privkey>")
+    _, _ = cli.SignAndBroadcast(ctx, txExt, client.DefaultBroadcastOptions(), pk)
 }
 ```
 
-## Transaction Broadcast
+### Transaction broadcast
 
-DefaultBroadcastOptions control signing and broadcast behaviors.
-
-Fields:
-- FeeLimit: Max fee in SUN.
-- WaitForReceipt: Whether to wait until transaction confirmed.
-- WaitTimeout: Max time to wait for receipt.
-- PollInterval: Interval for polling receipt status.
-- PermissionID: Optional permission ID for multi-signature/permissioned accounts.
-
-Example:
+`DefaultBroadcastOptions()` controls signing and broadcast behavior.
+- `FeeLimit` (SUN)
+- `WaitForReceipt` (bool)
+- `WaitTimeout` (seconds, int64)
+- `PollInterval` (`time.Duration`)
+- `PermissionID` (int32)
 
 ```go
-package broadcast_example
-
-import (
-	"context"
-	"log"
-	"time"
-
-	"github.com/kslamph/tronlib/pb/api"
-	"github.com/kslamph/tronlib/pkg/client"
-)
-
-func Example(txExt *api.TransactionExtention) {
-	cli, _ := client.NewClient(client.DefaultClientConfig())
-	defer cli.Close()
-
-	opts := client.DefaultBroadcastOptions()
-
-	// Use defaults to sign and broadcast
-	if err := cli.SignAndBroadcast(context.Background(), txExt, opts); err != nil {
-		log.Fatalf("broadcast (defaults): %v", err)
-	}
-
-	// Override wait timeout and fee limit
-	opts.WaitTimeout = 90 * time.Second
-	opts.FeeLimit = 100_000_000 // 100 TRX (SUN)
-	if err := cli.SignAndBroadcast(context.Background(), txExt, opts); err != nil {
-		log.Fatalf("broadcast (override): %v", err)
-	}
-}
+opts := client.DefaultBroadcastOptions()
+opts.FeeLimit = 100_000_000
+res, err := cli.SignAndBroadcast(ctx, txExt, opts, signer)
+if err != nil { /* network/broadcast error */ }
+if !res.Success { /* TRON return code/message in res */ }
+// When WaitForReceipt=true and receipt arrives:
+_ = res.ContractReceipt
+_ = res.ContractResult
 ```
 
-## Testing Notes (for contributors)
+### Simulation (constant execution)
 
-- Tests use hermetic bufconn gRPC servers to avoid external dependencies.
-- Prefer fakes for client and deterministic timeouts/polling to ensure reliability.
-- Keep test timeouts small; structure code to accept contexts and injected intervals.
+Simulate execution/energy of a transaction before sending:
 
-## Versioning/Compatibility
+```go
+ext, err := cli.Simulate(ctx, txExt /* or *core.Transaction */)
+if err != nil { /* validation or RPC error */ }
+energyUsed := ext.GetEnergyUsed()
+```
 
-- Additive changes like explicit type aliases and helper functions are non-breaking and maintain backward compatibility.
+### Testing (contributors)
+
+- Tests use hermetic bufconn gRPC servers; keep test contexts short and deterministic.
+- Most managers are thin over the core client; favor unit tests at the manager boundary with fakes.
+
