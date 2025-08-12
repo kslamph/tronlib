@@ -38,8 +38,8 @@ func TestSimulate_HappyPath(t *testing.T) {
 	if ext == nil {
 		t.Fatalf("expected non-nil result")
 	}
-	if ext.GetEnergyUsed() <= 0 {
-		t.Fatalf("expected energy used > 0, got %d", ext.GetEnergyUsed())
+	if ext.EnergyUsage <= 0 {
+		t.Fatalf("expected energy used > 0, got %d", ext.EnergyUsage)
 	}
 }
 
@@ -137,7 +137,7 @@ func TestSignAndBroadcast_WaitForReceipt_Success(t *testing.T) {
 	// WaitForReceipt=true. Use short timeout to keep tests fast; set small timeout and small poll interval to make test deterministic.
 	opts := BroadcastOptions{
 		WaitForReceipt: true,
-		WaitTimeout:    4,                 // seconds
+		WaitTimeout:    4, // seconds
 		PollInterval:   150 * time.Millisecond,
 	}
 	res, err := c.SignAndBroadcast(context.Background(), tx, opts)
@@ -147,9 +147,7 @@ func TestSignAndBroadcast_WaitForReceipt_Success(t *testing.T) {
 	if !res.Success {
 		t.Fatalf("expected broadcast success")
 	}
-	if res.ContractReceipt == nil {
-		t.Fatalf("expected non-nil contract receipt")
-	}
+
 	if txidSeen == nil || res.TxID != hex.EncodeToString(txidSeen) {
 		t.Fatalf("txid mismatch or not captured")
 	}
@@ -185,9 +183,7 @@ func TestSignAndBroadcast_WaitForReceipt_Timeout(t *testing.T) {
 	if !res.Success {
 		t.Fatalf("expected broadcast success")
 	}
-	if res.ContractReceipt != nil {
-		t.Fatalf("expected nil contract receipt due to timeout")
-	}
+
 }
 
 func TestSimulate_ValidationErrors(t *testing.T) {

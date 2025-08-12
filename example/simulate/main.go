@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math/big"
 	"time"
 
 	"github.com/shopspring/decimal"
 
 	"github.com/kslamph/tronlib/pkg/client"
 	"github.com/kslamph/tronlib/pkg/eventdecoder"
+	"github.com/kslamph/tronlib/pkg/smartcontract"
 	"github.com/kslamph/tronlib/pkg/trc20"
 	"github.com/kslamph/tronlib/pkg/types"
 )
@@ -22,8 +24,9 @@ const (
 	nodeAddr = "grpc://grpc.trongrid.io:50051"
 
 	// Demo addresses provided in task
-	addrA = "TV6MuMXfmLbBqPZvBHdwFsDnQeVfnmiuSi"
-	addrB = "TAUN6FwrnwwmaEqYcckffC7wYmbaS6cBiX"
+	addrA   = "TV6MuMXfmLbBqPZvBHdwFsDnQeVfnmiuSi"
+	addrB   = "TAUN6FwrnwwmaEqYcckffC7wYmbaS6cBiX"
+	swapABI = `[{"constant":false,"inputs":[{"name":"tokens_sold","type":"uint256"},{"name":"min_trx","type":"uint256"},{"name":"deadline","type":"uint256"},{"name":"recipient","type":"address"}],"name":"tokenToTrxTransferInput","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"name","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"spender","type":"address"},{"name":"value","type":"uint256"}],"name":"approve","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"trx_bought","type":"uint256"},{"name":"max_tokens","type":"uint256"},{"name":"deadline","type":"uint256"},{"name":"recipient","type":"address"}],"name":"tokenToTrxTransferOutput","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"totalSupply","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"from","type":"address"},{"name":"to","type":"address"},{"name":"value","type":"uint256"}],"name":"transferFrom","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"spender","type":"address"},{"name":"addedValue","type":"uint256"}],"name":"increaseAllowance","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"min_liquidity","type":"uint256"},{"name":"max_tokens","type":"uint256"},{"name":"deadline","type":"uint256"}],"name":"addLiquidity","outputs":[{"name":"","type":"uint256"}],"payable":true,"stateMutability":"payable","type":"function"},{"constant":false,"inputs":[{"name":"min_tokens","type":"uint256"},{"name":"deadline","type":"uint256"}],"name":"trxToTokenSwapInput","outputs":[{"name":"","type":"uint256"}],"payable":true,"stateMutability":"payable","type":"function"},{"constant":false,"inputs":[{"name":"token_addr","type":"address"}],"name":"setup","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"name":"owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"tokens_bought","type":"uint256"},{"name":"deadline","type":"uint256"},{"name":"recipient","type":"address"}],"name":"trxToTokenTransferOutput","outputs":[{"name":"","type":"uint256"}],"payable":true,"stateMutability":"payable","type":"function"},{"constant":true,"inputs":[{"name":"input_amount","type":"uint256"},{"name":"input_reserve","type":"uint256"},{"name":"output_reserve","type":"uint256"}],"name":"getInputPrice","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"tokens_sold","type":"uint256"}],"name":"getTokenToTrxInputPrice","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"symbol","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"factoryAddress","outputs":[{"name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"trx_sold","type":"uint256"}],"name":"getTrxToTokenInputPrice","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"tokens_bought","type":"uint256"},{"name":"max_tokens_sold","type":"uint256"},{"name":"max_trx_sold","type":"uint256"},{"name":"deadline","type":"uint256"},{"name":"recipient","type":"address"},{"name":"exchange_addr","type":"address"}],"name":"tokenToExchangeTransferOutput","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"tokens_sold","type":"uint256"},{"name":"min_trx","type":"uint256"},{"name":"deadline","type":"uint256"}],"name":"tokenToTrxSwapInput","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"trx_bought","type":"uint256"},{"name":"max_tokens","type":"uint256"},{"name":"deadline","type":"uint256"}],"name":"tokenToTrxSwapOutput","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"tokenAddress","outputs":[{"name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"spender","type":"address"},{"name":"subtractedValue","type":"uint256"}],"name":"decreaseAllowance","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"name":"tokens_bought","type":"uint256"}],"name":"getTrxToTokenOutputPrice","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"tokens_bought","type":"uint256"},{"name":"deadline","type":"uint256"}],"name":"trxToTokenSwapOutput","outputs":[{"name":"","type":"uint256"}],"payable":true,"stateMutability":"payable","type":"function"},{"constant":false,"inputs":[{"name":"to","type":"address"},{"name":"value","type":"uint256"}],"name":"transfer","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"tokens_bought","type":"uint256"},{"name":"max_tokens_sold","type":"uint256"},{"name":"max_trx_sold","type":"uint256"},{"name":"deadline","type":"uint256"},{"name":"token_addr","type":"address"}],"name":"tokenToTokenSwapOutput","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"tokens_sold","type":"uint256"},{"name":"min_tokens_bought","type":"uint256"},{"name":"min_trx_bought","type":"uint256"},{"name":"deadline","type":"uint256"},{"name":"exchange_addr","type":"address"}],"name":"tokenToExchangeSwapInput","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"min_tokens","type":"uint256"},{"name":"deadline","type":"uint256"},{"name":"recipient","type":"address"}],"name":"trxToTokenTransferInput","outputs":[{"name":"","type":"uint256"}],"payable":true,"stateMutability":"payable","type":"function"},{"constant":true,"inputs":[{"name":"owner","type":"address"},{"name":"spender","type":"address"}],"name":"allowance","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"tokens_sold","type":"uint256"},{"name":"min_tokens_bought","type":"uint256"},{"name":"min_trx_bought","type":"uint256"},{"name":"deadline","type":"uint256"},{"name":"token_addr","type":"address"}],"name":"tokenToTokenSwapInput","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"tokens_bought","type":"uint256"},{"name":"max_tokens_sold","type":"uint256"},{"name":"max_trx_sold","type":"uint256"},{"name":"deadline","type":"uint256"},{"name":"exchange_addr","type":"address"}],"name":"tokenToExchangeSwapOutput","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"tokens_sold","type":"uint256"},{"name":"min_tokens_bought","type":"uint256"},{"name":"min_trx_bought","type":"uint256"},{"name":"deadline","type":"uint256"},{"name":"recipient","type":"address"},{"name":"exchange_addr","type":"address"}],"name":"tokenToExchangeTransferInput","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"name":"trx_bought","type":"uint256"}],"name":"getTokenToTrxOutputPrice","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"tokens_bought","type":"uint256"},{"name":"max_tokens_sold","type":"uint256"},{"name":"max_trx_sold","type":"uint256"},{"name":"deadline","type":"uint256"},{"name":"recipient","type":"address"},{"name":"token_addr","type":"address"}],"name":"tokenToTokenTransferOutput","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"tokens_sold","type":"uint256"},{"name":"min_tokens_bought","type":"uint256"},{"name":"min_trx_bought","type":"uint256"},{"name":"deadline","type":"uint256"},{"name":"recipient","type":"address"},{"name":"token_addr","type":"address"}],"name":"tokenToTokenTransferInput","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"amount","type":"uint256"},{"name":"min_trx","type":"uint256"},{"name":"min_tokens","type":"uint256"},{"name":"deadline","type":"uint256"}],"name":"removeLiquidity","outputs":[{"name":"","type":"uint256"},{"name":"","type":"uint256"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"name":"output_amount","type":"uint256"},{"name":"input_reserve","type":"uint256"},{"name":"output_reserve","type":"uint256"}],"name":"getOutputPrice","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"payable":true,"stateMutability":"payable","type":"fallback"},{"anonymous":false,"inputs":[{"indexed":true,"name":"buyer","type":"address"},{"indexed":true,"name":"trx_sold","type":"uint256"},{"indexed":true,"name":"tokens_bought","type":"uint256"}],"name":"TokenPurchase","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"buyer","type":"address"},{"indexed":true,"name":"tokens_sold","type":"uint256"},{"indexed":true,"name":"trx_bought","type":"uint256"}],"name":"TrxPurchase","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"provider","type":"address"},{"indexed":true,"name":"trx_amount","type":"uint256"},{"indexed":true,"name":"token_amount","type":"uint256"}],"name":"AddLiquidity","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"provider","type":"address"},{"indexed":true,"name":"trx_amount","type":"uint256"},{"indexed":true,"name":"token_amount","type":"uint256"}],"name":"RemoveLiquidity","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"operator","type":"address"},{"indexed":true,"name":"trx_balance","type":"uint256"},{"indexed":true,"name":"token_balance","type":"uint256"}],"name":"Snapshot","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"from","type":"address"},{"indexed":true,"name":"to","type":"address"},{"indexed":false,"name":"value","type":"uint256"}],"name":"Transfer","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"owner","type":"address"},{"indexed":true,"name":"spender","type":"address"},{"indexed":false,"name":"value","type":"uint256"}],"name":"Approval","type":"event"}]`
 )
 
 func main() {
@@ -75,6 +78,12 @@ func main() {
 	if err := buildAndSimulate(ctx, cli, trc20Mgr, toB, fromA, amount); err != nil {
 		log.Printf("simulate B->A error: %v", err)
 	}
+
+	fmt.Println()
+	fmt.Println("-- Case 3: tokenToTrxSwapInput simulation (expected: contract handles swap) --")
+	if err := simulateSwap(ctx, cli); err != nil {
+		log.Printf("simulate swap error: %v", err)
+	}
 }
 
 func buildAndSimulate(
@@ -92,31 +101,26 @@ func buildAndSimulate(
 	}
 
 	// Simulate execution on node (no signature required)
-	simExt, err := cli.Simulate(ctx, txExt)
+	simRes, err := cli.Simulate(ctx, txExt)
 	if err != nil {
 		return fmt.Errorf("simulate: %w", err)
 	}
-	contractret := simExt.GetTransaction()
-	fmt.Println(contractret.Ret[0].GetRet())
 
 	// Report outcome
-	ret := simExt.GetResult()
-	success := false
-	var msg string
-
-	if ret != nil {
-		success = ret.GetResult()
-		msg = string(ret.GetMessage())
+	success := simRes.Success
+	msg := simRes.Message
+	if msg == "" {
+		msg = simRes.Message
 	}
 	fmt.Printf("txid: %s\n", txid)
 	fmt.Printf("success: %v\n", success)
-	fmt.Printf("energy_used: %d\n", simExt.GetEnergyUsed())
+	fmt.Printf("energy_used: %d\n", simRes.EnergyUsage)
 	if msg != "" {
 		fmt.Printf("result_message: %s\n", msg)
 	}
 
 	// Decode and print event logs if any
-	logs := simExt.GetLogs()
+	logs := simRes.Logs
 	if len(logs) == 0 {
 		fmt.Println("events: <none>")
 		return nil
@@ -124,6 +128,7 @@ func buildAndSimulate(
 
 	fmt.Printf("events (%d):\n", len(logs))
 	for i, lg := range logs {
+		contract := types.MustNewAddressFromBytes(lg.GetAddress())
 		topics := lg.GetTopics()
 		data := lg.GetData()
 		ev, err := eventdecoder.DecodeLog(topics, data)
@@ -131,11 +136,81 @@ func buildAndSimulate(
 			fmt.Printf("  [%d] <decode error>: %v\n", i, err)
 			continue
 		}
-		fmt.Printf("  [%d] %s\n", i, ev.EventName)
+		fmt.Printf("  [%d] %s\n      %s\n", i, contract, ev.EventName)
+
 		for _, p := range ev.Parameters {
 			fmt.Printf("      %s(%s): %s\n", p.Name, p.Type, p.Value)
 		}
 	}
 
+	return nil
+}
+
+// simulateSwap demonstrates using a contract without providing ABI (fetched from network)
+func simulateSwap(ctx context.Context, cli *client.Client) error {
+	ownerStr := "TRXj3DgL8nTM7eqAKZra5RUXu72A899999"
+	contractStr := "TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE"
+
+	owner, err := types.NewAddress(ownerStr)
+	if err != nil {
+		return fmt.Errorf("invalid owner address: %v", err)
+	}
+	contractAddr, err := types.NewAddress(contractStr)
+	if err != nil {
+		return fmt.Errorf("invalid contract address: %v", err)
+	}
+
+	// Create contract without ABI to fetch from network
+	sc, err := smartcontract.NewContract(cli, contractAddr, swapABI)
+	if err != nil {
+		return fmt.Errorf("new contract: %v", err)
+	}
+
+	// Prepare parameters
+	tokensSold := big.NewInt(600000000)
+	minTrx := big.NewInt(1584264000)
+	deadline := big.NewInt(time.Now().Add(1 * time.Minute).Unix())
+
+	// Build tx
+	txExt, err := sc.TriggerSmartContract(ctx, owner, 0, "tokenToTrxSwapInput", tokensSold, minTrx, deadline)
+	if err != nil {
+		return fmt.Errorf("build tokenToTrxSwapInput: %v", err)
+	}
+
+	// Simulate
+	simRes, err := cli.Simulate(ctx, txExt)
+	if err != nil {
+		return fmt.Errorf("simulate: %v", err)
+	}
+
+	// Report
+	fmt.Printf("txid: %x\n", txExt.GetTxid())
+	fmt.Printf("success: %v\n", simRes.Success)
+	fmt.Printf("energy_used: %d\n", simRes.EnergyUsage)
+	if msg := simRes.Message; msg != "" {
+		fmt.Printf("result_message: %s\n", msg)
+	}
+
+	logs := simRes.Logs
+	if len(logs) == 0 {
+		fmt.Println("events: <none>")
+		return nil
+	}
+	fmt.Printf("events (%d):\n", len(logs))
+	for i, lg := range logs {
+		contract := types.MustNewAddressFromBytes(lg.GetAddress())
+		topics := lg.GetTopics()
+		data := lg.GetData()
+		ev, err := eventdecoder.DecodeLog(topics, data)
+		if err != nil {
+			fmt.Printf("  [%d] <decode error>: %v\n", i, err)
+			continue
+		}
+		fmt.Printf("  [%d] %s\n", i, contract)
+		fmt.Printf("      %s\n", ev.EventName)
+		for _, p := range ev.Parameters {
+			fmt.Printf("      %s(%s): %s\n", p.Name, p.Type, p.Value)
+		}
+	}
 	return nil
 }

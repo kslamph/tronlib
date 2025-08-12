@@ -35,27 +35,21 @@ func DefaultBroadcastOptions() BroadcastOptions {
 
 type BroadcastResult struct {
 	TxID    string                 `json:"txID"`
-	Success bool                   `json:"success"`       //indicate if the transaction was successfully broadcasted
+	Success bool                   `json:"success"`
 	Code    api.ReturnResponseCode `json:"returnCode"`    // TRON return code
-	Message string                 `json:"returnMessage"` // TRON return message
+	Message string                 `json:"returnMessage"` // TRON return message concat with contract return message
 
-	//ContractReceipt is the receipt of the contract execution, reflect the resources usage
-	ContractReceipt *core.ResourceReceipt //test if nil before use
-	// ContractResult has the details of the contract returned error message or result
-	ContractResult [][]byte //test if nil before use
+	// ConstantReturn has the details of the contract returned error message or result
+	ConstantReturn [][]byte //test if nil before use
 
-	// Derived fields from TransactionInfo for easier consumption
-	// ExecutionSuccess indicates whether the smart contract execution itself succeeded (state not reverted)
-	ExecutionSuccess bool `json:"executionSuccess"`
-	// TxInfoResult mirrors TransactionInfo.result (SUCESS/FAILED)
-	TxInfoResult core.TransactionInfoCode `json:"txInfoResult"`
-	// TxInfoResMessage is the decoded human-readable message (e.g., revert reason) if available
-	TxInfoResMessage string `json:"txInfoResMessage"`
-	// ContractRet mirrors receipt.result (SUCCESS/REVERT/OUT_OF_ENERGY/...)
-	ContractRet core.Transaction_ResultContractResult `json:"contractRet"`
+	// Fields primarily populated by simulation (TriggerConstantContract)
+	EnergyUsage int64                       `json:"energyUsed,omitempty"`
+	NetUsage    int64                       `json:"netUsage,omitempty"`
+	Logs        []*core.TransactionInfo_Log `json:"logs,omitempty"`
+	// DebugExt   *api.TransactionExtention   `json:"debugExt,omitempty"`
 }
 
-func (c *Client) Simulate(ctx context.Context, anytx any) (*api.TransactionExtention, error) {
+func (c *Client) Simulate(ctx context.Context, anytx any) (*BroadcastResult, error) {
 	if anytx == nil {
 		return nil, fmt.Errorf("transaction cannot be nil")
 	}
@@ -87,13 +81,31 @@ func (c *Client) Simulate(ctx context.Context, anytx any) (*api.TransactionExten
 	decodedTx := &core.TriggerSmartContract{}
 
 	if err := proto.Unmarshal(coretx.GetRawData().GetContract()[0].GetParameter().GetValue(), decodedTx); err != nil {
-
 		return nil, fmt.Errorf("failed to decode transaction: %v", err)
 	}
 
-	// fmt.Println("Decoded Transaction:", decodedTx)
+	// Perform constant call (simulation)
+	ext, err := c.TriggerConstantContract(ctx, decodedTx)
+	if err != nil {
+		return nil, err
+	}
 
-	return c.TriggerConstantContract(ctx, decodedTx)
+	br := &BroadcastResult{}
+	if ext != nil {
+		if txid := ext.GetTxid(); len(txid) > 0 {
+			br.TxID = hex.EncodeToString(txid)
+		}
+		if ret := ext.GetResult(); ret != nil {
+			br.Success = ret.GetResult() && ext.GetTransaction().GetRet()[0].GetRet() == core.Transaction_Result_SUCESS
+			br.Code = ret.GetCode()
+			br.Message = string(ret.GetMessage()) + string(ext.GetResult().GetMessage())
+		}
+		br.ConstantReturn = ext.GetConstantResult()
+		br.EnergyUsage = ext.GetEnergyUsed()
+		br.Logs = ext.GetLogs()
+	}
+
+	return br, nil
 }
 
 func (c *Client) SignAndBroadcast(ctx context.Context, anytx any, opt BroadcastOptions, signers ...types.Signer) (*BroadcastResult, error) {
@@ -102,13 +114,8 @@ func (c *Client) SignAndBroadcast(ctx context.Context, anytx any, opt BroadcastO
 	if opt.FeeLimit == 0 {
 		opt.FeeLimit = def.FeeLimit
 	}
-	if opt.PermissionID == 0 {
-		// default 0 already, nothing to change; keep for clarity
-	}
-	if !opt.WaitForReceipt && def.WaitForReceipt {
-		// honor explicit false, only set default when zero value ambiguity matters; WaitForReceipt is boolean so
-		// leave as is to respect caller. If caller provides zero value (false) intentionally, we keep it.
-	}
+	// PermissionID: default is 0; honor explicit 0 provided by caller.
+	// WaitForReceipt: honor explicit false (no defaulting needed here).
 	if opt.WaitTimeout == 0 {
 		opt.WaitTimeout = def.WaitTimeout
 	}
@@ -179,21 +186,15 @@ func (c *Client) SignAndBroadcast(ctx context.Context, anytx any, opt BroadcastO
 	if txInfo == nil {
 		return result, nil
 	}
-	result.ContractResult = txInfo.GetContractResult()
-	result.ContractReceipt = txInfo.GetReceipt()
 
-	// Populate derived fields for execution status
-	result.TxInfoResult = txInfo.GetResult()
-	if resMsg := txInfo.GetResMessage(); len(resMsg) > 0 {
-		result.TxInfoResMessage = string(resMsg)
-	}
-	if receipt := txInfo.GetReceipt(); receipt != nil {
-		result.ContractRet = receipt.GetResult()
-		// Consider execution successful only if receipt result is SUCCESS and TransactionInfo result is SUCESS
-		if result.TxInfoResult == core.TransactionInfo_SUCESS && result.ContractRet == core.Transaction_Result_SUCCESS {
-			result.ExecutionSuccess = true
-		}
-	}
+	result.Success = result.Success && txInfo.GetResult() == core.TransactionInfo_SUCESS
+
+	result.Message = result.Message + string(txInfo.GetResMessage())
+
+	result.ConstantReturn = txInfo.GetContractResult()
+	result.EnergyUsage = txInfo.GetReceipt().GetEnergyUsageTotal()
+	result.NetUsage = txInfo.GetReceipt().GetNetUsage()
+	result.Logs = txInfo.GetLog()
 
 	return result, nil
 }

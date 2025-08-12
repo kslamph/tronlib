@@ -227,3 +227,4 @@ func compute4Byte(signature string) string {
 	sum := h.Sum(nil)
 	return hex.EncodeToString(sum[:4])
 }
+
