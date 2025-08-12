@@ -69,13 +69,13 @@ func main() {
 	amount := decimal.NewFromInt(10) // 10 USDT
 
 	fmt.Println("-- Case 1: A -> B transfer 10 USDT (expected: success) --")
-	if err := buildAndSimulate(ctx, cli, trc20Mgr, fromA, toB, amount); err != nil {
+	if err := simulateTransfer(ctx, cli, trc20Mgr, fromA, toB, amount); err != nil {
 		log.Printf("simulate A->B error: %v", err)
 	}
 
 	fmt.Println()
 	fmt.Println("-- Case 2: B -> A transfer 10 USDT (expected: REVERTED) --")
-	if err := buildAndSimulate(ctx, cli, trc20Mgr, toB, fromA, amount); err != nil {
+	if err := simulateTransfer(ctx, cli, trc20Mgr, toB, fromA, amount); err != nil {
 		log.Printf("simulate B->A error: %v", err)
 	}
 
@@ -86,33 +86,11 @@ func main() {
 	}
 }
 
-func buildAndSimulate(
-	ctx context.Context,
-	cli *client.Client,
-	erc20Mgr *trc20.TRC20Manager,
-	from *types.Address,
-	to *types.Address,
-	amount decimal.Decimal,
-) error {
-	// Build unsigned TRC20 transfer transaction (no signing here)
-	txid, txExt, err := erc20Mgr.Transfer(ctx, from, to, amount)
-	if err != nil {
-		return fmt.Errorf("build transfer tx: %w", err)
-	}
-
-	// Simulate execution on node (no signature required)
-	simRes, err := cli.Simulate(ctx, txExt)
-	if err != nil {
-		return fmt.Errorf("simulate: %w", err)
-	}
-
-	// Report outcome
+// reportSimulationResult prints the results of a simulation in a standardized format
+func reportSimulationResult(simRes *client.BroadcastResult) {
 	success := simRes.Success
 	msg := simRes.Message
-	if msg == "" {
-		msg = simRes.Message
-	}
-	fmt.Printf("txid: %s\n", txid)
+	fmt.Printf("txid: %s\n", simRes.TxID)
 	fmt.Printf("success: %v\n", success)
 	fmt.Printf("energy_used: %d\n", simRes.EnergyUsage)
 	if msg != "" {
@@ -123,7 +101,7 @@ func buildAndSimulate(
 	logs := simRes.Logs
 	if len(logs) == 0 {
 		fmt.Println("events: <none>")
-		return nil
+		return
 	}
 
 	fmt.Printf("events (%d):\n", len(logs))
@@ -142,6 +120,30 @@ func buildAndSimulate(
 			fmt.Printf("      %s(%s): %s\n", p.Name, p.Type, p.Value)
 		}
 	}
+}
+
+func simulateTransfer(
+	ctx context.Context,
+	cli *client.Client,
+	erc20Mgr *trc20.TRC20Manager,
+	from *types.Address,
+	to *types.Address,
+	amount decimal.Decimal,
+) error {
+	// Build unsigned TRC20 transfer transaction (no signing here)
+	_, txExt, err := erc20Mgr.Transfer(ctx, from, to, amount)
+	if err != nil {
+		return fmt.Errorf("build transfer tx: %w", err)
+	}
+
+	// Simulate execution on node (no signature required)
+	simRes, err := cli.Simulate(ctx, txExt)
+	if err != nil {
+		return fmt.Errorf("simulate: %w", err)
+	}
+
+	// Report outcome using the reusable function
+	reportSimulationResult(simRes)
 
 	return nil
 }
@@ -183,34 +185,7 @@ func simulateSwap(ctx context.Context, cli *client.Client) error {
 		return fmt.Errorf("simulate: %v", err)
 	}
 
-	// Report
-	fmt.Printf("txid: %x\n", txExt.GetTxid())
-	fmt.Printf("success: %v\n", simRes.Success)
-	fmt.Printf("energy_used: %d\n", simRes.EnergyUsage)
-	if msg := simRes.Message; msg != "" {
-		fmt.Printf("result_message: %s\n", msg)
-	}
+	reportSimulationResult(simRes)
 
-	logs := simRes.Logs
-	if len(logs) == 0 {
-		fmt.Println("events: <none>")
-		return nil
-	}
-	fmt.Printf("events (%d):\n", len(logs))
-	for i, lg := range logs {
-		contract := types.MustNewAddressFromBytes(lg.GetAddress())
-		topics := lg.GetTopics()
-		data := lg.GetData()
-		ev, err := eventdecoder.DecodeLog(topics, data)
-		if err != nil {
-			fmt.Printf("  [%d] <decode error>: %v\n", i, err)
-			continue
-		}
-		fmt.Printf("  [%d] %s\n", i, contract)
-		fmt.Printf("      %s\n", ev.EventName)
-		for _, p := range ev.Parameters {
-			fmt.Printf("      %s(%s): %s\n", p.Name, p.Type, p.Value)
-		}
-	}
 	return nil
 }
