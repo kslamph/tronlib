@@ -3,10 +3,7 @@ package read_tests
 import (
 	"context"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -101,26 +98,6 @@ func setupNetworkTestManager(t *testing.T) *network.NetworkManager {
 	require.NoError(t, err, "Failed to create client")
 
 	return network.NewManager(client)
-}
-
-// loadFailedTransactionInfo loads the failed transaction info test data
-func loadFailedTransactionInfo(t *testing.T) *TransactionInfoTestData {
-	// Get the current working directory and construct path to test data
-	cwd, err := os.Getwd()
-	require.NoError(t, err, "Failed to get current working directory")
-
-	// Navigate up to find the project root
-	projectRoot := filepath.Dir(filepath.Dir(cwd)) // Go up two levels from read_tests to project root
-	testDataPath := filepath.Join(projectRoot, "integration_test", "tmp", "failed_tx_info.json")
-
-	data, err := os.ReadFile(testDataPath)
-	require.NoError(t, err, "Failed to read failed transaction info test data file: %s", testDataPath)
-
-	var txInfo TransactionInfoTestData
-	err = json.Unmarshal(data, &txInfo)
-	require.NoError(t, err, "Failed to unmarshal failed transaction info test data")
-
-	return &txInfo
 }
 
 // TestMainnetGetNowBlock tests the GetNowBlock API against real network data

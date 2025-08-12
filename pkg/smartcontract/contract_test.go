@@ -53,7 +53,7 @@ const testERC20ABI = `[
 
 func TestNewContract(t *testing.T) {
 	// Create a mock client for testing
-	mockClient := createMockClient(t)
+	mockClient := createMockClient()
 	mockAddress := createMockAddress()
 
 	// Test contract creation from ABI string
@@ -76,7 +76,7 @@ func TestNewContract(t *testing.T) {
 }
 
 func TestEncodeInput(t *testing.T) {
-	contract, err1 := NewContract(createMockClient(t), createMockAddress(), testERC20ABI)
+	contract, err1 := NewContract(createMockClient(), createMockAddress(), testERC20ABI)
 	if err1 != nil {
 		t.Fatalf("Failed to create contract: %v", err1)
 	}
@@ -164,7 +164,7 @@ func TestDecodeABI(t *testing.T) {
 }
 
 func TestInvalidInputs(t *testing.T) {
-	mockClient := createMockClient(t)
+	mockClient := createMockClient()
 	mockAddress := createMockAddress()
 
 	// Test nil client

@@ -8,7 +8,7 @@ import (
 
 // No changes, just empty lines to replace the removed content
 func TestNewContractSignature(t *testing.T) {
-	mockClient := createMockClient(t)
+	mockClient := createMockClient()
 	mockAddress := createMockAddress()
 
 	// Test 1: Create contract with ABI string
@@ -41,7 +41,7 @@ func TestNewContractSignature(t *testing.T) {
 }
 
 func TestNewContractVariadicABI(t *testing.T) {
-	mockClient := createMockClient(t)
+	mockClient := createMockClient()
 	mockAddress := createMockAddress()
 
 	// Test with one ABI argument (string)

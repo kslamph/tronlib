@@ -14,7 +14,7 @@ import (
 
 // Local generic wrapper helper to call unexported grpcGenericCallWrapper[T]
 func callWrapper[T any](c *Client, ctx context.Context, op string, fn func(api.WalletClient, context.Context) (T, error), validate ...ValidationFunc[T]) (T, error) {
-	return grpcGenericCallWrapper[T](c, ctx, op, fn, validate...)
+	return grpcGenericCallWrapper(c, ctx, op, fn, validate...)
 }
 
 func TestGrpcGenericCallWrapper_AppliesClientTimeout_NoDeadline(t *testing.T) {
@@ -47,7 +47,7 @@ func TestGrpcGenericCallWrapper_AppliesClientTimeout_NoDeadline(t *testing.T) {
 		}
 	}
 
-	res, err := callWrapper[string](c, context.Background(), "test-op", call)
+	res, err := callWrapper(c, context.Background(), "test-op", call)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -89,7 +89,7 @@ func TestGrpcGenericCallWrapper_HonorsExistingDeadline(t *testing.T) {
 		}
 	}
 
-	_, err := callWrapper[int](c, ctx, "long-op", call)
+	_, err := callWrapper(c, ctx, "long-op", call)
 	if !errors.Is(err, context.DeadlineExceeded) && !errors.Is(err, ErrContextCancelled) {
 		t.Fatalf("expected deadline exceeded or ErrContextCancelled, got %v", err)
 	}
@@ -107,7 +107,7 @@ func TestGrpcGenericCallWrapper_ValidationSuccess(t *testing.T) {
 			Result: &api.Return{Result: true, Code: api.Return_SUCCESS},
 		}, nil
 	}
-	_, err := callWrapper[*api.TransactionExtention](c, context.Background(), "validate-ok", call, validateTransactionResult)
+	_, err := callWrapper(c, context.Background(), "validate-ok", call, validateTransactionResult)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -125,7 +125,7 @@ func TestGrpcGenericCallWrapper_ValidationFailureWrapsTronReturn(t *testing.T) {
 			Result: &api.Return{Result: false, Code: api.Return_OTHER_ERROR, Message: []byte("FAILED")},
 		}, nil
 	}
-	_, err := callWrapper[*api.TransactionExtention](c, context.Background(), "operation-x", call, validateTransactionResult)
+	_, err := callWrapper(c, context.Background(), "operation-x", call, validateTransactionResult)
 	if err == nil {
 		t.Fatalf("expected non-nil error")
 	}
@@ -145,11 +145,11 @@ func TestGrpcGenericCallWrapper_ConnLifecycle(t *testing.T) {
 	// Exercise two calls to ensure ReturnConnection places conn back in pool successfully.
 	call := func(_ api.WalletClient, _ context.Context) (int, error) { return 42, nil }
 
-	val1, err1 := callWrapper[int](c, context.Background(), "simple1", call)
+	val1, err1 := callWrapper(c, context.Background(), "simple1", call)
 	if err1 != nil || val1 != 42 {
 		t.Fatalf("call1 failed: val=%d err=%v", val1, err1)
 	}
-	val2, err2 := callWrapper[int](c, context.Background(), "simple2", call)
+	val2, err2 := callWrapper(c, context.Background(), "simple2", call)
 	if err2 != nil || val2 != 42 {
 		t.Fatalf("call2 failed: val=%d err=%v", val2, err2)
 	}

@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"math/big"
 	"os"
@@ -290,14 +289,14 @@ func (s *NileTestnetSetup) prepareContractParameters() ([]ContractInfo, error) {
 
 		// Load ABI
 		abiPath := filepath.Join(s.config.ContractBuildDir, contract.ABIFile)
-		abiBytes, err := ioutil.ReadFile(abiPath)
+		abiBytes, err := os.ReadFile(abiPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read ABI file %s: %w", abiPath, err)
 		}
 
 		// Load bytecode
 		binPath := filepath.Join(s.config.ContractBuildDir, contract.BinFile)
-		binBytes, err := ioutil.ReadFile(binPath)
+		binBytes, err := os.ReadFile(binPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read bytecode file %s: %w", binPath, err)
 		}
@@ -342,13 +341,13 @@ func (s *NileTestnetSetup) deployContract(contract ContractInfo) (DeploymentResu
 	abiPath := filepath.Join(s.config.ContractBuildDir, contract.ABIFile)
 	binPath := filepath.Join(s.config.ContractBuildDir, contract.BinFile)
 
-	abiBytes, err := ioutil.ReadFile(abiPath)
+	abiBytes, err := os.ReadFile(abiPath)
 	if err != nil {
 		result.Error = err
 		return result, fmt.Errorf("failed to read ABI: %w", err)
 	}
 
-	binBytes, err := ioutil.ReadFile(binPath)
+	binBytes, err := os.ReadFile(binPath)
 	if err != nil {
 		result.Error = err
 		return result, fmt.Errorf("failed to read bytecode: %w", err)
@@ -396,67 +395,6 @@ func (s *NileTestnetSetup) deployContract(contract ContractInfo) (DeploymentResu
 	fmt.Printf("🔗 Transaction ID: %s\n", rst.TxID)
 
 	return result, nil
-}
-
-// updateEnvironmentFiles updates all test.env files with deployed contract addresses
-func (s *NileTestnetSetup) updateEnvironmentFiles() error {
-	fmt.Println("\n📝 Step 7: Updating Environment Configuration Files")
-
-	if s.config.DryRun {
-		fmt.Println("🔍 DRY RUN: Would update the following environment files:")
-		for _, envFile := range s.config.TestEnvFiles {
-			fmt.Printf("🔍 DRY RUN: - %s\n", envFile)
-		}
-
-		fmt.Println("🔍 DRY RUN: Would set the following environment variables:")
-		for _, result := range s.deploymentResults {
-			if result.Success {
-				envVarName := getEnvVarName(result.ContractName)
-				fmt.Printf("🔍 DRY RUN: - %s=%s\n", envVarName, result.Address)
-			}
-		}
-		return nil
-	}
-
-	// Update each environment file
-	for _, envFile := range s.config.TestEnvFiles {
-		if err := s.updateSingleEnvFile(envFile); err != nil {
-			return fmt.Errorf("failed to update %s: %w", envFile, err)
-		}
-		fmt.Printf("✅ Updated %s\n", envFile)
-	}
-
-	return nil
-}
-
-// updateSingleEnvFile updates a single environment file with contract addresses
-func (s *NileTestnetSetup) updateSingleEnvFile(envFile string) error {
-	// Read existing file
-	content, err := ioutil.ReadFile(envFile)
-	if err != nil {
-		return fmt.Errorf("failed to read env file: %w", err)
-	}
-
-	lines := strings.Split(string(content), "\n")
-
-	// Update lines with contract addresses
-	for i, line := range lines {
-		for _, result := range s.deploymentResults {
-			if !result.Success {
-				continue
-			}
-
-			envVarName := getEnvVarName(result.ContractName)
-			if strings.HasPrefix(line, envVarName+"=") {
-				lines[i] = fmt.Sprintf("%s=%s", envVarName, result.Address)
-				break
-			}
-		}
-	}
-
-	// Write updated content
-	updatedContent := strings.Join(lines, "\n")
-	return ioutil.WriteFile(envFile, []byte(updatedContent), 0644)
 }
 
 // verifyDeployments verifies that all deployed contracts are accessible
@@ -588,18 +526,6 @@ func loadKey1FromEnv(envPath string) (string, error) {
 	return "", fmt.Errorf("INTEGRATION_TEST_KEY1 not found in %s", envPath)
 }
 
-// getEnvVarName returns the environment variable name for a contract
-func getEnvVarName(contractName string) string {
-	switch contractName {
-	case "MinimalContract":
-		return "MINIMAL_CONTRACT_ADDRESS"
-	case "TRC20":
-		return "TRC20_CONTRACT_ADDRESS"
-	default:
-		return strings.ToUpper(contractName) + "_CONTRACT_ADDRESS"
-	}
-}
-
 // cleanup performs cleanup operations
 func (s *NileTestnetSetup) cleanup() {
 	if s.client != nil {
@@ -620,7 +546,7 @@ func (s *NileTestnetSetup) updateEnvironmentFilesForContract(result DeploymentRe
 
 	// Update all configured environment files
 	for _, envFile := range s.config.TestEnvFiles {
-		if err := s.updateSingleContractInFile(envFile, result, "env"); err != nil {
+		if err := s.updateSingleContractInFile(envFile, result); err != nil {
 			return fmt.Errorf("failed to update %s: %w", envFile, err)
 		}
 	}
@@ -629,7 +555,7 @@ func (s *NileTestnetSetup) updateEnvironmentFilesForContract(result DeploymentRe
 }
 
 // updateSingleContractInFile updates a single contract's address in an environment file
-func (s *NileTestnetSetup) updateSingleContractInFile(filePath string, result DeploymentResult, fileType string) error {
+func (s *NileTestnetSetup) updateSingleContractInFile(filePath string, result DeploymentResult) error {
 	// Read current file content
 	content, err := os.ReadFile(filePath)
 	if err != nil {

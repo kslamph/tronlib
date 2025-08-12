@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 	"net"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -24,9 +23,6 @@ type testWalletServer struct {
 	BroadcastHandler            func(ctx context.Context, in *core.Transaction) (*api.Return, error)
 	TriggerConstantContractFunc func(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error)
 	GetTxInfoByIdHandler        func(ctx context.Context, in *api.BytesMessage) (*core.TransactionInfo, error)
-
-	// For polling behavior in receipt waiting
-	pollCount int32
 }
 
 func (s *testWalletServer) BroadcastTransaction(ctx context.Context, in *core.Transaction) (*api.Return, error) {
@@ -79,7 +75,7 @@ func newTestClientWithBufConn(t *testing.T, lis *bufconn.Listener, timeout time.
 		// Use DialContext to honor context cancellation/timeouts
 		return lis.DialContext(ctx)
 	}
-	c, err := NewClientWithDialer("bufnet", dialer, WithTimeout(timeout), WithPool(1, 2))
+	c, err := NewClientWithDialer("passthrough:///bufnet", dialer, WithTimeout(timeout), WithPool(1, 2))
 	if err != nil {
 		t.Fatalf("NewClientWithDialer error: %v", err)
 	}
@@ -93,7 +89,7 @@ func newTestClientWithBufConn(t *testing.T, lis *bufconn.Listener, timeout time.
 }
 
 // helper to build a minimal trigger smart contract core.Transaction with one contract and future expiration
-func buildTriggerSmartContractTx(owner []byte, contract []byte, data []byte, expiration time.Time) *core.Transaction {
+func buildTriggerSmartContractTx(expiration time.Time) *core.Transaction {
 	raw := &core.TransactionRaw{
 		Contract: []*core.Transaction_Contract{
 			{
@@ -106,4 +102,3 @@ func buildTriggerSmartContractTx(owner []byte, contract []byte, data []byte, exp
 }
 
 // atomicInc utility for polling tests
-func atomicInc(v *int32) int32 { return atomic.AddInt32(v, 1) }

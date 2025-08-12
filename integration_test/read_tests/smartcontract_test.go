@@ -14,16 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// setupSmartContractTestManager creates a test smart contract manager instance
-func setupSmartContractTestManager(t *testing.T) *smartcontract.SmartContractManager {
-	config := getTestConfig()
-
-	client, err := client.NewClient(config.Endpoint, client.WithTimeout(config.Timeout))
-	require.NoError(t, err, "Failed to create client")
-
-	return smartcontract.NewManager(client)
-}
-
 // TestMainnetUSDTContract tests USDT contract functionality
 func TestMainnetUSDTContract(t *testing.T) {
 	// manager := setupSmartContractTestManager(t)

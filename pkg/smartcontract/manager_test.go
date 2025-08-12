@@ -55,7 +55,7 @@ func newTestClientWithBufConn(t *testing.T, lis *bufconn.Listener, timeout time.
 	dialer := func(ctx context.Context, _ string) (net.Conn, error) {
 		return lis.DialContext(ctx)
 	}
-	c, err := client.NewClientWithDialer("bufnet", dialer, client.WithTimeout(timeout), client.WithPool(1, 1))
+	c, err := client.NewClientWithDialer("passthrough:///bufnet", dialer, client.WithTimeout(timeout), client.WithPool(1, 1))
 	if err != nil {
 		t.Fatalf("NewClientWithDialer error: %v", err)
 	}

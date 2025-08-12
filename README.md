@@ -27,10 +27,9 @@ func main() {
     ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
     defer cancel()
 
-    // Replace with your gRPC node address (mainnet/testnet/full node)
-    node := "your.tron.node:port"
-    cfg := client.DefaultClientConfig(node)
-    cli, err := client.NewClient(cfg)
+    // Replace with your TRON node URL (grpc://host:port or grpcs://host:port)
+    node := "grpc://your.tron.node:port"
+    cli, err := client.NewClient(node)
     if err != nil {
         log.Fatalf("new client: %v", err)
     }
@@ -65,7 +64,7 @@ func exampleAccounts(node string) {
     ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
     defer cancel()
 
-    cli, err := client.NewClient(client.DefaultClientConfig(node))
+    cli, err := client.NewClient(node)
     if err != nil { log.Fatal(err) }
     defer cli.Close()
 
@@ -119,7 +118,7 @@ func exampleSmartContract(node string) {
     ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
     defer cancel()
 
-    cli, _ := client.NewClient(client.DefaultClientConfig(node))
+    cli, _ := client.NewClient(node)
     defer cli.Close()
 
     mgr := smartcontract.NewManager(cli)
@@ -175,7 +174,7 @@ func exampleTRC20(node string) {
     ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
     defer cancel()
 
-    cli, _ := client.NewClient(client.DefaultClientConfig(node))
+    cli, _ := client.NewClient(node)
     defer cli.Close()
 
     token, _ := types.NewAddress("Ttokenxxxxxxxxxxxxxxxxxxxxxxxxxxx")

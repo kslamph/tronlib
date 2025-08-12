@@ -29,7 +29,7 @@ func TestSimulate_HappyPath(t *testing.T) {
 	t.Cleanup(cleanupClient)
 
 	// Build a minimal trigger smart contract transaction with future expiration
-	tx := buildTriggerSmartContractTx(nil, nil, nil, time.Now().Add(2*time.Second))
+	tx := buildTriggerSmartContractTx(time.Now().Add(2 * time.Second))
 
 	ext, err := c.Simulate(context.Background(), tx)
 	if err != nil {
@@ -55,7 +55,7 @@ func TestSignAndBroadcast_NoSigners(t *testing.T) {
 	c, cleanupClient := newTestClientWithBufConn(t, lis, 500*time.Millisecond)
 	t.Cleanup(cleanupClient)
 
-	tx := buildTriggerSmartContractTx(nil, nil, nil, time.Now().Add(2*time.Second))
+	tx := buildTriggerSmartContractTx(time.Now().Add(2 * time.Second))
 
 	res, err := c.SignAndBroadcast(context.Background(), tx, BroadcastOptions{WaitForReceipt: false})
 	if err != nil {
@@ -83,7 +83,7 @@ func TestSignAndBroadcast_WithSignerPermissionAndFee(t *testing.T) {
 	c, cleanupClient := newTestClientWithBufConn(t, lis, 500*time.Millisecond)
 	t.Cleanup(cleanupClient)
 
-	tx := buildTriggerSmartContractTx(nil, nil, nil, time.Now().Add(2*time.Second))
+	tx := buildTriggerSmartContractTx(time.Now().Add(2 * time.Second))
 
 	opts := BroadcastOptions{
 		PermissionID:   2,
@@ -132,7 +132,7 @@ func TestSignAndBroadcast_WaitForReceipt_Success(t *testing.T) {
 	c, cleanupClient := newTestClientWithBufConn(t, lis, 500*time.Millisecond)
 	t.Cleanup(cleanupClient)
 
-	tx := buildTriggerSmartContractTx(nil, nil, nil, time.Now().Add(2*time.Second))
+	tx := buildTriggerSmartContractTx(time.Now().Add(2 * time.Second))
 
 	// WaitForReceipt=true. Use short timeout to keep tests fast; set small timeout and small poll interval to make test deterministic.
 	opts := BroadcastOptions{
@@ -169,7 +169,7 @@ func TestSignAndBroadcast_WaitForReceipt_Timeout(t *testing.T) {
 	c, cleanupClient := newTestClientWithBufConn(t, lis, 500*time.Millisecond)
 	t.Cleanup(cleanupClient)
 
-	tx := buildTriggerSmartContractTx(nil, nil, nil, time.Now().Add(2*time.Second))
+	tx := buildTriggerSmartContractTx(time.Now().Add(2 * time.Second))
 
 	opts := BroadcastOptions{
 		WaitForReceipt: true,

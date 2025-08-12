@@ -13,6 +13,7 @@ import (
 	"github.com/kslamph/tronlib/pkg/types"
 	"golang.org/x/crypto/sha3"
 )
+
 // DecodeInputData decodes contract input data
 func (p *ABIProcessor) DecodeInputData(data []byte, abi *core.SmartContract_ABI) (*DecodedInput, error) {
 	if len(data) < 4 {
@@ -170,24 +171,6 @@ func (p *ABIProcessor) DecodeResult(data []byte, outputs []*core.SmartContract_A
 }
 
 // decodeSingleValue decodes a single return value
-func (p *ABIProcessor) decodeSingleValue(data []byte, output *core.SmartContract_ABI_Entry_Param) (interface{}, error) {
-	abiType, err := eABI.NewType(output.Type, "", nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create ABI type for %s: %v", output.Type, err)
-	}
-
-	arg := eABI.Argument{Type: abiType}
-	values, err := eABI.Arguments{arg}.Unpack(data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unpack single value: %v", err)
-	}
-
-	if len(values) == 0 {
-		return nil, nil
-	}
-
-	return p.formatDecodedValue(values[0], output.Type), nil
-}
 
 // decodeEventData decodes non-indexed event parameters from data
 func (p *ABIProcessor) decodeEventData(data []byte, params []*core.SmartContract_ABI_Entry_Param) ([]DecodedEventParameter, error) {
@@ -280,11 +263,11 @@ func (p *ABIProcessor) formatDecodedValue(value interface{}, paramType string) i
 		return value
 
 	case "bytes", "bytes32", "bytes16", "bytes8":
-	// For bytes types, return []byte directly
-	if bytes, ok := value.([]byte); ok {
-		return bytes
-	}
-	return value
+		// For bytes types, return []byte directly
+		if bytes, ok := value.([]byte); ok {
+			return bytes
+		}
+		return value
 
 	case "string":
 		return value
