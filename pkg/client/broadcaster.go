@@ -28,8 +28,8 @@ func DefaultBroadcastOptions() BroadcastOptions {
 		FeeLimit:       150_000_000,
 		PermissionID:   0,
 		WaitForReceipt: true,
-		WaitTimeout:    15,              // seconds
-		PollInterval:   3 * time.Second, // polling cadence
+		WaitTimeout:    15 * time.Second, // seconds
+		PollInterval:   3 * time.Second,  // polling cadence
 	}
 }
 
@@ -96,7 +96,11 @@ func (c *Client) Simulate(ctx context.Context, anytx any) (*BroadcastResult, err
 			br.TxID = hex.EncodeToString(txid)
 		}
 		if ret := ext.GetResult(); ret != nil {
-			br.Success = ret.GetResult() && ext.GetTransaction().GetRet()[0].GetRet() == core.Transaction_Result_SUCESS
+
+			br.Success = ret.GetResult()
+			if ext.GetTransaction() != nil && len(ext.GetTransaction().GetRet()) > 0 {
+				br.Success = br.Success && ext.GetTransaction().GetRet()[0].GetRet() == core.Transaction_Result_SUCESS
+			}
 			br.Code = ret.GetCode()
 			br.Message = string(ret.GetMessage()) + string(ext.GetResult().GetMessage())
 		}
@@ -147,7 +151,7 @@ func (c *Client) SignAndBroadcast(ctx context.Context, anytx any, opt BroadcastO
 	if len(coretx.GetRawData().GetContract()) != 1 {
 		return nil, fmt.Errorf("transaction must have exactly one contract, got %d", len(coretx.GetRawData().GetContract()))
 	}
-	if coretx.GetRawData().GetExpiration() < time.Now().UnixNano() {
+	if coretx.GetRawData().GetExpiration() < time.Now().UnixMilli() {
 		return nil, fmt.Errorf("transaction expiration must be in the future")
 	}
 
