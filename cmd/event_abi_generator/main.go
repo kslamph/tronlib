@@ -112,6 +112,7 @@ func (ps *PersistentStore) Upsert(ev SavedEvent) bool {
 		return false
 	}
 	ps.by4Byte[sel] = ev
+	fmt.Printf("upserted %s\n", sel)
 	return true
 }
 
