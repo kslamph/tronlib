@@ -348,8 +348,6 @@ func TestTokenSymbolValidation(t *testing.T) {
 
 func TestNodeURLValidation(t *testing.T) {
 	validURLs := []string{
-		"127.0.0.1:50051",
-		"grpc.trongrid.io:50051",
 		"grpc://127.0.0.1:50051",
 		"grpcs://grpc.trongrid.io:50051",
 	}
@@ -365,8 +363,9 @@ func TestNodeURLValidation(t *testing.T) {
 		"",                    // Empty
 		"invalid-url",         // No port
 		"http://example.com",  // Wrong protocol
-		"127.0.0.1",          // Missing port
-		"127.0.0.1:abc",      // Invalid port
+        "127.0.0.1",           // Missing port
+        "127.0.0.1:abc",       // Invalid port
+        "grpc.trongrid.io:50051", // Missing scheme now invalid
 	}
 
 	for _, url := range invalidURLs {

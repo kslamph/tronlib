@@ -122,14 +122,13 @@ func main() {
 		startBlock int64
 		sleepMs    int
 	)
-	flag.StringVar(&nodeAddr, "node", "127.0.0.1:50051", "gRPC node address")
+	flag.StringVar(&nodeAddr, "node", "grpc://127.0.0.1:50051", "TRON node URL (grpc://host:port or grpcs://host:port)")
 	flag.StringVar(&outFile, "out", "tmp/events_registry.json", "output JSON file for collected events")
 	flag.Int64Var(&startBlock, "start", -1, "start from this block number (default: latest)")
 	flag.IntVar(&sleepMs, "sleep", 250, "sleep milliseconds between blocks to reduce load")
 	flag.Parse()
 
-	cfg := client.DefaultClientConfig(nodeAddr)
-	cli, err := client.NewClient(cfg)
+	cli, err := client.NewClient(nodeAddr)
 	if err != nil {
 		fmt.Printf("failed to create client: %v\n", err)
 		os.Exit(1)

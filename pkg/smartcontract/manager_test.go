@@ -55,14 +55,7 @@ func newTestClientWithBufConn(t *testing.T, lis *bufconn.Listener, timeout time.
 	dialer := func(ctx context.Context, _ string) (net.Conn, error) {
 		return lis.DialContext(ctx)
 	}
-	cfg := client.ClientConfig{
-		NodeAddress:     "bufnet",
-		Timeout:         timeout,
-		InitConnections: 1,
-		MaxConnections:  1,
-		// IdleTimeout:     time.Second,
-	}
-	c, err := client.NewClientWithDialer(cfg, dialer)
+	c, err := client.NewClientWithDialer("bufnet", dialer, client.WithTimeout(timeout), client.WithPool(1, 1))
 	if err != nil {
 		t.Fatalf("NewClientWithDialer error: %v", err)
 	}

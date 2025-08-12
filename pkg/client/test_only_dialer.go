@@ -1,10 +1,11 @@
- //go:build !release
+//go:build !release
 
 package client
 
 import (
 	"context"
 	"net"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -12,42 +13,31 @@ import (
 
 // NewClientWithDialer is a test-only constructor that builds a *Client whose
 // internal pool dials using the provided dialer (e.g., bufconn) rather than a real network address.
-func NewClientWithDialer(config ClientConfig, dialer func(ctx context.Context, s string) (net.Conn, error)) (*Client, error) {
-	// Clone config to avoid mutation
-	cfg := config
+func NewClientWithDialer(endpoint string, dialer func(ctx context.Context, s string) (net.Conn, error), opts ...Option) (*Client, error) {
+	// Prepare options
+	co := &clientOptions{timeout: 30 * time.Second, initConnections: 1, maxConnections: 2}
+	for _, opt := range opts {
+		opt(co)
+	}
 
 	// Build a factory that uses the provided dialer
 	factory := func(ctx context.Context) (*grpc.ClientConn, error) {
-		return grpc.DialContext(
-			ctx,
-			cfg.NodeAddress,
+		return grpc.NewClient(
+			endpoint,
 			grpc.WithContextDialer(dialer),
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
 		)
 	}
 
 	// Set sane defaults mirroring NewClient
-	timeout := cfg.Timeout
-	if timeout == 0 {
-		timeout = DefaultClientConfig(cfg.NodeAddress).Timeout
-	}
-	maxConnections := cfg.MaxConnections
-	if maxConnections <= 0 {
-		maxConnections = DefaultClientConfig(cfg.NodeAddress).MaxConnections
-	}
-	initConnections := cfg.InitConnections
-	if initConnections <= 0 {
-		initConnections = DefaultClientConfig(cfg.NodeAddress).InitConnections
-	}
-
-	pool, err := newConnPool(factory, initConnections, maxConnections)
+	pool, err := newConnPool(factory, co.initConnections, co.maxConnections)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Client{
 		pool:        pool,
-		timeout:     timeout,
-		nodeAddress: cfg.NodeAddress,
+		timeout:     co.timeout,
+		nodeAddress: endpoint,
 	}, nil
 }

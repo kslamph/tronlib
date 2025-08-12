@@ -4,10 +4,13 @@ package client
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"strings"
 	"sync/atomic"
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/kslamph/tronlib/pkg/types"
@@ -20,23 +23,25 @@ var (
 	ErrContextCancelled = types.NewTronError(1003, "context cancelled", nil)
 )
 
-// ClientConfig represents the configuration for the TronClient
-type ClientConfig struct {
-	NodeAddress     string        // Single node address
-	Timeout         time.Duration // Universal timeout for all operations (connection + RPC calls)
-	InitConnections int           // Initial number of connections in pool
-	MaxConnections  int           // Maximum number of connections in pool
-	// IdleTimeout     time.Duration // How long connections can be idle
+// Functional options for Client
+type Option func(*clientOptions)
+
+type clientOptions struct {
+	timeout         time.Duration
+	initConnections int
+	maxConnections  int
 }
 
-// DefaultClientConfig returns a default client configuration
-func DefaultClientConfig(nodeAddress string) ClientConfig {
-	return ClientConfig{
-		NodeAddress:     nodeAddress,
-		Timeout:         30 * time.Second,
-		InitConnections: 1,
-		MaxConnections:  5,
-		// IdleTimeout:     5 * time.Minute,
+// WithTimeout sets the default timeout for client operations when the context has no deadline
+func WithTimeout(d time.Duration) Option {
+	return func(co *clientOptions) { co.timeout = d }
+}
+
+// WithPool configures the initial and maximum connections for the pool
+func WithPool(initConnections, maxConnections int) Option {
+	return func(co *clientOptions) {
+		co.initConnections = initConnections
+		co.maxConnections = maxConnections
 	}
 }
 
@@ -48,41 +53,62 @@ type Client struct {
 	closed      int32
 }
 
-// NewClient creates a new TronClient with the provided configuration (lazy connection)
-func NewClient(config ClientConfig) (*Client, error) {
-	if config.NodeAddress == "" {
+// NewClient creates a new client to a TRON node using endpoint like grpc://host:port or grpcs://host:port
+func NewClient(endpoint string, opts ...Option) (*Client, error) {
+	if endpoint == "" {
 		return nil, fmt.Errorf("node address must be provided")
 	}
 
-	timeout := config.Timeout
-	if timeout == 0 {
-		timeout = 30 * time.Second // Default timeout for all operations
+	// Enforce scheme-based address: grpc://host:port or grpcs://host:port
+	parsed, err := url.Parse(endpoint)
+	if err != nil || parsed.Scheme == "" {
+		return nil, fmt.Errorf("invalid node address, expected scheme://host:port (e.g., grpc://127.0.0.1:50051)")
+	}
+	scheme := strings.ToLower(parsed.Scheme)
+	if scheme != "grpc" && scheme != "grpcs" {
+		return nil, fmt.Errorf("unsupported scheme %q for node address; use grpc:// or grpcs://", parsed.Scheme)
+	}
+	hostPort := parsed.Host
+	if hostPort == "" {
+		return nil, fmt.Errorf("invalid node address, missing host:port")
 	}
 
-	maxConnections := config.MaxConnections
-	if maxConnections <= 0 {
-		maxConnections = 5 // Default pool size
+	// Apply options with defaults
+	co := &clientOptions{
+		timeout:         30 * time.Second,
+		initConnections: 1,
+		maxConnections:  5,
 	}
-
-	initConnections := config.InitConnections
-	if initConnections <= 0 {
-		initConnections = 1 // Default initial pool size
+	for _, opt := range opts {
+		if opt != nil {
+			opt(co)
+		}
+	}
+	if co.maxConnections <= 0 {
+		co.maxConnections = 5
+	}
+	if co.initConnections <= 0 {
+		co.initConnections = 1
 	}
 
 	factory := func(ctx context.Context) (*grpc.ClientConn, error) {
-		return grpc.NewClient(config.NodeAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		// Dial using credentials based on scheme
+		if scheme == "grpcs" {
+			return grpc.NewClient(hostPort, grpc.WithTransportCredentials(credentials.NewClientTLSFromCert(nil, "")))
+		}
+		return grpc.NewClient(hostPort, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 
 	// Use the same timeout for connection pool
-	pool, err := newConnPool(factory, initConnections, maxConnections)
+	pool, err := newConnPool(factory, co.initConnections, co.maxConnections)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Client{
 		pool:        pool,
-		timeout:     timeout,
-		nodeAddress: config.NodeAddress,
+		timeout:     co.timeout,
+		nodeAddress: endpoint,
 	}, nil
 }
 

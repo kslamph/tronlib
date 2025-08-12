@@ -14,8 +14,7 @@ import (
 func createTestClient() *client.Client {
 	// For unit tests, we'll create a basic client
 	// In real usage, this would connect to a TRON node
-	config := client.DefaultClientConfig("grpc://127.0.0.1:50051")
-	client, _ := client.NewClient(config)
+	client, _ := client.NewClient("grpc://127.0.0.1:50051")
 	return client
 }
 
@@ -277,8 +276,7 @@ func demonstrateUsage() {
 	// In a real application with a connected TRON node
 
 	// Create client
-	config := client.DefaultClientConfig("grpc://api.trongrid.io:50051")
-	client, _ := client.NewClient(config)
+	client, _ := client.NewClient("grpc://api.trongrid.io:50051")
 
 	// Create account manager
 	manager := account.NewManager(client)

@@ -23,7 +23,7 @@ type NileTestConfig struct {
 // getNileTestConfig returns the Nile testnet configuration
 func getNileTestConfig() NileTestConfig {
 	return NileTestConfig{
-		Endpoint: "grpc.nile.trongrid.io:50051",
+		Endpoint: "grpc://grpc.nile.trongrid.io:50051",
 		Timeout:  30 * time.Second,
 	}
 }
@@ -42,10 +42,7 @@ func getTestComprehensiveTypesContractAddress() string {
 func setupNileTestClient(t *testing.T) *client.Client {
 	config := getNileTestConfig()
 
-	clientConfig := client.DefaultClientConfig(config.Endpoint)
-	clientConfig.Timeout = config.Timeout
-
-	client, err := client.NewClient(clientConfig)
+	client, err := client.NewClient(config.Endpoint, client.WithTimeout(config.Timeout))
 	require.NoError(t, err, "Failed to create Nile testnet client")
 
 	return client

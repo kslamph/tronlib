@@ -1329,6 +1329,13 @@ var builtinSig4 = map[[4]byte]*EventDef{
             {Type: "uint256", Indexed: true, Name: "_maxNativeFee"},
         },
     },
+    {0x5b, 0xa5, 0x61, 0xa7}: {
+        Name: "LogTRC10BulkSent",
+        Inputs: []ParamDef{
+            {Type: "trcToken", Indexed: false, Name: "id"},
+            {Type: "uint256", Indexed: false, Name: "total"},
+        },
+    },
     {0x5c, 0x35, 0xd0, 0x17}: {
         Name: "MoveMember",
         Inputs: []ParamDef{
@@ -2276,6 +2283,13 @@ var builtinSig4 = map[[4]byte]*EventDef{
             {Type: "uint256", Indexed: false, Name: "future_time"},
         },
     },
+    {0xa2, 0xbd, 0x9f, 0xcf}: {
+        Name: "TokenWithdrawn",
+        Inputs: []ParamDef{
+            {Type: "address", Indexed: true, Name: "token"},
+            {Type: "uint256", Indexed: false, Name: "amount"},
+        },
+    },
     {0xa3, 0xa4, 0x07, 0xca}: {
         Name: "Outed",
         Inputs: []ParamDef{
@@ -2774,6 +2788,14 @@ var builtinSig4 = map[[4]byte]*EventDef{
             {Type: "address", Indexed: false, Name: "sender"},
         },
     },
+    {0xc9, 0x07, 0x6f, 0xc6}: {
+        Name: "LogGetToken",
+        Inputs: []ParamDef{
+            {Type: "address", Indexed: false, Name: "token"},
+            {Type: "address", Indexed: false, Name: "receiver"},
+            {Type: "uint256", Indexed: false, Name: "balance"},
+        },
+    },
     {0xc9, 0x34, 0x3b, 0xf1}: {
         Name: "MessageSent",
         Inputs: []ParamDef{
@@ -3006,6 +3028,12 @@ var builtinSig4 = map[[4]byte]*EventDef{
             {Type: "uint256", Indexed: false, Name: "liquidity"},
         },
     },
+    {0xd8, 0x0e, 0x68, 0x29}: {
+        Name: "TrxWithdrawn",
+        Inputs: []ParamDef{
+            {Type: "uint256", Indexed: false, Name: "amount"},
+        },
+    },
     {0xda, 0x14, 0x79, 0xdb}: {
         Name: "TransferAdminship",
         Inputs: []ParamDef{
@@ -3165,6 +3193,13 @@ var builtinSig4 = map[[4]byte]*EventDef{
         Name: "RescuerChanged",
         Inputs: []ParamDef{
             {Type: "address", Indexed: true, Name: "newRescuer"},
+        },
+    },
+    {0xe4, 0xe3, 0x57, 0x72}: {
+        Name: "LogTokenBulkSent",
+        Inputs: []ParamDef{
+            {Type: "address", Indexed: false, Name: "token"},
+            {Type: "uint256", Indexed: false, Name: "total"},
         },
     },
     {0xe5, 0xb7, 0x54, 0xfb}: {
@@ -3356,6 +3391,13 @@ var builtinSig4 = map[[4]byte]*EventDef{
             {Type: "uint256", Indexed: false, Name: "pid"},
             {Type: "address", Indexed: false, Name: "buyer"},
             {Type: "address", Indexed: false, Name: "token"},
+            {Type: "uint256", Indexed: false, Name: "amount"},
+        },
+    },
+    {0xf1, 0xc4, 0x44, 0xcc}: {
+        Name: "Charged",
+        Inputs: []ParamDef{
+            {Type: "address", Indexed: true, Name: "from"},
             {Type: "uint256", Indexed: false, Name: "amount"},
         },
     },

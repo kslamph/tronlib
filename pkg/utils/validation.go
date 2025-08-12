@@ -338,18 +338,18 @@ func ValidateTokenSymbol(symbol string) error {
 
 // Network validation
 
-// IsValidNodeURL validates a TRON node URL
+// IsValidNodeURL validates a TRON node URL.
+// Requires explicit scheme and host:port, e.g. grpc://host:port or grpcs://host:port
 func IsValidNodeURL(url string) bool {
 	if url == "" {
 		return false
 	}
 	
 	// Basic format validation
-	// Should be in format: host:port or grpc://host:port
+    // Should be in format: grpc://host:port or grpcs://host:port
 	patterns := []string{
-		`^[a-zA-Z0-9.-]+:\d+$`,                    // host:port
-		`^grpc://[a-zA-Z0-9.-]+:\d+$`,            // grpc://host:port
-		`^grpcs://[a-zA-Z0-9.-]+:\d+$`,           // grpcs://host:port
+        `^grpc://[a-zA-Z0-9.-]+:\d+$`,             // grpc://host:port
+        `^grpcs://[a-zA-Z0-9.-]+:\d+$`,            // grpcs://host:port
 	}
 	
 	for _, pattern := range patterns {

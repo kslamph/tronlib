@@ -77,26 +77,26 @@ var (
 	MainNet = Network{
 		Name:    TronMainNet,
 		ChainID: "0x2b6653dc",
-		NodeURLs: []string{
-			"grpc.trongrid.io:50051",
-			"grpc.shasta.trongrid.io:50051",
-		},
+        NodeURLs: []string{
+            "grpcs://grpc.trongrid.io:50051",
+            "grpcs://grpc.shasta.trongrid.io:50051",
+        },
 	}
 
 	TestNet = Network{
 		Name:    TronTestNet,
 		ChainID: "0x94a9059e",
-		NodeURLs: []string{
-			"grpc.shasta.trongrid.io:50051",
-		},
+        NodeURLs: []string{
+            "grpcs://grpc.shasta.trongrid.io:50051",
+        },
 	}
 
 	NileNet = Network{
 		Name:    TronNileNet,
 		ChainID: "0xcd8690dc",
-		NodeURLs: []string{
-			"grpc.nile.trongrid.io:50051",
-		},
+        NodeURLs: []string{
+            "grpcs://grpc.nile.trongrid.io:50051",
+        },
 	}
 )
 

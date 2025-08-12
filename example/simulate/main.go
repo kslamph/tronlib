@@ -18,8 +18,8 @@ const (
 	// Mainnet TRC20 USDT contract address
 	usdtContract = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
 
-	// Demo node endpoint
-	nodeAddr = "grpc.trongrid.io:50051"
+	// Demo node endpoint (explicit scheme required)
+	nodeAddr = "grpc://grpc.trongrid.io:50051"
 
 	// Demo addresses provided in task
 	addrA = "TV6MuMXfmLbBqPZvBHdwFsDnQeVfnmiuSi"
@@ -32,7 +32,7 @@ func main() {
 	defer cancel()
 
 	// Create client
-	cli, err := client.NewClient(client.DefaultClientConfig(nodeAddr))
+	cli, err := client.NewClient(nodeAddr)
 	if err != nil {
 		log.Fatalf("failed to create client: %v", err)
 	}
@@ -96,6 +96,8 @@ func buildAndSimulate(
 	if err != nil {
 		return fmt.Errorf("simulate: %w", err)
 	}
+	contractret := simExt.GetTransaction()
+	fmt.Println(contractret.Ret[0].GetRet())
 
 	// Report outcome
 	ret := simExt.GetResult()

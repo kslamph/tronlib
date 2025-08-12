@@ -19,10 +19,7 @@ import (
 func setupTRC20TestClient(t *testing.T, contractAddress string) *trc20.TRC20Manager {
 	config := getTestConfig()
 
-	clientConfig := client.DefaultClientConfig(config.Endpoint)
-	clientConfig.Timeout = config.Timeout
-
-	tronClient, err := client.NewClient(clientConfig)
+	tronClient, err := client.NewClient(config.Endpoint, client.WithTimeout(config.Timeout))
 	require.NoError(t, err, "Failed to create client")
 
 	// Convert string address to *types.Address

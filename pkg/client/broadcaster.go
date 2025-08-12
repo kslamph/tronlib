@@ -38,11 +38,21 @@ type BroadcastResult struct {
 	Success bool                   `json:"success"`       //indicate if the transaction was successfully broadcasted
 	Code    api.ReturnResponseCode `json:"returnCode"`    // TRON return code
 	Message string                 `json:"returnMessage"` // TRON return message
-	// A smart contract might fail to execute, despite no TRON error
-	// the execution failed if ContractReceipt.GetResult().GetTransaction_Result() != core.Transaction_Result_SUCCESS
+
+	//ContractReceipt is the receipt of the contract execution, reflect the resources usage
 	ContractReceipt *core.ResourceReceipt //test if nil before use
 	// ContractResult has the details of the contract returned error message or result
 	ContractResult [][]byte //test if nil before use
+
+	// Derived fields from TransactionInfo for easier consumption
+	// ExecutionSuccess indicates whether the smart contract execution itself succeeded (state not reverted)
+	ExecutionSuccess bool `json:"executionSuccess"`
+	// TxInfoResult mirrors TransactionInfo.result (SUCESS/FAILED)
+	TxInfoResult core.TransactionInfoCode `json:"txInfoResult"`
+	// TxInfoResMessage is the decoded human-readable message (e.g., revert reason) if available
+	TxInfoResMessage string `json:"txInfoResMessage"`
+	// ContractRet mirrors receipt.result (SUCCESS/REVERT/OUT_OF_ENERGY/...)
+	ContractRet core.Transaction_ResultContractResult `json:"contractRet"`
 }
 
 func (c *Client) Simulate(ctx context.Context, anytx any) (*api.TransactionExtention, error) {
@@ -171,6 +181,19 @@ func (c *Client) SignAndBroadcast(ctx context.Context, anytx any, opt BroadcastO
 	}
 	result.ContractResult = txInfo.GetContractResult()
 	result.ContractReceipt = txInfo.GetReceipt()
+
+	// Populate derived fields for execution status
+	result.TxInfoResult = txInfo.GetResult()
+	if resMsg := txInfo.GetResMessage(); len(resMsg) > 0 {
+		result.TxInfoResMessage = string(resMsg)
+	}
+	if receipt := txInfo.GetReceipt(); receipt != nil {
+		result.ContractRet = receipt.GetResult()
+		// Consider execution successful only if receipt result is SUCCESS and TransactionInfo result is SUCESS
+		if result.TxInfoResult == core.TransactionInfo_SUCESS && result.ContractRet == core.Transaction_Result_SUCCESS {
+			result.ExecutionSuccess = true
+		}
+	}
 
 	return result, nil
 }

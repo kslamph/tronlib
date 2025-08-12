@@ -18,10 +18,7 @@ import (
 func setupSmartContractTestManager(t *testing.T) *smartcontract.SmartContractManager {
 	config := getTestConfig()
 
-	clientConfig := client.DefaultClientConfig(config.Endpoint)
-	clientConfig.Timeout = config.Timeout
-
-	client, err := client.NewClient(clientConfig)
+	client, err := client.NewClient(config.Endpoint, client.WithTimeout(config.Timeout))
 	require.NoError(t, err, "Failed to create client")
 
 	return smartcontract.NewManager(client)
@@ -45,7 +42,7 @@ func TestMainnetUSDTContract(t *testing.T) {
 
 	t.Run("USDT_BasicInfo", func(t *testing.T) {
 		// Create contract instance from network using client
-		client, err := client.NewClient(client.DefaultClientConfig(getTestConfig().Endpoint))
+		client, err := client.NewClient(getTestConfig().Endpoint)
 		require.NoError(t, err, "Should create client")
 
 		contract, err := smartcontract.NewContract(client, usdtAddress)
@@ -95,7 +92,7 @@ func TestMainnetUSDTContract(t *testing.T) {
 
 	t.Run("USDT_BalanceOf", func(t *testing.T) {
 		// Create contract instance from network using client
-		client, err := client.NewClient(client.DefaultClientConfig(getTestConfig().Endpoint))
+		client, err := client.NewClient(getTestConfig().Endpoint)
 		require.NoError(t, err, "Should create client")
 
 		contract, err := smartcontract.NewContract(client, usdtAddress)
@@ -123,7 +120,7 @@ func TestMainnetUSDTContract(t *testing.T) {
 
 	t.Run("USDT_IsBlackListed", func(t *testing.T) {
 		// Create contract instance from network using client
-		client, err := client.NewClient(client.DefaultClientConfig(getTestConfig().Endpoint))
+		client, err := client.NewClient(getTestConfig().Endpoint)
 		require.NoError(t, err, "Should create client")
 
 		contract, err := smartcontract.NewContract(client, usdtAddress)

@@ -99,10 +99,7 @@ func NewNileTestnetSetup() (*NileTestnetSetup, error) {
 	}
 
 	// Create client
-	clientConfig := client.DefaultClientConfig(config.NodeURL)
-	clientConfig.Timeout = 60 * time.Second // Longer timeout for deployments
-
-	c, err := client.NewClient(clientConfig)
+	c, err := client.NewClient(config.NodeURL, client.WithTimeout(60*time.Second))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create client: %w", err)
 	}
@@ -559,7 +556,7 @@ func loadSetupConfig() (SetupConfig, error) {
 	key1Address := signer.Address().String()
 
 	config := SetupConfig{
-		NodeURL:        "grpc.nile.trongrid.io:50051",
+		NodeURL:        "grpc://grpc.nile.trongrid.io:50051",
 		Key1PrivateKey: key1PrivateKey,
 		// Convert string key1Address from env to *types.Address
 		Key1Address:      func() *types.Address { addr, _ := utils.ValidateAddress(key1Address); return addr }(),

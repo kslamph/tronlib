@@ -24,7 +24,7 @@ type TestConfig struct {
 // getTestConfig returns the test configuration
 func getTestConfig() TestConfig {
 	return TestConfig{
-		Endpoint: "127.0.0.1:50051",
+		Endpoint: "grpc://127.0.0.1:50051",
 		Timeout:  30 * time.Second,
 	}
 }
@@ -33,10 +33,7 @@ func getTestConfig() TestConfig {
 func setupTestManager(t *testing.T) *account.AccountManager {
 	config := getTestConfig()
 
-	clientConfig := client.DefaultClientConfig(config.Endpoint)
-	clientConfig.Timeout = config.Timeout
-
-	client, err := client.NewClient(clientConfig)
+	client, err := client.NewClient(config.Endpoint, client.WithTimeout(config.Timeout))
 	require.NoError(t, err, "Failed to create client")
 
 	return account.NewManager(client)

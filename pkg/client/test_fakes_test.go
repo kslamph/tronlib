@@ -10,7 +10,6 @@ import (
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
 )
 
@@ -75,30 +74,14 @@ func newBufconnServer(t *testing.T, impl api.WalletServer) (*bufconn.Listener, *
 // newTestClientWithBufConn creates a *Client via NewClient and ensures a real pool and real *grpc.ClientConn using bufconn.
 func newTestClientWithBufConn(t *testing.T, lis *bufconn.Listener, timeout time.Duration) (*Client, func()) {
 	t.Helper()
-	cfg := ClientConfig{
-		NodeAddress:     "bufconn", // placeholder; custom dialer used below
-		Timeout:         timeout,
-		InitConnections: 1,
-		MaxConnections:  2,
-		// IdleTimeout:     time.Second,
+	// Use the test-only dialer variant to avoid scheme validation
+	dialer := func(ctx context.Context, _ string) (net.Conn, error) {
+		// Use DialContext to honor context cancellation/timeouts
+		return lis.DialContext(ctx)
 	}
-	c, err := NewClient(cfg)
+	c, err := NewClientWithDialer("bufnet", dialer, WithTimeout(timeout), WithPool(1, 2))
 	if err != nil {
-		t.Fatalf("NewClient error: %v", err)
-	}
-
-	// Provide a custom getFunc that always returns a real bufconn-backed connection.
-	c.pool.getFunc = func(ctx context.Context) (*grpc.ClientConn, error) {
-		dialer := func(ctx context.Context, _ string) (net.Conn, error) {
-			// Use DialContext to honor context cancellation/timeouts
-			return lis.DialContext(ctx)
-		}
-		return grpc.DialContext(
-			ctx,
-			"bufnet",
-			grpc.WithContextDialer(dialer),
-			grpc.WithTransportCredentials(insecure.NewCredentials()),
-		)
+		t.Fatalf("NewClientWithDialer error: %v", err)
 	}
 
 	// Ensure cleanup closes client (which closes pool) after tests.

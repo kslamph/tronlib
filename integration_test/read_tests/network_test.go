@@ -97,10 +97,7 @@ type TransactionInfoTestData struct {
 func setupNetworkTestManager(t *testing.T) *network.NetworkManager {
 	config := getTestConfig()
 
-	clientConfig := client.DefaultClientConfig(config.Endpoint)
-	clientConfig.Timeout = config.Timeout
-
-	client, err := client.NewClient(clientConfig)
+	client, err := client.NewClient(config.Endpoint, client.WithTimeout(config.Timeout))
 	require.NoError(t, err, "Failed to create client")
 
 	return network.NewManager(client)
@@ -701,7 +698,7 @@ func TestMainnetEventDecoder(t *testing.T) {
 			t.Logf("  Attempting to decode event...")
 
 			// Create a client for retrieving contract information
-			client, err := client.NewClient(client.DefaultClientConfig(getTestConfig().Endpoint))
+			client, err := client.NewClient(getTestConfig().Endpoint)
 			if err != nil {
 				t.Logf("  ⚠️  Could not create client: %v", err)
 				t.Logf("  Event signature (raw): %s", hex.EncodeToString(topics[0]))
@@ -765,7 +762,7 @@ func TestMainnetEventDecoder(t *testing.T) {
 		assert.Error(t, err, "Should reject invalid transaction ID")
 
 		// Test with invalid contract address for NewContract
-		client, err := client.NewClient(client.DefaultClientConfig(getTestConfig().Endpoint))
+		client, err := client.NewClient(getTestConfig().Endpoint)
 		require.NoError(t, err, "Should create client")
 
 		invalidAddr, err := types.NewAddress("invalid_address")
