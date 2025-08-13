@@ -17,8 +17,8 @@ const (
 	BlackHoleAddress = "T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb" // Black hole address prefix
 )
 
-// Address represents a TRON address that can be stored in different formats
-// Alwasy use Constructors to create an Address instance
+// Address represents a TRON address that can be stored in different formats.
+// Always construct via the NewAddress[...] helpers to ensure validation.
 type Address struct {
 	base58Addr string //T prefixed 34 chars base58 representation
 	bytesAddr  []byte // 0x41 prefixed 21 bytes address
@@ -70,7 +70,8 @@ func NewAddress[T addressAllowed](v T) (*Address, error) {
 	}
 }
 
-// NewAddressFromBase58 creates an Address from a base58 string, it must be a length 34 base58 string prefixed by "T"
+// NewAddressFromBase58 creates an Address from a Base58Check string.
+// The string must be length 34, T-prefixed.
 func NewAddressFromBase58(base58Addr string) (*Address, error) {
 	// Address must start with T
 	if !strings.HasPrefix(base58Addr, "T") {
@@ -111,9 +112,10 @@ func NewAddressFromBase58(base58Addr string) (*Address, error) {
 	}, nil
 }
 
-// NewAddressFromHex creates an Address from a hex string,
-// it must prefixed with 0x41 or 41 followed by 40 hex chars
-// or 20 bytes hex string
+// NewAddressFromHex creates an Address from a hex string. Supported forms:
+//   - 0x41-prefixed 21-byte TRON hex
+//   - 41-prefixed 21-byte TRON hex (without 0x)
+//   - 20-byte hex (0x-optional) which will be promoted by adding 0x41 prefix
 func NewAddressFromHex(hexAddr string) (*Address, error) {
 	// Remove 0x prefix if present
 	hexAddr = strings.TrimPrefix(strings.ToLower(hexAddr), "0x")
@@ -144,7 +146,9 @@ func NewAddressFromHex(hexAddr string) (*Address, error) {
 	}, nil
 }
 
-// NewAddressFromBytes creates an Address from 21(prefixed with 0x41) or 20 bytes
+// NewAddressFromBytes creates an Address from bytes. Supported lengths:
+//   - 21 bytes (0x41-prefixed TRON address)
+//   - 20 bytes (EVM address), which will be promoted by adding 0x41 prefix
 func NewAddressFromBytes(byteAddress []byte) (*Address, error) {
 	switch len(byteAddress) {
 	case 21:
@@ -241,7 +245,7 @@ func (a *Address) BytesEVM() []byte {
 	return a.bytesAddr[1:]
 }
 
-// Hex returns the address (41 prefixed 42 chars hex string)
+// Hex returns the address as 41-prefixed, 42-character hex string.
 func (a *Address) Hex() string {
 	if a == nil {
 		return ""
@@ -249,7 +253,7 @@ func (a *Address) Hex() string {
 	return hex.EncodeToString(a.bytesAddr)
 }
 
-// HexWithPrefix returns the address (0x prefixed 42 chars hex string)
+// HexEVM returns the EVM-style 0x-prefixed, 40-character hex string.
 func (a *Address) HexEVM() string {
 	if a == nil {
 		return ""
