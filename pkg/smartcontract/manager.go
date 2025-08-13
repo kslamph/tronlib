@@ -161,6 +161,7 @@ func (m *SmartContractManager) encodeConstructor(abi *core.SmartContract_ABI, co
 }
 
 // EstimateEnergy estimates energy required for smart contract execution
+// Use client.Simulate to know energy required for a transaction
 func (m *SmartContractManager) EstimateEnergy(ctx context.Context, ownerAddress, contractAddress *types.Address, data []byte, callValue int64) (*api.EstimateEnergyMessage, error) {
 	// Validate inputs
 	if len(data) == 0 {
