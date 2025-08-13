@@ -2,6 +2,7 @@ package write_tests
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
 	"time"
@@ -10,9 +11,7 @@ import (
 	"github.com/kslamph/tronlib/pkg/resources"
 	"github.com/kslamph/tronlib/pkg/signer"
 	"github.com/kslamph/tronlib/pkg/types"
-	hdwallet "github.com/miguelmota/go-ethereum-hdwallet"
 	"github.com/stretchr/testify/assert"
-	"github.com/tyler-smith/go-bip39"
 )
 
 // Reuse shared helpers `loadEnv` and `newTestNileClient` from this package.
@@ -42,13 +41,15 @@ func TestResourcesManager_Nile(t *testing.T) {
 	assert.NoError(t, err)
 	ownerAddr := s.Address()
 
-	// Ephemeral receiver address for delegation tests
-	entropy, _ := bip39.NewEntropy(128)
-	mnemonic, _ := bip39.NewMnemonic(entropy)
-	wallet, _ := hdwallet.NewFromMnemonic(mnemonic)
-	path, _ := hdwallet.ParseDerivationPath("m/44'/195'/0'/0/0")
-	acc, _ := wallet.Derive(path, false)
-	receiverAddr, _ := types.NewAddress(acc.Address.Hex())
+	key2 := os.Getenv("INTEGRATION_TEST_KEY2")
+	if key2 == "" {
+		t.Fatal("INTEGRATION_TEST_KEY2 not set")
+	}
+	s2, err := signer.NewPrivateKeySigner(key2)
+	assert.NoError(t, err)
+	receiverAddr := s2.Address()
+
+	inactiveAddr := types.MustNewAddressFromBase58("TKGceTCruR62SwBwv7Vm5UGFy9qw1oVBmg")
 
 	// Common timeouts
 	newCtx := func() (context.Context, context.CancelFunc) {
@@ -59,25 +60,58 @@ func TestResourcesManager_Nile(t *testing.T) {
 		ctx, cancel := newCtx()
 		defer cancel()
 
-		amount := int64(1_000_000) // 1 TRX in SUN
+		amount := int64(10_000_000) // 1 TRX in SUN
 
 		txExt, err := rm.FreezeBalanceV2(ctx, ownerAddr, amount, resources.ResourceTypeEnergy)
 		assert.NoError(t, err)
+		if err != nil {
+			t.Logf("freeze build failed: %v", err)
+			return
+		}
 
 		res, err := c.SignAndBroadcast(ctx, txExt, client.DefaultBroadcastOptions(), s)
 		assert.NoError(t, err)
+		if err != nil || res == nil {
+			t.Logf("freeze broadcast failed: %v", err)
+			return
+		}
 		assert.True(t, res.Success, "freeze broadcast failed")
 		t.Logf("freeze txid=%s", res.TxID)
 
-		// Unfreeze same amount
+		// Unfreeze different amount to leave some for delegation
+		amount2 := int64(1_000_000) // 1 TRX in SUN
 		ctx2, cancel2 := newCtx()
 		defer cancel2()
-		txExt2, err := rm.UnfreezeBalanceV2(ctx2, ownerAddr, amount, resources.ResourceTypeEnergy)
+		txExt2, err := rm.UnfreezeBalanceV2(ctx2, ownerAddr, amount2, resources.ResourceTypeEnergy)
 		assert.NoError(t, err)
+		if err != nil {
+			t.Logf("unfreeze build failed: %v", err)
+			return
+		}
 		res2, err := c.SignAndBroadcast(ctx2, txExt2, client.DefaultBroadcastOptions(), s)
 		assert.NoError(t, err)
+		if err != nil || res2 == nil {
+			t.Logf("unfreeze broadcast failed: %v", err)
+			return
+		}
 		assert.True(t, res2.Success, "unfreeze broadcast failed")
 		t.Logf("unfreeze txid=%s", res2.TxID)
+	})
+
+	t.Run("DelegateResource to inactive address should fail (Energy)", func(t *testing.T) {
+		ctx, cancel := newCtx()
+		defer cancel()
+
+		amount := int64(1_000_000) // 1 TRX in SUN
+		_, err := rm.DelegateResource(ctx, ownerAddr, inactiveAddr, amount, resources.ResourceTypeEnergy, false)
+		assert.Error(t, err)
+
+		// Log detailed error information
+		t.Logf("got expected error when delegating to inactive address: owner=%s inactive=%s amount=%d resource=%v err=%v", ownerAddr, inactiveAddr, amount, resources.ResourceTypeEnergy, err)
+		var te *types.TronError
+		if errors.As(err, &te) {
+			t.Logf("tron error details: code=%d message=%s", te.Code, te.Message)
+		}
 	})
 
 	t.Run("DelegateResource and UnDelegateResource (Energy, lock=false)", func(t *testing.T) {
@@ -86,14 +120,27 @@ func TestResourcesManager_Nile(t *testing.T) {
 		delegatedBefore, err := rm.GetDelegatedResourceV2(ctx0, ownerAddr, receiverAddr)
 		cancel0()
 		assert.NoError(t, err)
+		if err != nil {
+			t.Logf("baseline delegated query failed: %v", err)
+			return
+		}
 
 		amount := int64(1_000_000) // 1 TRX in SUN
 		ctx1, cancel1 := newCtx()
 		txExt, err := rm.DelegateResource(ctx1, ownerAddr, receiverAddr, amount, resources.ResourceTypeEnergy, false)
 		assert.NoError(t, err)
+		if err != nil {
+			cancel1()
+			t.Logf("delegate build failed: %v", err)
+			return
+		}
 		res, err := c.SignAndBroadcast(ctx1, txExt, client.DefaultBroadcastOptions(), s)
 		cancel1()
 		assert.NoError(t, err)
+		if err != nil || res == nil {
+			t.Logf("delegate broadcast failed: %v", err)
+			return
+		}
 		assert.True(t, res.Success, "delegate broadcast failed")
 		t.Logf("delegate txid=%s", res.TxID)
 
@@ -103,6 +150,10 @@ func TestResourcesManager_Nile(t *testing.T) {
 		delegatedAfter, err := rm.GetDelegatedResourceV2(ctx2, ownerAddr, receiverAddr)
 		cancel2()
 		assert.NoError(t, err)
+		if err != nil {
+			t.Logf("post-delegate query failed: %v", err)
+			return
+		}
 		if delegatedBefore != nil && delegatedAfter != nil {
 			// Allow either equal or greater count depending on network timing
 			assert.GreaterOrEqual(t, len(delegatedAfter.GetDelegatedResource()), len(delegatedBefore.GetDelegatedResource()))
@@ -112,9 +163,18 @@ func TestResourcesManager_Nile(t *testing.T) {
 		ctx3, cancel3 := newCtx()
 		txExt2, err := rm.UnDelegateResource(ctx3, ownerAddr, receiverAddr, amount, resources.ResourceTypeEnergy)
 		assert.NoError(t, err)
+		if err != nil {
+			cancel3()
+			t.Logf("undelegate build failed: %v", err)
+			return
+		}
 		res2, err := c.SignAndBroadcast(ctx3, txExt2, client.DefaultBroadcastOptions(), s)
 		cancel3()
 		assert.NoError(t, err)
+		if err != nil || res2 == nil {
+			t.Logf("undelegate broadcast failed: %v", err)
+			return
+		}
 		assert.True(t, res2.Success, "undelegate broadcast failed")
 		t.Logf("undelegate txid=%s", res2.TxID)
 	})
@@ -123,18 +183,36 @@ func TestResourcesManager_Nile(t *testing.T) {
 		ctx1, cancel1 := newCtx()
 		txExt, err := rm.CancelAllUnfreezeV2(ctx1, ownerAddr)
 		assert.NoError(t, err)
+		if err != nil {
+			cancel1()
+			t.Logf("cancel-all-unfreeze build failed: %v", err)
+			return
+		}
 		res, err := c.SignAndBroadcast(ctx1, txExt, client.DefaultBroadcastOptions(), s)
 		cancel1()
 		assert.NoError(t, err)
+		if err != nil || res == nil {
+			t.Logf("cancel-all-unfreeze broadcast failed: %v", err)
+			return
+		}
 		assert.True(t, res.Success, "cancel-all-unfreeze broadcast failed")
 		t.Logf("cancel-all-unfreeze txid=%s", res.TxID)
 
 		ctx2, cancel2 := newCtx()
 		txExt2, err := rm.WithdrawExpireUnfreeze(ctx2, ownerAddr)
 		assert.NoError(t, err)
+		if err != nil {
+			cancel2()
+			t.Logf("withdraw-expire-unfreeze build failed: %v", err)
+			return
+		}
 		res2, err := c.SignAndBroadcast(ctx2, txExt2, client.DefaultBroadcastOptions(), s)
 		cancel2()
 		assert.NoError(t, err)
+		if err != nil || res2 == nil {
+			t.Logf("withdraw-expire-unfreeze broadcast failed: %v", err)
+			return
+		}
 		assert.True(t, res2.Success, "withdraw-expire-unfreeze broadcast failed")
 		t.Logf("withdraw-expire-unfreeze txid=%s", res2.TxID)
 	})
