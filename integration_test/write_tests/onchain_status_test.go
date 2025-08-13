@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/kslamph/tronlib/pkg/account"
@@ -19,13 +18,6 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/tyler-smith/go-bip39"
-)
-
-const (
-	// Poll interval for checking transaction status
-	pollInterval = 5 * time.Second
-	// Timeout for transaction confirmation
-	confirmTimeout = 60 * time.Second
 )
 
 // loadEnv loads environment variables from the given path.

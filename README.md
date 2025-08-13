@@ -141,7 +141,18 @@ func exampleSmartContract(node string) {
     // State-changing call (build tx only)
     txExt, err = c.TriggerSmartContract(ctx, owner, 0, "setValue", uint64(42))
     if err != nil { log.Fatal(err) }
-    _, _ = cli.SignAndBroadcast(ctx, txExt, client.DefaultBroadcastOptions(), pk)
+
+    // Sign & broadcast and wait for execution result
+    opts := client.DefaultBroadcastOptions()
+    opts.WaitForReceipt = true
+    res, err := cli.SignAndBroadcast(ctx, txExt, opts, pk)
+    if err != nil { log.Fatalf("broadcast error: %v", err) }
+    log.Printf("txid=%s", res.TxID) // always available
+    if !res.Success {
+        log.Printf("transaction failed: code=%v msg=%s", res.Code, res.Message)
+    } else {
+        log.Printf("transaction succeeded: energyUsed=%d netUsage=%d", res.EnergyUsage, res.NetUsage)
+    }
 
     // Constant (read-only) call
     out, err := c.TriggerConstantContract(ctx, owner, "getValue")
@@ -182,24 +193,33 @@ func exampleTRC20(node string) {
     recipient, _ := types.NewAddress("Trecipientxxxxxxxxxxxxxxxxxxxxx")
     spender, _ := types.NewAddress("Tspenderxxxxxxxxxxxxxxxxxxxxxxxx")
 
-    erc20, err := trc20.NewManager(cli, token)
+    trc20Contract, err := trc20.NewManager(cli, token)
     if err != nil { log.Fatal(err) }
 
     // Reads
-    name, _ := erc20.Name(ctx)
-    symbol, _ := erc20.Symbol(ctx)
-    decimals, _ := erc20.Decimals(ctx)
-    bal, _ := erc20.BalanceOf(ctx, holder)
-    allowance, _ := erc20.Allowance(ctx, holder, spender)
+    name, _ := trc20Contract.Name(ctx)
+    symbol, _ := trc20Contract.Symbol(ctx)
+    decimals, _ := trc20Contract.Decimals(ctx)
+    bal, _ := trc20Contract.BalanceOf(ctx, holder)
+    allowance, _ := trc20Contract.Allowance(ctx, holder, spender)
     _ = name; _ = symbol; _ = bal; _ = allowance
 
     // Write (build tx then sign & broadcast)
     amount := decimal.NewFromFloat(12.34)
-    txid, txExt, err := erc20.Transfer(ctx, holder, recipient, amount)
+    txid, txExt, err := trc20Contract.Transfer(ctx, holder, recipient, amount)
     if err != nil { log.Fatal(err) }
-    _ = txid
+    log.Printf("built txid=%s", txid)
     pk, _ := signer.NewPrivateKeySigner("0x<hex-privkey>")
-    _, _ = cli.SignAndBroadcast(ctx, txExt, client.DefaultBroadcastOptions(), pk)
+    opts := client.DefaultBroadcastOptions()
+    opts.WaitForReceipt = true
+    res, err := cli.SignAndBroadcast(ctx, txExt, opts, pk)
+    if err != nil { log.Fatalf("broadcast error: %v", err) }
+    log.Printf("txid=%s", res.TxID) // equals txid above
+    if !res.Success {
+        log.Printf("transfer failed: %s", res.Message)
+    } else {
+        log.Printf("transfer ok: energyUsed=%d", res.EnergyUsage)
+    }
 }
 ```
 
@@ -207,31 +227,62 @@ func exampleTRC20(node string) {
 
 `DefaultBroadcastOptions()` controls signing and broadcast behavior.
 - `FeeLimit` (SUN)
-- `WaitForReceipt` (bool)
-- `WaitTimeout` (seconds, int64)
-- `PollInterval` (`time.Duration`)
 - `PermissionID` (int32)
+- `WaitForReceipt` (bool)
+- `WaitTimeout` (`time.Duration`)
+- `PollInterval` (`time.Duration`)
+
+Key points:
+- **`res.TxID` is always set** (even if you don't wait for receipt).
+- **If `WaitForReceipt=false`**, `res.Success` only means the node accepted the transaction for processing (not that it executed successfully on-chain).
+- **If `WaitForReceipt=true`**, and a receipt arrives in time, `res.Success` reflects the final on-chain execution result. Resource usage fields are populated.
 
 ```go
 opts := client.DefaultBroadcastOptions()
 opts.FeeLimit = 100_000_000
+opts.WaitForReceipt = true // get execution result
 res, err := cli.SignAndBroadcast(ctx, txExt, opts, signer)
-if err != nil { /* network/broadcast error */ }
-if !res.Success { /* TRON return code/message in res */ }
-// When WaitForReceipt=true and receipt arrives:
-_ = res.ContractReceipt
-_ = res.ContractResult
+if err != nil {
+    // network or broadcast error
+    log.Fatal(err)
+}
+log.Printf("txid=%s", res.TxID)
+if !res.Success {
+    log.Printf("failed: code=%v msg=%s", res.Code, res.Message)
+} else {
+    // Available when receipt is fetched
+    log.Printf("ok: energyUsed=%d netUsage=%d", res.EnergyUsage, res.NetUsage)
+    // If the contract returns data, it is in ConstantReturn
+    _ = res.ConstantReturn
+    _ = res.Logs
+}
 ```
 
 ### Simulation (constant execution)
 
-Simulate execution/energy of a transaction before sending:
+Predict execution result and estimate energy before sending any transaction. You can pass either `*api.TransactionExtention` or `*core.Transaction`.
 
 ```go
-ext, err := cli.Simulate(ctx, txExt /* or *core.Transaction */)
-if err != nil { /* validation or RPC error */ }
-energyUsed := ext.GetEnergyUsed()
+sim, err := cli.Simulate(ctx, txExt /* or *core.Transaction */)
+if err != nil {
+    log.Fatal(err)
+}
+
+// Would the execution succeed?
+if !sim.Success {
+    log.Printf("would fail: code=%v msg=%s", sim.Code, sim.Message)
+}
+
+// Energy estimation is generally reliable
+log.Printf("estimated energyUsed=%d", sim.EnergyUsage)
+
+// If the method returns values, they are in ConstantReturn
+_ = sim.ConstantReturn
 ```
+
+Notes:
+- Simulation does not require signatures. **Bandwidth (`netUsage`) depends on signatures and payload**; without full signatures, any bandwidth estimation is incomplete/inaccurate.
+- For accurate bandwidth, sign the transaction as it will be sent, then broadcast with `WaitForReceipt=true` to observe actual `NetUsage` in the receipt.
 
 ### Testing (contributors)
 
