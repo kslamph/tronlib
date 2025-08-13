@@ -77,9 +77,9 @@ Legend: [M] Covered on mainnet (read), [N] Covered on Nile (write), [G] Gap
 - `pkg/network.NetworkManager`
   - GetNowBlock [M]
   - GetBlockByNumber [M]
-  - GetBlockById [G]
-  - GetBlocksByLimit (Start/End) [G]
-  - GetLatestBlocks (by count) [G]
+  - GetBlockById [M]
+  - GetBlocksByLimit (Start/End) [M]
+  - GetLatestBlocks (by count) [M]
   - GetTransactionInfoById [M]
   - GetNodeInfo [M]
   - GetChainParameters [M]
@@ -88,8 +88,8 @@ Legend: [M] Covered on mainnet (read), [N] Covered on Nile (write), [G] Gap
 - `pkg/smartcontract.Contract`
   - NewContract (ABI: auto-fetch, string, object) [M]
   - TriggerConstantContract [M]
-  - TriggerSmartContract [G] (indirectly used via TRC20, add direct coverage)
-  - Simulate [G]
+  - TriggerSmartContract [N]
+  - Simulate [N]
   - Encode / DecodeResult [M]
   - DecodeEventLog / DecodeEventSignature [M]
 
@@ -107,20 +107,20 @@ Legend: [M] Covered on mainnet (read), [N] Covered on Nile (write), [G] Gap
   - BalanceOf [M]
   - Allowance [M]
   - Transfer [N]
-  - Approve [G] (add Nile test)
+  - Approve [N]
 
 - `pkg/resources.ResourcesManager`
-  - FreezeBalanceV2 [G]
-  - UnfreezeBalanceV2 [G]
-  - DelegateResource [G]
-  - UnDelegateResource [G]
-  - CancelAllUnfreezeV2 [G]
-  - WithdrawExpireUnfreeze [G]
-  - GetDelegatedResourceV2 [G]
-  - GetDelegatedResourceAccountIndexV2 [G]
-  - GetCanDelegatedMaxSize [G]
-  - GetAvailableUnfreezeCount [G]
-  - GetCanWithdrawUnfreezeAmount [G]
+  - FreezeBalanceV2 [N]
+  - UnfreezeBalanceV2 [N]
+  - DelegateResource [N]
+  - UnDelegateResource [N]
+  - CancelAllUnfreezeV2 [N]
+  - WithdrawExpireUnfreeze [N]
+  - GetDelegatedResourceV2 [N]
+  - GetDelegatedResourceAccountIndexV2 [N]
+  - GetCanDelegatedMaxSize [N]
+  - GetAvailableUnfreezeCount [N]
+  - GetCanWithdrawUnfreezeAmount [N]
 
 - `pkg/trc10.TRC10Manager`
   - CreateAssetIssue2 [G]
@@ -133,13 +133,13 @@ Legend: [M] Covered on mainnet (read), [N] Covered on Nile (write), [G] Gap
   - GetPaginatedAssetIssueList [G]
 
 - `pkg/voting.Manager`
-  - VoteWitnessAccount2 [G]
+  - VoteWitnessAccount2 [N]
   - WithdrawBalance2 [G]
   - CreateWitness2 [G]
   - UpdateWitness2 [G]
   - ListWitnesses [M] (covered via network; add explicit voting read test)
-  - GetRewardInfo [G]
-  - GetBrokerageInfo [G]
+  - GetRewardInfo [N]
+  - GetBrokerageInfo [N]
   - UpdateBrokerage [G]
 
 - `pkg/eventdecoder`
@@ -155,31 +155,36 @@ Legend: [M] Covered on mainnet (read), [N] Covered on Nile (write), [G] Gap
 
 Nile (write, state-changing):
 - `integration_test/write_tests/resources_test.go`
-  - FreezeBalanceV2/UnfreezeBalanceV2 round-trip (small values)
-  - DelegateResource/UnDelegateResource to a temp account (lock=false)
-  - CancelAllUnfreezeV2 (no-op safe) and WithdrawExpireUnfreeze (safe assertion)
+  - Implemented: FreezeBalanceV2/UnfreezeBalanceV2 round-trip (small values)
+  - Implemented: DelegateResource/UnDelegateResource to a temp account (lock=false)
+  - Implemented: CancelAllUnfreezeV2 (no-op safe) and WithdrawExpireUnfreeze (safe assertion)
 
 - `integration_test/write_tests/trc20_write_test.go`
-  - Approve + Allowance checks; optional TransferFrom using Key2
+  - Implemented: Approve + Allowance checks; optional TransferFrom using Key2 (pending)
 
 - `integration_test/write_tests/smartcontract_write_test.go`
-  - Deploy MinimalContract via SmartContractManager (fee-limited), verify `GetContract` and `GetContractInfo`, then `ClearContractABI` and `UpdateSetting`/`UpdateEnergyLimit` no-ops
+  - Implemented: Trigger `setValue(uint256)` on `MINIMALCONTRACT_CONTRACT_ADDRESS` and verify via `value()`/`getValue()`
+  - Implemented: Simulate `setValue(uint256)` via `Contract.Simulate`
+  - Pending: Deploy MinimalContract via SmartContractManager (fee-limited), verify `GetContract` and `GetContractInfo`, then `ClearContractABI` and `UpdateSetting`/`UpdateEnergyLimit` no-ops
 
 - `integration_test/write_tests/trc10_test.go`
   - CreateAssetIssue2 (tiny supply), TransferAsset2, GetAssetIssueByAccount, then UnfreezeAsset2 (where applicable)
 
 - `integration_test/write_tests/voting_test.go`
-  - VoteWitnessAccount2 with a minimal count (ensure account has TRON Power), `GetRewardInfo`, `WithdrawBalance2` (safe if zero)
+  - Implemented: VoteWitnessAccount2 with a minimal count (tolerates insufficient TRON Power)
+  - Implemented: GetRewardInfo (owner)
+  - Implemented: GetBrokerageInfo (first witness)
+  - Pending: WithdrawBalance2 (safe if zero)
 
 - `integration_test/write_tests/client_simulate_test.go`
   - Exercise `client.Simulate` on a TRC20 transfer to assert `EnergyUsage`, logs presence, and constant return handling
 
 Mainnet (read-only):
-- `integration_test/read_tests/network_more_test.go`
+- Implemented in `integration_test/read_tests/network_more_test.go`:
   - GetBlockById (known block)
   - GetBlocksByLimit (bounded window)
   - GetLatestBlocks (small count)
-  - Add explicit `GetContract` read for a popular contract (e.g., USDT)
+  - Still pending: add explicit `GetContract` read for a popular contract (e.g., USDT)
 
 ## Design patterns and guardrails
 - Use small, reversible state changes on Nile; prefer no-ops where possible (e.g., `CancelAllUnfreezeV2` when none exist)
