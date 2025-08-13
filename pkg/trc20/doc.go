@@ -9,3 +9,4 @@
 // address. It preloads common metadata using the client's timeout so that
 // subsequent calls are efficient.
 package trc20
+

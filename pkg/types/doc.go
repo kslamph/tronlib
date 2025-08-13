@@ -10,3 +10,4 @@
 // Constructors accept flexible inputs and validate length and prefixes. Prefer
 // NewAddress[...] constructors rather than constructing Address directly.
 package types
+

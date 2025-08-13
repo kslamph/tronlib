@@ -11,3 +11,4 @@
 // sentinel errors from pkg/types where relevant and wrapping validation
 // failures with precise context.
 package smartcontract
+

@@ -20,3 +20,4 @@
 // (e.g., smartcontract, trc20, voting). This keeps transport concerns
 // centralized and makes it straightforward to swap node endpoints.
 package client
+

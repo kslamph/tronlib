@@ -10,3 +10,4 @@
 // signature, and return a DecodedEvent. Unknown signatures are surfaced with
 // a placeholder name and no parameters rather than failing.
 package eventdecoder
+

@@ -85,3 +85,4 @@ func TestSmartContract_TriggerAndSimulate_Nile(t *testing.T) {
 		}
 	}
 }
+
