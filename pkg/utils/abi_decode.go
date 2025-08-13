@@ -14,7 +14,7 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-// DecodeInputData decodes contract input data
+// DecodeInputData decodes call data into a DecodedInput using the provided ABI.
 func (p *ABIProcessor) DecodeInputData(data []byte, abi *core.SmartContract_ABI) (*DecodedInput, error) {
 	if len(data) < 4 {
 		return nil, fmt.Errorf("input data too short, need at least 4 bytes for method signature")
@@ -123,11 +123,10 @@ func (p *ABIProcessor) decodeParameters(data []byte, inputs []*core.SmartContrac
 	return parameters, nil
 }
 
-// DecodeResult decodes contract call result
-// Now returns interface{} instead of []interface{}:
-// - If there are no outputs: returns nil
-// - If there is one output: returns the single decoded value directly
-// - If there are multiple outputs: returns []interface{} as an interface{}
+// DecodeResult decodes method return bytes. Behavior:
+//   - no outputs: returns nil
+//   - one output: returns the value directly
+//   - many outputs: returns []interface{}
 func (p *ABIProcessor) DecodeResult(data []byte, outputs []*core.SmartContract_ABI_Entry_Param) (interface{}, error) {
 	if len(outputs) == 0 {
 		return nil, nil
@@ -172,7 +171,7 @@ func (p *ABIProcessor) DecodeResult(data []byte, outputs []*core.SmartContract_A
 
 // decodeSingleValue decodes a single return value
 
-// decodeEventData decodes non-indexed event parameters from data
+// decodeEventData decodes non-indexed event parameters from data.
 func (p *ABIProcessor) decodeEventData(data []byte, params []*core.SmartContract_ABI_Entry_Param) ([]DecodedEventParameter, error) {
 	// Create ethereum ABI arguments for decoding
 	args := make([]eABI.Argument, len(params))

@@ -7,14 +7,16 @@ import (
 	"github.com/kslamph/tronlib/pb/core"
 )
 
-// NewABIProcessor creates a new ABI processor instance
+// NewABIProcessor creates an ABIProcessor bound to the provided ABI. The
+// processor exposes helpers to parse ABI JSON, encode inputs, decode outputs,
+// and decode events.
 func NewABIProcessor(abi *core.SmartContract_ABI) *ABIProcessor {
 	return &ABIProcessor{
 		abi: abi,
 	}
 }
 
-// ParseABI decodes the ABI string into a core.SmartContract_ABI object
+// ParseABI decodes a standard ABI JSON string into a *core.SmartContract_ABI.
 func (p *ABIProcessor) ParseABI(abi string) (*core.SmartContract_ABI, error) {
 	if abi == "" {
 		return nil, fmt.Errorf("empty ABI string")

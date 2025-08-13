@@ -1,4 +1,4 @@
-// package client provides 1:1 wrappers around WalletClient gRPC methods
+// Package client provides 1:1 wrappers around WalletClient gRPC methods.
 package client
 
 import (

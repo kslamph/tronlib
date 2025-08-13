@@ -13,7 +13,7 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-// DecodeEventLog decodes an event log
+// DecodeEventLog decodes a single event log using the processor's ABI.
 func (p *ABIProcessor) DecodeEventLog(topics [][]byte, data []byte) (*DecodedEvent, error) {
 	if len(topics) == 0 {
 		return nil, fmt.Errorf("no topics provided")
@@ -104,7 +104,8 @@ func (p *ABIProcessor) DecodeEventLog(topics [][]byte, data []byte) (*DecodedEve
 	}, nil
 }
 
-// DecodeEventSignature decodes event signature bytes and returns the event name
+// DecodeEventSignature decodes 4- or 32-byte event signatures to the canonical
+// signature string if known.
 func (p *ABIProcessor) DecodeEventSignature(signature []byte) (string, error) {
 	if len(signature) < 4 {
 		return "", fmt.Errorf("event signature too short, need at least 4 bytes")
@@ -136,12 +137,12 @@ func (p *ABIProcessor) DecodeEventSignature(signature []byte) (string, error) {
 	return eventSigStr, nil
 }
 
-// buildEventSignatureCache pre-computes event signature hashes for O(1) lookup
+// buildEventSignatureCache pre-computes full 32-byte event signatures for O(1) lookup.
 func (p *ABIProcessor) buildEventSignatureCache() {
 	p.eventSignatureCache = make(map[[32]byte]*core.SmartContract_ABI_Entry)
 
 	for _, entry := range p.abi.Entrys {
-	if entry.Type != core.SmartContract_ABI_Entry_Event {
+		if entry.Type != core.SmartContract_ABI_Entry_Event {
 			continue
 		}
 
@@ -171,7 +172,7 @@ func (p *ABIProcessor) buildEventSignatureCache() {
 	}
 }
 
-// buildEvent4ByteSignatureCache pre-computes 4-byte event signature hashes for O(1) lookup
+// buildEvent4ByteSignatureCache pre-computes 4-byte event signatures for O(1) lookup.
 func (p *ABIProcessor) buildEvent4ByteSignatureCache() {
 	p.event4ByteSignatureCache = make(map[[4]byte]*core.SmartContract_ABI_Entry)
 
@@ -199,7 +200,7 @@ func (p *ABIProcessor) buildEvent4ByteSignatureCache() {
 	}
 }
 
-// decodeTopicValue decodes a topic value based on its type
+// decodeTopicValue decodes a topic value based on its ABI type.
 func (p *ABIProcessor) decodeTopicValue(topic []byte, paramType string) string {
 	switch paramType {
 	case "address":

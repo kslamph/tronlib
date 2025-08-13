@@ -14,7 +14,7 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-// GetMethodTypes extracts parameter types for a method
+// GetMethodTypes returns input and output type names for the given method.
 func (p *ABIProcessor) GetMethodTypes(methodName string) ([]string, []string, error) {
 	for _, entry := range p.abi.Entrys {
 		if entry.Name == methodName && entry.Type == core.SmartContract_ABI_Entry_Function {
@@ -34,7 +34,7 @@ func (p *ABIProcessor) GetMethodTypes(methodName string) ([]string, []string, er
 	return nil, nil, fmt.Errorf("method %s not found", methodName)
 }
 
-// GetConstructorTypes extracts parameter types for constructor
+// GetConstructorTypes returns the constructor input type names.
 func (p *ABIProcessor) GetConstructorTypes(abi *core.SmartContract_ABI) ([]string, error) {
 	for _, entry := range abi.Entrys {
 		if entry.Type == core.SmartContract_ABI_Entry_Constructor {
@@ -48,7 +48,8 @@ func (p *ABIProcessor) GetConstructorTypes(abi *core.SmartContract_ABI) ([]strin
 	return nil, fmt.Errorf("constructor not found")
 }
 
-// EncodeMethod encodes method call with parameters
+// EncodeMethod encodes a method call with parameters. For constructors, pass
+// method="" to encode only parameters (no 4-byte method ID).
 func (p *ABIProcessor) EncodeMethod(method string, paramTypes []string, params []interface{}) ([]byte, error) {
 	// For constructors (empty method name), encode parameters without method ID
 	if method == "" {

@@ -13,7 +13,9 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// Provide high level sign and broadcast workflows
+// BroadcastOptions controls high-level signing and broadcasting workflows.
+// Fields with zero values are defaulted by DefaultBroadcastOptions unless
+// explicitly documented otherwise.
 type BroadcastOptions struct {
 	FeeLimit       int64         // Fee limit for the transaction
 	PermissionID   int32         // Permission ID for the transaction
@@ -33,6 +35,8 @@ func DefaultBroadcastOptions() BroadcastOptions {
 	}
 }
 
+// BroadcastResult summarizes the outcome of a simulation or a broadcasted
+// transaction, including TRON return status, resource usage, and logs.
 type BroadcastResult struct {
 	TxID    string                 `json:"txID"`
 	Success bool                   `json:"success"`
@@ -49,6 +53,11 @@ type BroadcastResult struct {
 	// DebugExt   *api.TransactionExtention   `json:"debugExt,omitempty"`
 }
 
+// Simulate performs a read-only execution of a single-contract transaction and
+// returns a BroadcastResult with constant return data, energy usage, and logs.
+//
+// Supported input types are *api.TransactionExtention and *core.Transaction.
+// The transaction must contain exactly one contract and must not be expired.
 func (c *Client) Simulate(ctx context.Context, anytx any) (*BroadcastResult, error) {
 	if anytx == nil {
 		return nil, fmt.Errorf("transaction cannot be nil")
@@ -112,6 +121,12 @@ func (c *Client) Simulate(ctx context.Context, anytx any) (*BroadcastResult, err
 	return br, nil
 }
 
+// SignAndBroadcast signs a single-contract transaction using the provided
+// signers (if any), applies BroadcastOptions, broadcasts it to the network,
+// and optionally waits for receipt. It returns a BroadcastResult with txid,
+// TRON return code/message, and, if waiting, resource usage and logs.
+//
+// Supported input types are *api.TransactionExtention and *core.Transaction.
 func (c *Client) SignAndBroadcast(ctx context.Context, anytx any, opt BroadcastOptions, signers ...types.Signer) (*BroadcastResult, error) {
 	// Apply defaults for zero-values without breaking explicit non-zero caller values.
 	def := DefaultBroadcastOptions()

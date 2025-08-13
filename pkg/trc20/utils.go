@@ -7,9 +7,9 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-// ToWei converts a user-facing decimal amount to wei units using the provided decimals.
-// It validates that decimals ≤ 18 and that amount does not have more fractional places
-// than allowed by decimals. No silent truncation is performed.
+// ToWei converts a user-facing decimal amount to on-chain integer units using
+// the provided decimals. Decimals must be ≤ 18. If the amount has more
+// fractional places than allowed, it returns an error (no truncation).
 func ToWei(amount decimal.Decimal, decimals uint8) (*big.Int, error) {
 	if decimals > 18 {
 		return nil, fmt.Errorf("unsupported decimals value: %d", decimals)
@@ -25,8 +25,8 @@ func ToWei(amount decimal.Decimal, decimals uint8) (*big.Int, error) {
 	return amount.Shift(int32(decimals)).BigInt(), nil
 }
 
-// FromWei converts a raw wei value to a user-facing decimal using the provided decimals.
-// It validates decimals ≤ 18 and returns a decimal with exact scale set by decimals.
+// FromWei converts a raw on-chain integer value to a user-facing decimal using
+// the provided decimals. Decimals must be ≤ 18.
 func FromWei(value *big.Int, decimals uint8) (decimal.Decimal, error) {
 	if value == nil {
 		return decimal.Zero, nil

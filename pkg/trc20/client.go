@@ -29,8 +29,8 @@ type TRC20Manager struct {
 	trc20ABI *abi.ABI
 }
 
-// NewManager creates a new TRC20 instance.
-// It takes the contract address and an initialized tronlib client.
+// NewManager constructs a TRC20 manager bound to the given token contract
+// address using the provided TRON client.
 func NewManager(tronClient *client.Client, contractAddress *types.Address) (*TRC20Manager, error) {
 	// Create a generic smart contract instance
 	contract, err := smartcontract.NewContract(tronClient, contractAddress, ERC20ABI)
@@ -68,17 +68,19 @@ func NewManager(tronClient *client.Client, contractAddress *types.Address) (*TRC
 	return c, nil
 }
 
-// ToWeiWithDecimals is a convenience wrapper that converts the given amount using explicit decimals.
+// ToWeiWithDecimals converts a user-facing decimal amount into on-chain units
+// using the provided decimals.
 func ToWeiWithDecimals(amount decimal.Decimal, decimals uint8) (*big.Int, error) {
 	return ToWei(amount, decimals)
 }
 
-// FromWeiWithDecimals is a convenience wrapper that converts the given value using explicit decimals.
+// FromWeiWithDecimals converts raw on-chain units into a user-facing decimal
+// using the provided decimals.
 func FromWeiWithDecimals(value *big.Int, decimals uint8) (decimal.Decimal, error) {
 	return FromWei(value, decimals)
 }
 
-// Name returns the name of the TRC20 token, fetching and caching it on first call.
+// Name returns the token name, fetching and caching it on first call.
 func (t *TRC20Manager) Name(ctx context.Context) (string, error) {
 	t.mu.RLock()
 	if t.cachedName != "" {
@@ -106,7 +108,7 @@ func (t *TRC20Manager) Name(ctx context.Context) (string, error) {
 	return name, nil
 }
 
-// Symbol returns the symbol of the TRC20 token, fetching and caching it on first call.
+// Symbol returns the token symbol, fetching and caching it on first call.
 func (t *TRC20Manager) Symbol(ctx context.Context) (string, error) {
 	t.mu.RLock()
 	if t.cachedSymbol != "" {
@@ -134,7 +136,7 @@ func (t *TRC20Manager) Symbol(ctx context.Context) (string, error) {
 	return symbol, nil
 }
 
-// Decimals returns the number of decimal places of the TRC20 token, fetching and caching it on first call.
+// Decimals returns the token's decimals, fetching and caching it on first call.
 func (t *TRC20Manager) Decimals(ctx context.Context) (uint8, error) {
 	t.mu.RLock()
 	if t.cachedDecimals != 0 { // Assuming 0 is not a valid decimal count for a TRC20 token
@@ -164,7 +166,7 @@ func (t *TRC20Manager) Decimals(ctx context.Context) (uint8, error) {
 	return decimalsResult, nil
 }
 
-// BalanceOf retrieves the balance of an owner address as a decimal.Decimal.
+// BalanceOf retrieves the owner's balance as a decimal.Decimal.
 func (t *TRC20Manager) BalanceOf(ctx context.Context, ownerAddress *types.Address) (decimal.Decimal, error) {
 	decimals, err := t.Decimals(ctx)
 	if err != nil {
@@ -192,7 +194,8 @@ func (t *TRC20Manager) BalanceOf(ctx context.Context, ownerAddress *types.Addres
 	return convertedBalance, nil
 }
 
-// Transfer transfers tokens from the caller to a recipient, taking a decimal.Decimal amount.
+// Transfer transfers tokens from the caller to a recipient using a
+// decimal.Decimal amount. Returns txid (hex) and the raw transaction extention.
 func (t *TRC20Manager) Transfer(ctx context.Context, fromAddress *types.Address, toAddress *types.Address, amount decimal.Decimal) (string, *api.TransactionExtention, error) {
 	decimals, err := t.Decimals(ctx)
 	if err != nil {
@@ -213,7 +216,7 @@ func (t *TRC20Manager) Transfer(ctx context.Context, fromAddress *types.Address,
 	return txidHex, txExt, nil
 }
 
-// Approve approves a spender to spend tokens on behalf of the caller.
+// Approve authorizes a spender for a given amount using decimal.Decimal.
 func (t *TRC20Manager) Approve(ctx context.Context, ownerAddress *types.Address, spenderAddress *types.Address, amount decimal.Decimal) (string, *api.TransactionExtention, error) {
 	decimals, err := t.Decimals(ctx)
 	if err != nil {
@@ -234,7 +237,8 @@ func (t *TRC20Manager) Approve(ctx context.Context, ownerAddress *types.Address,
 	return txidHex, txExt, nil
 }
 
-// Allowance retrieves the allowance amount a spender has over an owner's tokens.
+// Allowance retrieves the spender's allowance over the owner's tokens as a
+// decimal.Decimal.
 func (t *TRC20Manager) Allowance(ctx context.Context, ownerAddress *types.Address, spenderAddress *types.Address) (decimal.Decimal, error) {
 	decimals, err := t.Decimals(ctx)
 	if err != nil {

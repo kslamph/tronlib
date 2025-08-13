@@ -3,7 +3,7 @@ package types
 
 import "time"
 
-// SDK-wide constants
+// SDK-wide constants.
 
 const (
 	// Network constants
@@ -51,11 +51,11 @@ const (
 	BlockTimeMS = 3000 // 3 seconds per block
 
 	// Voting constants
-	VotesPerTRX = 1 // 1 TRX = 1 vote
+	// VotesPerTRX = 1 // 1 TRX = 1 vote
 
 	// Freeze constants
-	MinFreezeAmount   = 1000000 // 1 TRX minimum
-	FreezeMinDuration = 3       // 3 days minimum
+	// MinFreezeAmount   = 1000000 // 1 TRX minimum
+	// FreezeMinDuration = 3       // 3 days minimum
 
 	// Permission constants
 	OwnerPermissionID   = 0
@@ -72,31 +72,31 @@ type Network struct {
 	NodeURLs []string
 }
 
-// Predefined networks
+// Predefined networks.
 var (
 	MainNet = Network{
 		Name:    TronMainNet,
 		ChainID: "0x2b6653dc",
-        NodeURLs: []string{
-            "grpcs://grpc.trongrid.io:50051",
-            "grpcs://grpc.shasta.trongrid.io:50051",
-        },
+		NodeURLs: []string{
+			"grpcs://grpc.trongrid.io:50051",
+			"grpcs://grpc.shasta.trongrid.io:50051",
+		},
 	}
 
 	TestNet = Network{
 		Name:    TronTestNet,
 		ChainID: "0x94a9059e",
-        NodeURLs: []string{
-            "grpcs://grpc.shasta.trongrid.io:50051",
-        },
+		NodeURLs: []string{
+			"grpcs://grpc.shasta.trongrid.io:50051",
+		},
 	}
 
 	NileNet = Network{
 		Name:    TronNileNet,
 		ChainID: "0xcd8690dc",
-        NodeURLs: []string{
-            "grpcs://grpc.nile.trongrid.io:50051",
-        },
+		NodeURLs: []string{
+			"grpcs://grpc.nile.trongrid.io:50051",
+		},
 	}
 )
 

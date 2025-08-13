@@ -11,7 +11,9 @@ import (
 	"github.com/kslamph/tronlib/pkg/utils"
 )
 
-// Contract represents a smart contract interface with high-level abstraction
+// Contract represents a high-level client for a deployed smart contract,
+// providing helpers for encoding inputs, triggering methods, and decoding
+// results and events.
 type Contract struct {
 	ABI     *core.SmartContract_ABI
 	Address *types.Address
@@ -21,13 +23,9 @@ type Contract struct {
 	abiProcessor *utils.ABIProcessor
 }
 
-// NewContract creates a new contract instance
-// tronClient: TRON client instance
-// address: Contract address
-// abi: Optional ABI - can be:
-//   - string: ABI JSON string
-//   - *core.SmartContract_ABI: Parsed ABI object
-//   - omitted: ABI will be retrieved from network
+// NewContract constructs a contract client for the given address using the
+// provided TRON client. The ABI can be omitted to fetch from the network, or
+// supplied as either a JSON string or a *core.SmartContract_ABI.
 func NewContract(tronClient *client.Client, contractAddress *types.Address, abi ...any) (*Contract, error) {
 	if tronClient == nil {
 		return nil, fmt.Errorf("tron client cannot be nil")
@@ -102,7 +100,8 @@ func getContractFromNetwork(ctx context.Context, client *client.Client, contract
 	return client.GetContract(ctx, req)
 }
 
-// TriggerSmartContract builds a smart contract transaction, to be signed and broadcasted
+// TriggerSmartContract builds a transaction that calls a method on the contract.
+// The result should be signed and broadcasted by the caller.
 func (c *Contract) TriggerSmartContract(ctx context.Context, owner *types.Address, callValue int64, method string, params ...interface{}) (*api.TransactionExtention, error) {
 
 	if owner == nil {
@@ -132,7 +131,9 @@ func (c *Contract) TriggerSmartContract(ctx context.Context, owner *types.Addres
 
 }
 
-// TriggerConstantContract queries a smart contract method and returns decoded result
+// TriggerConstantContract performs a constant (read-only) call and returns the
+// decoded result value. If the method has multiple outputs, the return is a
+// []interface{}; if one output, it's that single value; if none, nil.
 func (c *Contract) TriggerConstantContract(ctx context.Context, owner *types.Address, method string, params ...interface{}) (interface{}, error) {
 
 	if owner == nil {
@@ -186,12 +187,15 @@ func (c *Contract) TriggerConstantContract(ctx context.Context, owner *types.Add
 	return decoded, nil
 }
 
+// SimulateResult captures details from a constant-call simulation.
 type SimulateResult struct {
 	Energy    int64
 	APIResult *api.Return
 	Logs      []*core.TransactionInfo_Log
 }
 
+// Simulate performs a read-only execution of the specified method and returns
+// energy usage, raw API result, and logs without decoding the return value.
 func (c *Contract) Simulate(ctx context.Context, owner *types.Address, callValue int64, method string, params ...interface{}) (*SimulateResult, error) {
 
 	if owner == nil {
@@ -229,7 +233,8 @@ func (c *Contract) Simulate(ctx context.Context, owner *types.Address, callValue
 
 }
 
-// Encode creates contract call data from method name and parameters
+// Encode encodes a method invocation into call data. For constructors, pass an
+// empty method name and only parameters.
 func (c *Contract) Encode(method string, params ...interface{}) ([]byte, error) {
 	// Special handling for constructors (empty method name)
 	if method == "" {
@@ -253,8 +258,8 @@ func (c *Contract) Encode(method string, params ...interface{}) ([]byte, error) 
 	return c.abiProcessor.EncodeMethod(method, inputTypes, params)
 }
 
-// DecodeResult decodes contract call result
-// Return type changed to interface{} to allow single value returns like *big.Int, []byte, int64, uint64, *types.Address, etc.
+// DecodeResult decodes a method's return bytes into a Go value. Single-output
+// methods return the value directly; multiple outputs return []interface{}.
 func (c *Contract) DecodeResult(method string, data []byte) (interface{}, error) {
 	// Get method output types from ABI
 	_, outputTypes, err := c.abiProcessor.GetMethodTypes(method)
@@ -280,17 +285,18 @@ func (c *Contract) DecodeResult(method string, data []byte) (interface{}, error)
 	return decoded, nil
 }
 
-// DecodeInput decodes contract input data
+// DecodeInput decodes input call data to a typed representation.
 func (c *Contract) DecodeInput(data []byte) (*utils.DecodedInput, error) {
 	return c.abiProcessor.DecodeInputData(data, c.ABI)
 }
 
-// DecodeEventLog decodes an event log
+// DecodeEventLog decodes a single event log using the contract ABI.
 func (c *Contract) DecodeEventLog(topics [][]byte, data []byte) (*utils.DecodedEvent, error) {
 	return c.abiProcessor.DecodeEventLog(topics, data)
 }
 
-// DecodeEventSignature decodes event signature bytes
+// DecodeEventSignature decodes 4- or 32-byte event signature to the canonical
+// signature string if known.
 func (c *Contract) DecodeEventSignature(signature []byte) (string, error) {
 	return c.abiProcessor.DecodeEventSignature(signature)
 }
