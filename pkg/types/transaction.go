@@ -180,8 +180,8 @@ type TransactionOptions struct {
 // DefaultTransactionOptions returns default transaction options
 func DefaultTransactionOptions() *TransactionOptions {
 	return &TransactionOptions{
-		FeeLimit:     DefaultFeeLimit,           // 1 TRX
-		CallValue:    DefaultContractCallValue,  // 0
+		FeeLimit:     DefaultFeeLimit,          // 1 TRX
+		CallValue:    DefaultContractCallValue, // 0
 		TokenID:      0,
 		TokenValue:   0,
 		PermissionID: 0,

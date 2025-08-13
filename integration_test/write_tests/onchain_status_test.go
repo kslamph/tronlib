@@ -71,7 +71,7 @@ func TestNileBroadcastTransaction(t *testing.T) {
 		assert.NoError(t, err)
 
 		// 2. Create TRX transfer transaction
-		txExt, err := am.TransferTRX(context.Background(), senderAddress, recipientAddr, 1_000_000, nil)
+		txExt, err := am.TransferTRX(context.Background(), senderAddress, recipientAddr, 1_000_000)
 		assert.NoError(t, err)
 
 		// 3. Sign and broadcast the transaction

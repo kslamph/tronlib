@@ -1,16 +1,20 @@
-## tronlib
+# tronlib 🚀
 
-Go library for interacting with the TRON blockchain. It exposes:
+[![GoDoc](https://godoc.org/github.com/kslamph/tronlib?status.svg)](https://godoc.org/github.com/kslamph/tronlib)
+[![Go Report Card](https://goreportcard.com/badge/github.com/kslamph/tronlib)](https://goreportcard.com/report/github.com/kslamph/tronlib)
+
+Go library for interacting with the TRON blockchain. It provides:
+
 - A core gRPC `client` with connection pooling and timeouts
 - High-level managers: `account`, `resources`, `network`, `smartcontract`, `trc10`, `trc20`
 
-### Install
+## 📦 Installation
 
 ```bash
 go get github.com/kslamph/tronlib
 ```
 
-### Quickstart
+## 🚀 Quick Start
 
 ```go
 package main
@@ -39,11 +43,75 @@ func main() {
 }
 ```
 
-Notes on context:
+### 🕐 Context Usage
+
 - Pass `context.Context` to every call. Prefer short per-operation timeouts.
 - If your context has no deadline, the client applies its own default timeout.
 
-### Accounts and Resources
+## 📚 Documentation
+
+- [Architecture Overview](docs/architecture.md) - High-level view of package structure and data flow
+- [GoDoc Summary](docs/godoc_summary.md) - Key entry points and examples from package documentation
+- [Event Decoding Guide](docs/event_decoding.md) - How to decode logs from receipts or simulations
+
+## 🔄 Workflow Diagram
+
+
+
+```
+┌──────────────────────────────┐
+│        High-level APIs       │
+│ account / resources / network│
+│ smartcontract / trc10 / trc20│
+└───────────────┬──────────────┘
+                │ build txs / make queries
+                ▼
+        ┌───────────────┐
+        │ client.Client │
+        │ RPC / simulate│
+        │ sign+broadcast│
+        └───────┬───────┘
+                │
+                ▼
+        ┌───────────────┐
+        │   TRON Node   │
+        │ (gRPC endpoint)│
+        └───────────────┘
+```
+
+- Transaction read: managers → client → node → data
+- Contract read (constant): smartcontract/trc20 → client (constant trigger) → node → ABI-decode return values
+- Transaction write: managers build tx → client.SignAndBroadcast (uses signer) → node → receipt → eventdecoder.DecodeLogs
+- Simulation: managers or client.Simulate → node → inspect result → optionally decode logs with eventdecoder
+
+### 🔧 Key Components
+
+- **types.Address** 📍 - Unified address representation supporting multiple formats
+- **signer** 🔐 - Private key and HD wallet management
+- **broadcaster** 📡 - Broadcasting with receipt waiting (in `client`)
+- **ABI Processor** 🧬 - Encoding/decoding of ABI data
+- **Event Decoder** 📊 - Log decoding with built-in events
+- **High-level Managers** 🛠️ - Simplified interfaces for common operations
+
+### 🎯 Usage Patterns
+
+**High-level usage** (recommended for most applications):
+```go
+// Using account manager for TRX transfer
+am := account.NewManager(cli)
+txExt, err := am.TransferTRX(ctx, from, to, 1_000_000, nil)
+```
+
+**Low-level usage** (for advanced customization):
+```go
+// Direct client usage for custom transactions
+tx := &core.Transaction{ /* ... */ }
+signedTx, err := cli.SignTransaction(ctx, tx, signer)
+```
+
+## 💡 Examples
+
+### 👤 Accounts and Resources
 
 ```go
 package main
@@ -95,7 +163,7 @@ func exampleAccounts(node string) {
 }
 ```
 
-### Smart Contracts
+### 📜 Smart Contracts
 
 Deploy and interact using `smartcontract.Manager` or a typed `smartcontract.Contract`.
 
@@ -148,20 +216,10 @@ func exampleSmartContract(node string) {
     res, err := cli.SignAndBroadcast(ctx, txExt, opts, pk)
     if err != nil { log.Fatalf("broadcast error: %v", err) }
     log.Printf("txid=%s", res.TxID) // always available
-    if !res.Success {
-        log.Printf("transaction failed: code=%v msg=%s", res.Code, res.Message)
-    } else {
-        log.Printf("transaction succeeded: energyUsed=%d netUsage=%d", res.EnergyUsage, res.NetUsage)
-    }
-
-    // Constant (read-only) call
-    out, err := c.TriggerConstantContract(ctx, owner, "getValue")
-    if err != nil { log.Fatal(err) }
-    _ = out // decoded single return, e.g., *big.Int
 }
 ```
 
-### TRC20
+### 💰 TRC20
 
 Read and write helpers plus exact unit conversion using `shopspring/decimal`.
 
@@ -191,18 +249,15 @@ func exampleTRC20(node string) {
     token, _ := types.NewAddress("Ttokenxxxxxxxxxxxxxxxxxxxxxxxxxxx")
     holder, _ := types.NewAddress("Tholderxxxxxxxxxxxxxxxxxxxxxxxxx")
     recipient, _ := types.NewAddress("Trecipientxxxxxxxxxxxxxxxxxxxxx")
-    spender, _ := types.NewAddress("Tspenderxxxxxxxxxxxxxxxxxxxxxxxx")
 
     trc20Contract, err := trc20.NewManager(cli, token)
     if err != nil { log.Fatal(err) }
 
     // Reads
-    name, _ := trc20Contract.Name(ctx)
-    symbol, _ := trc20Contract.Symbol(ctx)
-    decimals, _ := trc20Contract.Decimals(ctx)
-    bal, _ := trc20Contract.BalanceOf(ctx, holder)
-    allowance, _ := trc20Contract.Allowance(ctx, holder, spender)
-    _ = name; _ = symbol; _ = bal; _ = allowance
+    _, _ = trc20Contract.Name(ctx)
+    _, _ = trc20Contract.Symbol(ctx)
+    _, _ = trc20Contract.Decimals(ctx)
+    _, _ = trc20Contract.BalanceOf(ctx, holder)
 
     // Write (build tx then sign & broadcast)
     amount := decimal.NewFromFloat(12.34)
@@ -212,80 +267,18 @@ func exampleTRC20(node string) {
     pk, _ := signer.NewPrivateKeySigner("0x<hex-privkey>")
     opts := client.DefaultBroadcastOptions()
     opts.WaitForReceipt = true
-    res, err := cli.SignAndBroadcast(ctx, txExt, opts, pk)
-    if err != nil { log.Fatalf("broadcast error: %v", err) }
-    log.Printf("txid=%s", res.TxID) // equals txid above
-    if !res.Success {
-        log.Printf("transfer failed: %s", res.Message)
-    } else {
-        log.Printf("transfer ok: energyUsed=%d", res.EnergyUsage)
-    }
+    _, _ = cli.SignAndBroadcast(ctx, txExt, opts, pk)
 }
 ```
 
-### Transaction broadcast
+## 📊 Decoding Events
 
-`DefaultBroadcastOptions()` controls signing and broadcast behavior.
-- `FeeLimit` (SUN)
-- `PermissionID` (int32)
-- `WaitForReceipt` (bool)
-- `WaitTimeout` (`time.Duration`)
-- `PollInterval` (`time.Duration`)
+See [Event Decoding Guide](docs/event_decoding.md) for details and examples.
 
-Key points:
-- **`res.TxID` is always set** (even if you don't wait for receipt).
-- **If `WaitForReceipt=false`**, `res.Success` only means the node accepted the transaction for processing (not that it executed successfully on-chain).
-- **If `WaitForReceipt=true`**, and a receipt arrives in time, `res.Success` reflects the final on-chain execution result. Resource usage fields are populated.
+## 🤝 Contributing
 
-```go
-opts := client.DefaultBroadcastOptions()
-opts.FeeLimit = 100_000_000
-opts.WaitForReceipt = true // get execution result
-res, err := cli.SignAndBroadcast(ctx, txExt, opts, signer)
-if err != nil {
-    // network or broadcast error
-    log.Fatal(err)
-}
-log.Printf("txid=%s", res.TxID)
-if !res.Success {
-    log.Printf("failed: code=%v msg=%s", res.Code, res.Message)
-} else {
-    // Available when receipt is fetched
-    log.Printf("ok: energyUsed=%d netUsage=%d", res.EnergyUsage, res.NetUsage)
-    // If the contract returns data, it is in ConstantReturn
-    _ = res.ConstantReturn
-    _ = res.Logs
-}
-```
+Contributions are welcome! Please read our contributing guidelines before submitting pull requests.
 
-### Simulation (constant execution)
+## 📄 License
 
-Predict execution result and estimate energy before sending any transaction. You can pass either `*api.TransactionExtention` or `*core.Transaction`.
-
-```go
-sim, err := cli.Simulate(ctx, txExt /* or *core.Transaction */)
-if err != nil {
-    log.Fatal(err)
-}
-
-// Would the execution succeed?
-if !sim.Success {
-    log.Printf("would fail: code=%v msg=%s", sim.Code, sim.Message)
-}
-
-// Energy estimation is generally reliable
-log.Printf("estimated energyUsed=%d", sim.EnergyUsage)
-
-// If the method returns values, they are in ConstantReturn
-_ = sim.ConstantReturn
-```
-
-Notes:
-- Simulation does not require signatures. **Bandwidth (`netUsage`) depends on signatures and payload**; without full signatures, any bandwidth estimation is incomplete/inaccurate.
-- For accurate bandwidth, sign the transaction as it will be sent, then broadcast with `WaitForReceipt=true` to observe actual `NetUsage` in the receipt.
-
-### Testing (contributors)
-
-- Tests use hermetic bufconn gRPC servers; keep test contexts short and deterministic.
-- Most managers are thin over the core client; favor unit tests at the manager boundary with fakes.
-
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

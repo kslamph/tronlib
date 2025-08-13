@@ -112,7 +112,7 @@ func TestTransferValidation(t *testing.T) {
 			// But it will test our validation logic before the network call
 			fromAddr, _ := utils.ValidateAddress(tc.from)
 			toAddr, _ := utils.ValidateAddress(tc.to)
-			_, err := manager.TransferTRX(ctx, fromAddr, toAddr, tc.amount, nil)
+			_, err := manager.TransferTRX(ctx, fromAddr, toAddr, tc.amount)
 
 			if tc.expectError {
 				if err == nil {
@@ -136,9 +136,6 @@ func TestTransferOptions(t *testing.T) {
 	ctx := context.Background()
 
 	// Test with custom options
-	opts := &account.TransferOptions{
-		Memo: "Test transfer",
-	}
 
 	from := "TZ1EafTG8FRtE6ef3H2dhaucDdjv36fzPY"
 	to := "TLyqzVGLV1srkB7dToTAEqgDSfPtXRJZYH"
@@ -147,7 +144,7 @@ func TestTransferOptions(t *testing.T) {
 	// This will fail with network error, but tests option handling
 	fromAddr, _ := utils.ValidateAddress(from)
 	toAddr, _ := utils.ValidateAddress(to)
-	_, err := manager.TransferTRX(ctx, fromAddr, toAddr, amount, opts)
+	_, err := manager.TransferTRX(ctx, fromAddr, toAddr, amount)
 
 	// We expect a network error since no real TRON node is connected
 	if err != nil {
@@ -157,7 +154,7 @@ func TestTransferOptions(t *testing.T) {
 	// Test with nil options (should use defaults)
 	fromAddr2, _ := utils.ValidateAddress(from)
 	toAddr2, _ := utils.ValidateAddress(to)
-	_, err = manager.TransferTRX(ctx, fromAddr2, toAddr2, amount, nil)
+	_, err = manager.TransferTRX(ctx, fromAddr2, toAddr2, amount)
 	if err != nil {
 		t.Logf("Transfer with nil options failed with expected network error: %v", err)
 	}

@@ -105,7 +105,7 @@ func TestAddressValidation(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Test IsValidTronAddress
 			assert.True(t, IsValidTronAddress(tc.address))
-			
+
 			// Test ValidateAddress
 			addr, err := ValidateAddress(tc.address)
 			require.NoError(t, err)
@@ -146,7 +146,7 @@ func TestInvalidAddressValidation(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Test IsValidTronAddress
 			assert.False(t, IsValidTronAddress(tc.address))
-			
+
 			// Test ValidateAddress
 			_, err := ValidateAddress(tc.address)
 			assert.Error(t, err)
@@ -157,9 +157,9 @@ func TestInvalidAddressValidation(t *testing.T) {
 func TestAmountValidation(t *testing.T) {
 	t.Run("Valid amounts", func(t *testing.T) {
 		validAmounts := []*big.Int{
-			big.NewInt(1),                    // 1 SUN
-			big.NewInt(1000000),              // 1 TRX
-			big.NewInt(1000000000),           // 1000 TRX
+			big.NewInt(1),          // 1 SUN
+			big.NewInt(1000000),    // 1 TRX
+			big.NewInt(1000000000), // 1000 TRX
 			new(big.Int).Mul(big.NewInt(1000000), big.NewInt(1000000)), // 1M TRX
 		}
 
@@ -198,10 +198,10 @@ func TestAmountValidation(t *testing.T) {
 
 	t.Run("Minimum amount validation", func(t *testing.T) {
 		minAmount := big.NewInt(1000000) // 1 TRX
-		
+
 		// Valid: above minimum
 		assert.NoError(t, ValidateAmount(big.NewInt(2000000), minAmount))
-		
+
 		// Invalid: below minimum
 		assert.Error(t, ValidateAmount(big.NewInt(500000), minAmount))
 	})
@@ -300,8 +300,8 @@ func TestMethodNameValidation(t *testing.T) {
 	}
 
 	invalidNames := []string{
-		"",           // Empty
-		"123invalid", // Starts with number
+		"",               // Empty
+		"123invalid",     // Starts with number
 		"invalid-method", // Contains hyphen
 		"invalid method", // Contains space
 	}
@@ -331,11 +331,11 @@ func TestTokenSymbolValidation(t *testing.T) {
 	}
 
 	invalidSymbols := []string{
-		"",              // Empty
-		"toolongsymbol", // Too long (>10 chars)
-		"invalid-symbol", // Contains hyphen
+		"",                  // Empty
+		"toolongsymbol",     // Too long (>10 chars)
+		"invalid-symbol",    // Contains hyphen
 		"symbol with space", // Contains space
-		"symbol@",       // Contains special character
+		"symbol@",           // Contains special character
 	}
 
 	for _, symbol := range invalidSymbols {
@@ -360,12 +360,12 @@ func TestNodeURLValidation(t *testing.T) {
 	}
 
 	invalidURLs := []string{
-		"",                    // Empty
-		"invalid-url",         // No port
-		"http://example.com",  // Wrong protocol
-        "127.0.0.1",           // Missing port
-        "127.0.0.1:abc",       // Invalid port
-        "grpc.trongrid.io:50051", // Missing scheme now invalid
+		"",                       // Empty
+		"invalid-url",            // No port
+		"http://example.com",     // Wrong protocol
+		"127.0.0.1",              // Missing port
+		"127.0.0.1:abc",          // Invalid port
+		"grpc.trongrid.io:50051", // Missing scheme now invalid
 	}
 
 	for _, url := range invalidURLs {

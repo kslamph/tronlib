@@ -101,7 +101,7 @@ func (s *HDWalletSigner) DerivationPath() string {
 func (s *HDWalletSigner) DeriveAccount(index uint32) (*HDWalletSigner, error) {
 	// Parse the current path and modify the last index
 	path := fmt.Sprintf("m/44'/195'/0'/0/%d", index)
-	
+
 	derivationPath, err := hdwallet.ParseDerivationPath(path)
 	if err != nil {
 		return nil, fmt.Errorf("invalid derivation path: %w", err)
@@ -136,7 +136,7 @@ func (s *HDWalletSigner) GetMasterKey() (*ecdsa.PublicKey, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse master derivation path: %w", err)
 	}
-	
+
 	account, err := s.wallet.Derive(derivationPath, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to derive master account: %w", err)
@@ -157,7 +157,7 @@ func (s *HDWalletSigner) Wallet() *hdwallet.Wallet {
 
 // All Signer interface methods are inherited from PrivateKeySigner
 // Address() *types.Address
-// PublicKey() *ecdsa.PublicKey  
+// PublicKey() *ecdsa.PublicKey
 // Sign(tx *core.Transaction) (*core.Transaction, error)
 // SignWithPermissionID(tx *core.Transaction, permissionID int32) (*core.Transaction, error)
 // SignMessageV2(message string) (string, error)

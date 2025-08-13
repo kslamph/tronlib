@@ -35,14 +35,14 @@ func TestPrivateKeySigner(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			signer, err := NewPrivateKeySigner(tc.privateKey)
 			require.NoError(t, err)
-			
+
 			// Test address derivation
 			assert.Equal(t, tc.address, signer.Address().Base58())
 			assert.True(t, signer.Address().IsValid())
-			
+
 			// Test private key retrieval
 			assert.Equal(t, tc.privateKey, signer.PrivateKeyHex())
-			
+
 			// Test public key is not nil
 			assert.NotNil(t, signer.PublicKey())
 		})
@@ -52,10 +52,10 @@ func TestPrivateKeySigner(t *testing.T) {
 func TestPrivateKeySignerWithPrefix(t *testing.T) {
 	privateKey := "0xcfae06d915cf9784272fa99d4db961b8cbafd59c8b2f77ab7422be5424d3e49c"
 	expectedAddress := "TQJ6R9SPvD5SyqgYqTBq3yc6mFtEgatPDu"
-	
+
 	signer, err := NewPrivateKeySigner(privateKey)
 	require.NoError(t, err)
-	
+
 	assert.Equal(t, expectedAddress, signer.Address().Base58())
 	// Should strip the 0x prefix
 	assert.Equal(t, "cfae06d915cf9784272fa99d4db961b8cbafd59c8b2f77ab7422be5424d3e49c", signer.PrivateKeyHex())
@@ -107,13 +107,13 @@ func TestMessageSigningV2(t *testing.T) {
 	privateKey := "f8c6f45b2aa8b68ab5f3910bdeb5239428b731618113e2881f46e374bf796b02"
 	message := "sign message testing"
 	expectedSignature := "0x88bacb8549cbe7c3e26d922b05e88757197b77410fb0db1fabb9f30480202c84691b7025e928d36be962cfd7b4a8d2353b97f36d64bdc14398e9568091b701201b"
-	
+
 	signer, err := NewPrivateKeySigner(privateKey)
 	require.NoError(t, err)
-	
+
 	signature, err := signer.SignMessageV2(message)
 	require.NoError(t, err)
-	
+
 	assert.Equal(t, expectedSignature, signature)
 	assert.True(t, len(signature) == 132) // 0x + 130 hex chars (65 bytes * 2)
 }
@@ -121,7 +121,7 @@ func TestMessageSigningV2(t *testing.T) {
 func TestHDWalletSigner(t *testing.T) {
 	// Test data migrated from pkg_old/types/account_test.go
 	mnemonic := "fat social problem enable number gain parrot balance reduce bunker beach image marriage motion friend system dolphin bind leaf spin eye slogan rack track"
-	
+
 	testCases := []struct {
 		name       string
 		path       string
@@ -146,21 +146,21 @@ func TestHDWalletSigner(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			signer, err := NewHDWalletSigner(mnemonic, "", tc.path)
 			require.NoError(t, err)
-			
+
 			// Test address derivation
 			assert.Equal(t, tc.address, signer.Address().Base58())
 			assert.True(t, signer.Address().IsValid())
-			
+
 			// Test private key derivation
 			assert.Equal(t, tc.privateKey, signer.PrivateKeyHex())
-			
+
 			// Test derivation path
 			expectedPath := tc.path
 			if expectedPath == "" {
 				expectedPath = "m/44'/195'/0'/0/0"
 			}
 			assert.Equal(t, expectedPath, signer.DerivationPath())
-			
+
 			// Test public key is not nil
 			assert.NotNil(t, signer.PublicKey())
 		})
@@ -169,28 +169,28 @@ func TestHDWalletSigner(t *testing.T) {
 
 func TestHDWalletAccountDerivation(t *testing.T) {
 	mnemonic := "fat social problem enable number gain parrot balance reduce bunker beach image marriage motion friend system dolphin bind leaf spin eye slogan rack track"
-	
+
 	signer, err := NewHDWalletSigner(mnemonic, "", "")
 	require.NoError(t, err)
-	
+
 	// Derive account at index 1
 	signer1, err := signer.DeriveAccount(1)
 	require.NoError(t, err)
-	
+
 	// Derive account at index 2
 	signer2, err := signer.DeriveAccount(2)
 	require.NoError(t, err)
-	
+
 	// Addresses should be different
 	assert.NotEqual(t, signer.Address().Base58(), signer1.Address().Base58())
 	assert.NotEqual(t, signer.Address().Base58(), signer2.Address().Base58())
 	assert.NotEqual(t, signer1.Address().Base58(), signer2.Address().Base58())
-	
+
 	// Private keys should be different
 	assert.NotEqual(t, signer.PrivateKeyHex(), signer1.PrivateKeyHex())
 	assert.NotEqual(t, signer.PrivateKeyHex(), signer2.PrivateKeyHex())
 	assert.NotEqual(t, signer1.PrivateKeyHex(), signer2.PrivateKeyHex())
-	
+
 	// Derivation paths should be correct
 	assert.Equal(t, "m/44'/195'/0'/0/1", signer1.DerivationPath())
 	assert.Equal(t, "m/44'/195'/0'/0/2", signer2.DerivationPath())
@@ -203,7 +203,7 @@ func TestInvalidMnemonic(t *testing.T) {
 		"",
 		"abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon", // Only 11 words
 	}
-	
+
 	for _, mnemonic := range invalidMnemonics {
 		t.Run("Invalid: "+mnemonic, func(t *testing.T) {
 			_, err := NewHDWalletSigner(mnemonic, "", "")
@@ -214,11 +214,11 @@ func TestInvalidMnemonic(t *testing.T) {
 
 func TestInvalidDerivationPath(t *testing.T) {
 	mnemonic := "fat social problem enable number gain parrot balance reduce bunker beach image marriage motion friend system dolphin bind leaf spin eye slogan rack track"
-	
+
 	invalidPaths := []string{
 		"invalid/path",
 	}
-	
+
 	for _, path := range invalidPaths {
 		t.Run("Invalid path: "+path, func(t *testing.T) {
 			_, err := NewHDWalletSigner(mnemonic, "", path)
@@ -229,10 +229,10 @@ func TestInvalidDerivationPath(t *testing.T) {
 
 func TestHDWalletMasterKey(t *testing.T) {
 	mnemonic := "fat social problem enable number gain parrot balance reduce bunker beach image marriage motion friend system dolphin bind leaf spin eye slogan rack track"
-	
+
 	signer, err := NewHDWalletSigner(mnemonic, "", "m/44'/195'/0'/0/0")
 	require.NoError(t, err)
-	
+
 	// Test that master key can be retrieved (specific validation depends on implementation)
 	masterKey, err := signer.GetMasterKey()
 	if err != nil {
@@ -240,7 +240,7 @@ func TestHDWalletMasterKey(t *testing.T) {
 		t.Skipf("Master key retrieval not supported: %v", err)
 	} else {
 		assert.NotNil(t, masterKey)
-		
+
 		// Master key should be different from derived key
 		derivedKey := signer.PublicKey()
 		assert.NotEqual(t, masterKey, derivedKey)

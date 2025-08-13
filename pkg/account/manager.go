@@ -85,15 +85,10 @@ func (m *AccountManager) GetBalance(ctx context.Context, address *types.Address)
 }
 
 // TransferTRX creates an unsigned TRX transfer transaction
-func (m *AccountManager) TransferTRX(ctx context.Context, from *types.Address, to *types.Address, amount int64, opts *TransferOptions) (*api.TransactionExtention, error) {
+func (m *AccountManager) TransferTRX(ctx context.Context, from *types.Address, to *types.Address, amount int64) (*api.TransactionExtention, error) {
 	// Validate inputs
 	if err := m.validateTransferInputs(from, to, amount); err != nil {
 		return nil, err
-	}
-
-	// Set default options
-	if opts == nil {
-		opts = &TransferOptions{}
 	}
 
 	// Prepare gRPC parameters

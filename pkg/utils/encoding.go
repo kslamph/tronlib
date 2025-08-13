@@ -1,5 +1,6 @@
- // Package utils provides encoding and decoding utilities for the TRON SDK
+// Package utils provides encoding and decoding utilities for the TRON SDK
 package utils
+
 import (
 	"encoding/hex"
 	"encoding/json"
@@ -10,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	types "github.com/kslamph/tronlib/pkg/types"
 )
+
 // HexToBytes converts hex string to bytes
 func HexToBytes(hexStr string) ([]byte, error) {
 	// Remove 0x prefix if present

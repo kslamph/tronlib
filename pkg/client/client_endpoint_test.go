@@ -16,4 +16,3 @@ func TestNewClient_InvalidEndpoint(t *testing.T) {
 		t.Fatalf("expected error for missing host:port")
 	}
 }
-
