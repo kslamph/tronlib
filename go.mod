@@ -6,10 +6,12 @@ toolchain go1.24.4
 
 require (
 	github.com/ethereum/go-ethereum v1.16.1
+	github.com/joho/godotenv v1.5.1
 	github.com/miguelmota/go-ethereum-hdwallet v0.1.3
 	github.com/mr-tron/base58 v1.2.0
 	github.com/shopspring/decimal v1.4.0
 	github.com/stretchr/testify v1.10.0
+	github.com/tyler-smith/go-bip39 v1.1.0
 	golang.org/x/crypto v0.40.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20250715232539-7130f93afb79
 	google.golang.org/grpc v1.73.0
@@ -32,7 +34,6 @@ require (
 	github.com/holiman/uint256 v1.3.2 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/supranational/blst v0.3.14 // indirect
-	github.com/tyler-smith/go-bip39 v1.1.0 // indirect
 	golang.org/x/net v0.41.0 // indirect
 	golang.org/x/sync v0.16.0 // indirect
 	golang.org/x/sys v0.34.0 // indirect

@@ -31,7 +31,7 @@ type TransferOptions struct {
 
 // GetAccount retrieves account information by address
 func (m *AccountManager) GetAccount(ctx context.Context, address *types.Address) (*core.Account, error) {
-	if address == nil {
+	if address == nil || address.String() == "" {
 		return nil, fmt.Errorf("%w: invalid address: nil", types.ErrInvalidAddress)
 	}
 	// Prepare gRPC parameters
