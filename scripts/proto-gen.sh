@@ -42,7 +42,7 @@ M_GRPC_OPTIONS=""
 
 # Find all core proto files and generate M options
 find "$PROTO_ROOT/core" -type f -name "*.proto" ! -empty ! -path "*/core/tron/*" | while read proto_file; do
-    rel_path=${proto_file#$PROTO_ROOT/}
+    rel_path=${proto_file#"$PROTO_ROOT"/}
     # Map both the full path and the base name to handle different import styles
     M_OPTIONS="$M_OPTIONS --go_opt=M$rel_path=github.com/kslamph/tronlib/pb/core"
     M_GRPC_OPTIONS="$M_GRPC_OPTIONS --go-grpc_opt=M$rel_path=github.com/kslamph/tronlib/pb/core"
@@ -51,7 +51,7 @@ done
 # Find all proto files recursively, excluding empty files and the tron directory
 find "$PROTO_ROOT" -type f -name "*.proto" ! -empty ! -path "*/core/tron/*" | while read proto_file; do
     # Get the relative path from PROTO_ROOT
-    rel_path=${proto_file#$PROTO_ROOT/}
+    rel_path=${proto_file#"$PROTO_ROOT"/}
     # Get the directory part of the relative path
     dir_path=$(dirname "$rel_path")
 
@@ -106,7 +106,7 @@ find "$PROTO_ROOT" -type f -name "*.proto" ! -empty ! -path "*/core/tron/*" | wh
         --go_opt=Mcore/contract/storage_contract.proto=github.com/kslamph/tronlib/pb/core \
         --go_opt=Mcore/contract/vote_asset_contract.proto=github.com/kslamph/tronlib/pb/core \
         --go_opt=Mcore/contract/witness_contract.proto=github.com/kslamph/tronlib/pb/core \
-        --go_opt=M${rel_path}=github.com/kslamph/tronlib/pb/${target_dir} \
+        --go_opt=M"${rel_path}"=github.com/kslamph/tronlib/pb/"${target_dir}" \
         --go-grpc_out="$OUTPUT_DIR" \
         --go-grpc_opt=paths=source_relative \
         --go-grpc_opt=Mgithub.com/tronprotocol/grpc-gateway/core/Tron.proto=github.com/kslamph/tronlib/pb/core \
@@ -139,7 +139,7 @@ find "$PROTO_ROOT" -type f -name "*.proto" ! -empty ! -path "*/core/tron/*" | wh
         --go-grpc_opt=Mcore/contract/storage_contract.proto=github.com/kslamph/tronlib/pb/core \
         --go-grpc_opt=Mcore/contract/vote_asset_contract.proto=github.com/kslamph/tronlib/pb/core \
         --go-grpc_opt=Mcore/contract/witness_contract.proto=github.com/kslamph/tronlib/pb/core \
-        --go-grpc_opt=M${rel_path}=github.com/kslamph/tronlib/pb/${target_dir} \
+        --go-grpc_opt=M"${rel_path}"=github.com/kslamph/tronlib/pb/"${target_dir}" \
         "$proto_file"
 done
 
