@@ -32,3 +32,5 @@ func ExampleNewAddress() {
 	// Output:
 	// true
 }
+
+

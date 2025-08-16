@@ -41,3 +41,5 @@ func ExampleNewManager() {
 	to, _ := types.NewAddress("Tyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy2")
 	_, _ = am.TransferTRX(ctx, from, to, 1_000_000)
 }
+
+

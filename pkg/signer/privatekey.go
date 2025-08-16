@@ -113,7 +113,7 @@ func (s *PrivateKeySigner) PrivateKeyHex() string {
 }
 
 // Sign signs a transaction using the private key
-// It supports both core.Transaction and api.TransactionExtention types
+// It supports both *core.Transaction and *api.TransactionExtention types
 func (s *PrivateKeySigner) Sign(tx any) error {
 
 	if tx == nil {

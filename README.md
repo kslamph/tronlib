@@ -56,8 +56,6 @@ func main() {
 
 ## 🔄 Workflow Diagram
 
-
-
 ```
 ┌──────────────────────────────┐
 │        High-level APIs       │
@@ -96,6 +94,7 @@ func main() {
 ### 🎯 Usage Patterns
 
 **High-level usage** (recommended for most applications):
+
 ```go
 // Using account manager for TRX transfer
 am := account.NewManager(cli)
@@ -103,6 +102,7 @@ txExt, err := am.TransferTRX(ctx, from, to, 1_000_000, nil)
 ```
 
 **Low-level usage** (for advanced customization):
+
 ```go
 // Direct client usage for custom transactions
 tx := &core.Transaction{ /* ... */ }

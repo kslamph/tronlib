@@ -32,3 +32,5 @@ func ExampleABIProcessor() {
 	proc := utils.NewABIProcessor(abi)
 	_, _ = proc.EncodeMethod("set", []string{"uint256"}, []interface{}{big.NewInt(1)})
 }
+
+

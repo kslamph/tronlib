@@ -38,3 +38,5 @@ func ExampleNewManager() {
 	nm := network.NewManager(cli)
 	_, _ = nm.GetNodeInfo(ctx)
 }
+
+

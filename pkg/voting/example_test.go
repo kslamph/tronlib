@@ -38,3 +38,5 @@ func ExampleNewManager() {
 	_ = voting.NewManager(cli)
 	_ = ctx
 }
+
+

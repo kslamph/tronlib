@@ -214,7 +214,7 @@ func (t *TRC20Manager) BalanceOf(ctx context.Context, ownerAddress *types.Addres
 }
 
 // Transfer transfers tokens from the caller to a recipient using a
-// decimal.Decimal amount. Returns txid (hex) and the raw transaction extention.
+// decimal.Decimal amount. Returns txid (hex) and the raw transaction extension.
 func (t *TRC20Manager) Transfer(ctx context.Context, fromAddress *types.Address, toAddress *types.Address, amount decimal.Decimal) (string, *api.TransactionExtention, error) {
 	decimals, err := t.Decimals(ctx)
 	if err != nil {
