@@ -158,3 +158,31 @@ func (m *NetworkManager) GetTransactionInfoById(ctx context.Context, txIdHex str
 		return cl.GetTransactionInfoById(ctx, req)
 	})
 }
+
+// GetTransactionById retrieves transaction by transaction ID (hex string)
+func (m *NetworkManager) GetTransactionById(ctx context.Context, txIdHex string) (*core.Transaction, error) {
+	if txIdHex == "" {
+		return nil, fmt.Errorf("%w: transaction ID cannot be empty", types.ErrInvalidParameter)
+	}
+
+	// Remove 0x prefix if present
+	if strings.HasPrefix(txIdHex, "0x") || strings.HasPrefix(txIdHex, "0X") {
+		txIdHex = txIdHex[2:]
+	}
+
+	// Validate hex string length (should be 64 characters for 32 bytes)
+	if len(txIdHex) != 64 {
+		return nil, fmt.Errorf("%w: transaction ID must be 64 hex characters (32 bytes), got %d", types.ErrInvalidParameter, len(txIdHex))
+	}
+
+	// Convert hex string to bytes
+	txIdBytes, err := hex.DecodeString(txIdHex)
+	if err != nil {
+		return nil, fmt.Errorf("%w: invalid hex string: %w", types.ErrInvalidParameter, err)
+	}
+
+	req := &api.BytesMessage{Value: txIdBytes}
+	return lowlevel.Call(m.conn, ctx, "get transaction by id", func(cl api.WalletClient, ctx context.Context) (*core.Transaction, error) {
+		return cl.GetTransactionById(ctx, req)
+	})
+}
