@@ -17,53 +17,40 @@
 // IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-// Package smartcontract exposes high-level helpers for deploying and
-// interacting with TRON smart contracts.
+// Package smartcontract provides high-level helpers to deploy, query, and interact with
+// TRON smart contracts. It includes a package-level Manager for deployment/admin tasks
+// and a per-address Instance for bound interaction.
 //
-// The SmartContractManager encapsulates common operations such as:
-//   - DeployContract: deploy a contract with optional constructor parameters
-//   - EstimateEnergy: simulate a call to estimate resource usage
-//   - GetContract / GetContractInfo: fetch metadata and ABI
-//   - UpdateSetting / UpdateEnergyLimit / ClearContractABI: manage contract settings
+// # Manager Operations
 //
-// # Contract Manager
+// The Manager encapsulates common operations such as:
+//   - Deploy: Deploy a contract with optional constructor parameters
+//   - EstimateEnergy: Estimate energy usage for a transaction
+//   - GetContract: Retrieve on-chain contract metadata
+//   - GetContractInfo: Retrieve detailed contract info
+//   - UpdateSetting / UpdateEnergyLimit / ClearContractABI: Administrative tasks
 //
-// The SmartContractManager provides a high-level interface for common contract operations:
+// # Quick Start
 //
-//	cli, _ := client.NewClient("grpc://127.0.0.1:50051")
-//	defer cli.Close()
+// The Manager provides a high-level interface for common contract operations:
 //
-//	mgr := smartcontract.NewManager(cli)
-//	owner, _ := types.NewAddress("Townerxxxxxxxxxxxxxxxxxxxxxxxxxx")
-//
-//	abiJSON := `{"entrys":[{"type":"constructor","inputs":[{"name":"_owner","type":"address"}]},{"type":"function","name":"setValue","inputs":[{"name":"v","type":"uint256"}]},{"type":"function","name":"getValue","inputs":[],"outputs":[{"name":"","type":"uint256"}],"constant":true}]}`
-//	bytecode := []byte{0x60,0x80,0x60,0x40} // truncated
-//
-//	_, _ = mgr.DeployContract(context.Background(), owner, "MyContract", abiJSON, bytecode, 0, 100, 30000, owner.Bytes())
-//
-// # Typed Contract Client
-//
-// You can also work with a typed Contract client to build transactions and
-// decode results using its ABI-aware helpers:
-//
-//	contractAddr, _ := types.NewAddress("Tcontractxxxxxxxxxxxxxxxxxxxxxxxx")
-//	c, err := smartcontract.NewContract(cli, contractAddr, abiJSON)
+//	mgr := smartcontract.NewManager(client)
+//	txExt, err := mgr.Deploy(context.Background(), owner, "MyContract", abiJSON, bytecode, 0, 100, 30000, owner.Bytes())
 //	if err != nil { /* handle */ }
 //
-//	// State-changing call (build tx only)
-//	txExt, err := c.TriggerSmartContract(ctx, owner, 0, "setValue", uint64(42))
+// For interacting with a deployed contract, create an Instance bound to an address:
+//
+//	c, err := smartcontract.NewInstance(cli, contractAddr, abiJSON)
+//	if err != nil { /* handle */ }
+//	txExt, err := c.Invoke(ctx, owner, 0, "setValue", uint64(42))
 //	if err != nil { /* handle */ }
 //
 // # Error Handling
 //
-// This package focuses on safety and clarity of error messages, returning
-// sentinel errors from pkg/types where relevant and wrapping validation
-// failures with precise context.
-//
 // Common error types:
-//   - ErrInvalidABI - Invalid ABI format
-//   - ErrInvalidBytecode - Invalid contract bytecode
 //   - ErrContractNotFound - Contract not found on chain
+//   - ErrInvalidABI - Invalid ABI format
+//   - ErrInsufficientEnergy - Insufficient energy for contract execution
 //
 // Always check for errors in production code.
 package smartcontract

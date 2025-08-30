@@ -26,7 +26,6 @@ import (
 	"github.com/kslamph/tronlib/pkg/account"
 	"github.com/kslamph/tronlib/pkg/client"
 	"github.com/kslamph/tronlib/pkg/types"
-	"github.com/kslamph/tronlib/pkg/utils"
 )
 
 // Mock client for testing (will be replaced with actual client in integration tests)
@@ -129,8 +128,8 @@ func TestTransferValidation(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Note: This will fail with network error since we don't have a real TRON node
 			// But it will test our validation logic before the network call
-			fromAddr, _ := utils.ValidateAddress(tc.from)
-			toAddr, _ := utils.ValidateAddress(tc.to)
+			fromAddr, _ := types.NewAddressFromBase58(tc.from)
+			toAddr, _ := types.NewAddressFromBase58(tc.to)
 			_, err := manager.TransferTRX(ctx, fromAddr, toAddr, tc.amount)
 
 			if tc.expectError {
@@ -161,8 +160,8 @@ func TestTransferOptions(t *testing.T) {
 	amount := int64(1000000) // 1 TRX in SUN
 
 	// This will fail with network error, but tests option handling
-	fromAddr, _ := utils.ValidateAddress(from)
-	toAddr, _ := utils.ValidateAddress(to)
+	fromAddr, _ := types.NewAddressFromBase58(from)
+	toAddr, _ := types.NewAddressFromBase58(to)
 	_, err := manager.TransferTRX(ctx, fromAddr, toAddr, amount)
 
 	// We expect a network error since no real TRON node is connected
@@ -171,8 +170,8 @@ func TestTransferOptions(t *testing.T) {
 	}
 
 	// Test with nil options (should use defaults)
-	fromAddr2, _ := utils.ValidateAddress(from)
-	toAddr2, _ := utils.ValidateAddress(to)
+	fromAddr2, _ := types.NewAddressFromBase58(from)
+	toAddr2, _ := types.NewAddressFromBase58(to)
 	_, err = manager.TransferTRX(ctx, fromAddr2, toAddr2, amount)
 	if err != nil {
 		t.Logf("Transfer with nil options failed with expected network error: %v", err)
@@ -205,7 +204,7 @@ func TestGetAccountNet(t *testing.T) {
 	ctx := context.Background()
 
 	// Test valid address
-	addrOk, _ := utils.ValidateAddress("TZ1EafTG8FRtE6ef3H2dhaucDdjv36fzPY")
+	addrOk, _ := types.NewAddressFromBase58("TZ1EafTG8FRtE6ef3H2dhaucDdjv36fzPY")
 	_, err := manager.GetAccountNet(ctx, addrOk)
 	if err != nil {
 		t.Logf("GetAccountNet failed with expected network error: %v", err)
@@ -225,7 +224,7 @@ func TestGetAccountResource(t *testing.T) {
 	ctx := context.Background()
 
 	// Test valid address
-	addrOk2, _ := utils.ValidateAddress("TZ1EafTG8FRtE6ef3H2dhaucDdjv36fzPY")
+	addrOk2, _ := types.NewAddressFromBase58("TZ1EafTG8FRtE6ef3H2dhaucDdjv36fzPY")
 	_, err := manager.GetAccountResource(ctx, addrOk2)
 	if err != nil {
 		t.Logf("GetAccountResource failed with expected network error: %v", err)
@@ -245,7 +244,7 @@ func TestGetBalance(t *testing.T) {
 	ctx := context.Background()
 
 	// Test valid address
-	addrOk3, _ := utils.ValidateAddress("TZ1EafTG8FRtE6ef3H2dhaucDdjv36fzPY")
+	addrOk3, _ := types.NewAddressFromBase58("TZ1EafTG8FRtE6ef3H2dhaucDdjv36fzPY")
 	_, err := manager.GetBalance(ctx, addrOk3)
 	if err != nil {
 		t.Logf("GetBalance failed with expected network error: %v", err)

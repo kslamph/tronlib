@@ -18,12 +18,11 @@ import (
 	"github.com/kslamph/tronlib/pkg/signer"
 	"github.com/kslamph/tronlib/pkg/smartcontract"
 	"github.com/kslamph/tronlib/pkg/types"
-	"github.com/kslamph/tronlib/pkg/utils"
 )
 
 const (
 	// Deployment configuration
-	MinimumBalanceTRX  = 3000
+	MinimumBalanceTRX  = 1
 	DefaultFeeLimit    = 10 * types.SunPerTRX // 10 TRX fee limit per deployment
 	DefaultEnergyLimit = types.DefaultEnergyLimit
 
@@ -38,13 +37,14 @@ const (
 
 // SetupConfig holds the configuration for the setup process
 type SetupConfig struct {
-	NodeURL          string
-	Key1PrivateKey   string
-	Key1Address      *types.Address
-	ProjectRoot      string
-	ContractBuildDir string
-	TestEnvFiles     []string
-	DryRun           bool
+	NodeURL                      string
+	Key1PrivateKey               string
+	Key1Address                  *types.Address
+	ProjectRoot                  string
+	ContractBuildDir             string
+	TestEnvFiles                 []string
+	DryRun                       bool
+	ShieldedTRC20ContractAddress *types.Address
 }
 
 // ContractInfo holds information about a contract to be deployed
@@ -71,7 +71,7 @@ type NileTestnetSetup struct {
 	config            SetupConfig
 	client            *client.Client
 	accountManager    *account.AccountManager
-	contractManager   *smartcontract.SmartContractManager
+	contractManager   *smartcontract.Manager
 	signer            *signer.PrivateKeySigner
 	deploymentResults []DeploymentResult
 }
@@ -281,6 +281,16 @@ func (s *NileTestnetSetup) prepareContractParameters() ([]ContractInfo, error) {
 			},
 			EnvVarName: "TESTCOMPREHENSIVETYPES_CONTRACT_ADDRESS",
 		},
+		{
+			Name:    "ShieldedTRC20",
+			ABIFile: "ShieldedTRC20.abi",
+			BinFile: "ShieldedTRC20.bin",
+			ConstructorParams: []interface{}{
+				s.config.ShieldedTRC20ContractAddress, // trc20ContractAddress
+				big.NewInt(0),                         // scalingFactorExponent
+			},
+			EnvVarName: "SHIELDEDTRC20_CONTRACT_ADDRESS",
+		},
 	}
 
 	// Verify all contract files exist and load them
@@ -366,8 +376,8 @@ func (s *NileTestnetSetup) deployContract(contract ContractInfo) (DeploymentResu
 
 	fmt.Printf("📝 Creating deployment transaction...\n")
 
-	// NOTE: DeployContract expects ownerAddress as string. Convert *types.Address to base58 string.
-	txExt, err := s.contractManager.DeployContract(
+	// NOTE: Deploy expects ownerAddress as *types.Address
+	txExt, err := s.contractManager.Deploy(
 		ctx,
 		s.config.Key1Address,          // ownerAddress as *types.Address
 		contract.Name,                 // contractName
@@ -382,9 +392,18 @@ func (s *NileTestnetSetup) deployContract(contract ContractInfo) (DeploymentResu
 		result.Error = err
 		return result, fmt.Errorf("failed to create deployment transaction: %w", err)
 	}
+	fmt.Printf("🔍 Transaction: %+v\n", txExt)
 
 	// Sign and broadcast transaction
 	fmt.Printf("✍️  Signing and broadcasting transaction...\n")
+	simulate, err := s.client.Simulate(ctx, txExt)
+	if err != nil {
+		result.Error = err
+		return result, fmt.Errorf("failed to simulate transaction: %w", err)
+	}
+	fmt.Printf("🔍 Simulated transaction: %+v\n", simulate)
+	// return result, nil
+
 	rst, err := s.client.SignAndBroadcast(ctx, txExt, client.BroadcastOptions{FeeLimit: 2000000000, WaitForReceipt: true}, s.signer)
 	if err != nil {
 		fmt.Printf("X broadcast failed \n")
@@ -491,15 +510,20 @@ func loadSetupConfig() (SetupConfig, error) {
 	if err != nil {
 		return SetupConfig{}, fmt.Errorf("failed to create signer: %w", err)
 	}
-	key1Address := signer.Address().String()
+
+	shieldedTRC20ContractAddress, err := types.NewAddress("TWRvzd6FQcsyp7hwCtttjZGpU1kfvVEtNK")
+	if err != nil {
+		return SetupConfig{}, fmt.Errorf("failed to create shieldedTRC20ContractAddress: %w", err)
+	}
 
 	config := SetupConfig{
 		NodeURL:        "grpc://grpc.nile.trongrid.io:50051",
 		Key1PrivateKey: key1PrivateKey,
 		// Convert string key1Address from env to *types.Address
-		Key1Address:      func() *types.Address { addr, _ := utils.ValidateAddress(key1Address); return addr }(),
-		ProjectRoot:      currentFolder,
-		ContractBuildDir: filepath.Join(currentFolder, "test_contract", "build"),
+		Key1Address:                  signer.Address(),
+		ProjectRoot:                  currentFolder,
+		ContractBuildDir:             filepath.Join(currentFolder, "test_contract", "build"),
+		ShieldedTRC20ContractAddress: shieldedTRC20ContractAddress,
 		TestEnvFiles: []string{
 			filepath.Join(currentFolder, "test.env"),
 		},
@@ -591,7 +615,7 @@ func (s *NileTestnetSetup) updateSingleContractInFile(filePath string, result De
 
 	// Write back to file
 	newContent := strings.Join(lines, "\n")
-	if err := os.WriteFile(filePath, []byte(newContent), 0644); err != nil {
+	if err := os.WriteFile(filePath, []byte(newContent), 0600); err != nil {
 		return fmt.Errorf("failed to write %s: %w", filePath, err)
 	}
 

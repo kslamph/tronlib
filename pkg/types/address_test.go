@@ -273,3 +273,104 @@ func TestHexAddressWithPrefix(t *testing.T) {
 		})
 	}
 }
+
+// Test cases migrated from pkg/utils/validation_test.go
+func TestAddressValidation(t *testing.T) {
+	validCases := []struct {
+		name    string
+		address string
+	}{
+		{
+			name:    "Valid base58 address 1",
+			address: "TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwb",
+		},
+		{
+			name:    "Valid base58 address 2",
+			address: "TXNYeYdao7JL7wBtmzbk7mAie7UZsdgVjx",
+		},
+		{
+			name:    "Valid hex address",
+			address: "e28b3cfd4e0e909077821478e9fcb86b84be786e",
+		},
+		{
+			name:    "Valid hex address with 0x prefix",
+			address: "0xe28b3cfd4e0e909077821478e9fcb86b84be786e",
+		},
+	}
+
+	for _, tc := range validCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Test address creation via NewAddressFrom... functions
+			var addr *Address
+			var err error
+
+			// Try to create address based on format
+			if len(tc.address) == 0 {
+				// Empty address - should fail
+				_, err = NewAddressFromBase58(tc.address)
+				assert.Error(t, err)
+				return
+			}
+
+			if tc.address[0] == 'T' {
+				// Base58 address
+				addr, err = NewAddressFromBase58(tc.address)
+			} else if len(tc.address) >= 2 && tc.address[0:2] == "0x" {
+				// Hex with prefix
+				addr, err = NewAddressFromHex(tc.address)
+			} else {
+				// Hex without prefix
+				addr, err = NewAddressFromHex(tc.address)
+			}
+
+			require.NoError(t, err)
+			assert.NotNil(t, addr)
+			assert.True(t, addr.IsValid())
+		})
+	}
+}
+
+func TestInvalidAddressValidation(t *testing.T) {
+	invalidCases := []struct {
+		name    string
+		address string
+	}{
+		{
+			name:    "Empty address",
+			address: "",
+		},
+		{
+			name:    "Wrong prefix base58",
+			address: "AWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwb",
+		},
+		{
+			name:    "Wrong length base58",
+			address: "TWd4WrZ9wn84f5x1hZhL4DHvk738ns5",
+		},
+		{
+			name:    "Invalid hex characters",
+			address: "x28b3cfd4e0e909077821478e9fcb86b84be786e",
+		},
+		{
+			name:    "Wrong hex prefix",
+			address: "1e28b3cfd4e0e909077821478e9fcb86b84be786e",
+		},
+	}
+
+	for _, tc := range invalidCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Test address creation should fail for invalid addresses
+			var err error
+
+			if len(tc.address) == 0 || tc.address[0] == 'T' {
+				// Try Base58
+				_, err = NewAddressFromBase58(tc.address)
+			} else {
+				// Try Hex
+				_, err = NewAddressFromHex(tc.address)
+			}
+
+			assert.Error(t, err)
+		})
+	}
+}

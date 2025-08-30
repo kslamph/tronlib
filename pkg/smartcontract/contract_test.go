@@ -76,7 +76,7 @@ func TestNewContract(t *testing.T) {
 	mockAddress := createMockAddress()
 
 	// Test contract creation from ABI string
-	contract, err1 := NewContract(mockClient, mockAddress, testERC20ABI)
+	contract, err1 := NewInstance(mockClient, mockAddress, testERC20ABI)
 	if err1 != nil {
 		t.Fatalf("Failed to create contract: %v", err1)
 	}
@@ -95,7 +95,7 @@ func TestNewContract(t *testing.T) {
 }
 
 func TestEncodeInput(t *testing.T) {
-	contract, err1 := NewContract(createMockClient(), createMockAddress(), testERC20ABI)
+	contract, err1 := NewInstance(createMockClient(), createMockAddress(), testERC20ABI)
 	if err1 != nil {
 		t.Fatalf("Failed to create contract: %v", err1)
 	}
@@ -187,43 +187,43 @@ func TestInvalidInputs(t *testing.T) {
 	mockAddress := createMockAddress()
 
 	// Test nil client
-	_, err1 := NewContract(nil, mockAddress, testERC20ABI)
+	_, err1 := NewInstance(nil, mockAddress, testERC20ABI)
 	if err1 == nil {
 		t.Error("Expected error for nil client")
 	}
 
 	// Test nil address
-	_, err2 := NewContract(mockClient, nil, testERC20ABI)
+	_, err2 := NewInstance(mockClient, nil, testERC20ABI)
 	if err2 == nil {
 		t.Error("Expected error for nil address")
 	}
 
 	// Test empty ABI string
-	_, err3 := NewContract(mockClient, mockAddress, "")
+	_, err3 := NewInstance(mockClient, mockAddress, "")
 	if err3 == nil {
 		t.Error("Expected error for empty ABI")
 	}
 
 	// Test invalid ABI string
-	_, err4 := NewContract(mockClient, mockAddress, "invalid json")
+	_, err4 := NewInstance(mockClient, mockAddress, "invalid json")
 	if err4 == nil {
 		t.Error("Expected error for invalid ABI")
 	}
 
 	// Test nil ABI object
-	_, err5 := NewContract(mockClient, mockAddress, (*core.SmartContract_ABI)(nil))
+	_, err5 := NewInstance(mockClient, mockAddress, (*core.SmartContract_ABI)(nil))
 	if err5 == nil {
 		t.Error("Expected error for nil ABI object")
 	}
 
 	// Test too many ABI arguments
-	_, err6 := NewContract(mockClient, mockAddress, testERC20ABI, testERC20ABI)
+	_, err6 := NewInstance(mockClient, mockAddress, testERC20ABI, testERC20ABI)
 	if err6 == nil {
 		t.Error("Expected error with too many ABI arguments")
 	}
 
 	// Test invalid ABI type
-	_, err7 := NewContract(mockClient, mockAddress, 123)
+	_, err7 := NewInstance(mockClient, mockAddress, 123)
 	if err7 == nil {
 		t.Error("Expected error with invalid ABI type")
 	}

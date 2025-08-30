@@ -29,6 +29,7 @@ import (
 
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
+	"github.com/kslamph/tronlib/pkg/client/lowlevel"
 )
 
 // Local generic wrapper helper to call unexported grpcGenericCallWrapper[T]
@@ -126,7 +127,7 @@ func TestGrpcGenericCallWrapper_ValidationSuccess(t *testing.T) {
 			Result: &api.Return{Result: true, Code: api.Return_SUCCESS},
 		}, nil
 	}
-	_, err := callWrapper(c, context.Background(), "validate-ok", call, validateTransactionResult)
+	_, err := callWrapper(c, context.Background(), "validate-ok", call, lowlevel.ValidateTransactionResult)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -144,7 +145,7 @@ func TestGrpcGenericCallWrapper_ValidationFailureWrapsTronReturn(t *testing.T) {
 			Result: &api.Return{Result: false, Code: api.Return_OTHER_ERROR, Message: []byte("FAILED")},
 		}, nil
 	}
-	_, err := callWrapper(c, context.Background(), "operation-x", call, validateTransactionResult)
+	_, err := callWrapper(c, context.Background(), "operation-x", call, lowlevel.ValidateTransactionResult)
 	if err == nil {
 		t.Fatalf("expected non-nil error")
 	}

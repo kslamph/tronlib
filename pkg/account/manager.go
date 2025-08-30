@@ -17,7 +17,6 @@
 // IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-// Package account provides high-level account management functionality
 package account
 
 import (
@@ -26,26 +25,22 @@ import (
 
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
-	"github.com/kslamph/tronlib/pkg/client"
+	"github.com/kslamph/tronlib/pkg/client/lowlevel"
 	"github.com/kslamph/tronlib/pkg/types"
 )
 
+// ConnProvider is the minimal dependency required to perform low-level RPCs.
+// It is satisfied by *client.Client and any other connection pool provider.
+type ConnProvider = lowlevel.ConnProvider
+
 // AccountManager provides high-level account operations
 type AccountManager struct {
-	client *client.Client
+	conn lowlevel.ConnProvider
 }
 
 // NewManager creates a new account manager
-func NewManager(client *client.Client) *AccountManager {
-	return &AccountManager{
-		client: client,
-	}
-}
-
-// TransferOptions contains options for TRX transfers
-type TransferOptions struct {
-	// Memo is an optional memo for the transfer (currently unused by protocol)
-	Memo string
+func NewManager(conn lowlevel.ConnProvider) *AccountManager {
+	return &AccountManager{conn: conn}
 }
 
 // GetAccount retrieves account information by address
@@ -54,12 +49,12 @@ func (m *AccountManager) GetAccount(ctx context.Context, address *types.Address)
 		return nil, fmt.Errorf("%w: invalid address: nil", types.ErrInvalidAddress)
 	}
 	// Prepare gRPC parameters
-	req := &core.Account{
-		Address: address.Bytes(),
-	}
+	req := &core.Account{Address: address.Bytes()}
 
-	// Call client package function
-	return m.client.GetAccount(ctx, req)
+	// Call lowlevel
+	return lowlevel.Call(m.conn, ctx, "get account", func(cl api.WalletClient, ctx context.Context) (*core.Account, error) {
+		return cl.GetAccount(ctx, req)
+	})
 }
 
 // GetAccountNet retrieves account bandwidth information
@@ -69,12 +64,12 @@ func (m *AccountManager) GetAccountNet(ctx context.Context, address *types.Addre
 	}
 
 	// Prepare gRPC parameters
-	req := &core.Account{
-		Address: address.Bytes(),
-	}
+	req := &core.Account{Address: address.Bytes()}
 
-	// Call client package function
-	return m.client.GetAccountNet(ctx, req)
+	// Call lowlevel
+	return lowlevel.Call(m.conn, ctx, "get account net", func(cl api.WalletClient, ctx context.Context) (*api.AccountNetMessage, error) {
+		return cl.GetAccountNet(ctx, req)
+	})
 }
 
 // GetAccountResource retrieves account energy information
@@ -84,12 +79,12 @@ func (m *AccountManager) GetAccountResource(ctx context.Context, address *types.
 	}
 
 	// Prepare gRPC parameters
-	req := &core.Account{
-		Address: address.Bytes(),
-	}
+	req := &core.Account{Address: address.Bytes()}
 
-	// Call client package function
-	return m.client.GetAccountResource(ctx, req)
+	// Call lowlevel
+	return lowlevel.Call(m.conn, ctx, "get account resource", func(cl api.WalletClient, ctx context.Context) (*api.AccountResourceMessage, error) {
+		return cl.GetAccountResource(ctx, req)
+	})
 }
 
 // GetBalance retrieves the TRX balance for an address (convenience method)
@@ -117,8 +112,10 @@ func (m *AccountManager) TransferTRX(ctx context.Context, from *types.Address, t
 		Amount:       amount,
 	}
 
-	// Call client package function
-	return m.client.CreateTransaction2(ctx, req)
+	// Call lowlevel
+	return lowlevel.TxCall(m.conn, ctx, "create transaction2", func(cl api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
+		return cl.CreateTransaction2(ctx, req)
+	})
 }
 
 // validateTransferInputs validates common transfer parameters
@@ -134,12 +131,6 @@ func (m *AccountManager) validateTransferInputs(from *types.Address, to *types.A
 	// Validate amount (must be positive, in SUN units)
 	if amount <= 0 {
 		return fmt.Errorf("%w: amount must be positive", types.ErrInvalidAmount)
-	}
-
-	// Check reasonable upper bound (less than total TRX supply in SUN)
-	maxSupply := int64(100_000_000_000 * types.SunPerTRX) // 100B TRX in SUN
-	if amount > maxSupply {
-		return fmt.Errorf("%w: amount %d exceeds maximum supply", types.ErrInvalidAmount, amount)
 	}
 
 	// Check addresses are different

@@ -1,0 +1,4 @@
+✅ Transfer successful!
+Transaction ID: 07aec7a4632edbc841c0afa8631b46ad14e79472985aaa60a6da1839a31508ef
+Energy used: 13569
+Success: true

@@ -26,20 +26,18 @@ import (
 
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
-	"github.com/kslamph/tronlib/pkg/client"
+	"github.com/kslamph/tronlib/pkg/client/lowlevel"
 	"github.com/kslamph/tronlib/pkg/types"
 )
 
 // ResourcesManager provides high-level resource management operations
 type ResourcesManager struct {
-	client *client.Client
+	conn lowlevel.ConnProvider
 }
 
 // NewManager creates a new resource manager
-func NewManager(client *client.Client) *ResourcesManager {
-	return &ResourcesManager{
-		client: client,
-	}
+func NewManager(conn lowlevel.ConnProvider) *ResourcesManager {
+	return &ResourcesManager{conn: conn}
 }
 
 // ResourceType represents the type of resource
@@ -66,7 +64,9 @@ func (m *ResourcesManager) FreezeBalanceV2(ctx context.Context, ownerAddress *ty
 		Resource:      core.ResourceCode(resource),
 	}
 
-	return m.client.FreezeBalanceV2(ctx, req)
+	return lowlevel.TxCall(m.conn, ctx, "freeze balance v2", func(cl api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
+		return cl.FreezeBalanceV2(ctx, req)
+	})
 }
 
 // UnfreezeBalanceV2 unfreezes balance (v2)
@@ -85,7 +85,9 @@ func (m *ResourcesManager) UnfreezeBalanceV2(ctx context.Context, ownerAddress *
 		Resource:        core.ResourceCode(resource),
 	}
 
-	return m.client.UnfreezeBalanceV2(ctx, req)
+	return lowlevel.TxCall(m.conn, ctx, "unfreeze balance v2", func(cl api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
+		return cl.UnfreezeBalanceV2(ctx, req)
+	})
 }
 
 // DelegateResource delegates resources to another account
@@ -113,7 +115,9 @@ func (m *ResourcesManager) DelegateResource(ctx context.Context, ownerAddress, r
 		Lock:            lock,
 	}
 
-	return m.client.DelegateResource(ctx, req)
+	return lowlevel.TxCall(m.conn, ctx, "delegate resource", func(cl api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
+		return cl.DelegateResource(ctx, req)
+	})
 }
 
 // UnDelegateResource undelegates resources from another account
@@ -136,7 +140,9 @@ func (m *ResourcesManager) UnDelegateResource(ctx context.Context, ownerAddress,
 		Resource:        core.ResourceCode(resource),
 	}
 
-	return m.client.UnDelegateResource(ctx, req)
+	return lowlevel.TxCall(m.conn, ctx, "undelegate resource", func(cl api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
+		return cl.UnDelegateResource(ctx, req)
+	})
 }
 
 // CancelAllUnfreezeV2 cancels all unfreeze operations (v2)
@@ -145,11 +151,10 @@ func (m *ResourcesManager) CancelAllUnfreezeV2(ctx context.Context, ownerAddress
 		return nil, fmt.Errorf("%w: invalid owner address: nil", types.ErrInvalidAddress)
 	}
 
-	req := &core.CancelAllUnfreezeV2Contract{
-		OwnerAddress: ownerAddress.Bytes(),
-	}
-
-	return m.client.CancelAllUnfreezeV2(ctx, req)
+	req := &core.CancelAllUnfreezeV2Contract{OwnerAddress: ownerAddress.Bytes()}
+	return lowlevel.TxCall(m.conn, ctx, "cancel all unfreeze v2", func(cl api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
+		return cl.CancelAllUnfreezeV2(ctx, req)
+	})
 }
 
 // WithdrawExpireUnfreeze withdraws expired unfreeze amount
@@ -158,11 +163,10 @@ func (m *ResourcesManager) WithdrawExpireUnfreeze(ctx context.Context, ownerAddr
 		return nil, fmt.Errorf("%w: invalid owner address: nil", types.ErrInvalidAddress)
 	}
 
-	req := &core.WithdrawExpireUnfreezeContract{
-		OwnerAddress: ownerAddress.Bytes(),
-	}
-
-	return m.client.WithdrawExpireUnfreeze(ctx, req)
+	req := &core.WithdrawExpireUnfreezeContract{OwnerAddress: ownerAddress.Bytes()}
+	return lowlevel.TxCall(m.conn, ctx, "withdraw expire unfreeze", func(cl api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
+		return cl.WithdrawExpireUnfreeze(ctx, req)
+	})
 }
 
 // GetDelegatedResourceV2 gets delegated resource information (v2)
@@ -174,12 +178,10 @@ func (m *ResourcesManager) GetDelegatedResourceV2(ctx context.Context, fromAddre
 		return nil, fmt.Errorf("%w: invalid to address: nil", types.ErrInvalidAddress)
 	}
 
-	req := &api.DelegatedResourceMessage{
-		FromAddress: fromAddress.Bytes(),
-		ToAddress:   toAddress.Bytes(),
-	}
-
-	return m.client.GetDelegatedResourceV2(ctx, req)
+	req := &api.DelegatedResourceMessage{FromAddress: fromAddress.Bytes(), ToAddress: toAddress.Bytes()}
+	return lowlevel.Call(m.conn, ctx, "get delegated resource v2", func(cl api.WalletClient, ctx context.Context) (*api.DelegatedResourceList, error) {
+		return cl.GetDelegatedResourceV2(ctx, req)
+	})
 }
 
 // GetDelegatedResourceAccountIndexV2 gets delegated resource account index (v2)
@@ -188,11 +190,10 @@ func (m *ResourcesManager) GetDelegatedResourceAccountIndexV2(ctx context.Contex
 		return nil, fmt.Errorf("%w: invalid address: nil", types.ErrInvalidAddress)
 	}
 
-	req := &api.BytesMessage{
-		Value: address.Bytes(),
-	}
-
-	return m.client.GetDelegatedResourceAccountIndexV2(ctx, req)
+	req := &api.BytesMessage{Value: address.Bytes()}
+	return lowlevel.Call(m.conn, ctx, "get delegated resource account index v2", func(cl api.WalletClient, ctx context.Context) (*core.DelegatedResourceAccountIndex, error) {
+		return cl.GetDelegatedResourceAccountIndexV2(ctx, req)
+	})
 }
 
 // GetCanDelegatedMaxSize gets maximum delegatable resource size
@@ -201,12 +202,10 @@ func (m *ResourcesManager) GetCanDelegatedMaxSize(ctx context.Context, ownerAddr
 		return nil, fmt.Errorf("%w: invalid owner address: nil", types.ErrInvalidAddress)
 	}
 
-	req := &api.CanDelegatedMaxSizeRequestMessage{
-		OwnerAddress: ownerAddress.Bytes(),
-		Type:         delegateType,
-	}
-
-	return m.client.GetCanDelegatedMaxSize(ctx, req)
+	req := &api.CanDelegatedMaxSizeRequestMessage{OwnerAddress: ownerAddress.Bytes(), Type: delegateType}
+	return lowlevel.Call(m.conn, ctx, "get can delegated max size", func(cl api.WalletClient, ctx context.Context) (*api.CanDelegatedMaxSizeResponseMessage, error) {
+		return cl.GetCanDelegatedMaxSize(ctx, req)
+	})
 }
 
 // GetAvailableUnfreezeCount gets available unfreeze count
@@ -215,11 +214,10 @@ func (m *ResourcesManager) GetAvailableUnfreezeCount(ctx context.Context, ownerA
 		return nil, fmt.Errorf("%w: invalid owner address: nil", types.ErrInvalidAddress)
 	}
 
-	req := &api.GetAvailableUnfreezeCountRequestMessage{
-		OwnerAddress: ownerAddress.Bytes(),
-	}
-
-	return m.client.GetAvailableUnfreezeCount(ctx, req)
+	req := &api.GetAvailableUnfreezeCountRequestMessage{OwnerAddress: ownerAddress.Bytes()}
+	return lowlevel.Call(m.conn, ctx, "get available unfreeze count", func(cl api.WalletClient, ctx context.Context) (*api.GetAvailableUnfreezeCountResponseMessage, error) {
+		return cl.GetAvailableUnfreezeCount(ctx, req)
+	})
 }
 
 // GetCanWithdrawUnfreezeAmount gets withdrawable unfreeze amount
@@ -228,10 +226,11 @@ func (m *ResourcesManager) GetCanWithdrawUnfreezeAmount(ctx context.Context, own
 		return nil, fmt.Errorf("%w: invalid owner address: nil", types.ErrInvalidAddress)
 	}
 
-	req := &api.CanWithdrawUnfreezeAmountRequestMessage{
-		OwnerAddress: ownerAddress.Bytes(),
-		Timestamp:    timestamp,
-	}
-
-	return m.client.GetCanWithdrawUnfreezeAmount(ctx, req)
+	req := &api.CanWithdrawUnfreezeAmountRequestMessage{OwnerAddress: ownerAddress.Bytes(), Timestamp: timestamp}
+	return lowlevel.Call(m.conn, ctx,
+		"get can withdraw unfreeze amount",
+		func(cl api.WalletClient, ctx context.Context) (*api.CanWithdrawUnfreezeAmountResponseMessage, error) {
+			return cl.GetCanWithdrawUnfreezeAmount(ctx, req)
+		},
+	)
 }

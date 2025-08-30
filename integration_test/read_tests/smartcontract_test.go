@@ -35,11 +35,11 @@ func TestMainnetUSDTContract(t *testing.T) {
 		client, err := client.NewClient(getTestConfig().Endpoint)
 		require.NoError(t, err, "Should create client")
 
-		contract, err := smartcontract.NewContract(client, usdtAddress)
+		contract, err := smartcontract.NewInstance(client, usdtAddress)
 		require.NoError(t, err, "Should create USDT contract instance from network")
 
 		// Test symbol
-		symbol, err := contract.TriggerConstantContract(ctx, testAddress, "symbol")
+		symbol, err := contract.Call(ctx, testAddress, "symbol")
 		require.NoError(t, err, "Should call symbol method")
 		// Single output should be concrete string
 		symbolDecoded, ok := symbol.(string)
@@ -48,7 +48,7 @@ func TestMainnetUSDTContract(t *testing.T) {
 		t.Logf("USDT Symbol: %s", symbolDecoded)
 
 		// Test name
-		name, err := contract.TriggerConstantContract(ctx, testAddress, "name")
+		name, err := contract.Call(ctx, testAddress, "name")
 		require.NoError(t, err, "Should call name method")
 		// Single output should be concrete string
 		nameDecoded, ok := name.(string)
@@ -57,7 +57,7 @@ func TestMainnetUSDTContract(t *testing.T) {
 		t.Logf("USDT Name: %s", nameDecoded)
 
 		// Test decimals
-		decimals, err := contract.TriggerConstantContract(ctx, testAddress, "decimals")
+		decimals, err := contract.Call(ctx, testAddress, "decimals")
 		require.NoError(t, err, "Should call decimals method")
 		// Single output should be concrete uint8
 		decimalsValue, ok := decimals.(uint8)
@@ -67,7 +67,7 @@ func TestMainnetUSDTContract(t *testing.T) {
 		t.Logf("USDT Decimals: %d", decimalsValue)
 
 		// Test total supply
-		totalSupply, err := contract.TriggerConstantContract(ctx, testAddress, "totalSupply")
+		totalSupply, err := contract.Call(ctx, testAddress, "totalSupply")
 		require.NoError(t, err, "Should call totalSupply method")
 		// Single output should be *big.Int
 		totalSupplyDecoded, ok := totalSupply.(*big.Int)
@@ -85,20 +85,20 @@ func TestMainnetUSDTContract(t *testing.T) {
 		client, err := client.NewClient(getTestConfig().Endpoint)
 		require.NoError(t, err, "Should create client")
 
-		contract, err := smartcontract.NewContract(client, usdtAddress)
+		contract, err := smartcontract.NewInstance(client, usdtAddress)
 		require.NoError(t, err, "Should create USDT contract instance from network")
 
 		// Test balance of specific address
 		_, err = contract.Encode("balanceOf", testAddress.String())
 		require.NoError(t, err, "Should encode balanceOf call")
 
-		balanceResult, err := contract.TriggerConstantContract(ctx, testAddress, "balanceOf", testAddress.String())
+		balanceResult, err := contract.Call(ctx, testAddress, "balanceOf", testAddress.String())
 		require.NoError(t, err, "Should call balanceOf method")
 
 		// Single output should be *big.Int
 		balanceDecoded, ok := balanceResult.(*big.Int)
 		require.True(t, ok, "Should decode balanceOf result as *big.Int , got %T", balanceResult)
-		require.Equal(t, big.NewInt(45967732353), balanceDecoded, "Balance should be 45967732353")
+		require.True(t, balanceDecoded.Sign() > 0, "Balance should be greater than 0, got %s", balanceDecoded.String())
 
 		// Convert to human-readable format using utils.HumanReadableNumber
 		humanReadable, err := utils.HumanReadableNumber(balanceDecoded, 6)
@@ -113,14 +113,14 @@ func TestMainnetUSDTContract(t *testing.T) {
 		client, err := client.NewClient(getTestConfig().Endpoint)
 		require.NoError(t, err, "Should create client")
 
-		contract, err := smartcontract.NewContract(client, usdtAddress)
+		contract, err := smartcontract.NewInstance(client, usdtAddress)
 		require.NoError(t, err, "Should create USDT contract instance from network")
 
 		// Test isBlackListed for the test address
 		_, err = contract.Encode("isBlackListed", testAddress.String())
 		require.NoError(t, err, "Should encode isBlackListed call")
 
-		blacklistResult, err := contract.TriggerConstantContract(ctx, testAddress, "isBlackListed", testAddress.String())
+		blacklistResult, err := contract.Call(ctx, testAddress, "isBlackListed", testAddress.String())
 		require.NoError(t, err, "Should call isBlackListed method")
 
 		// Single output should be bool

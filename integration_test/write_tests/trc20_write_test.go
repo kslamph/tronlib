@@ -61,7 +61,7 @@ func TestTRC20_Approve_Nile(t *testing.T) {
 
 	// Approve small amount (1 unit)
 	amount := decimal.NewFromInt(1)
-	_, txExt, err := tm.Approve(ctx, ownerAddr, spenderAddr, amount)
+	txExt, err := tm.Approve(ctx, ownerAddr, spenderAddr, amount)
 	assert.NoError(t, err)
 
 	// Sign and broadcast

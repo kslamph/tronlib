@@ -1,0 +1,6 @@
+Address from Base58: TLyqzVGLV1srkB7dToTAEqgDSfPtXRJZYH
+Address from MustNewAddressFromBase58: TLyqzVGLV1srkB7dToTAEqgDSfPtXRJZYH
+Address from Hex: TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t
+Address from EVM Hex: TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t
+Address from Bytes: TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t
+Address from EVM Bytes: TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t

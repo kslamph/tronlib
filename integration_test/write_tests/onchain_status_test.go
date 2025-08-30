@@ -70,13 +70,26 @@ func TestNileBroadcastTransaction(t *testing.T) {
 		senderBalanceBefore, err := am.GetBalance(context.Background(), senderAddress)
 		assert.NoError(t, err)
 
+		// Check if sender has sufficient balance for transfer + fees
+		transferAmount := int64(100_000)                 // Reduced from 1,000,000 to 100,000 sun (0.1 TRX)
+		minRequiredBalance := transferAmount + 1_000_000 // Transfer amount + ~1 TRX for fees
+
+		if senderBalanceBefore < minRequiredBalance {
+			t.Skipf("Insufficient balance for test. Has: %d sun, Need: %d sun. Please fund test account.",
+				senderBalanceBefore, minRequiredBalance)
+		}
+
 		// 2. Create TRX transfer transaction
-		txExt, err := am.TransferTRX(context.Background(), senderAddress, recipientAddr, 1_000_000)
-		assert.NoError(t, err)
+		txExt, err := am.TransferTRX(context.Background(), senderAddress, recipientAddr, transferAmount)
+		if err != nil {
+			t.Fatalf("Failed to create TRX transfer transaction: %v", err)
+		}
 
 		// 3. Sign and broadcast the transaction
 		res, err := c.SignAndBroadcast(context.Background(), txExt, client.DefaultBroadcastOptions(), s)
-		assert.NoError(t, err)
+		if err != nil {
+			t.Fatalf("Failed to sign and broadcast transaction: %v", err)
+		}
 		assert.True(t, res.Success, "Broadcast result was false")
 
 		// 4. Validate balances after transfer
@@ -85,7 +98,7 @@ func TestNileBroadcastTransaction(t *testing.T) {
 		recipientBalanceAfter, err := am.GetBalance(context.Background(), recipientAddr)
 		assert.NoError(t, err)
 
-		assert.Equal(t, int64(1_000_000), recipientBalanceAfter)
+		assert.Equal(t, int64(100_000), recipientBalanceAfter)
 		assert.True(t, senderBalanceBefore > senderBalanceAfter, "Sender balance should decrease")
 
 		fmt.Printf("TRX transfer successful: %s\n", res.TxID)
@@ -99,7 +112,7 @@ func TestNileBroadcastTransaction(t *testing.T) {
 		assert.NoError(t, err)
 		// 2. Create TRC20 transfer transaction
 		amount := decimal.NewFromInt(1)
-		_, txExt, err := tm.Transfer(context.Background(), senderAddress, recipientAddr, amount)
+		txExt, err := tm.Transfer(context.Background(), senderAddress, recipientAddr, amount)
 		assert.NoError(t, err)
 
 		// 3. Sign and broadcast the transaction

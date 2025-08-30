@@ -26,21 +26,17 @@ import (
 
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
-	"github.com/kslamph/tronlib/pkg/client"
+	"github.com/kslamph/tronlib/pkg/client/lowlevel"
 	"github.com/kslamph/tronlib/pkg/types"
 )
 
 // TRC10Manager provides high-level TRC10 token operations
 type TRC10Manager struct {
-	client *client.Client
+	conn lowlevel.ConnProvider
 }
 
 // NewManager creates a new TRC10 manager
-func NewManager(client *client.Client) *TRC10Manager {
-	return &TRC10Manager{
-		client: client,
-	}
-}
+func NewManager(conn lowlevel.ConnProvider) *TRC10Manager { return &TRC10Manager{conn: conn} }
 
 // CreateAssetIssue2 creates an asset issue (TRC10 token) (v2)
 // CreateAssetIssue2 creates an asset issue (TRC10 token) (v2)
@@ -78,10 +74,7 @@ func (m *TRC10Manager) CreateAssetIssue2(ctx context.Context, ownerAddress *type
 			return nil, fmt.Errorf("frozen days must be positive for frozen supply %d", i)
 		}
 
-		protoFrozenSupply = append(protoFrozenSupply, &core.AssetIssueContract_FrozenSupply{
-			FrozenAmount: fs.FrozenAmount,
-			FrozenDays:   fs.FrozenDays,
-		})
+		protoFrozenSupply = append(protoFrozenSupply, &core.AssetIssueContract_FrozenSupply{FrozenAmount: fs.FrozenAmount, FrozenDays: fs.FrozenDays})
 	}
 
 	req := &core.AssetIssueContract{
@@ -100,7 +93,9 @@ func (m *TRC10Manager) CreateAssetIssue2(ctx context.Context, ownerAddress *type
 		FrozenSupply:            protoFrozenSupply,
 	}
 
-	return m.client.CreateAssetIssue2(ctx, req)
+	return lowlevel.TxCall(m.conn, ctx, "create asset issue2", func(cl api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
+		return cl.CreateAssetIssue2(ctx, req)
+	})
 }
 
 // FrozenSupply represents frozen supply for asset creation
@@ -115,15 +110,10 @@ func (m *TRC10Manager) UpdateAsset2(ctx context.Context, ownerAddress *types.Add
 		return nil, fmt.Errorf("invalid owner address: nil")
 	}
 
-	req := &core.UpdateAssetContract{
-		OwnerAddress:   ownerAddress.Bytes(),
-		Description:    []byte(description),
-		Url:            []byte(url),
-		NewLimit:       newLimit,
-		NewPublicLimit: newPublicLimit,
-	}
-
-	return m.client.UpdateAsset2(ctx, req)
+	req := &core.UpdateAssetContract{OwnerAddress: ownerAddress.Bytes(), Description: []byte(description), Url: []byte(url), NewLimit: newLimit, NewPublicLimit: newPublicLimit}
+	return lowlevel.TxCall(m.conn, ctx, "update asset2", func(cl api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
+		return cl.UpdateAsset2(ctx, req)
+	})
 }
 
 // TransferAsset2 transfers an asset (TRC10 token) (v2)
@@ -146,14 +136,10 @@ func (m *TRC10Manager) TransferAsset2(ctx context.Context, ownerAddress, toAddre
 		return nil, fmt.Errorf("owner and to addresses cannot be the same")
 	}
 
-	req := &core.TransferAssetContract{
-		AssetName:    []byte(assetName),
-		OwnerAddress: ownerAddress.Bytes(),
-		ToAddress:    toAddress.Bytes(),
-		Amount:       amount,
-	}
-
-	return m.client.TransferAsset2(ctx, req)
+	req := &core.TransferAssetContract{AssetName: []byte(assetName), OwnerAddress: ownerAddress.Bytes(), ToAddress: toAddress.Bytes(), Amount: amount}
+	return lowlevel.TxCall(m.conn, ctx, "transfer asset2", func(cl api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
+		return cl.TransferAsset2(ctx, req)
+	})
 }
 
 // ParticipateAssetIssue2 participates in asset issue (v2)
@@ -172,14 +158,10 @@ func (m *TRC10Manager) ParticipateAssetIssue2(ctx context.Context, ownerAddress,
 		return nil, fmt.Errorf("invalid to address: nil")
 	}
 
-	req := &core.ParticipateAssetIssueContract{
-		OwnerAddress: ownerAddress.Bytes(),
-		ToAddress:    toAddress.Bytes(),
-		AssetName:    []byte(assetName),
-		Amount:       amount,
-	}
-
-	return m.client.ParticipateAssetIssue2(ctx, req)
+	req := &core.ParticipateAssetIssueContract{OwnerAddress: ownerAddress.Bytes(), ToAddress: toAddress.Bytes(), AssetName: []byte(assetName), Amount: amount}
+	return lowlevel.TxCall(m.conn, ctx, "participate asset issue2", func(cl api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
+		return cl.ParticipateAssetIssue2(ctx, req)
+	})
 }
 
 // UnfreezeAsset2 unfreezes an asset (v2)
@@ -188,11 +170,10 @@ func (m *TRC10Manager) UnfreezeAsset2(ctx context.Context, ownerAddress *types.A
 		return nil, fmt.Errorf("invalid owner address: nil")
 	}
 
-	req := &core.UnfreezeAssetContract{
-		OwnerAddress: ownerAddress.Bytes(),
-	}
-
-	return m.client.UnfreezeAsset2(ctx, req)
+	req := &core.UnfreezeAssetContract{OwnerAddress: ownerAddress.Bytes()}
+	return lowlevel.TxCall(m.conn, ctx, "unfreeze asset2", func(cl api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
+		return cl.UnfreezeAsset2(ctx, req)
+	})
 }
 
 // GetAssetIssueByAccount gets asset issues by account
@@ -201,11 +182,10 @@ func (m *TRC10Manager) GetAssetIssueByAccount(ctx context.Context, address *type
 		return nil, fmt.Errorf("invalid address: nil")
 	}
 
-	req := &core.Account{
-		Address: address.Bytes(),
-	}
-
-	return m.client.GetAssetIssueByAccount(ctx, req)
+	req := &core.Account{Address: address.Bytes()}
+	return lowlevel.Call(m.conn, ctx, "get asset issue by account", func(cl api.WalletClient, ctx context.Context) (*api.AssetIssueList, error) {
+		return cl.GetAssetIssueByAccount(ctx, req)
+	})
 }
 
 // GetAssetIssueByName gets asset issue by name
@@ -214,11 +194,10 @@ func (m *TRC10Manager) GetAssetIssueByName(ctx context.Context, assetName string
 		return nil, fmt.Errorf("asset name cannot be empty")
 	}
 
-	req := &api.BytesMessage{
-		Value: []byte(assetName),
-	}
-
-	return m.client.GetAssetIssueByName(ctx, req)
+	req := &api.BytesMessage{Value: []byte(assetName)}
+	return lowlevel.Call(m.conn, ctx, "get asset issue by name", func(cl api.WalletClient, ctx context.Context) (*core.AssetIssueContract, error) {
+		return cl.GetAssetIssueByName(ctx, req)
+	})
 }
 
 // GetAssetIssueListByName gets asset issue list by name
@@ -227,11 +206,10 @@ func (m *TRC10Manager) GetAssetIssueListByName(ctx context.Context, assetName st
 		return nil, fmt.Errorf("asset name cannot be empty")
 	}
 
-	req := &api.BytesMessage{
-		Value: []byte(assetName),
-	}
-
-	return m.client.GetAssetIssueListByName(ctx, req)
+	req := &api.BytesMessage{Value: []byte(assetName)}
+	return lowlevel.Call(m.conn, ctx, "get asset issue list by name", func(cl api.WalletClient, ctx context.Context) (*api.AssetIssueList, error) {
+		return cl.GetAssetIssueListByName(ctx, req)
+	})
 }
 
 // GetAssetIssueById gets asset issue by ID
@@ -240,17 +218,18 @@ func (m *TRC10Manager) GetAssetIssueById(ctx context.Context, assetId []byte) (*
 		return nil, fmt.Errorf("asset ID cannot be empty")
 	}
 
-	req := &api.BytesMessage{
-		Value: assetId,
-	}
-
-	return m.client.GetAssetIssueById(ctx, req)
+	req := &api.BytesMessage{Value: assetId}
+	return lowlevel.Call(m.conn, ctx, "get asset issue by id", func(cl api.WalletClient, ctx context.Context) (*core.AssetIssueContract, error) {
+		return cl.GetAssetIssueById(ctx, req)
+	})
 }
 
 // GetAssetIssueList gets all asset issues
 func (m *TRC10Manager) GetAssetIssueList(ctx context.Context) (*api.AssetIssueList, error) {
 	req := &api.EmptyMessage{}
-	return m.client.GetAssetIssueList(ctx, req)
+	return lowlevel.Call(m.conn, ctx, "get asset issue list", func(cl api.WalletClient, ctx context.Context) (*api.AssetIssueList, error) {
+		return cl.GetAssetIssueList(ctx, req)
+	})
 }
 
 // GetPaginatedAssetIssueList gets paginated asset issue list
@@ -265,10 +244,8 @@ func (m *TRC10Manager) GetPaginatedAssetIssueList(ctx context.Context, offset in
 		return nil, fmt.Errorf("limit cannot exceed 100")
 	}
 
-	req := &api.PaginatedMessage{
-		Offset: offset,
-		Limit:  limit,
-	}
-
-	return m.client.GetPaginatedAssetIssueList(ctx, req)
+	req := &api.PaginatedMessage{Offset: offset, Limit: limit}
+	return lowlevel.Call(m.conn, ctx, "get paginated asset issue list", func(cl api.WalletClient, ctx context.Context) (*api.AssetIssueList, error) {
+		return cl.GetPaginatedAssetIssueList(ctx, req)
+	})
 }

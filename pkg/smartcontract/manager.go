@@ -26,29 +26,32 @@ import (
 
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
-	"github.com/kslamph/tronlib/pkg/client"
+	"github.com/kslamph/tronlib/pkg/client/lowlevel"
 	"github.com/kslamph/tronlib/pkg/types"
 	"github.com/kslamph/tronlib/pkg/utils"
 )
 
-// SmartContractManager provides high-level smart contract operations
-type SmartContractManager struct {
-	client *client.Client
-}
+// Manager provides high-level smart contract operations
+type Manager struct{ conn lowlevel.ConnProvider }
 
 // NewManager creates a new smart contract manager
-func NewManager(client *client.Client) *SmartContractManager {
-	return &SmartContractManager{
-		client: client,
-	}
+func NewManager(conn lowlevel.ConnProvider) *Manager {
+	return &Manager{conn: conn}
 }
 
-// DeployContract deploys a smart contract with constructor parameters
+// Instance creates a bound contract instance for a deployed contract address.
+// The ABI can be omitted to fetch from the network, or supplied as JSON string
+// or *core.SmartContract_ABI.
+func (m *Manager) Instance(contractAddress *types.Address, abi ...any) (*Instance, error) {
+	return NewInstance(m.conn, contractAddress, abi...)
+}
+
+// Deploy deploys a smart contract with constructor parameters
 // abi: ABI can be:
 //   - string: ABI JSON string
 //   - *core.SmartContract_ABI: Parsed ABI object
 //   - nil: No ABI provided
-func (m *SmartContractManager) DeployContract(ctx context.Context, ownerAddress *types.Address, contractName string, abi any, bytecode []byte, callValue, consumeUserResourcePercent, originEnergyLimit int64, constructorParams ...interface{}) (*api.TransactionExtention, error) {
+func (m *Manager) Deploy(ctx context.Context, ownerAddress *types.Address, contractName string, abi any, bytecode []byte, callValue, consumeUserResourcePercent, originEnergyLimit int64, constructorParams ...interface{}) (*api.TransactionExtention, error) {
 	// Validate inputs
 	if err := utils.ValidateContractName(contractName); err != nil {
 		return nil, fmt.Errorf("%w: invalid contract name: %w", types.ErrInvalidParameter, err)
@@ -70,7 +73,7 @@ func (m *SmartContractManager) DeployContract(ctx context.Context, ownerAddress 
 		return nil, fmt.Errorf("%w: invalid owner address: nil", types.ErrInvalidAddress)
 	}
 
-	// Process ABI parameter similar to NewContract
+	// Process ABI parameter similar to NewInstance
 	var contractABI *core.SmartContract_ABI
 	var err error
 	if abi != nil {
@@ -125,18 +128,14 @@ func (m *SmartContractManager) DeployContract(ctx context.Context, ownerAddress 
 		OriginEnergyLimit:          originEnergyLimit,
 	}
 
-	req := &core.CreateSmartContract{
-		OwnerAddress:   ownerAddress.Bytes(),
-		NewContract:    newContract,
-		CallTokenValue: 0,
-		TokenId:        0,
-	}
-
-	return m.client.DeployContract(ctx, req)
+	req := &core.CreateSmartContract{OwnerAddress: ownerAddress.Bytes(), NewContract: newContract, CallTokenValue: 0, TokenId: 0}
+	return lowlevel.TxCall(m.conn, ctx, "deploy contract", func(cl api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
+		return cl.DeployContract(ctx, req)
+	})
 }
 
 // encodeConstructor encodes constructor parameters for contract deployment
-func (m *SmartContractManager) encodeConstructor(abi *core.SmartContract_ABI, constructorParams []interface{}) ([]byte, error) {
+func (m *Manager) encodeConstructor(abi *core.SmartContract_ABI, constructorParams []interface{}) ([]byte, error) {
 	if abi == nil {
 		if len(constructorParams) > 0 {
 			return nil, fmt.Errorf("%w: constructor parameters provided but ABI is nil", types.ErrInvalidParameter)
@@ -181,7 +180,7 @@ func (m *SmartContractManager) encodeConstructor(abi *core.SmartContract_ABI, co
 
 // EstimateEnergy estimates energy required for smart contract execution
 // Use client.Simulate to know energy required for a transaction
-func (m *SmartContractManager) EstimateEnergy(ctx context.Context, ownerAddress, contractAddress *types.Address, data []byte, callValue int64) (*api.EstimateEnergyMessage, error) {
+func (m *Manager) EstimateEnergy(ctx context.Context, ownerAddress, contractAddress *types.Address, data []byte, callValue int64) (*api.EstimateEnergyMessage, error) {
 	// Validate inputs
 	if len(data) == 0 {
 		return nil, fmt.Errorf("%w: contract data cannot be empty", types.ErrInvalidParameter)
@@ -200,44 +199,38 @@ func (m *SmartContractManager) EstimateEnergy(ctx context.Context, ownerAddress,
 		return nil, fmt.Errorf("%w: invalid contract data: %w", types.ErrInvalidParameter, err)
 	}
 
-	req := &core.TriggerSmartContract{
-		OwnerAddress:    ownerAddress.Bytes(),
-		ContractAddress: contractAddress.Bytes(),
-		Data:            data,
-		CallValue:       callValue,
-	}
-
-	return m.client.EstimateEnergy(ctx, req)
+	req := &core.TriggerSmartContract{OwnerAddress: ownerAddress.Bytes(), ContractAddress: contractAddress.Bytes(), Data: data, CallValue: callValue}
+	return lowlevel.Call(m.conn, ctx, "estimate energy", func(cl api.WalletClient, ctx context.Context) (*api.EstimateEnergyMessage, error) {
+		return cl.EstimateEnergy(ctx, req)
+	})
 }
 
 // GetContract gets smart contract information
-func (m *SmartContractManager) GetContract(ctx context.Context, contractAddress *types.Address) (*core.SmartContract, error) {
+func (m *Manager) GetContract(ctx context.Context, contractAddress *types.Address) (*core.SmartContract, error) {
 	if contractAddress == nil {
 		return nil, fmt.Errorf("%w: invalid contract address: nil", types.ErrInvalidAddress)
 	}
 
-	req := &api.BytesMessage{
-		Value: contractAddress.Bytes(),
-	}
-
-	return m.client.GetContract(ctx, req)
+	req := &api.BytesMessage{Value: contractAddress.Bytes()}
+	return lowlevel.Call(m.conn, ctx, "get contract", func(cl api.WalletClient, ctx context.Context) (*core.SmartContract, error) {
+		return cl.GetContract(ctx, req)
+	})
 }
 
 // GetContractInfo gets smart contract detailed information
-func (m *SmartContractManager) GetContractInfo(ctx context.Context, contractAddress *types.Address) (*core.SmartContractDataWrapper, error) {
+func (m *Manager) GetContractInfo(ctx context.Context, contractAddress *types.Address) (*core.SmartContractDataWrapper, error) {
 	if contractAddress == nil {
 		return nil, fmt.Errorf("%w: invalid contract address: nil", types.ErrInvalidAddress)
 	}
 
-	req := &api.BytesMessage{
-		Value: contractAddress.Bytes(),
-	}
-
-	return m.client.GetContractInfo(ctx, req)
+	req := &api.BytesMessage{Value: contractAddress.Bytes()}
+	return lowlevel.Call(m.conn, ctx, "get contract info", func(cl api.WalletClient, ctx context.Context) (*core.SmartContractDataWrapper, error) {
+		return cl.GetContractInfo(ctx, req)
+	})
 }
 
 // UpdateSetting updates smart contract settings
-func (m *SmartContractManager) UpdateSetting(ctx context.Context, ownerAddress, contractAddress *types.Address, consumeUserResourcePercent int64) (*api.TransactionExtention, error) {
+func (m *Manager) UpdateSetting(ctx context.Context, ownerAddress, contractAddress *types.Address, consumeUserResourcePercent int64) (*api.TransactionExtention, error) {
 	if consumeUserResourcePercent < 0 || consumeUserResourcePercent > 100 {
 		return nil, fmt.Errorf("%w: consume user resource percent must be between 0 and 100", types.ErrInvalidParameter)
 	}
@@ -248,17 +241,14 @@ func (m *SmartContractManager) UpdateSetting(ctx context.Context, ownerAddress, 
 		return nil, fmt.Errorf("%w: invalid contract address: nil", types.ErrInvalidAddress)
 	}
 
-	req := &core.UpdateSettingContract{
-		OwnerAddress:               ownerAddress.Bytes(),
-		ContractAddress:            contractAddress.Bytes(),
-		ConsumeUserResourcePercent: consumeUserResourcePercent,
-	}
-
-	return m.client.UpdateSetting(ctx, req)
+	req := &core.UpdateSettingContract{OwnerAddress: ownerAddress.Bytes(), ContractAddress: contractAddress.Bytes(), ConsumeUserResourcePercent: consumeUserResourcePercent}
+	return lowlevel.TxCall(m.conn, ctx, "update setting", func(cl api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
+		return cl.UpdateSetting(ctx, req)
+	})
 }
 
 // UpdateEnergyLimit updates smart contract energy limit
-func (m *SmartContractManager) UpdateEnergyLimit(ctx context.Context, ownerAddress, contractAddress *types.Address, originEnergyLimit int64) (*api.TransactionExtention, error) {
+func (m *Manager) UpdateEnergyLimit(ctx context.Context, ownerAddress, contractAddress *types.Address, originEnergyLimit int64) (*api.TransactionExtention, error) {
 	if originEnergyLimit < 0 {
 		return nil, fmt.Errorf("%w: origin energy limit cannot be negative", types.ErrInvalidParameter)
 	}
@@ -269,17 +259,14 @@ func (m *SmartContractManager) UpdateEnergyLimit(ctx context.Context, ownerAddre
 		return nil, fmt.Errorf("%w: invalid contract address: nil", types.ErrInvalidAddress)
 	}
 
-	req := &core.UpdateEnergyLimitContract{
-		OwnerAddress:      ownerAddress.Bytes(),
-		ContractAddress:   contractAddress.Bytes(),
-		OriginEnergyLimit: originEnergyLimit,
-	}
-
-	return m.client.UpdateEnergyLimit(ctx, req)
+	req := &core.UpdateEnergyLimitContract{OwnerAddress: ownerAddress.Bytes(), ContractAddress: contractAddress.Bytes(), OriginEnergyLimit: originEnergyLimit}
+	return lowlevel.TxCall(m.conn, ctx, "update energy limit", func(cl api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
+		return cl.UpdateEnergyLimit(ctx, req)
+	})
 }
 
 // ClearContractABI clears smart contract ABI
-func (m *SmartContractManager) ClearContractABI(ctx context.Context, ownerAddress, contractAddress *types.Address) (*api.TransactionExtention, error) {
+func (m *Manager) ClearContractABI(ctx context.Context, ownerAddress, contractAddress *types.Address) (*api.TransactionExtention, error) {
 	if ownerAddress == nil {
 		return nil, fmt.Errorf("%w: invalid owner address: nil", types.ErrInvalidAddress)
 	}
@@ -287,10 +274,8 @@ func (m *SmartContractManager) ClearContractABI(ctx context.Context, ownerAddres
 		return nil, fmt.Errorf("%w: invalid contract address: nil", types.ErrInvalidAddress)
 	}
 
-	req := &core.ClearABIContract{
-		OwnerAddress:    ownerAddress.Bytes(),
-		ContractAddress: contractAddress.Bytes(),
-	}
-
-	return m.client.ClearContractABI(ctx, req)
+	req := &core.ClearABIContract{OwnerAddress: ownerAddress.Bytes(), ContractAddress: contractAddress.Bytes()}
+	return lowlevel.TxCall(m.conn, ctx, "clear contract abi", func(cl api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
+		return cl.ClearContractABI(ctx, req)
+	})
 }

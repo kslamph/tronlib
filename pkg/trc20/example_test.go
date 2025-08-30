@@ -49,7 +49,7 @@ func ExampleNewManager() {
 	_, _ = t20.BalanceOf(ctx, holder)
 
 	amount := decimal.NewFromFloat(1.23)
-	_, _, _ = t20.Transfer(ctx, holder, recipient, amount)
+	_, _ = t20.Transfer(ctx, holder, recipient, amount)
 }
 
 // ExampleToWei demonstrates converting a decimal amount to on-chain integer units.

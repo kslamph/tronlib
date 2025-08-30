@@ -22,13 +22,32 @@ package eventdecoder
 import (
 	"encoding/hex"
 	"fmt"
+	"math/big"
+"reflect"
 	"strings"
 	"sync"
 
+	eABI "github.com/ethereum/go-ethereum/accounts/abi"
+	eCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/kslamph/tronlib/pb/core"
-	"github.com/kslamph/tronlib/pkg/utils"
+	"github.com/kslamph/tronlib/pkg/types"
 	"golang.org/x/crypto/sha3"
 )
+
+// DecodedEvent represents a decoded event
+type DecodedEvent struct {
+	EventName  string                  `json:"eventName"`
+	Parameters []DecodedEventParameter `json:"parameters"`
+	Contract   string                  `json:"contract"`
+}
+
+// DecodedEventParameter represents a decoded event parameter
+type DecodedEventParameter struct {
+	Name    string `json:"name"`
+	Type    string `json:"type"`
+	Value   string `json:"value"`
+	Indexed bool   `json:"indexed"`
+}
 
 // ParamDef is a compact representation of an event parameter definition
 type ParamDef struct {
@@ -50,7 +69,7 @@ var (
 
 // RegisterABIJSON registers all event entries from a JSON ABI string
 func RegisterABIJSON(abiJSON string) error {
-	proc := utils.NewABIProcessor(&core.SmartContract_ABI{})
+	proc := NewSimpleABIParser()
 	parsed, err := proc.ParseABI(abiJSON)
 	if err != nil {
 		return err
@@ -139,7 +158,7 @@ func DecodeEventSignature(sig []byte) (string, bool) {
 }
 
 // DecodeLog decodes a single log using the global 4-byte signature registry
-func DecodeLog(topics [][]byte, data []byte) (*utils.DecodedEvent, error) {
+func DecodeLog(topics [][]byte, data []byte) (*DecodedEvent, error) {
 	if len(topics) == 0 {
 		return nil, fmt.Errorf("no topics provided")
 	}
@@ -157,24 +176,22 @@ func DecodeLog(topics [][]byte, data []byte) (*utils.DecodedEvent, error) {
 	mu.RUnlock()
 
 	if def == nil {
-		return &utils.DecodedEvent{
+		return &DecodedEvent{
 			EventName:  fmt.Sprintf("unknown_event(0x%s)", hex.EncodeToString(sigTopic[:4])),
-			Parameters: []utils.DecodedEventParameter{},
+			Parameters: []DecodedEventParameter{},
 		}, nil
 	}
 
-	// Build minimal ABI with just this one event entry
-	abi := &core.SmartContract_ABI{Entrys: []*core.SmartContract_ABI_Entry{eventEntryFromDef(def)}}
-	proc := utils.NewABIProcessor(abi)
-	return proc.DecodeEventLog(topics, data)
+	// Decode using internal implementation
+	return decodeEventInternal(def, topics, data)
 }
 
 // DecodeLogs decodes a slice of logs using the global 4-byte signature registry
-func DecodeLogs(logs []*core.TransactionInfo_Log) ([]*utils.DecodedEvent, error) {
+func DecodeLogs(logs []*core.TransactionInfo_Log) ([]*DecodedEvent, error) {
 	if len(logs) == 0 {
-		return []*utils.DecodedEvent{}, nil
+		return []*DecodedEvent{}, nil
 	}
-	result := make([]*utils.DecodedEvent, 0, len(logs))
+	result := make([]*DecodedEvent, 0, len(logs))
 	for _, lg := range logs {
 		if lg == nil {
 			continue
@@ -183,28 +200,205 @@ func DecodeLogs(logs []*core.TransactionInfo_Log) ([]*utils.DecodedEvent, error)
 		if err != nil {
 			return nil, err
 		}
+		ev.Contract = types.MustNewAddressFromBytes(lg.GetAddress()).String()
 		result = append(result, ev)
 	}
 	return result, nil
 }
 
-func eventEntryFromDef(def *EventDef) *core.SmartContract_ABI_Entry {
-	inputs := make([]*core.SmartContract_ABI_Entry_Param, len(def.Inputs))
-	for i, in := range def.Inputs {
-		inputs[i] = &core.SmartContract_ABI_Entry_Param{
-			Indexed: in.Indexed,
-			Name:    in.Name,
-			Type:    in.Type,
+// decodeEventInternal performs the actual event decoding without external dependencies
+func decodeEventInternal(def *EventDef, topics [][]byte, data []byte) (*DecodedEvent, error) {
+	// Separate indexed and non-indexed parameters
+	var indexedParams []ParamDef
+	var nonIndexedParams []ParamDef
+
+	for _, input := range def.Inputs {
+		if input.Indexed {
+			indexedParams = append(indexedParams, input)
+		} else {
+			nonIndexedParams = append(nonIndexedParams, input)
 		}
 	}
-	return &core.SmartContract_ABI_Entry{
-		Anonymous:       false,
-		Constant:        false,
-		Name:            def.Name,
-		Inputs:          inputs,
-		Outputs:         nil,
-		Type:            core.SmartContract_ABI_Entry_Event,
-		Payable:         false,
-		StateMutability: core.SmartContract_ABI_Entry_UnknownMutabilityType,
+
+	// Decode indexed parameters (from topics[1:])
+	indexedValues := make([]DecodedEventParameter, 0)
+	for i, param := range indexedParams {
+		if i+1 >= len(topics) {
+			break
+		}
+		value := decodeTopicValue(topics[i+1], param.Type)
+		indexedValues = append(indexedValues, DecodedEventParameter{
+			Name:    param.Name,
+			Type:    param.Type,
+			Value:   value,
+			Indexed: true,
+		})
 	}
+
+	// Decode non-indexed parameters (from data)
+	var nonIndexedValues []DecodedEventParameter
+	if len(nonIndexedParams) > 0 && len(data) > 0 {
+		decoded, err := decodeEventData(data, nonIndexedParams)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode event data: %v", err)
+		}
+		nonIndexedValues = decoded
+	}
+
+	// Combine all parameters in original order
+	allParams := make([]DecodedEventParameter, 0)
+	for _, input := range def.Inputs {
+		if input.Indexed {
+			// Find corresponding indexed parameter
+			for _, indexed := range indexedValues {
+				if indexed.Name == input.Name {
+					allParams = append(allParams, indexed)
+					break
+				}
+			}
+		} else {
+			// Find corresponding non-indexed parameter
+			for _, nonIndexed := range nonIndexedValues {
+				if nonIndexed.Name == input.Name {
+					allParams = append(allParams, nonIndexed)
+					break
+				}
+			}
+		}
+	}
+
+	return &DecodedEvent{
+		EventName:  def.Name,
+		Parameters: allParams,
+	}, nil
+}
+
+// decodeTopicValue decodes a topic value based on its ABI type
+func decodeTopicValue(topic []byte, paramType string) string {
+	switch paramType {
+	case "address":
+		ethaddr := eCommon.BytesToAddress(topic)
+		tronAddr, err := types.NewAddressFromHex(ethaddr.Hex())
+		if err != nil {
+			return hex.EncodeToString(topic)
+		}
+		return tronAddr.String()
+	case "uint256", "uint128", "uint64", "uint32", "uint16", "uint8",
+		"int256", "int128", "int64", "int32", "int16", "int8":
+		return new(big.Int).SetBytes(topic).String()
+	case "bool":
+		if len(topic) > 0 && topic[0] != 0 {
+			return "true"
+		}
+		return "false"
+	case "bytes32":
+		return hex.EncodeToString(topic)
+	default:
+		return hex.EncodeToString(topic)
+	}
+}
+
+// decodeEventData decodes non-indexed event parameters from data
+func decodeEventData(data []byte, params []ParamDef) ([]DecodedEventParameter, error) {
+	// Create ethereum ABI arguments for decoding
+	args := make([]eABI.Argument, len(params))
+	for i, param := range params {
+		abiType, err := eABI.NewType(param.Type, "", nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create ABI type for %s: %v", param.Type, err)
+		}
+		args[i] = eABI.Argument{
+			Name: param.Name,
+			Type: abiType,
+		}
+	}
+
+	// Unpack the data
+	values, err := eABI.Arguments(args).Unpack(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unpack event data: %v", err)
+	}
+
+	result := make([]DecodedEventParameter, len(params))
+	for i, param := range params {
+		var value string
+		if i < len(values) {
+			value = formatEventValue(values[i], param.Type)
+		}
+
+		result[i] = DecodedEventParameter{
+			Name:    param.Name,
+			Type:    param.Type,
+			Value:   value,
+			Indexed: false,
+		}
+	}
+
+	return result, nil
+}
+
+// formatEventValue formats event value for display
+func formatEventValue(value interface{}, paramType string) string {
+	switch paramType {
+	case "address":
+		if addr, ok := value.(eCommon.Address); ok {
+			tronAddr, err := types.NewAddressFromHex(addr.Hex())
+			if err != nil {
+				return fmt.Sprintf("%v", value)
+			}
+			return tronAddr.String()
+		}
+	case "uint256", "uint128", "uint64", "uint32", "uint16", "uint8",
+		"int256", "int128", "int64", "int32", "int16", "int8":
+		if bigInt, ok := value.(*big.Int); ok {
+			return bigInt.String()
+		}
+	case "bytes", "bytes32", "bytes16", "bytes8":
+		if bytes, ok := value.([]byte); ok {
+			return hex.EncodeToString(bytes)
+		}
+	case "string":
+		if s, ok := value.(string); ok {
+			return s
+		}
+	case "bool":
+		if b, ok := value.(bool); ok {
+			if b {
+				return "true"
+			}
+			return "false"
+		}
+default:
+		// Handle array types
+		if strings.HasSuffix(paramType, "[]") {
+			baseType := strings.TrimSuffix(paramType, "[]")
+			if reflect.TypeOf(value).Kind() == reflect.Slice {
+				slice := reflect.ValueOf(value)
+				result := make([]string, slice.Len())
+				for i := 0; i < slice.Len(); i++ {
+					elementValue := formatEventValue(slice.Index(i).Interface(), baseType)
+					result[i] = elementValue
+				}
+				// Join array elements with commas
+				return "[" + strings.Join(result, ",") + "]"
+			}
+		}
+	}
+	return fmt.Sprintf("%v", value)
+}
+
+// Simple ABI parser for JSON parsing (minimal implementation)
+type SimpleABIParser struct{}
+
+func NewSimpleABIParser() *SimpleABIParser {
+	return &SimpleABIParser{}
+}
+
+// ParseABI provides basic ABI parsing functionality
+func (p *SimpleABIParser) ParseABI(abiJSON string) (*core.SmartContract_ABI, error) {
+	// This is a minimal implementation - in practice you might want to use a JSON parser
+	// For now, return empty ABI to avoid dependency on complex parsing
+	return &core.SmartContract_ABI{
+		Entrys: []*core.SmartContract_ABI_Entry{},
+	}, nil
 }

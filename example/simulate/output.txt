@@ -1,0 +1,38 @@
+-- Case 1: A -> B transfer 10 USDT (expected: success) --
+txid: 9740d48199151c7b0849317c6df6f37d5c37818122c8959630952f6f33d38230
+success: true
+energy_used: 64285
+events (1):
+  [0] TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t
+      Transfer
+      from(address): TV6MuMXfmLbBqPZvBHdwFsDnQeVfnmiuSi
+      to(address): TAUN6FwrnwwmaEqYcckffC7wYmbaS6cBiX
+      value(uint256): 10000000
+
+-- Case 2: B -> A transfer 10 USDT (expected: REVERTED) --
+txid: 3cf4dc74dac6e7f523cd4fe783a240a982ccf7f81c952dc7e64f87a132b2bb35
+success: false
+energy_used: 8624
+result_message: REVERT opcode executedREVERT opcode executed
+events: <none>
+
+-- Case 3: tokenToTrxSwapInput simulation (expected: contract handles swap) --
+txid: 591574a39fc07ab09293211a1d591e251019660e5958503f2a11e4fa76b50557
+success: true
+energy_used: 97200
+events (3):
+  [0] TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t
+      Transfer
+      from(address): TRXj3DgL8nTM7eqAKZra5RUXu72A899999
+      to(address): TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE
+      value(uint256): 600000000
+  [1] TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE
+      TrxPurchase
+      buyer(address): TRXj3DgL8nTM7eqAKZra5RUXu72A899999
+      tokens_sold(uint256): 600000000
+      trx_bought(uint256): 1708549248
+  [2] TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE
+      Snapshot
+      operator(address): TRXj3DgL8nTM7eqAKZra5RUXu72A899999
+      trx_balance(uint256): 36025748783292
+      token_balance(uint256): 12613992877312

@@ -96,83 +96,6 @@ func TestVerifyMessageV2InvalidSignatures(t *testing.T) {
 	}
 }
 
-// Test data migrated from pkg_old/types/address_test.go
-func TestAddressValidation(t *testing.T) {
-	validCases := []struct {
-		name    string
-		address string
-	}{
-		{
-			name:    "Valid base58 address 1",
-			address: "TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwb",
-		},
-		{
-			name:    "Valid base58 address 2",
-			address: "TXNYeYdao7JL7wBtmzbk7mAie7UZsdgVjx",
-		},
-		{
-			name:    "Valid hex address",
-			address: "e28b3cfd4e0e909077821478e9fcb86b84be786e",
-		},
-		{
-			name:    "Valid hex address with 0x prefix",
-			address: "0xe28b3cfd4e0e909077821478e9fcb86b84be786e",
-		},
-	}
-
-	for _, tc := range validCases {
-		t.Run(tc.name, func(t *testing.T) {
-			// Test IsValidTronAddress
-			assert.True(t, IsValidTronAddress(tc.address))
-
-			// Test ValidateAddress
-			addr, err := ValidateAddress(tc.address)
-			require.NoError(t, err)
-			assert.NotNil(t, addr)
-			assert.True(t, addr.IsValid())
-		})
-	}
-}
-
-func TestInvalidAddressValidation(t *testing.T) {
-	invalidCases := []struct {
-		name    string
-		address string
-	}{
-		{
-			name:    "Empty address",
-			address: "",
-		},
-		{
-			name:    "Wrong prefix base58",
-			address: "AWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwb",
-		},
-		{
-			name:    "Wrong length base58",
-			address: "TWd4WrZ9wn84f5x1hZhL4DHvk738ns5",
-		},
-		{
-			name:    "Invalid hex characters",
-			address: "x28b3cfd4e0e909077821478e9fcb86b84be786e",
-		},
-		{
-			name:    "Wrong hex prefix",
-			address: "1e28b3cfd4e0e909077821478e9fcb86b84be786e",
-		},
-	}
-
-	for _, tc := range invalidCases {
-		t.Run(tc.name, func(t *testing.T) {
-			// Test IsValidTronAddress
-			assert.False(t, IsValidTronAddress(tc.address))
-
-			// Test ValidateAddress
-			_, err := ValidateAddress(tc.address)
-			assert.Error(t, err)
-		})
-	}
-}
-
 func TestAmountValidation(t *testing.T) {
 	t.Run("Valid amounts", func(t *testing.T) {
 		validAmounts := []*big.Int{
@@ -184,7 +107,7 @@ func TestAmountValidation(t *testing.T) {
 
 		for _, amount := range validAmounts {
 			assert.True(t, IsValidAmount(amount))
-			assert.NoError(t, ValidateAmount(amount, nil))
+			assert.NoError(t, ValidateAmount(amount))
 		}
 	})
 
@@ -210,87 +133,18 @@ func TestAmountValidation(t *testing.T) {
 		for _, tc := range invalidCases {
 			t.Run(tc.name, func(t *testing.T) {
 				assert.False(t, IsValidAmount(tc.amount))
-				assert.Error(t, ValidateAmount(tc.amount, nil))
+				assert.Error(t, ValidateAmount(tc.amount))
 			})
 		}
 	})
 
-	t.Run("Minimum amount validation", func(t *testing.T) {
-		minAmount := big.NewInt(1000000) // 1 TRX
-
-		// Valid: above minimum
-		assert.NoError(t, ValidateAmount(big.NewInt(2000000), minAmount))
-
-		// Invalid: below minimum
-		assert.Error(t, ValidateAmount(big.NewInt(500000), minAmount))
-	})
-}
-
-func TestTRXAmountValidation(t *testing.T) {
-	t.Run("Valid TRX amounts", func(t *testing.T) {
-		validAmounts := []*big.Int{
-			big.NewInt(1),        // 1 SUN
-			big.NewInt(1000000),  // 1 TRX
-			big.NewInt(10000000), // 10 TRX
-		}
-
-		for _, amount := range validAmounts {
-			assert.NoError(t, ValidateTRXAmount(amount))
-		}
-	})
-
-	t.Run("Invalid TRX amounts", func(t *testing.T) {
-		invalidAmounts := []*big.Int{
-			big.NewInt(0),  // Zero
-			big.NewInt(-1), // Negative
-		}
-
-		for _, amount := range invalidAmounts {
-			assert.Error(t, ValidateTRXAmount(amount))
-		}
-	})
-}
-
-func TestFreezeAmountValidation(t *testing.T) {
-	t.Run("Valid freeze amounts", func(t *testing.T) {
-		validAmounts := []*big.Int{
-			big.NewInt(1000000),  // 1 TRX (minimum)
-			big.NewInt(10000000), // 10 TRX
-		}
-
-		for _, amount := range validAmounts {
-			assert.NoError(t, ValidateFreezeAmount(amount))
-		}
-	})
-
-	t.Run("Invalid freeze amounts", func(t *testing.T) {
-		invalidAmounts := []*big.Int{
-			big.NewInt(500000), // Less than 1 TRX
-			big.NewInt(0),      // Zero
-			big.NewInt(-1),     // Negative
-		}
-
-		for _, amount := range invalidAmounts {
-			assert.Error(t, ValidateFreezeAmount(amount))
-		}
-	})
 }
 
 func TestContractValidation(t *testing.T) {
-	t.Run("Valid contract addresses", func(t *testing.T) {
-		validAddresses := []string{
-			"TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwb",
-			"e28b3cfd4e0e909077821478e9fcb86b84be786e",
-		}
-
-		for _, addr := range validAddresses {
-			assert.True(t, IsValidContractAddress(addr))
-		}
-	})
 
 	t.Run("Contract data validation", func(t *testing.T) {
 		// Valid data with method signature
-		validData := []byte{0xa9, 0x05, 0x9c, 0xbb} // transfer(address,uint256) signature
+		validData := []byte{0x15, 0x91, 0x69, 0x0b} // transfer(address,uint256) signature
 		assert.NoError(t, ValidateContractData(validData))
 
 		// Invalid: empty data
@@ -433,38 +287,4 @@ func TestPermissionIDValidation(t *testing.T) {
 			assert.Error(t, ValidatePermissionID(id))
 		})
 	}
-}
-
-func TestBatchValidation(t *testing.T) {
-	t.Run("Valid addresses batch", func(t *testing.T) {
-		addresses := []string{
-			"TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwb",
-			"TXNYeYdao7JL7wBtmzbk7mAie7UZsdgVjx",
-		}
-		assert.NoError(t, ValidateAddresses(addresses))
-	})
-
-	t.Run("Invalid addresses batch", func(t *testing.T) {
-		addresses := []string{
-			"TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwb",
-			"invalid-address",
-		}
-		assert.Error(t, ValidateAddresses(addresses))
-	})
-
-	t.Run("Valid amounts batch", func(t *testing.T) {
-		amounts := []*big.Int{
-			big.NewInt(1000000),
-			big.NewInt(2000000),
-		}
-		assert.NoError(t, ValidateAmounts(amounts, big.NewInt(1000000)))
-	})
-
-	t.Run("Invalid amounts batch", func(t *testing.T) {
-		amounts := []*big.Int{
-			big.NewInt(1000000),
-			big.NewInt(500000), // Below minimum
-		}
-		assert.Error(t, ValidateAmounts(amounts, big.NewInt(1000000)))
-	})
 }

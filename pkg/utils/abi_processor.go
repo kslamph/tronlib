@@ -24,4 +24,3 @@ package utils
 // - abi_parse.go
 // - abi_encode.go
 // - abi_decode.go
-// - abi_events.go

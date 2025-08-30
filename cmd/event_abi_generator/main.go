@@ -18,6 +18,7 @@ import (
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/client"
+	"github.com/kslamph/tronlib/pkg/client/lowlevel"
 	"github.com/kslamph/tronlib/pkg/network"
 	"github.com/kslamph/tronlib/pkg/smartcontract"
 	"github.com/kslamph/tronlib/pkg/types"
@@ -192,7 +193,7 @@ func main() {
 		}
 
 		// Fetch transaction infos for block
-		tiList, err := cli.GetTransactionInfoByBlockNum(ctx, &api.NumberMessage{Num: current})
+		tiList, err := lowlevel.GetTransactionInfoByBlockNum(cli, ctx, &api.NumberMessage{Num: current})
 		if err != nil {
 			fmt.Printf("block %d: failed to get tx infos: %v\n", current, err)
 			// Step back anyway with a small pause

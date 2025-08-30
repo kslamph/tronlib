@@ -17,7 +17,7 @@
 // IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-package voting
+package voting_test
 
 import (
 	"context"
@@ -29,6 +29,7 @@ import (
 	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/client"
 	"github.com/kslamph/tronlib/pkg/types"
+	"github.com/kslamph/tronlib/pkg/voting"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 )
@@ -82,13 +83,13 @@ func TestVotingManager_ValidationsAndCalls(t *testing.T) {
 	}
 	defer c.Close()
 
-	m := NewManager(c)
+	m := voting.NewManager(c)
 	owner := types.MustNewAddressFromBase58("TBXeeuh3jHM7oE889Ys2DqvRS1YuEPoa2o")
 	witness := types.MustNewAddressFromBase58("TKCTfkQ8L9beavNu9iaGtCHFxrwNHUxfr2")
 
 	ctx := context.Background()
 	// Vote
-	if _, err := m.VoteWitnessAccount2(ctx, owner, []Vote{{WitnessAddress: witness, VoteCount: 1}}); err != nil {
+	if _, err := m.VoteWitnessAccount2(ctx, owner, []voting.Vote{{WitnessAddress: witness, VoteCount: 1}}); err != nil {
 		t.Fatalf("VoteWitnessAccount2: %v", err)
 	}
 	// Withdraw
@@ -121,7 +122,7 @@ func TestVotingManager_ValidationsAndCalls(t *testing.T) {
 }
 
 func TestVotingManager_InputValidationErrors(t *testing.T) {
-	m := NewManager(&client.Client{})
+	m := voting.NewManager(&client.Client{})
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
@@ -130,7 +131,7 @@ func TestVotingManager_InputValidationErrors(t *testing.T) {
 		t.Fatalf("expected error for empty votes")
 	}
 	// Invalid vote count
-	if _, err := m.VoteWitnessAccount2(ctx, types.MustNewAddressFromBase58("TBXeeuh3jHM7oE889Ys2DqvRS1YuEPoa2o"), []Vote{{WitnessAddress: nil, VoteCount: 0}}); err == nil {
+	if _, err := m.VoteWitnessAccount2(ctx, types.MustNewAddressFromBase58("TBXeeuh3jHM7oE889Ys2DqvRS1YuEPoa2o"), []voting.Vote{{WitnessAddress: nil, VoteCount: 0}}); err == nil {
 		t.Fatalf("expected error for invalid vote count/address")
 	}
 	// Nil owner for WithdrawBalance2

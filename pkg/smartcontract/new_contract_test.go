@@ -31,7 +31,7 @@ func TestNewContractSignature(t *testing.T) {
 	mockAddress := createMockAddress()
 
 	// Test 1: Create contract with ABI string
-	contract1, err1 := NewContract(mockClient, mockAddress, testERC20ABI)
+	contract1, err1 := NewInstance(mockClient, mockAddress, testERC20ABI)
 	if err1 != nil {
 		t.Fatalf("Failed to create contract with ABI string: %v", err1)
 	}
@@ -49,7 +49,7 @@ func TestNewContractSignature(t *testing.T) {
 		t.Fatalf("Failed to parse ABI: %v", err)
 	}
 
-	contract2, err2 := NewContract(mockClient, mockAddress, parsedABI)
+	contract2, err2 := NewInstance(mockClient, mockAddress, parsedABI)
 	if err2 != nil {
 		t.Fatalf("Failed to create contract with parsed ABI: %v", err2)
 	}
@@ -64,19 +64,19 @@ func TestNewContractVariadicABI(t *testing.T) {
 	mockAddress := createMockAddress()
 
 	// Test with one ABI argument (string)
-	_, err1 := NewContract(mockClient, mockAddress, testERC20ABI)
+	_, err1 := NewInstance(mockClient, mockAddress, testERC20ABI)
 	if err1 != nil {
 		t.Errorf("Unexpected error with one ABI argument: %v", err1)
 	}
 
 	// Test with too many ABI arguments
-	_, err2 := NewContract(mockClient, mockAddress, testERC20ABI, testERC20ABI)
+	_, err2 := NewInstance(mockClient, mockAddress, testERC20ABI, testERC20ABI)
 	if err2 == nil {
 		t.Error("Expected error with too many ABI arguments")
 	}
 
 	// Test with invalid ABI type
-	_, err3 := NewContract(mockClient, mockAddress, 123)
+	_, err3 := NewInstance(mockClient, mockAddress, 123)
 	if err3 == nil {
 		t.Error("Expected error with invalid ABI type")
 	}

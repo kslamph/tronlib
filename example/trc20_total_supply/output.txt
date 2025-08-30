@@ -1,0 +1,3 @@
+Token Contract: TWRvzd6FQcsyp7hwCtttjZGpU1kfvVEtNK
+Token: TronLib Test (TLT)
+Total Supply: 1000000 tokens

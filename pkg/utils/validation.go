@@ -32,76 +32,6 @@ import (
 	"github.com/kslamph/tronlib/pkg/types"
 )
 
-// Address validation
-
-// IsValidTronAddress validates a TRON address in any format
-func IsValidTronAddress(address string) bool {
-	if address == "" {
-		return false
-	}
-
-	// Try different formats
-	if IsValidBase58Address(address) {
-		return true
-	}
-
-	if IsValidHexAddress(address) {
-		return true
-	}
-
-	return false
-}
-
-// IsValidBase58Address validates a TRON base58 address
-func IsValidBase58Address(address string) bool {
-	if len(address) != types.AddressBase58Length {
-		return false
-	}
-
-	// Try to parse as base58 address
-	_, err := types.NewAddressFromBase58(address)
-	return err == nil
-}
-
-// IsValidHexAddress validates a TRON hex address
-func IsValidHexAddress(address string) bool {
-	// Check format
-	if strings.HasPrefix(address, "0x") {
-		if len(address) != types.AddressHexLength {
-			return false
-		}
-	} else {
-		if len(address) != types.AddressHexLength-2 {
-			return false
-		}
-	}
-
-	// Try to parse as hex address
-	_, err := types.NewAddressFromHex(address)
-	return err == nil
-}
-
-// ValidateAddress validates an address and returns a standardized Address object
-func ValidateAddress(address string) (*types.Address, error) {
-	if address == "" {
-		return nil, errors.New("address cannot be empty")
-	}
-
-	// Try base58 first
-	if addr, err := types.NewAddressFromBase58(address); err == nil {
-		return addr, nil
-	}
-
-	// Try hex
-	if addr, err := types.NewAddressFromHex(address); err == nil {
-		return addr, nil
-	}
-
-	return nil, fmt.Errorf("invalid address format: %s", address)
-}
-
-// Amount validation
-
 // IsValidAmount validates that an amount is positive and within reasonable bounds
 func IsValidAmount(amount *big.Int) bool {
 	if amount == nil {
@@ -112,39 +42,25 @@ func IsValidAmount(amount *big.Int) bool {
 	if amount.Sign() <= 0 {
 		return false
 	}
-
-	// Check for reasonable upper bound (less than total TRX supply)
-	maxSupply := new(big.Int).Mul(big.NewInt(100_000_000_000), big.NewInt(types.SunPerTRX)) // 100B TRX
-	return amount.Cmp(maxSupply) <= 0
+	return true
 }
 
 // ValidateAmount validates an amount and returns error if invalid
-func ValidateAmount(amount *big.Int, minAmount *big.Int) error {
-	if amount == nil {
-		return errors.New("amount cannot be nil")
+func ValidateAmount(amount *big.Int) error {
+	if !IsValidAmount(amount) {
+		return errors.New("amount is not valid")
 	}
-
-	if amount.Sign() <= 0 {
-		return errors.New("amount must be positive")
-	}
-
-	if minAmount != nil && amount.Cmp(minAmount) < 0 {
-		return fmt.Errorf("amount %s is less than minimum %s", amount.String(), minAmount.String())
-	}
-
-	// Check for reasonable upper bound
-	maxSupply := new(big.Int).Mul(big.NewInt(100_000_000_000), big.NewInt(types.SunPerTRX))
-	if amount.Cmp(maxSupply) > 0 {
-		return fmt.Errorf("amount %s exceeds maximum supply", amount.String())
-	}
-
 	return nil
 }
 
-// Message verification
-
 // VerifyMessageV2 verifies a message signature using TIP-191 format (v2)
 func VerifyMessageV2(message string, signature string, expectedAddress string) (bool, error) {
+	// Validate the expected address
+	expectedAddr, err := types.NewAddress(expectedAddress)
+	if err != nil {
+		return false, fmt.Errorf("invalid expected address: %w", err)
+	}
+
 	// Parse the signature
 	if !strings.HasPrefix(signature, "0x") {
 		return false, errors.New("signature must start with 0x")
@@ -192,41 +108,11 @@ func VerifyMessageV2(message string, signature string, expectedAddress string) (
 		return false, fmt.Errorf("failed to create recovered address: %w", err)
 	}
 
-	// Validate the expected address
-	expectedAddr, err := ValidateAddress(expectedAddress)
-	if err != nil {
-		return false, fmt.Errorf("invalid expected address: %w", err)
-	}
-
 	// Compare addresses
 	return recoveredAddr.String() == expectedAddr.String(), nil
 }
 
-// ValidateTRXAmount validates a TRX amount (in SUN)
-func ValidateTRXAmount(amount *big.Int) error {
-	minAmount := big.NewInt(1) // 1 SUN minimum
-	return ValidateAmount(amount, minAmount)
-}
-
-// ValidateFreezeAmount validates an amount for freezing (minimum 1 TRX)
-func ValidateFreezeAmount(amount *big.Int) error {
-	minAmount := big.NewInt(types.SunPerTRX) // 1 TRX minimum
-	return ValidateAmount(amount, minAmount)
-}
-
 // Contract validation
-
-// IsValidContractAddress validates a smart contract address
-func IsValidContractAddress(address string) bool {
-	addr, err := ValidateAddress(address)
-	if err != nil {
-		return false
-	}
-
-	// Contract addresses start with 0x41 and have specific patterns
-	bytes := addr.Bytes()
-	return len(bytes) == types.AddressLength && bytes[0] == types.AddressPrefixByte
-}
 
 // ValidateContractData validates smart contract call data
 func ValidateContractData(data []byte) error {
@@ -401,38 +287,6 @@ func IsValidPermissionID(permissionID int32) bool {
 func ValidatePermissionID(permissionID int32) error {
 	if !IsValidPermissionID(permissionID) {
 		return fmt.Errorf("invalid permission ID: %d (must be 0-255)", permissionID)
-	}
-
-	return nil
-}
-
-// Batch validation
-
-// ValidateAddresses validates multiple addresses
-func ValidateAddresses(addresses []string) error {
-	if len(addresses) == 0 {
-		return errors.New("addresses list cannot be empty")
-	}
-
-	for i, addr := range addresses {
-		if _, err := ValidateAddress(addr); err != nil {
-			return fmt.Errorf("invalid address at index %d: %v", i, err)
-		}
-	}
-
-	return nil
-}
-
-// ValidateAmounts validates multiple amounts
-func ValidateAmounts(amounts []*big.Int, minAmount *big.Int) error {
-	if len(amounts) == 0 {
-		return errors.New("amounts list cannot be empty")
-	}
-
-	for i, amount := range amounts {
-		if err := ValidateAmount(amount, minAmount); err != nil {
-			return fmt.Errorf("invalid amount at index %d: %v", i, err)
-		}
 	}
 
 	return nil

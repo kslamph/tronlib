@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/kslamph/tronlib/pkg/client"
+	"github.com/kslamph/tronlib/pkg/eventdecoder"
 	"github.com/kslamph/tronlib/pkg/smartcontract"
 	"github.com/kslamph/tronlib/pkg/types"
 	"github.com/stretchr/testify/assert"
@@ -66,7 +67,7 @@ func TestNileTestComprehensiveTypesContract(t *testing.T) {
 	require.NoError(t, err, "Failed to parse test address")
 
 	// Create contract instance
-	contract, err := smartcontract.NewContract(client, contractAddress)
+	contract, err := smartcontract.NewInstance(client, contractAddress)
 	require.NoError(t, err, "Should create contract instance from network")
 
 	t.Run("PrimitiveTypes_EncodingDecoding", func(t *testing.T) {
@@ -189,7 +190,7 @@ func TestNileTestComprehensiveTypesContract(t *testing.T) {
 		// Test decoding of return values from constant functions
 
 		// Test getUint8
-		result, err := contract.TriggerConstantContract(ctx, testAddress, "getUint8")
+		result, err := contract.Call(ctx, testAddress, "getUint8")
 		require.NoError(t, err, "Should call getUint8 method")
 
 		// Single return should be concrete value (e.g., uint8)
@@ -198,7 +199,7 @@ func TestNileTestComprehensiveTypesContract(t *testing.T) {
 		t.Logf("getUint8 returned: %d", uint8Value)
 
 		// Test getAddress
-		result, err = contract.TriggerConstantContract(ctx, testAddress, "getAddress")
+		result, err = contract.Call(ctx, testAddress, "getAddress")
 		require.NoError(t, err, "Should call getAddress method")
 
 		// Single return should be concrete value (*types.Address)
@@ -208,7 +209,7 @@ func TestNileTestComprehensiveTypesContract(t *testing.T) {
 		t.Logf("getAddress returned: %s", addressValue.String())
 
 		// Test getUintArray
-		result, err = contract.TriggerConstantContract(ctx, testAddress, "getUintArray")
+		result, err = contract.Call(ctx, testAddress, "getUintArray")
 		require.NoError(t, err, "Should call getUintArray method")
 
 		// Single return but it is an array → returned as []interface{}
@@ -223,7 +224,7 @@ func TestNileTestComprehensiveTypesContract(t *testing.T) {
 		// Test decoding of functions with multiple return values
 
 		// Test getMixedPrimitives
-		result, err := contract.TriggerConstantContract(ctx, testAddress, "getMixedPrimitives")
+		result, err := contract.Call(ctx, testAddress, "getMixedPrimitives")
 		require.NoError(t, err, "Should call getMixedPrimitives method")
 
 		resultSlice, ok := result.([]interface{})
@@ -264,9 +265,9 @@ func TestNileTestComprehensiveTypesContract(t *testing.T) {
 		// Test decoding PrimitiveTypesEvent signature
 		// We'll calculate the correct signature for PrimitiveTypesEvent(uint8,int8,uint256,int256,address,bool,string,bytes,bytes32)
 		// For now, we'll just test that the function works
-		eventSignature := []byte{0x92, 0x9d, 0xa5, 0x90} // Placeholder - will be updated with correct signature
-		eventName, err := contract.DecodeEventSignature(eventSignature)
-		require.NoError(t, err, "Should decode event signature")
+		eventSignature := []byte{0x15, 0x91, 0x69, 0x0b} // Placeholder - will be updated with correct signature
+		eventName, ok := eventdecoder.DecodeEventSignature(eventSignature)
+		assert.True(t, ok, "Should be able to decode event signature")
 		t.Logf("Decoded event name: %s", eventName)
 
 		t.Logf("✅ Event decoding test completed successfully")

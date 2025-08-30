@@ -39,7 +39,7 @@ func TestSmartContract_TriggerAndSimulate_Nile(t *testing.T) {
 	}
 
 	// Build contract client (ABI auto-fetch)
-	sc, err := smartcontract.NewContract(c, minContract)
+	sc, err := smartcontract.NewInstance(c, minContract)
 	assert.NoError(t, err)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -54,7 +54,7 @@ func TestSmartContract_TriggerAndSimulate_Nile(t *testing.T) {
 	}
 
 	// 2) Trigger actual transaction setValue(newVal)
-	txExt, err := sc.TriggerSmartContract(ctx, ownerAddr, 0, "setValue", newVal)
+	txExt, err := sc.Invoke(ctx, ownerAddr, 0, "setValue", newVal)
 	assert.NoError(t, err)
 	if err != nil || txExt == nil {
 		return
@@ -65,20 +65,19 @@ func TestSmartContract_TriggerAndSimulate_Nile(t *testing.T) {
 		return
 	}
 	t.Logf("setValue txid=%s success=%v msg=%s", res.TxID, res.Success, res.Message)
-
+	assert.Equal(t, simRes.Energy, res.EnergyUsage, "Energy usage should match simulation estimation")
 	// 3) Verify via constant: value() or getValue()
 	// MinimalContract exposes both 'value' (public state) and 'getValue()'
 	// Try value() first; if ABI names mismatch, fallback to getValue.
 	var readBack interface{}
-	readBack, err = sc.TriggerConstantContract(ctx, ownerAddr, "value")
+	readBack, err = sc.Call(ctx, ownerAddr, "value")
 	if err != nil {
-		readBack, err = sc.TriggerConstantContract(ctx, ownerAddr, "getValue")
+		readBack, err = sc.Call(ctx, ownerAddr, "getValue")
 	}
 	assert.NoError(t, err)
 	if err == nil {
-		vb, ok := readBack.(int64)
+		vb, ok := readBack.(*big.Int)
 		if !ok {
-			// some ABI decoders may surface uint256 as int64-compatible; tolerate any integer type via decode to string and parse
 			t.Logf("unexpected type for value(): %T", readBack)
 		} else {
 			assert.Equal(t, newVal, vb)

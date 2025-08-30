@@ -25,27 +25,33 @@ import (
 
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
-	"github.com/kslamph/tronlib/pkg/client"
+	"github.com/kslamph/tronlib/pkg/client/lowlevel"
 	"github.com/kslamph/tronlib/pkg/types"
 	"github.com/kslamph/tronlib/pkg/utils"
 )
 
-// Contract represents a high-level client for a deployed smart contract,
-// providing helpers for encoding inputs, triggering methods, and decoding
-// results and events.
-type Contract struct {
+// contractClient defines the minimal dependency required by Contract.
+// Satisfied by *client.Client.
+type contractClient interface {
+	lowlevel.ConnProvider
+}
+
+// Instance represents a high-level client bound to a deployed smart contract
+// address and ABI, providing helpers for encoding inputs, invoking methods,
+// constant calls, and decoding results and events.
+type Instance struct {
 	ABI     *core.SmartContract_ABI
 	Address *types.Address
-	Client  *client.Client
+	Client  contractClient
 
 	// Utility instance for encoding/decoding
 	abiProcessor *utils.ABIProcessor
 }
 
-// NewContract constructs a contract client for the given address using the
+// NewInstance constructs a contract instance for the given address using the
 // provided TRON client. The ABI can be omitted to fetch from the network, or
 // supplied as either a JSON string or a *core.SmartContract_ABI.
-func NewContract(tronClient *client.Client, contractAddress *types.Address, abi ...any) (*Contract, error) {
+func NewInstance(tronClient contractClient, contractAddress *types.Address, abi ...any) (*Instance, error) {
 	if tronClient == nil {
 		return nil, fmt.Errorf("tron client cannot be nil")
 	}
@@ -98,7 +104,7 @@ func NewContract(tronClient *client.Client, contractAddress *types.Address, abi 
 		return nil, fmt.Errorf("too many ABI arguments provided, expected 0 or 1")
 	}
 
-	return &Contract{
+	return &Instance{
 		ABI:     contractABI,
 		Address: contractAddress,
 		Client:  tronClient,
@@ -108,20 +114,22 @@ func NewContract(tronClient *client.Client, contractAddress *types.Address, abi 
 }
 
 // getContractFromNetwork retrieves smart contract information from the network
-func getContractFromNetwork(ctx context.Context, client *client.Client, contractAddress *types.Address) (*core.SmartContract, error) {
+func getContractFromNetwork(ctx context.Context, client contractClient, contractAddress *types.Address) (*core.SmartContract, error) {
 	if contractAddress == nil {
 		return nil, fmt.Errorf("contract address cannot be nil")
 	}
 
-	req := &api.BytesMessage{
-		Value: contractAddress.Bytes(),
-	}
-	return client.GetContract(ctx, req)
+	req := &api.BytesMessage{Value: contractAddress.Bytes()}
+	return lowlevel.Call(client, ctx, "get contract", func(cl api.WalletClient, ctx context.Context) (*core.SmartContract, error) {
+		return cl.GetContract(ctx, req)
+	})
 }
 
 // TriggerSmartContract builds a transaction that calls a method on the contract.
 // The result should be signed and broadcasted by the caller.
-func (c *Contract) TriggerSmartContract(ctx context.Context, owner *types.Address, callValue int64, method string, params ...interface{}) (*api.TransactionExtention, error) {
+// Invoke builds a transaction that calls a state-changing method on the contract.
+// The result should be signed and broadcasted by the caller.
+func (i *Instance) Invoke(ctx context.Context, owner *types.Address, callValue int64, method string, params ...interface{}) (*api.TransactionExtention, error) {
 
 	if owner == nil {
 		return nil, fmt.Errorf("owner address cannot be nil")
@@ -131,7 +139,7 @@ func (c *Contract) TriggerSmartContract(ctx context.Context, owner *types.Addres
 	}
 
 	// Encode method call data
-	data, err := c.Encode(method, params...)
+	data, err := i.Encode(method, params...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode input for method %s: %v", method, err)
 	}
@@ -139,28 +147,30 @@ func (c *Contract) TriggerSmartContract(ctx context.Context, owner *types.Addres
 	// Create trigger smart contract request
 	req := &core.TriggerSmartContract{
 		OwnerAddress:    owner.Bytes(),
-		ContractAddress: c.Address.Bytes(),
+		ContractAddress: i.Address.Bytes(),
 		Data:            data,
 		CallValue:       callValue,
 		CallTokenValue:  0,
 		TokenId:         0,
 	}
 
-	return c.Client.TriggerContract(ctx, req)
+	return lowlevel.TxCall(i.Client, ctx, "trigger contract", func(cl api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
+		return cl.TriggerContract(ctx, req)
+	})
 
 }
 
-// TriggerConstantContract performs a constant (read-only) call and returns the
-// decoded result value. If the method has multiple outputs, the return is a
-// []interface{}; if one output, it's that single value; if none, nil.
-func (c *Contract) TriggerConstantContract(ctx context.Context, owner *types.Address, method string, params ...interface{}) (interface{}, error) {
+// Call performs a constant (read-only) method call and returns the decoded
+// result value. If the method has multiple outputs, the return is a []interface{};
+// if one output, it's that single value; if none, nil.
+func (i *Instance) Call(ctx context.Context, owner *types.Address, method string, params ...interface{}) (interface{}, error) {
 
 	if owner == nil {
 		return nil, fmt.Errorf("owner address cannot be nil")
 	}
 
 	// Encode method call data
-	data, err := c.Encode(method, params...)
+	data, err := i.Encode(method, params...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode input for method %s: %v", method, err)
 	}
@@ -168,13 +178,15 @@ func (c *Contract) TriggerConstantContract(ctx context.Context, owner *types.Add
 	// Create trigger smart contract request
 	req := &core.TriggerSmartContract{
 		OwnerAddress:    owner.Bytes(),
-		ContractAddress: c.Address.Bytes(),
+		ContractAddress: i.Address.Bytes(),
 		Data:            data,
 		CallValue:       0,
 	}
 
 	// Call the constant contract
-	result, err := c.Client.TriggerConstantContract(ctx, req)
+	result, err := lowlevel.Call(i.Client, ctx, "trigger constant contract", func(cl api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
+		return cl.TriggerConstantContract(ctx, req)
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to trigger constant contract: %v", err)
 	}
@@ -198,7 +210,7 @@ func (c *Contract) TriggerConstantContract(ctx context.Context, owner *types.Add
 		concatenatedResult = append(concatenatedResult, result...)
 	}
 
-	decoded, err := c.DecodeResult(method, concatenatedResult)
+	decoded, err := i.DecodeResult(method, concatenatedResult)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode result for method %s: %v", method, err)
 	}
@@ -215,14 +227,14 @@ type SimulateResult struct {
 
 // Simulate performs a read-only execution of the specified method and returns
 // energy usage, raw API result, and logs without decoding the return value.
-func (c *Contract) Simulate(ctx context.Context, owner *types.Address, callValue int64, method string, params ...interface{}) (*SimulateResult, error) {
+func (i *Instance) Simulate(ctx context.Context, owner *types.Address, callValue int64, method string, params ...interface{}) (*SimulateResult, error) {
 
 	if owner == nil {
 		return nil, fmt.Errorf("owner address cannot be nil")
 	}
 
 	// Encode method call data
-	data, err := c.Encode(method, params...)
+	data, err := i.Encode(method, params...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode input for method %s: %v", method, err)
 	}
@@ -230,13 +242,15 @@ func (c *Contract) Simulate(ctx context.Context, owner *types.Address, callValue
 	// Create trigger smart contract request
 	req := &core.TriggerSmartContract{
 		OwnerAddress:    owner.Bytes(),
-		ContractAddress: c.Address.Bytes(),
+		ContractAddress: i.Address.Bytes(),
 		Data:            data,
 		CallValue:       0,
 	}
 
 	// Call the constant contract
-	result, err := c.Client.TriggerConstantContract(ctx, req)
+	result, err := lowlevel.Call(i.Client, ctx, "trigger constant contract", func(cl api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
+		return cl.TriggerConstantContract(ctx, req)
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to trigger constant contract: %v", err)
 	}
@@ -254,34 +268,34 @@ func (c *Contract) Simulate(ctx context.Context, owner *types.Address, callValue
 
 // Encode encodes a method invocation into call data. For constructors, pass an
 // empty method name and only parameters.
-func (c *Contract) Encode(method string, params ...interface{}) ([]byte, error) {
+func (i *Instance) Encode(method string, params ...interface{}) ([]byte, error) {
 	// Special handling for constructors (empty method name)
 	if method == "" {
-		paramTypes, err := c.abiProcessor.GetConstructorTypes(c.ABI)
+		paramTypes, err := i.abiProcessor.GetConstructorTypes(i.ABI)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get constructor types: %v", err)
 		}
 		// We need to create a temporary ABIProcessor to encode parameters
 		// since the GetConstructorTypes doesn't return the ABI
-		tempProcessor := utils.NewABIProcessor(c.ABI)
+		tempProcessor := utils.NewABIProcessor(i.ABI)
 		// For constructors, we need to pass empty method name and get input types
 		return tempProcessor.EncodeMethod("", paramTypes, params)
 	}
 
 	// Get method parameter types from ABI
-	inputTypes, _, err := c.abiProcessor.GetMethodTypes(method)
+	inputTypes, _, err := i.abiProcessor.GetMethodTypes(method)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get method types: %v", err)
 	}
 
-	return c.abiProcessor.EncodeMethod(method, inputTypes, params)
+	return i.abiProcessor.EncodeMethod(method, inputTypes, params)
 }
 
 // DecodeResult decodes a method's return bytes into a Go value. Single-output
 // methods return the value directly; multiple outputs return []interface{}.
-func (c *Contract) DecodeResult(method string, data []byte) (interface{}, error) {
+func (i *Instance) DecodeResult(method string, data []byte) (interface{}, error) {
 	// Get method output types from ABI
-	_, outputTypes, err := c.abiProcessor.GetMethodTypes(method)
+	_, outputTypes, err := i.abiProcessor.GetMethodTypes(method)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get method types: %v", err)
 	}
@@ -296,7 +310,7 @@ func (c *Contract) DecodeResult(method string, data []byte) (interface{}, error)
 	}
 
 	// Decode the result using the abiProcessor's DecodeResult method
-	decoded, err := c.abiProcessor.DecodeResult(data, outputs)
+	decoded, err := i.abiProcessor.DecodeResult(data, outputs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode result: %v", err)
 	}
@@ -305,17 +319,43 @@ func (c *Contract) DecodeResult(method string, data []byte) (interface{}, error)
 }
 
 // DecodeInput decodes input call data to a typed representation.
-func (c *Contract) DecodeInput(data []byte) (*utils.DecodedInput, error) {
-	return c.abiProcessor.DecodeInputData(data, c.ABI)
+func (i *Instance) DecodeInput(data []byte) (*utils.DecodedInput, error) {
+	return i.abiProcessor.DecodeInputData(data, i.ABI)
 }
 
 // DecodeEventLog decodes a single event log using the contract ABI.
-func (c *Contract) DecodeEventLog(topics [][]byte, data []byte) (*utils.DecodedEvent, error) {
-	return c.abiProcessor.DecodeEventLog(topics, data)
-}
+// func (i *Instance) DecodeEventLog(topics [][]byte, data []byte) (*utils.DecodedEvent, error) {
+// 	// Convert ABI entries to eventdecoder format
+// 	if err := eventdecoder.RegisterABIEntries(i.ABI.Entrys); err != nil {
+// 		return nil, fmt.Errorf("failed to register ABI entries: %v", err)
+// 	}
 
-// DecodeEventSignature decodes 4- or 32-byte event signature to the canonical
-// signature string if known.
-func (c *Contract) DecodeEventSignature(signature []byte) (string, error) {
-	return c.abiProcessor.DecodeEventSignature(signature)
-}
+// 	// Use eventdecoder for decoding
+// 	event, err := eventdecoder.DecodeLog(topics, data)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	// Convert eventdecoder.DecodedEvent to utils.DecodedEvent for backward compatibility
+// 	parameters := make([]utils.DecodedEventParameter, len(event.Parameters))
+// 	for i, param := range event.Parameters {
+// 		parameters[i] = utils.DecodedEventParameter{
+// 			Name:    param.Name,
+// 			Type:    param.Type,
+// 			Value:   param.Value,
+// 			Indexed: param.Indexed,
+// 		}
+// 	}
+
+// 	return &utils.DecodedEvent{
+// 		EventName:  event.EventName,
+// 		Parameters: parameters,
+// 		Contract:   event.Contract,
+// 	}, nil
+// }
+
+// // DecodeEventSignature decodes 4- or 32-byte event signature to the canonical
+// // signature string if known.
+// func (i *Instance) DecodeEventSignature(signature []byte) (string, error) {
+// 	return i.abiProcessor.DecodeEventSignature(signature)
+// }

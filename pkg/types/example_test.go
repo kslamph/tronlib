@@ -27,10 +27,8 @@ import (
 
 // ExampleNewAddress demonstrates constructing an Address from base58.
 func ExampleNewAddress() {
-	addr, _ := types.NewAddress("Txxxxxxxxxxxxxxxxxxxxxxxxxxxxxx1")
+	addr, _ := types.NewAddress("TBkfmcE7pM8cwxEhATtkMFwAf1FeQcwY9x")
 	fmt.Println(len(addr.Bytes()) > 0)
 	// Output:
 	// true
 }
-
-

@@ -17,7 +17,7 @@
 // IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-package trc20
+package trc20_test
 
 import (
 	"context"
@@ -32,6 +32,7 @@ import (
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/client"
+	"github.com/kslamph/tronlib/pkg/trc20"
 	"github.com/kslamph/tronlib/pkg/types"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
@@ -119,7 +120,7 @@ func TestTRC20Manager_ReadMethodsAndCaching(t *testing.T) {
 	defer c.Close()
 
 	addr := types.MustNewAddressFromBase58("TKCTfkQ8L9beavNu9iaGtCHFxrwNHUxfr2")
-	m, err := NewManager(c, addr)
+	m, err := trc20.NewManager(c, addr)
 	if err != nil {
 		t.Fatalf("NewManager: %v", err)
 	}
@@ -159,7 +160,7 @@ func TestTRC20Manager_BalanceAllowanceTransferApprove(t *testing.T) {
 	owner := types.MustNewAddressFromBase58("TBXeeuh3jHM7oE889Ys2DqvRS1YuEPoa2o")
 	spender := types.MustNewAddressFromBase58("TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t")
 
-	m, err := NewManager(c, token)
+	m, err := trc20.NewManager(c, token)
 	if err != nil {
 		t.Fatalf("NewManager: %v", err)
 	}
@@ -182,13 +183,13 @@ func TestTRC20Manager_BalanceAllowanceTransferApprove(t *testing.T) {
 	}
 
 	amt := decimal.RequireFromString("1.5")
-	txid, txext, err := m.Transfer(ctx, owner, spender, amt)
-	if err != nil || txext == nil || txid == "" {
+	txext, err := m.Transfer(ctx, owner, spender, amt)
+	if err != nil || txext == nil {
 		t.Fatalf("Transfer failed: %v", err)
 	}
 
-	txid2, txext2, err := m.Approve(ctx, owner, spender, amt)
-	if err != nil || txext2 == nil || txid2 == "" {
+	txext2, err := m.Approve(ctx, owner, spender, amt)
+	if err != nil || txext2 == nil {
 		t.Fatalf("Approve failed: %v", err)
 	}
 }

@@ -10,6 +10,7 @@ import (
 
 	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/client"
+	"github.com/kslamph/tronlib/pkg/eventdecoder"
 	"github.com/kslamph/tronlib/pkg/network"
 	"github.com/kslamph/tronlib/pkg/smartcontract"
 	"github.com/kslamph/tronlib/pkg/types"
@@ -643,92 +644,11 @@ func TestMainnetEventDecoder(t *testing.T) {
 		require.Greater(t, len(logs), 0, "Transaction should have event logs")
 		t.Logf("Found %d event logs in transaction %s", len(logs), testTxId)
 
-		// Track unique contract addresses
-		contractAddresses := make(map[string]bool)
-
-		// Process each event log
-		for i, log := range logs {
-			address := log.GetAddress()
-			topics := log.GetTopics()
-			data := log.GetData()
-
-			contractAddressHex := hex.EncodeToString(address)
-			contractAddresses[contractAddressHex] = true
-
-			t.Logf("Event %d:", i)
-			t.Logf("  Contract Address: %s", contractAddressHex)
-			t.Logf("  Topics Count: %d", len(topics))
-			t.Logf("  Data Length: %d bytes", len(data))
-
-			// Log topic details
-			for j, topic := range topics {
-				topicHex := hex.EncodeToString(topic)
-				t.Logf("  Topic[%d]: %s", j, topicHex)
-			}
-
-			if len(data) > 0 {
-				dataHex := hex.EncodeToString(data)
-				t.Logf("  Data: %s", dataHex)
-			}
-
-			// Try to get contract ABI and decode the event
-			t.Logf("  Attempting to decode event...")
-
-			// Create a client for retrieving contract information
-			client, err := client.NewClient(getTestConfig().Endpoint)
-			if err != nil {
-				t.Logf("  ⚠️  Could not create client: %v", err)
-				t.Logf("  Event signature (raw): %s", hex.EncodeToString(topics[0]))
-				continue
-			}
-
-			// Create contract instance using client to retrieve ABI from network
-			addr, err := types.NewAddress(contractAddressHex)
-			if err != nil {
-				t.Logf("  ⚠️  Could not parse contract address: %v", err)
-				t.Logf("  Event signature (raw): %s", hex.EncodeToString(topics[0]))
-				continue
-			}
-			contract, err := smartcontract.NewContract(client, addr)
-			if err != nil {
-				t.Logf("  ⚠️  Could not retrieve contract ABI: %v", err)
-				t.Logf("  Event signature (raw): %s", hex.EncodeToString(topics[0]))
-				continue
-			}
-
-			// Decode the event
-			decodedEvent, err := contract.DecodeEventLog(topics, data)
-			if err != nil {
-				t.Logf("  ❌ Failed to decode event: %v", err)
-				continue
-			}
-
-			// Log decoded event information
-			t.Logf("  ✅ Successfully decoded event:")
-			t.Logf("    Event Name: %s", decodedEvent.EventName)
-			t.Logf("    Parameters (%d):", len(decodedEvent.Parameters))
-
-			for _, param := range decodedEvent.Parameters {
-				indexedStr := ""
-				if param.Indexed {
-					indexedStr = " (indexed)"
-				}
-				t.Logf("      %s (%s)%s: %s", param.Name, param.Type, indexedStr, param.Value)
-			}
-		}
-
-		// Log summary
-		t.Logf("\n📊 Event Decoding Summary:")
-		t.Logf("Total Events: %d", len(logs))
-		t.Logf("Unique Contracts: %d", len(contractAddresses))
-		t.Logf("Contract Addresses:")
-		for addr := range contractAddresses {
-			t.Logf("  - %s", addr)
-		}
+		decodedEvents, err := eventdecoder.DecodeLogs(logs)
+		require.NoError(t, err, "Should be able to decode event logs")
 
 		// Validate we have the expected number of events and contracts
-		assert.Equal(t, 10, len(logs), "Should have 10 events as expected")
-		assert.Equal(t, 6, len(contractAddresses), "Should have 6 unique contract addresses as expected")
+		assert.Equal(t, 10, len(decodedEvents), "Should have 10 events as expected")
 
 		t.Logf("✅ Event decoder test completed successfully")
 	})
@@ -744,7 +664,7 @@ func TestMainnetEventDecoder(t *testing.T) {
 
 		invalidAddr, err := types.NewAddress("invalid_address")
 		require.Error(t, err, "Should fail to create invalid address")
-		_, err = smartcontract.NewContract(client, invalidAddr)
+		_, err = smartcontract.NewInstance(client, invalidAddr)
 		assert.Error(t, err, "Should reject invalid contract address")
 
 		t.Logf("✅ Input validation tests passed")

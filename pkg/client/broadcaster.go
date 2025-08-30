@@ -28,6 +28,7 @@ import (
 
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
+	"github.com/kslamph/tronlib/pkg/client/lowlevel"
 	"github.com/kslamph/tronlib/pkg/types"
 	"google.golang.org/protobuf/proto"
 )
@@ -113,7 +114,9 @@ func (c *Client) Simulate(ctx context.Context, anytx any) (*BroadcastResult, err
 	}
 
 	// Perform constant call (simulation)
-	ext, err := c.TriggerConstantContract(ctx, decodedTx)
+	ext, err := lowlevel.Call(c, ctx, "trigger constant contract", func(cl api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
+		return cl.TriggerConstantContract(ctx, decodedTx)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -203,11 +206,11 @@ func (c *Client) SignAndBroadcast(ctx context.Context, anytx any, opt BroadcastO
 
 	txid := types.GetTransactionID(coretx)
 	// fmt.Printf("txid:%x\n", txid)
-	result := &BroadcastResult{
-		TxID: hex.EncodeToString(txid),
-	}
+	result := &BroadcastResult{TxID: hex.EncodeToString(txid)}
 
-	ret, err := c.BroadcastTransaction(ctx, coretx)
+	ret, err := lowlevel.Call(c, ctx, "broadcast transaction", func(cl api.WalletClient, ctx context.Context) (*api.Return, error) {
+		return cl.BroadcastTransaction(ctx, coretx)
+	})
 	if err != nil {
 		return result, fmt.Errorf("failed to broadcast transaction: %w", err)
 	}
@@ -217,7 +220,6 @@ func (c *Client) SignAndBroadcast(ctx context.Context, anytx any, opt BroadcastO
 
 	if !opt.WaitForReceipt {
 		return result, nil
-
 	}
 
 	txInfo := c.waitForTransactionInfo(ctx, txid, opt.WaitTimeout, opt.PollInterval)
@@ -254,7 +256,9 @@ func (c *Client) waitForTransactionInfo(ctx context.Context, txid []byte, waitTi
 			return nil
 		case <-ticker.C:
 			req := &api.BytesMessage{Value: txid}
-			txInfo, err := c.GetTransactionInfoById(ctx, req)
+			txInfo, err := lowlevel.Call(c, ctx, "get transaction info by id", func(cl api.WalletClient, ctx context.Context) (*core.TransactionInfo, error) {
+				return cl.GetTransactionInfoById(ctx, req)
+			})
 			if err == nil && txInfo != nil && bytes.Equal(txInfo.Id, txid) {
 				return txInfo
 			}

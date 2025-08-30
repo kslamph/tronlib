@@ -1,0 +1,20 @@
+-- Case 1: A -> B transfer 10 USDT (expected: success) --
+txid: 154101be62458bbcc637d58872e7fcb241cc6962758093e09232782fc149aa8b
+success: true
+energy_used: 64285
+events (1):
+  [0] TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t
+      Transfer
+      from(address): TV6MuMXfmLbBqPZvBHdwFsDnQeVfnmiuSi
+      to(address): TAUN6FwrnwwmaEqYcckffC7wYmbaS6cBiX
+      value(uint256): 10000000
+
+-- Case 2: B -> A transfer 10 USDT (expected: REVERTED) --
+txid: 5edeac79b15bdf3dbff6c8482b4e70606a2b63890cedd88b9a7539531839e942
+success: false
+energy_used: 8624
+result_message: REVERT opcode executedREVERT opcode executed
+events: <none>
+
+-- Case 3: tokenToTrxSwapInput simulation (expected: contract handles swap) --
+2025/08/20 18:56:43 simulate swap error: build tokenToTrxSwapInput: failed to encode input for method tokenToTrxSwapInput: failed to get method types: method tokenToTrxSwapInput not found

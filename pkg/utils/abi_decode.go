@@ -22,7 +22,6 @@ package utils
 import (
 	"encoding/hex"
 	"fmt"
-	"math/big"
 	"reflect"
 	"strings"
 
@@ -189,80 +188,6 @@ func (p *ABIProcessor) DecodeResult(data []byte, outputs []*core.SmartContract_A
 }
 
 // decodeSingleValue decodes a single return value
-
-// decodeEventData decodes non-indexed event parameters from data.
-func (p *ABIProcessor) decodeEventData(data []byte, params []*core.SmartContract_ABI_Entry_Param) ([]DecodedEventParameter, error) {
-	// Create ethereum ABI arguments for decoding
-	args := make([]eABI.Argument, len(params))
-	for i, param := range params {
-		abiType, err := eABI.NewType(param.Type, "", nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create ABI type for %s: %v", param.Type, err)
-		}
-		args[i] = eABI.Argument{
-			Name: param.Name,
-			Type: abiType,
-		}
-	}
-
-	// Unpack the data
-	values, err := eABI.Arguments(args).Unpack(data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unpack event data: %v", err)
-	}
-
-	result := make([]DecodedEventParameter, len(params))
-	for i, param := range params {
-		var value string
-		if i < len(values) {
-			value = p.formatEventValue(values[i], param.Type)
-		}
-
-		result[i] = DecodedEventParameter{
-			Name:    param.Name,
-			Type:    param.Type,
-			Value:   value,
-			Indexed: false,
-		}
-	}
-
-	return result, nil
-}
-
-// formatEventValue formats event value for display
-func (p *ABIProcessor) formatEventValue(value interface{}, paramType string) string {
-	switch paramType {
-	case "address":
-		if addr, ok := value.(eCommon.Address); ok {
-			tronAddr, err := types.NewAddressFromHex(addr.Hex())
-			if err != nil {
-				return fmt.Sprintf("%v", value)
-			}
-			return tronAddr.String()
-		}
-	case "uint256", "uint128", "uint64", "uint32", "uint16", "uint8",
-		"int256", "int128", "int64", "int32", "int16", "int8":
-		if bigInt, ok := value.(*big.Int); ok {
-			return bigInt.String()
-		}
-	case "bytes", "bytes32", "bytes16", "bytes8":
-		if bytes, ok := value.([]byte); ok {
-			return hex.EncodeToString(bytes)
-		}
-	case "string":
-		if s, ok := value.(string); ok {
-			return s
-		}
-	case "bool":
-		if b, ok := value.(bool); ok {
-			if b {
-				return "true"
-			}
-			return "false"
-		}
-	}
-	return fmt.Sprintf("%v", value)
-}
 
 // formatDecodedValue formats decoded value based on type
 func (p *ABIProcessor) formatDecodedValue(value interface{}, paramType string) interface{} {

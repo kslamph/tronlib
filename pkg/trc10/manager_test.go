@@ -17,20 +17,20 @@
 // IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-package trc10
+package trc10_test
 
 import (
 	"context"
 	"testing"
 
 	"github.com/kslamph/tronlib/pkg/client"
+	"github.com/kslamph/tronlib/pkg/trc10"
 	"github.com/kslamph/tronlib/pkg/types"
-	"github.com/kslamph/tronlib/pkg/utils"
 	"github.com/stretchr/testify/assert"
 )
 
 func mustAddr(t *testing.T, s string) *types.Address {
-	a, err := utils.ValidateAddress(s)
+	a, err := types.NewAddress(s)
 	if err != nil {
 		t.Fatalf("failed to create address from string %q: %v", s, err)
 	}
@@ -38,14 +38,13 @@ func mustAddr(t *testing.T, s string) *types.Address {
 }
 
 func TestNewManager(t *testing.T) {
-	client := &client.Client{}
-	manager := NewManager(client)
+	cli := &client.Client{}
+	manager := trc10.NewManager(cli)
 	assert.NotNil(t, manager)
-	assert.Equal(t, client, manager.client)
 }
 
 func TestManager_CreateAssetIssue2_Validation(t *testing.T) {
-	manager := NewManager(&client.Client{})
+	manager := trc10.NewManager(&client.Client{})
 	ctx := context.Background()
 
 	// Test empty name
@@ -84,23 +83,19 @@ func TestManager_CreateAssetIssue2_Validation(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid owner address")
 
 	// Test invalid frozen supply
-	frozenSupply := []FrozenSupply{
-		{FrozenAmount: 0, FrozenDays: 30},
-	}
+	frozenSupply := []trc10.FrozenSupply{{FrozenAmount: 0, FrozenDays: 30}}
 	_, err = manager.CreateAssetIssue2(ctx, mustAddr(t, "TGj1Ej1qRzL9feLTLhjwgxXF4Ct6GTWg2U"), "TestToken", "TEST", 1000000, 1, 1, 1640995200000, 1640995300000, "Test token", "https://test.com", 1000, 1000, frozenSupply)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "frozen amount must be positive")
 
-	frozenSupply = []FrozenSupply{
-		{FrozenAmount: 1000, FrozenDays: 0},
-	}
+	frozenSupply = []trc10.FrozenSupply{{FrozenAmount: 1000, FrozenDays: 0}}
 	_, err = manager.CreateAssetIssue2(ctx, mustAddr(t, "TGj1Ej1qRzL9feLTLhjwgxXF4Ct6GTWg2U"), "TestToken", "TEST", 1000000, 1, 1, 1640995200000, 1640995300000, "Test token", "https://test.com", 1000, 1000, frozenSupply)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "frozen days must be positive")
 }
 
 func TestManager_TransferAsset2_Validation(t *testing.T) {
-	manager := NewManager(&client.Client{})
+	manager := trc10.NewManager(&client.Client{})
 	ctx := context.Background()
 
 	// Test empty asset name
@@ -130,7 +125,7 @@ func TestManager_TransferAsset2_Validation(t *testing.T) {
 }
 
 func TestManager_ParticipateAssetIssue2_Validation(t *testing.T) {
-	manager := NewManager(&client.Client{})
+	manager := trc10.NewManager(&client.Client{})
 	ctx := context.Background()
 
 	// Test empty asset name
@@ -155,7 +150,7 @@ func TestManager_ParticipateAssetIssue2_Validation(t *testing.T) {
 }
 
 func TestManager_GetAssetIssueByName_Validation(t *testing.T) {
-	manager := NewManager(&client.Client{})
+	manager := trc10.NewManager(&client.Client{})
 	ctx := context.Background()
 
 	// Test empty asset name
@@ -165,7 +160,7 @@ func TestManager_GetAssetIssueByName_Validation(t *testing.T) {
 }
 
 func TestManager_GetAssetIssueListByName_Validation(t *testing.T) {
-	manager := NewManager(&client.Client{})
+	manager := trc10.NewManager(&client.Client{})
 	ctx := context.Background()
 
 	// Test empty asset name
@@ -175,7 +170,7 @@ func TestManager_GetAssetIssueListByName_Validation(t *testing.T) {
 }
 
 func TestManager_GetAssetIssueById_Validation(t *testing.T) {
-	manager := NewManager(&client.Client{})
+	manager := trc10.NewManager(&client.Client{})
 	ctx := context.Background()
 
 	// Test empty asset ID
@@ -189,7 +184,7 @@ func TestManager_GetAssetIssueById_Validation(t *testing.T) {
 }
 
 func TestManager_GetPaginatedAssetIssueList_Validation(t *testing.T) {
-	manager := NewManager(&client.Client{})
+	manager := trc10.NewManager(&client.Client{})
 	ctx := context.Background()
 
 	// Test negative offset
@@ -208,7 +203,7 @@ func TestManager_GetPaginatedAssetIssueList_Validation(t *testing.T) {
 }
 
 func TestFrozenSupply(t *testing.T) {
-	fs := FrozenSupply{
+	fs := trc10.FrozenSupply{
 		FrozenAmount: 1000000,
 		FrozenDays:   30,
 	}

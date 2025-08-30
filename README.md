@@ -1,117 +1,81 @@
-# tronlib 🚀
+# 🔗 TronLib - Go SDK for TRON Blockchain
 
-[![GoDoc](https://godoc.org/github.com/kslamph/tronlib?status.svg)](https://godoc.org/github.com/kslamph/tronlib)
+[![Go Reference](https://pkg.go.dev/badge/github.com/kslamph/tronlib.svg)](https://pkg.go.dev/github.com/kslamph/tronlib)
 [![Go Report Card](https://goreportcard.com/badge/github.com/kslamph/tronlib)](https://goreportcard.com/report/github.com/kslamph/tronlib)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Go library for interacting with the TRON blockchain. It provides:
+A comprehensive, production-ready Go SDK for interacting with the TRON blockchain. TronLib provides high-level abstractions for common operations while maintaining flexibility for advanced use cases.
 
-- A core gRPC `client` with connection pooling and timeouts
-- High-level managers: `account`, `resources`, `network`, `smartcontract`, `trc10`, `trc20`
+## ✨ Features
 
-## 📦 Installation
+- 🚀 **Simple & Intuitive** - High-level APIs that make blockchain interaction straightforward
+- 🔐 **Secure** - Built-in support for private keys and HD wallets
+- 💰 **TRC20 Ready** - First-class support for TRC20 tokens with decimal conversion
+- 📦 **Smart Contracts** - Deploy and interact with smart contracts effortlessly
+- 🎯 **Event Decoding** - Decode transaction logs with built-in TRC20 event support
+- ⚡ **Performance** - Connection pooling and efficient gRPC communication
+- 🔍 **Simulation** - Test transactions before broadcasting to the network
+- 📊 **Resource Management** - Handle bandwidth and energy efficiently
+
+## 🏁 Quick Start
+
+### Installation
 
 ```bash
 go get github.com/kslamph/tronlib
 ```
 
-## 🚀 Quick Start
+### Simple TRX Transfer
 
 ```go
 package main
 
 import (
     "context"
+    "fmt"
     "log"
-    "time"
 
     "github.com/kslamph/tronlib/pkg/client"
+    "github.com/kslamph/tronlib/pkg/signer"
+    "github.com/kslamph/tronlib/pkg/types"
 )
 
 func main() {
-    ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-    defer cancel()
-
-    // Replace with your TRON node URL (grpc://host:port or grpcs://host:port)
-    node := "grpc://your.tron.node:port"
-    cli, err := client.NewClient(node)
+    // Connect to TRON node
+    cli, err := client.NewClient("grpc://grpc.nile.trongrid.io:50051")
     if err != nil {
-        log.Fatalf("new client: %v", err)
+        log.Fatal(err)
     }
     defer cli.Close()
 
-    // Use cli with high-level managers below
+    // Create signer from private key
+    signer, err := signer.NewPrivateKeySigner("your-private-key-hex")
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    // Define addresses
+    from := signer.Address()
+    to, _ := types.NewAddress("TBkfmcE7pM8cwxEhATtkMFwAf1FeQcwY9x")
+
+    // Transfer 1 TRX (1,000,000 SUN)
+    tx, err := cli.Accounts().TransferTRX(context.Background(), from, to, 1_000_000)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    // Sign and broadcast
+    result, err := cli.SignAndBroadcast(context.Background(), tx, client.DefaultBroadcastOptions(), signer)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    fmt.Printf("Transaction ID: %s\n", result.TxID)
+    fmt.Printf("Success: %v\n", result.Success)
 }
 ```
 
-### 🕐 Context Usage
-
-- Pass `context.Context` to every call. Prefer short per-operation timeouts.
-- If your context has no deadline, the client applies its own default timeout.
-
-## 📚 Documentation
-
-- [Architecture Overview](docs/architecture.md) - High-level view of package structure and data flow
-- [GoDoc Summary](docs/godoc_summary.md) - Key entry points and examples from package documentation
-- [Event Decoding Guide](docs/event_decoding.md) - How to decode logs from receipts or simulations
-
-## 🔄 Workflow Diagram
-
-```
-┌──────────────────────────────┐
-│        High-level APIs       │
-│ account / resources / network│
-│ smartcontract / trc10 / trc20│
-└───────────────┬──────────────┘
-                │ build txs / make queries
-                ▼
-        ┌───────────────┐
-        │ client.Client │
-        │ RPC / simulate│
-        │ sign+broadcast│
-        └───────┬───────┘
-                │
-                ▼
-        ┌───────────────┐
-        │   TRON Node   │
-        │ (gRPC endpoint)│
-        └───────────────┘
-```
-
-- Transaction read: managers → client → node → data
-- Contract read (constant): smartcontract/trc20 → client (constant trigger) → node → ABI-decode return values
-- Transaction write: managers build tx → client.SignAndBroadcast (uses signer) → node → receipt → eventdecoder.DecodeLogs
-- Simulation: managers or client.Simulate → node → inspect result → optionally decode logs with eventdecoder
-
-### 🔧 Key Components
-
-- **types.Address** 📍 - Unified address representation supporting multiple formats
-- **signer** 🔐 - Private key and HD wallet management
-- **broadcaster** 📡 - Broadcasting with receipt waiting (in `client`)
-- **ABI Processor** 🧬 - Encoding/decoding of ABI data
-- **Event Decoder** 📊 - Log decoding with built-in events
-- **High-level Managers** 🛠️ - Simplified interfaces for common operations
-
-### 🎯 Usage Patterns
-
-**High-level usage** (recommended for most applications):
-
-```go
-// Using account manager for TRX transfer
-am := account.NewManager(cli)
-txExt, err := am.TransferTRX(ctx, from, to, 1_000_000, nil)
-```
-
-**Low-level usage** (for advanced customization):
-
-```go
-// Direct client usage for custom transactions
-tx := &core.Transaction{ /* ... */ }
-signedTx, err := cli.SignTransaction(ctx, tx, signer)
-```
-
-## 💡 Examples
-
-### 👤 Accounts and Resources
+### TRC20 Token Transfer
 
 ```go
 package main
@@ -119,166 +83,198 @@ package main
 import (
     "context"
     "log"
-    "time"
-
-    "github.com/kslamph/tronlib/pkg/account"
-    "github.com/kslamph/tronlib/pkg/client"
-    "github.com/kslamph/tronlib/pkg/resources"
-    "github.com/kslamph/tronlib/pkg/signer"
-    "github.com/kslamph/tronlib/pkg/types"
-)
-
-func exampleAccounts(node string) {
-    ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-    defer cancel()
-
-    cli, err := client.NewClient(node)
-    if err != nil { log.Fatal(err) }
-    defer cli.Close()
-
-    am := account.NewManager(cli)
-    rm := resources.NewManager(cli)
-
-    from, _ := types.NewAddress("Txxxxxxxxxxxxxxxxxxxxxxxxxxxxxx1")
-    to, _ := types.NewAddress("Tyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy2")
-
-    // Get account balance
-    bal, err := am.GetBalance(ctx, from)
-    if err != nil { log.Fatal(err) }
-    _ = bal
-
-    // Build a TRX transfer (unsigned)
-    txExt, err := am.TransferTRX(ctx, from, to, 1_000_000, nil) // 1 TRX = 1_000_000 SUN
-    if err != nil { log.Fatal(err) }
-
-    // Sign & broadcast
-    pk, _ := signer.NewPrivateKeySigner("0x<hex-privkey>")
-    res, err := cli.SignAndBroadcast(ctx, txExt, client.DefaultBroadcastOptions(), pk)
-    if err != nil { log.Fatal(err) }
-    if !res.Success { log.Printf("broadcast failed: %s", res.Message) }
-
-    // Freeze/Unfreeze resources
-    _, _ = rm.FreezeBalanceV2(ctx, from, 1_000_000, resources.ResourceTypeEnergy)
-    _, _ = rm.UnfreezeBalanceV2(ctx, from, 1_000_000, resources.ResourceTypeEnergy)
-}
-```
-
-### 📜 Smart Contracts
-
-Deploy and interact using `smartcontract.Manager` or a typed `smartcontract.Contract`.
-
-```go
-package main
-
-import (
-    "context"
-    "encoding/hex"
-    "log"
-    "time"
-
-    "github.com/kslamph/tronlib/pkg/client"
-    "github.com/kslamph/tronlib/pkg/signer"
-    "github.com/kslamph/tronlib/pkg/smartcontract"
-    "github.com/kslamph/tronlib/pkg/types"
-)
-
-func exampleSmartContract(node string) {
-    ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
-    defer cancel()
-
-    cli, _ := client.NewClient(node)
-    defer cli.Close()
-
-    mgr := smartcontract.NewManager(cli)
-    owner, _ := types.NewAddress("Townerxxxxxxxxxxxxxxxxxxxxxxxxxx")
-
-    abiJSON := `{"entrys":[{"type":"constructor","inputs":[{"name":"_owner","type":"address"}]},{"type":"function","name":"setValue","inputs":[{"name":"v","type":"uint256"}]},{"type":"function","name":"getValue","inputs":[],"outputs":[{"name":"","type":"uint256"}],"constant":true}]}`
-    bytecode, _ := hex.DecodeString("60806040...deadbeef")
-
-    // Deploy
-    txExt, err := mgr.DeployContract(ctx, owner, "MyContract", abiJSON, bytecode, 0, 100, 30000, owner.Bytes())
-    if err != nil { log.Fatal(err) }
-    pk, _ := signer.NewPrivateKeySigner("0x<hex-privkey>")
-    _, _ = cli.SignAndBroadcast(ctx, txExt, client.DefaultBroadcastOptions(), pk)
-
-    // Interact via Contract
-    contractAddr, _ := types.NewAddress("Tcontractxxxxxxxxxxxxxxxxxxxxxxxx")
-    c, err := smartcontract.NewContract(cli, contractAddr, abiJSON)
-    if err != nil { log.Fatal(err) }
-
-    // State-changing call (build tx only)
-    txExt, err = c.TriggerSmartContract(ctx, owner, 0, "setValue", uint64(42))
-    if err != nil { log.Fatal(err) }
-
-    // Sign & broadcast and wait for execution result
-    opts := client.DefaultBroadcastOptions()
-    opts.WaitForReceipt = true
-    res, err := cli.SignAndBroadcast(ctx, txExt, opts, pk)
-    if err != nil { log.Fatalf("broadcast error: %v", err) }
-    log.Printf("txid=%s", res.TxID) // always available
-}
-```
-
-### 💰 TRC20
-
-Read and write helpers plus exact unit conversion using `shopspring/decimal`.
-
-```go
-package main
-
-import (
-    "context"
-    "log"
-    "time"
 
     "github.com/shopspring/decimal"
-
     "github.com/kslamph/tronlib/pkg/client"
     "github.com/kslamph/tronlib/pkg/signer"
     "github.com/kslamph/tronlib/pkg/trc20"
     "github.com/kslamph/tronlib/pkg/types"
 )
 
-func exampleTRC20(node string) {
-    ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
-    defer cancel()
-
-    cli, _ := client.NewClient(node)
+func main() {
+    cli, _ := client.NewClient("grpc://grpc.nile.trongrid.io:50051")
     defer cli.Close()
 
-    token, _ := types.NewAddress("Ttokenxxxxxxxxxxxxxxxxxxxxxxxxxxx")
-    holder, _ := types.NewAddress("Tholderxxxxxxxxxxxxxxxxxxxxxxxxx")
-    recipient, _ := types.NewAddress("Trecipientxxxxxxxxxxxxxxxxxxxxx")
+    signer, _ := signer.NewPrivateKeySigner("your-private-key-hex")
+    
+    // USDT contract address on mainnet
+    token, _ := types.NewAddress("TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t")
+    to, _ := types.NewAddress("TBkfmcE7pM8cwxEhATtkMFwAf1FeQcwY9x")
 
-    trc20Contract, err := trc20.NewManager(cli, token)
-    if err != nil { log.Fatal(err) }
+    // Create TRC20 manager
+    trc20Mgr, err := trc20.NewManager(cli, token)
+    if err != nil {
+        log.Fatal(err)
+    }
 
-    // Reads
-    _, _ = trc20Contract.Name(ctx)
-    _, _ = trc20Contract.Symbol(ctx)
-    _, _ = trc20Contract.Decimals(ctx)
-    _, _ = trc20Contract.BalanceOf(ctx, holder)
+    // Transfer 10 USDT
+    amount := decimal.NewFromInt(10)
+    _, tx, err := trc20Mgr.Transfer(context.Background(), signer.Address(), to, amount)
+    if err != nil {
+        log.Fatal(err)
+    }
 
-    // Write (build tx then sign & broadcast)
-    amount := decimal.NewFromFloat(12.34)
-    txid, txExt, err := trc20Contract.Transfer(ctx, holder, recipient, amount)
-    if err != nil { log.Fatal(err) }
-    log.Printf("built txid=%s", txid)
-    pk, _ := signer.NewPrivateKeySigner("0x<hex-privkey>")
-    opts := client.DefaultBroadcastOptions()
-    opts.WaitForReceipt = true
-    _, _ = cli.SignAndBroadcast(ctx, txExt, opts, pk)
+    // Sign and broadcast
+    result, err := cli.SignAndBroadcast(context.Background(), tx, client.DefaultBroadcastOptions(), signer)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    log.Printf("TRC20 transfer completed: %s", result.TxID)
 }
 ```
 
-## 📊 Decoding Events
+## 📚 Documentation
 
-See [Event Decoding Guide](docs/event_decoding.md) for details and examples.
+### Core Concepts
+- **[Architecture Overview](docs/architecture.md)** - Understanding the library structure
+- **[Quick Start Guide](docs/quickstart.md)** - Get up and running quickly
+
+### Package Documentation
+- **[Types](docs/types.md)** - Address handling and fundamental types
+- **[Client](docs/client.md)** - gRPC client and connection management  
+- **[TRC20](docs/trc20.md)** - TRC20 token operations and decimal handling
+- **[Smart Contracts](docs/smartcontract.md)** - Contract deployment and interaction
+- **[Event Decoder](docs/eventdecoder.md)** - Transaction log decoding
+- **[Utils](docs/utils.md)** - ABI encoding/decoding utilities
+- **[Signer](docs/signer.md)** - Key management and transaction signing
+
+### Examples
+- **[Complete Examples](example/)** - Real-world usage examples
+- **[Integration Tests](integration_test/)** - Comprehensive test suite
+
+## 🏗️ Project Structure
+
+```
+tronlib/
+├── 📁 pkg/                    # Core library packages
+│   ├── 📁 client/            # gRPC client and connection management
+│   ├── 📁 types/             # Fundamental types (Address, constants)
+│   ├── 📁 signer/            # Private key and HD wallet management
+│   ├── 📁 account/           # Account operations (balance, TRX transfers)
+│   ├── 📁 trc20/             # TRC20 token operations
+│   ├── 📁 smartcontract/     # Smart contract deployment and interaction
+│   ├── 📁 eventdecoder/      # Event log decoding
+│   ├── 📁 utils/             # ABI encoding/decoding utilities
+│   ├── 📁 resources/         # Resource management (bandwidth, energy)
+│   ├── 📁 voting/            # Voting operations
+│   └── 📁 network/           # Network operations
+├── 📁 example/               # Usage examples
+├── 📁 cmd/                   # Command-line tools
+├── 📁 integration_test/      # Integration tests
+└── 📁 docs/                  # Documentation
+```
+
+## 🚀 Advanced Usage
+
+### Transaction Simulation
+
+Test transactions before broadcasting:
+
+```go
+// Simulate before sending
+simResult, err := cli.Simulate(context.Background(), tx)
+if err != nil {
+    log.Fatal(err)
+}
+
+fmt.Printf("Energy needed: %d\n", simResult.EnergyUsage)
+fmt.Printf("Would succeed: %v\n", simResult.Success)
+
+// Only broadcast if simulation succeeds
+if simResult.Success {
+    result, err := cli.SignAndBroadcast(context.Background(), tx, opts, signer)
+    // ...
+}
+```
+
+### Smart Contract Interaction
+
+```go
+// Create contract instance
+contract, err := smartcontract.NewInstance(cli, contractAddr, abiJSON)
+if err != nil {
+    log.Fatal(err)
+}
+
+// Call contract method
+tx, err := contract.Invoke(ctx, signer.Address(), 0, "setValue", uint64(42))
+if err != nil {
+    log.Fatal(err)
+}
+
+// Sign and broadcast
+result, err := cli.SignAndBroadcast(ctx, tx, opts, signer)
+```
+
+### Event Decoding
+
+```go
+// Decode transaction logs
+for _, log := range result.Logs {
+    event, err := eventdecoder.DecodeLog(log.GetTopics(), log.GetData())
+    if err != nil {
+        continue
+    }
+    
+    fmt.Printf("Event: %s\n", event.EventName)
+    for _, param := range event.Parameters {
+        fmt.Printf("  %s: %v\n", param.Name, param.Value)
+    }
+}
+```
+
+## 🔧 Configuration
+
+### Client Options
+
+```go
+cli, err := client.NewClient("grpc://127.0.0.1:50051",
+    client.WithTimeout(30*time.Second),     // Default timeout
+    client.WithPool(5, 10),                 // Connection pool: 5 initial, 10 max
+)
+```
+
+### Broadcast Options
+
+```go
+opts := client.DefaultBroadcastOptions()
+opts.FeeLimit = 100_000_000                // Set fee limit in SUN
+opts.WaitForReceipt = true                 // Wait for transaction receipt
+opts.WaitTimeout = 20 * time.Second       // Timeout for receipt
+opts.PollInterval = 500 * time.Millisecond // Polling interval
+```
+
+## 🌐 Network Support
+
+- **Mainnet**: `grpc://grpc.trongrid.io:50051`
+- **Nile Testnet**: `grpc://grpc.nile.trongrid.io:50051`
+- **Local Node**: `grpc://127.0.0.1:50051`
+
+> 💡 **Tip**: Use testnet for development and testing. Get test TRX from the [Nile Testnet Faucet](https://nile.tronscan.org/#/tools/system).
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please read our contributing guidelines before submitting pull requests.
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
 
-## 📄 License
+1. Fork the repository
+2. Create a feature branch
+3. Add tests for your changes
+4. Ensure all tests pass
+5. Submit a pull request
+
+## 📜 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- Built on the foundation of TRON's gRPC API
+- Inspired by Ethereum's web3 libraries
+- Uses Google Protocol Buffers for efficient communication
+
+---
+
+**Made with ❤️ for the TRON community**
+
+For questions, issues, or feature requests, please open an issue on GitHub.
