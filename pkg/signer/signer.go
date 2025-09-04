@@ -17,16 +17,18 @@
 // IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-package types
+package signer
 
 import (
 	"crypto/ecdsa"
+	
+	"github.com/kslamph/tronlib/pkg/types"
 )
 
 // Signer defines the interface for signing Tron transactions and messages
 type Signer interface {
 	// Address returns the account's address
-	Address() *Address
+	Address() *types.Address
 
 	// PublicKey returns the account's public key
 	PublicKey() *ecdsa.PublicKey

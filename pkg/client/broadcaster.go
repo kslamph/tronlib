@@ -29,6 +29,7 @@ import (
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/client/lowlevel"
+	"github.com/kslamph/tronlib/pkg/signer"
 	"github.com/kslamph/tronlib/pkg/types"
 	"google.golang.org/protobuf/proto"
 )
@@ -149,7 +150,7 @@ func (c *Client) Simulate(ctx context.Context, anytx any) (*BroadcastResult, err
 // TRON return code/message, and, if waiting, resource usage and logs.
 //
 // Supported input types are *api.TransactionExtention and *core.Transaction.
-func (c *Client) SignAndBroadcast(ctx context.Context, anytx any, opt BroadcastOptions, signers ...types.Signer) (*BroadcastResult, error) {
+func (c *Client) SignAndBroadcast(ctx context.Context, anytx any, opt BroadcastOptions, signers ...signer.Signer) (*BroadcastResult, error) {
 	// Apply defaults for zero-values without breaking explicit non-zero caller values.
 	def := DefaultBroadcastOptions()
 	if opt.FeeLimit == 0 {
