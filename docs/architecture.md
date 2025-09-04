@@ -124,16 +124,11 @@ bytes := addr.Bytes()         // 21-byte slice
 
 **Signing Methods**:
 - Private key signing
-- HD wallet derivation
 - Multiple key format support
 
 ```go
 // Private key signer
 signer, _ := signer.NewPrivateKeySigner("hex-private-key")
-
-// HD wallet derivation
-wallet, _ := signer.NewHDWallet("twelve word mnemonic phrase")
-account, _ := wallet.DerivePath("m/44'/195'/0'/0/0")
 ```
 
 ### 🛠️ Utils Package (`pkg/utils`)

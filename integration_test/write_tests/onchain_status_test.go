@@ -14,10 +14,8 @@ import (
 	"github.com/kslamph/tronlib/pkg/signer"
 	"github.com/kslamph/tronlib/pkg/trc20"
 	"github.com/kslamph/tronlib/pkg/types"
-	hdwallet "github.com/miguelmota/go-ethereum-hdwallet"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
-	"github.com/tyler-smith/go-bip39"
 )
 
 // loadEnv loads environment variables from the given path.
@@ -57,13 +55,8 @@ func TestNileBroadcastTransaction(t *testing.T) {
 	assert.NoError(t, err)
 	senderAddress := s.Address()
 
-	// Create a new random recipient account
-	entropy, _ := bip39.NewEntropy(128)
-	mnemonic, _ := bip39.NewMnemonic(entropy)
-	wallet, _ := hdwallet.NewFromMnemonic(mnemonic)
-	path, _ := hdwallet.ParseDerivationPath("m/44'/195'/0'/0/0")
-	acc, _ := wallet.Derive(path, false)
-	recipientAddr, _ := types.NewAddress(acc.Address.Hex())
+	// Create a new recipient account from a predefined address
+	recipientAddr, _ := types.NewAddress("TXYZopYRdj2D9XRtbG411XZZ3kM5VkAeBf")
 
 	t.Run("TRX Transfer", func(t *testing.T) {
 		// 1. Get sender's balance before transfer
