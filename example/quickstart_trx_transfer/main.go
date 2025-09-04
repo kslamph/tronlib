@@ -32,7 +32,7 @@ func main() {
 	ctx := context.Background()
 
 	// Check balance
-	balance, err := cli.Accounts().GetBalance(ctx, from)
+	balance, err := cli.Account().GetBalance(ctx, from)
 	if err != nil {
 		log.Fatalf("Failed to get balance: %v", err)
 	}
@@ -44,7 +44,7 @@ func main() {
 	transferAmount := int64(1_000_000) // 1 TRX
 
 	// Build and send transaction
-	tx, err := cli.Accounts().TransferTRX(ctx, from, to, transferAmount)
+	tx, err := cli.Account().TransferTRX(ctx, from, to, transferAmount)
 	if err != nil {
 		log.Fatalf("Failed to build transaction: %v", err)
 	}

@@ -31,7 +31,7 @@ func main() {
 	to, _ := types.NewAddress("TBkfmcE7pM8cwxEhATtkMFwAf1FeQcwY9x")
 
 	// Transfer 1 TRX (1,000,000 SUN)
-	tx, err := cli.Accounts().TransferTRX(context.Background(), from, to, 1_000_000)
+	tx, err := cli.Account().TransferTRX(context.Background(), from, to, 1_000_000)
 	if err != nil {
 		log.Fatal(err)
 	}

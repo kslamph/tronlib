@@ -11,15 +11,15 @@ import (
 	"github.com/kslamph/tronlib/pkg/voting"
 )
 
-// Accounts is the gateway method to access the AccountManager.
+// Account is the gateway method to access the AccountManager.
 // It returns an *account.AccountManager, satisfying the high-level API need.
-func (c *Client) Accounts() *account.AccountManager {
+func (c *Client) Account() *account.AccountManager {
 	// gRPCClient interface in the account package, so it can be passed directly.
 	return account.NewManager(c)
 }
 
-// SmartContracts is the gateway method to access the Manager.
-func (c *Client) SmartContracts() *smartcontract.Manager {
+// SmartContract is the gateway method to access the Manager.
+func (c *Client) SmartContract() *smartcontract.Manager {
 	return smartcontract.NewManager(c)
 }
 

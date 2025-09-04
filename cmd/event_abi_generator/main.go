@@ -152,6 +152,7 @@ func main() {
 	// Managers
 	netMgr := network.NewManager(cli)
 	scMgr := smartcontract.NewManager(cli)
+	cli.SmartContract()
 
 	// Persistent store
 	store := NewPersistentStore(outFile)

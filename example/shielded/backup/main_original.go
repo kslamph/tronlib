@@ -121,7 +121,7 @@ func main() {
 	from := key.Address()
 	ctx := context.Background()
 
-	myAccount, err := cli.Accounts().GetAccount(context.Background(), from)
+	myAccount, err := cli.Account().GetAccount(context.Background(), from)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -32,7 +32,7 @@ func main() {
 	ctx := context.Background()
 
 	// Get account information
-	myAccount, err := cli.Accounts().GetAccount(ctx, from)
+	myAccount, err := cli.Account().GetAccount(ctx, from)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -227,7 +227,7 @@ func printSummary(mintResult, burnResult *client.BroadcastResult, initialBalance
 		fmt.Println("   All transaction creation and validation completed successfully")
 		fmt.Println("   Ready for production execution")
 	}
-	
+
 	if CurrentMode == ModeBurnOnly {
 		fmt.Println("\n🔥 BURN-ONLY MODE ACTIVE")
 		fmt.Println("   Skipped minting new notes, attempting to burn existing ones")
