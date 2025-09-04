@@ -40,9 +40,3 @@ func ExampleNewManager() {
 	owner, _ := types.NewAddress("Townerxxxxxxxxxxxxxxxxxxxxxxxxxx")
 	_, _ = rm.FreezeBalanceV2(ctx, owner, 1_000_000, resources.ResourceTypeEnergy)
 }
-
-
-
-
-
-
