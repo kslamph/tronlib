@@ -62,7 +62,7 @@ func main() {
     defer cli.Close()
 
     // Create smart contract manager
-    mgr := smartcontract.NewManager(cli)
+    mgr := cli.SmartContract()
     
     // Or create an instance for existing contract
     contractAddr, _ := types.NewAddress("TLyqzVGLV1srkB7dToTAEqgDSfPtXRJZYH")
@@ -82,7 +82,7 @@ func main() {
 
 ```go
 // Deploy a basic contract
-func DeploySimpleContract(ctx context.Context, mgr *smartcontract.Manager) error {
+func DeploySimpleContract(ctx context.Context, scMgr *smartcontract.Manager) error {
     owner, _ := types.NewAddress("TLyqzVGLV1srkB7dToTAEqgDSfPtXRJZYH")
     
     // Contract details
@@ -130,7 +130,7 @@ func DeploySimpleContract(ctx context.Context, mgr *smartcontract.Manager) error
 
 ```go
 // Deploy a TRC20 token contract
-func DeployTRC20Token(ctx context.Context, mgr *smartcontract.Manager, owner *types.Address) (*types.Address, error) {
+func DeployTRC20Token(ctx context.Context, scMgr *smartcontract.Manager, owner *types.Address) (*types.Address, error) {
     // TRC20 constructor parameters
     tokenName := "MyToken"
     tokenSymbol := "MTK"
@@ -169,7 +169,7 @@ func DeployTRC20Token(ctx context.Context, mgr *smartcontract.Manager, owner *ty
 
 ```go
 // Deploy with custom energy and bandwidth settings
-func DeployWithCustomSettings(ctx context.Context, mgr *smartcontract.Manager) error {
+func DeployWithCustomSettings(ctx context.Context, scMgr *smartcontract.Manager) error {
     owner, _ := types.NewAddress("TLyqzVGLV1srkB7dToTAEqgDSfPtXRJZYH")
 
     // Pre-calculate deployment cost
@@ -563,7 +563,7 @@ type TransferEvent struct {
 
 ```go
 // Update contract settings (requires owner permissions)
-func UpdateContractSettings(ctx context.Context, mgr *smartcontract.Manager, contractAddr *types.Address, owner *types.Address) error {
+func UpdateContractSettings(ctx context.Context, scMgr *smartcontract.Manager, contractAddr *types.Address, owner *types.Address) error {
     // Update consume user resource percent
     newPercent := int64(50)
     
@@ -592,8 +592,8 @@ func UpdateContractSettings(ctx context.Context, mgr *smartcontract.Manager, con
 
 ```go
 // Clear contract ABI (requires owner permissions)
-func ClearContractABI(ctx context.Context, mgr *smartcontract.Manager, contractAddr *types.Address, owner *types.Address) error {
-    txid, err := mgr.ClearContractABI(ctx, owner, contractAddr)
+func ClearContractABI(ctx context.Context, scMgr *smartcontract.Manager, contractAddr *types.Address, owner *types.Address) error {
+    txid, err := scMgr.ClearContractABI(ctx, owner, contractAddr)
     if err != nil {
         return fmt.Errorf("failed to clear ABI: %w", err)
     }
@@ -616,9 +616,9 @@ type ContractFactory struct {
     defaultOwner *types.Address
 }
 
-func NewContractFactory(mgr *smartcontract.Manager, abiJSON, bytecode string, defaultOwner *types.Address) *ContractFactory {
+func NewContractFactory(scMgr *smartcontract.Manager, abiJSON, bytecode string, defaultOwner *types.Address) *ContractFactory {
     return &ContractFactory{
-        mgr:         mgr,
+        mgr:         scMgr,
         abiJSON:     abiJSON,
         bytecode:    bytecode,
         defaultOwner: defaultOwner,
@@ -780,7 +780,7 @@ func SafeContractCall(ctx context.Context, instance *smartcontract.Instance, cal
 func TestContractDeployment(t *testing.T) {
     // Mock client for testing
     mockClient := &MockClient{}
-    mgr := smartcontract.NewManager(mockClient)
+    mgr := mockClient.SmartContracts()
 
     owner := types.MustNewAddressFromBase58("TLyqzVGLV1srkB7dToTAEqgDSfPtXRJZYH")
     

@@ -1,3 +1,6 @@
+// Command event_abi_generator parses contract ABIs and produces compact event
+// signature maps used by pkg/eventdecoder.
+
 package main
 
 import (
@@ -20,7 +23,6 @@ import (
 	"github.com/kslamph/tronlib/pkg/client"
 	"github.com/kslamph/tronlib/pkg/client/lowlevel"
 	"github.com/kslamph/tronlib/pkg/network"
-	"github.com/kslamph/tronlib/pkg/smartcontract"
 	"github.com/kslamph/tronlib/pkg/types"
 	"golang.org/x/crypto/sha3"
 )
@@ -151,8 +153,7 @@ func main() {
 
 	// Managers
 	netMgr := network.NewManager(cli)
-	scMgr := smartcontract.NewManager(cli)
-	cli.SmartContract()
+	scMgr := cli.SmartContract()
 
 	// Persistent store
 	store := NewPersistentStore(outFile)

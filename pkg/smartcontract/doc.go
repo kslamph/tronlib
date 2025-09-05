@@ -34,7 +34,7 @@
 //
 // The Manager provides a high-level interface for common contract operations:
 //
-//	mgr := smartcontract.NewManager(client)
+//	mgr := client.SmartContract()
 //	txExt, err := mgr.Deploy(context.Background(), owner, "MyContract", abiJSON, bytecode, 0, 100, 30000, owner.Bytes())
 //	if err != nil { /* handle */ }
 //

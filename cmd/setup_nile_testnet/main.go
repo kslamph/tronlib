@@ -1,4 +1,5 @@
-// Package main implements the Nile testnet contract deployment and testing environment setup
+// Command setup_nile_testnet provides helpers to scaffold local credentials and
+// environment for TRON Nile testnet interactions.
 package main
 
 import (
@@ -105,7 +106,7 @@ func NewNileTestnetSetup() (*NileTestnetSetup, error) {
 
 	// Create managers
 	accountManager := account.NewManager(c)
-	contractManager := smartcontract.NewManager(c)
+	contractManager := c.SmartContract()
 
 	// Create signer
 	signer, err := signer.NewPrivateKeySigner(config.Key1PrivateKey)

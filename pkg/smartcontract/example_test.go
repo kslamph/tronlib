@@ -37,7 +37,7 @@ func ExampleManager() {
 	cli, _ := client.NewClient("grpc://127.0.0.1:50051")
 	defer cli.Close()
 
-	mgr := smartcontract.NewManager(cli)
+	mgr := cli.SmartContract()
 	owner, _ := types.NewAddress("Townerxxxxxxxxxxxxxxxxxxxxxxxxxx")
 
 	abiJSON := `{"entrys":[{"type":"constructor","inputs":[{"name":"_owner","type":"address"}]},{"type":"function","name":"setValue","inputs":[{"name":"v","type":"uint256"}]},{"type":"function","name":"getValue","inputs":[],"outputs":[{"name":"","type":"uint256"}],"constant":true}]}`
