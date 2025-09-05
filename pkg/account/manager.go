@@ -48,13 +48,14 @@ type AccountManager struct {
 // to communicate with the TRON network.
 //
 // Example:
-//   cli, err := client.NewClient("grpc://127.0.0.1:50051")
-//   if err != nil {
-//       // handle error
-//   }
-//   defer cli.Close()
-//   
-//   accountMgr := account.NewManager(cli)
+//
+//	cli, err := client.NewClient("grpc://127.0.0.1:50051")
+//	if err != nil {
+//	    // handle error
+//	}
+//	defer cli.Close()
+//
+//	accountMgr := account.NewManager(cli)
 func NewManager(conn lowlevel.ConnProvider) *AccountManager {
 	return &AccountManager{conn: conn}
 }
@@ -118,12 +119,13 @@ func (m *AccountManager) GetAccountResource(ctx context.Context, address *types.
 // and returns just the balance.
 //
 // Example:
-//   balance, err := accountMgr.GetBalance(ctx, address)
-//   if err != nil {
-//       // handle error
-//   }
-//   trxBalance := float64(balance) / 1_000_000
-//   fmt.Printf("Balance: %.6f TRX\n", trxBalance)
+//
+//	balance, err := accountMgr.GetBalance(ctx, address)
+//	if err != nil {
+//	    // handle error
+//	}
+//	trxBalance := float64(balance) / 1_000_000
+//	fmt.Printf("Balance: %.6f TRX\n", trxBalance)
 func (m *AccountManager) GetBalance(ctx context.Context, address *types.Address) (int64, error) {
 	// Get account info
 	account, err := m.GetAccount(ctx, address)
@@ -143,14 +145,15 @@ func (m *AccountManager) GetBalance(ctx context.Context, address *types.Address)
 // The amount should be specified in SUN (1 TRX = 1,000,000 SUN).
 //
 // Example:
-//   txExt, err := accountMgr.TransferTRX(ctx, from, to, 1_000_000) // 1 TRX
-//   if err != nil {
-//       // handle error
-//   }
-//   
-//   // Sign and broadcast the transaction
-//   opts := client.DefaultBroadcastOptions()
-//   result, err := cli.SignAndBroadcast(ctx, txExt, opts, signer)
+//
+//	txExt, err := accountMgr.TransferTRX(ctx, from, to, 1_000_000) // 1 TRX
+//	if err != nil {
+//	    // handle error
+//	}
+//
+//	// Sign and broadcast the transaction
+//	opts := client.DefaultBroadcastOptions()
+//	result, err := cli.SignAndBroadcast(ctx, txExt, opts, signer)
 func (m *AccountManager) TransferTRX(ctx context.Context, from *types.Address, to *types.Address, amount int64) (*api.TransactionExtention, error) {
 	// Validate inputs
 	if err := m.validateTransferInputs(from, to, amount); err != nil {

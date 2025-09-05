@@ -23,7 +23,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
-"reflect"
+	"reflect"
 	"strings"
 	"sync"
 
@@ -368,7 +368,7 @@ func formatEventValue(value interface{}, paramType string) string {
 			}
 			return "false"
 		}
-default:
+	default:
 		// Handle array types
 		if strings.HasSuffix(paramType, "[]") {
 			baseType := strings.TrimSuffix(paramType, "[]")

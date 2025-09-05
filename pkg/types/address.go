@@ -53,9 +53,9 @@ type Address struct {
 // NewAddress creates an Address from a string, []byte, or base58 string.
 //
 // This generic function attempts to parse the input in the following order:
-//   1. As a Base58 TRON address (T-prefixed)
-//   2. As a hex string (with or without 0x prefix)
-//   3. As raw bytes
+//  1. As a Base58 TRON address (T-prefixed)
+//  2. As a hex string (with or without 0x prefix)
+//  3. As raw bytes
 //
 // Supported input types:
 //   - string: Base58 address, hex string
@@ -66,15 +66,16 @@ type Address struct {
 //   - [21]byte: Raw 21-byte address with 0x41 prefix
 //
 // Example:
-//   addr, err := types.NewAddress("TLCuBEbV6jp9432t4Xhg5E5j7v7vK4gkgX")
-//   if err != nil {
-//       // handle error
-//   }
-//   
-//   addr2, err := types.NewAddress("0x41a614f803b6fd780986a42c78ec9c7f77e6ded13c")
-//   if err != nil {
-//       // handle error
-//   }
+//
+//	addr, err := types.NewAddress("TLCuBEbV6jp9432t4Xhg5E5j7v7vK4gkgX")
+//	if err != nil {
+//	    // handle error
+//	}
+//
+//	addr2, err := types.NewAddress("0x41a614f803b6fd780986a42c78ec9c7f77e6ded13c")
+//	if err != nil {
+//	    // handle error
+//	}
 type addressAllowed interface {
 	~string | ~[]byte | *Address | *eCommon.Address | [20]byte | [21]byte
 }
@@ -125,11 +126,12 @@ func NewAddress[T addressAllowed](v T) (*Address, error) {
 // The address must be exactly 34 characters long and start with "T".
 //
 // Example:
-//   addr, err := types.NewAddressFromBase58("TLCuBEbV6jp9432t4Xhg5E5j7v7vK4gkgX")
-//   if err != nil {
-//       // handle error
-//   }
-//   fmt.Printf("Address: %s\n", addr.String())
+//
+//	addr, err := types.NewAddressFromBase58("TLCuBEbV6jp9432t4Xhg5E5j7v7vK4gkgX")
+//	if err != nil {
+//	    // handle error
+//	}
+//	fmt.Printf("Address: %s\n", addr.String())
 func NewAddressFromBase58(base58Addr string) (*Address, error) {
 	// Address must start with T
 	if !strings.HasPrefix(base58Addr, "T") {
@@ -277,8 +279,9 @@ func encodeBase58Addr(bytesAddr []byte) string {
 // representation of the address which is the default string representation.
 //
 // Example:
-//   addr, _ := types.NewAddressFromBase58("TLCuBEbV6jp9432t4Xhg5E5j7v7vK4gkgX")
-//   fmt.Printf("Address: %s\n", addr.String()) // Prints: TLCuBEbV6jp9432t4Xhg5E5j7v7vK4gkgX
+//
+//	addr, _ := types.NewAddressFromBase58("TLCuBEbV6jp9432t4Xhg5E5j7v7vK4gkgX")
+//	fmt.Printf("Address: %s\n", addr.String()) // Prints: TLCuBEbV6jp9432t4Xhg5E5j7v7vK4gkgX
 func (a *Address) String() string {
 	if a == nil {
 		return ""
@@ -300,8 +303,9 @@ func (a *Address) Base58() string {
 // the 0x41 prefix followed by the 20-byte address hash.
 //
 // Example:
-//   addr, _ := types.NewAddressFromBase58("TLCuBEbV6jp9432t4Xhg5E5j7v7vK4gkgX")
-//   bytes := addr.Bytes() // Returns 21 bytes: [0x41, ...]
+//
+//	addr, _ := types.NewAddressFromBase58("TLCuBEbV6jp9432t4Xhg5E5j7v7vK4gkgX")
+//	bytes := addr.Bytes() // Returns 21 bytes: [0x41, ...]
 func (a *Address) Bytes() []byte {
 	if a == nil {
 		return nil

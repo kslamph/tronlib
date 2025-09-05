@@ -61,17 +61,18 @@ type Instance struct {
 // its ABI published on-chain).
 //
 // Example:
-//   // With ABI provided
-//   instance, err := smartcontract.NewInstance(cli, contractAddr, abiJSON)
-//   if err != nil {
-//       // handle error
-//   }
-//   
-//   // Without ABI (fetch from network)
-//   instance, err := smartcontract.NewInstance(cli, contractAddr)
-//   if err != nil {
-//       // handle error
-//   }
+//
+//	// With ABI provided
+//	instance, err := smartcontract.NewInstance(cli, contractAddr, abiJSON)
+//	if err != nil {
+//	    // handle error
+//	}
+//
+//	// Without ABI (fetch from network)
+//	instance, err := smartcontract.NewInstance(cli, contractAddr)
+//	if err != nil {
+//	    // handle error
+//	}
 func NewInstance(tronClient contractClient, contractAddress *types.Address, abi ...any) (*Instance, error) {
 	if tronClient == nil {
 		return nil, fmt.Errorf("%w: tron client cannot be nil", types.ErrInvalidParameter)
@@ -160,14 +161,15 @@ func getContractFromNetwork(ctx context.Context, client contractClient, contract
 //   - params: Optional parameters to pass to the method
 //
 // Example:
-//   txExt, err := instance.Invoke(ctx, owner, 0, "setValue", uint64(42))
-//   if err != nil {
-//       // handle error
-//   }
-//   
-//   // Sign and broadcast the transaction
-//   opts := client.DefaultBroadcastOptions()
-//   result, err := cli.SignAndBroadcast(ctx, txExt, opts, signer)
+//
+//	txExt, err := instance.Invoke(ctx, owner, 0, "setValue", uint64(42))
+//	if err != nil {
+//	    // handle error
+//	}
+//
+//	// Sign and broadcast the transaction
+//	opts := client.DefaultBroadcastOptions()
+//	result, err := cli.SignAndBroadcast(ctx, txExt, opts, signer)
 func (i *Instance) Invoke(ctx context.Context, owner *types.Address, callValue int64, method string, params ...interface{}) (*api.TransactionExtention, error) {
 
 	if owner == nil {
@@ -214,15 +216,16 @@ func (i *Instance) Invoke(ctx context.Context, owner *types.Address, callValue i
 //   - params: Optional parameters to pass to the method
 //
 // Example:
-//   result, err := instance.Call(ctx, owner, "getValue")
-//   if err != nil {
-//       // handle error
-//   }
-//   value, ok := result.(uint64)
-//   if !ok {
-//       // handle type assertion
-//   }
-//   fmt.Printf("Value: %d\n", value)
+//
+//	result, err := instance.Call(ctx, owner, "getValue")
+//	if err != nil {
+//	    // handle error
+//	}
+//	value, ok := result.(uint64)
+//	if !ok {
+//	    // handle type assertion
+//	}
+//	fmt.Printf("Value: %d\n", value)
 func (i *Instance) Call(ctx context.Context, owner *types.Address, method string, params ...interface{}) (interface{}, error) {
 
 	if owner == nil {

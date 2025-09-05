@@ -21,7 +21,7 @@ package signer
 
 import (
 	"crypto/ecdsa"
-	
+
 	"github.com/kslamph/tronlib/pkg/types"
 )
 

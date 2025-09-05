@@ -94,12 +94,12 @@
 //
 // # Best Practices
 //
-// 1. Always close the client when finished to free up resources:
-//    defer cli.Close()
+//  1. Always close the client when finished to free up resources:
+//     defer cli.Close()
 //
-// 2. Use context with timeout for all operations to prevent hanging:
-//    ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-//    defer cancel()
+//  2. Use context with timeout for all operations to prevent hanging:
+//     ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+//     defer cancel()
 //
 // 3. Configure appropriate pool sizes based on your application's concurrency needs
 //
@@ -109,19 +109,19 @@
 //
 // # Common Usage Patterns
 //
-// 1. Creating a client with custom configuration:
-//    cli, err := client.NewClient("grpc://127.0.0.1:50051",
-//        client.WithTimeout(30*time.Second),
-//        client.WithPool(5, 10))
+//  1. Creating a client with custom configuration:
+//     cli, err := client.NewClient("grpc://127.0.0.1:50051",
+//     client.WithTimeout(30*time.Second),
+//     client.WithPool(5, 10))
 //
-// 2. Broadcasting a transaction with custom options:
-//    opts := client.DefaultBroadcastOptions()
-//    opts.FeeLimit = 50_000_000
-//    opts.WaitForReceipt = true
-//    result, err := cli.SignAndBroadcast(ctx, tx, opts, signer)
+//  2. Broadcasting a transaction with custom options:
+//     opts := client.DefaultBroadcastOptions()
+//     opts.FeeLimit = 50_000_000
+//     opts.WaitForReceipt = true
+//     result, err := cli.SignAndBroadcast(ctx, tx, opts, signer)
 //
-// 3. Simulating a transaction before broadcasting:
-//    sim, err := cli.Simulate(ctx, tx)
-//    if err != nil { /* handle error */ }
-//    if !sim.Success { /* would fail on chain */ }
+//  3. Simulating a transaction before broadcasting:
+//     sim, err := cli.Simulate(ctx, tx)
+//     if err != nil { /* handle error */ }
+//     if !sim.Success { /* would fail on chain */ }
 package client

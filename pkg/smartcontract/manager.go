@@ -44,13 +44,14 @@ type Manager struct{ conn lowlevel.ConnProvider }
 // to communicate with the TRON network.
 //
 // Example:
-//   cli, err := client.NewClient("grpc://127.0.0.1:50051")
-//   if err != nil {
-//       // handle error
-//   }
-//   defer cli.Close()
-//   
-//   contractMgr := smartcontract.NewManager(cli)
+//
+//	cli, err := client.NewClient("grpc://127.0.0.1:50051")
+//	if err != nil {
+//	    // handle error
+//	}
+//	defer cli.Close()
+//
+//	contractMgr := smartcontract.NewManager(cli)
 func NewManager(conn lowlevel.ConnProvider) *Manager {
 	return &Manager{conn: conn}
 }
@@ -79,14 +80,15 @@ func (m *Manager) Instance(contractAddress *types.Address, abi ...any) (*Instanc
 //   - constructorParams: Optional constructor parameters
 //
 // Example:
-//   txExt, err := contractMgr.Deploy(ctx, owner, "MyContract", abiJSON, bytecode, 0, 100, 30000, param1, param2)
-//   if err != nil {
-//       // handle error
-//   }
-//   
-//   // Sign and broadcast the transaction
-//   opts := client.DefaultBroadcastOptions()
-//   result, err := cli.SignAndBroadcast(ctx, txExt, opts, signer)
+//
+//	txExt, err := contractMgr.Deploy(ctx, owner, "MyContract", abiJSON, bytecode, 0, 100, 30000, param1, param2)
+//	if err != nil {
+//	    // handle error
+//	}
+//
+//	// Sign and broadcast the transaction
+//	opts := client.DefaultBroadcastOptions()
+//	result, err := cli.SignAndBroadcast(ctx, txExt, opts, signer)
 func (m *Manager) Deploy(ctx context.Context, ownerAddress *types.Address, contractName string, abi any, bytecode []byte, callValue, consumeUserResourcePercent, originEnergyLimit int64, constructorParams ...interface{}) (*api.TransactionExtention, error) {
 	// Validate inputs
 	if err := utils.ValidateContractName(contractName); err != nil {

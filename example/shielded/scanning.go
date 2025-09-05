@@ -158,16 +158,16 @@ func filterConfirmedNotes(notes *api.DecryptNotesTRC20, currentBlock int64) *api
 		// In a full implementation, we would check when the note was created
 		// For now, we'll add a heuristic: notes with lower positions are more likely to be confirmed
 		// This is a simplification - in practice we would need to check the actual block number
-		
+
 		// Assume all notes are confirmed for this implementation since we don't have block info
 		confirmedNotes = append(confirmedNotes, noteTx)
-		
+
 		// Log information about the note
 		fmt.Printf("  Note position %d: assuming confirmed (heuristic)\n", noteTx.GetPosition())
 	}
 
 	fmt.Printf("Found %d confirmed notes out of %d total notes\n", len(confirmedNotes), len(notes.GetNoteTxs()))
-	
+
 	// Return a new DecryptNotesTRC20 with only confirmed notes
 	return &api.DecryptNotesTRC20{
 		NoteTxs: confirmedNotes,

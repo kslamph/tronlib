@@ -250,7 +250,7 @@ func validateAndVerifyKeys(cli *client.Client, ctx context.Context, ivk, ak, nk 
 	if !bytes.Equal(ivk, expectedIvk) {
 		return fmt.Errorf("IVK mismatch! Stored: %x, Expected: %x", ivk, expectedIvk)
 	}
-	
+
 	fmt.Println("✅ IVK derivation verified correctly")
 	return nil
 }

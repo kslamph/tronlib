@@ -57,14 +57,15 @@ type PrivateKeySigner struct {
 // private key can be provided with or without the "0x" prefix.
 //
 // Example:
-//   signer, err := signer.NewPrivateKeySigner("0xYourPrivateKeyHere")
-//   if err != nil {
-//       // handle error
-//   }
-//   
-//   // Get the address associated with this private key
-//   address := signer.Address()
-//   fmt.Printf("Address: %s\n", address.String())
+//
+//	signer, err := signer.NewPrivateKeySigner("0xYourPrivateKeyHere")
+//	if err != nil {
+//	    // handle error
+//	}
+//
+//	// Get the address associated with this private key
+//	address := signer.Address()
+//	fmt.Printf("Address: %s\n", address.String())
 func NewPrivateKeySigner(hexPrivKey string) (*PrivateKeySigner, error) {
 	// Remove 0x prefix if present
 	// if strings.HasPrefix(hexPrivKey, "0x") {
@@ -117,9 +118,10 @@ func newPrivateKeySigner(privKey *ecdsa.PrivateKey) (*PrivateKeySigner, error) {
 // This method returns the TRON address associated with the private key.
 //
 // Example:
-//   signer, _ := signer.NewPrivateKeySigner("0xYourPrivateKeyHere")
-//   address := signer.Address()
-//   fmt.Printf("Address: %s\n", address.String())
+//
+//	signer, _ := signer.NewPrivateKeySigner("0xYourPrivateKeyHere")
+//	address := signer.Address()
+//	fmt.Printf("Address: %s\n", address.String())
 func (s *PrivateKeySigner) Address() *types.Address {
 	return s.address
 }
@@ -142,11 +144,12 @@ func (s *PrivateKeySigner) PrivateKeyHex() string {
 // Signature field.
 //
 // Example:
-//   signer, _ := signer.NewPrivateKeySigner("0xYourPrivateKeyHere")
-//   err := signer.Sign(transaction)
-//   if err != nil {
-//       // handle error
-//   }
+//
+//	signer, _ := signer.NewPrivateKeySigner("0xYourPrivateKeyHere")
+//	err := signer.Sign(transaction)
+//	if err != nil {
+//	    // handle error
+//	}
 func (s *PrivateKeySigner) Sign(tx any) error {
 
 	if tx == nil {

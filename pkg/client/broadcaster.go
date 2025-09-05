@@ -99,14 +99,15 @@ type BroadcastResult struct {
 // The transaction must contain exactly one contract and must not be expired.
 //
 // Example:
-//   sim, err := cli.Simulate(ctx, txExt)
-//   if err != nil {
-//       // handle error
-//   }
-//   if !sim.Success {
-//       // transaction would fail
-//   }
-//   fmt.Printf("Energy usage: %d\n", sim.EnergyUsage)
+//
+//	sim, err := cli.Simulate(ctx, txExt)
+//	if err != nil {
+//	    // handle error
+//	}
+//	if !sim.Success {
+//	    // transaction would fail
+//	}
+//	fmt.Printf("Energy usage: %d\n", sim.EnergyUsage)
 func (c *Client) Simulate(ctx context.Context, anytx any) (*BroadcastResult, error) {
 	if anytx == nil {
 		return nil, fmt.Errorf("transaction cannot be nil")
@@ -184,17 +185,18 @@ func (c *Client) Simulate(ctx context.Context, anytx any) (*BroadcastResult, err
 // Supported input types are *api.TransactionExtention and *core.Transaction.
 //
 // Example:
-//   opts := client.DefaultBroadcastOptions()
-//   opts.FeeLimit = 100_000_000
-//   opts.WaitForReceipt = true
-//   
-//   result, err := cli.SignAndBroadcast(ctx, txExt, opts, signer)
-//   if err != nil {
-//       // handle error
-//   }
-//   if result.Success {
-//       fmt.Printf("Transaction successful: %s\n", result.TxID)
-//   }
+//
+//	opts := client.DefaultBroadcastOptions()
+//	opts.FeeLimit = 100_000_000
+//	opts.WaitForReceipt = true
+//
+//	result, err := cli.SignAndBroadcast(ctx, txExt, opts, signer)
+//	if err != nil {
+//	    // handle error
+//	}
+//	if result.Success {
+//	    fmt.Printf("Transaction successful: %s\n", result.TxID)
+//	}
 func (c *Client) SignAndBroadcast(ctx context.Context, anytx any, opt BroadcastOptions, signers ...signer.Signer) (*BroadcastResult, error) {
 	// Apply defaults for zero-values without breaking explicit non-zero caller values.
 	def := DefaultBroadcastOptions()

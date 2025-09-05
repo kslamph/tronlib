@@ -136,4 +136,3 @@ func TestMessageSigningV2(t *testing.T) {
 	assert.Equal(t, expectedSignature, signature)
 	assert.True(t, len(signature) == 132) // 0x + 130 hex chars (65 bytes * 2)
 }
-

@@ -95,13 +95,14 @@ type Client struct {
 //   - Connection pool size with WithPool()
 //
 // Example:
-//   cli, err := client.NewClient("grpc://127.0.0.1:50051",
-//       client.WithTimeout(30*time.Second),
-//       client.WithPool(5, 10))
-//   if err != nil {
-//       // handle error
-//   }
-//   defer cli.Close()
+//
+//	cli, err := client.NewClient("grpc://127.0.0.1:50051",
+//	    client.WithTimeout(30*time.Second),
+//	    client.WithPool(5, 10))
+//	if err != nil {
+//	    // handle error
+//	}
+//	defer cli.Close()
 //
 // Returns an error if the endpoint is invalid or connection fails.
 func NewClient(endpoint string, opts ...Option) (*Client, error) {

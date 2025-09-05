@@ -121,7 +121,7 @@ func TestDecodedTypes(t *testing.T) {
 	// Test a simple builtin event - use Transfer event which we know works
 	// Signature: 0xddf252ad (Transfer(address,address,uint256))
 	sigTopic, _ := hex.DecodeString("ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef")
-	
+
 	// Test that the signature is registered
 	sigStr, found := DecodeEventSignature(sigTopic)
 	if !found {
@@ -131,7 +131,7 @@ func TestDecodedTypes(t *testing.T) {
 	if sigStr != expectedSig {
 		t.Fatalf("Unexpected signature string: %s, expected: %s", sigStr, expectedSig)
 	}
-	
+
 	// Test with actual TRC20 Transfer data
 	fromTopic, _ := hex.DecodeString("000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48")
 	toTopic, _ := hex.DecodeString("0000000000000000000000004e83362442b8d1bec281594cea3050c8eb01311c")
@@ -214,7 +214,7 @@ func TestEdgeCases(t *testing.T) {
 	}
 
 	// Test DecodeLog with short topic
-	_, err = DecodeLog([][]byte{[]byte{0x01, 0x02}}, nil)
+	_, err = DecodeLog([][]byte{{0x01, 0x02}}, nil)
 	if err == nil {
 		t.Error("DecodeLog should fail with short topic")
 	}
