@@ -27,7 +27,7 @@
 //	cli, _ := client.NewClient("grpc://127.0.0.1:50051")
 //	defer cli.Close()
 //
-//	am := account.NewManager(cli)
+//	am := cli.Account()
 //	from, _ := types.NewAddress("Txxxxxxxxxxxxxxxxxxxxxxxxxxxxxx1")
 //	to, _ := types.NewAddress("Tyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy2")
 //

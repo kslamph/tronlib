@@ -52,10 +52,10 @@ const (
 func (m *ResourcesManager) FreezeBalanceV2(ctx context.Context, ownerAddress *types.Address, frozenBalance int64, resource ResourceType) (*api.TransactionExtention, error) {
 	// Validate inputs
 	if frozenBalance <= 0 {
-		return nil, fmt.Errorf("%w: value must be positive", types.ErrInvalidAmount)
+		return nil, fmt.Errorf("%w: frozen balance must be positive, got %d", types.ErrInvalidAmount, frozenBalance)
 	}
 	if ownerAddress == nil {
-		return nil, fmt.Errorf("%w: invalid owner address: nil", types.ErrInvalidAddress)
+		return nil, fmt.Errorf("%w: owner address cannot be nil", types.ErrInvalidAddress)
 	}
 
 	req := &core.FreezeBalanceV2Contract{
@@ -73,10 +73,10 @@ func (m *ResourcesManager) FreezeBalanceV2(ctx context.Context, ownerAddress *ty
 func (m *ResourcesManager) UnfreezeBalanceV2(ctx context.Context, ownerAddress *types.Address, unfreezeBalance int64, resource ResourceType) (*api.TransactionExtention, error) {
 	// Validate inputs
 	if unfreezeBalance <= 0 {
-		return nil, fmt.Errorf("%w: value must be positive", types.ErrInvalidAmount)
+		return nil, fmt.Errorf("%w: unfreeze balance must be positive, got %d", types.ErrInvalidAmount, unfreezeBalance)
 	}
 	if ownerAddress == nil {
-		return nil, fmt.Errorf("%w: invalid owner address: nil", types.ErrInvalidAddress)
+		return nil, fmt.Errorf("%w: owner address cannot be nil", types.ErrInvalidAddress)
 	}
 
 	req := &core.UnfreezeBalanceV2Contract{
@@ -94,17 +94,17 @@ func (m *ResourcesManager) UnfreezeBalanceV2(ctx context.Context, ownerAddress *
 func (m *ResourcesManager) DelegateResource(ctx context.Context, ownerAddress, receiverAddress *types.Address, balance int64, resource ResourceType, lock bool) (*api.TransactionExtention, error) {
 	// Validate inputs
 	if balance <= 0 {
-		return nil, fmt.Errorf("%w: value must be positive", types.ErrInvalidAmount)
+		return nil, fmt.Errorf("%w: delegation balance must be positive, got %d", types.ErrInvalidAmount, balance)
 	}
 	if ownerAddress == nil {
-		return nil, fmt.Errorf("%w: invalid owner address: nil", types.ErrInvalidAddress)
+		return nil, fmt.Errorf("%w: owner address cannot be nil", types.ErrInvalidAddress)
 	}
 	if receiverAddress == nil {
-		return nil, fmt.Errorf("%w: invalid receiver address: nil", types.ErrInvalidAddress)
+		return nil, fmt.Errorf("%w: receiver address cannot be nil", types.ErrInvalidAddress)
 	}
 
 	if ownerAddress.String() == receiverAddress.String() {
-		return nil, fmt.Errorf("%w: owner and receiver addresses cannot be the same", types.ErrInvalidParameter)
+		return nil, fmt.Errorf("%w: owner and receiver addresses cannot be the same: %s", types.ErrInvalidParameter, ownerAddress.String())
 	}
 
 	req := &core.DelegateResourceContract{
@@ -124,13 +124,13 @@ func (m *ResourcesManager) DelegateResource(ctx context.Context, ownerAddress, r
 func (m *ResourcesManager) UnDelegateResource(ctx context.Context, ownerAddress, receiverAddress *types.Address, balance int64, resource ResourceType) (*api.TransactionExtention, error) {
 	// Validate inputs
 	if balance <= 0 {
-		return nil, fmt.Errorf("%w: value must be positive", types.ErrInvalidAmount)
+		return nil, fmt.Errorf("%w: undelegation balance must be positive, got %d", types.ErrInvalidAmount, balance)
 	}
 	if ownerAddress == nil {
-		return nil, fmt.Errorf("%w: invalid owner address: nil", types.ErrInvalidAddress)
+		return nil, fmt.Errorf("%w: owner address cannot be nil", types.ErrInvalidAddress)
 	}
 	if receiverAddress == nil {
-		return nil, fmt.Errorf("%w: invalid receiver address: nil", types.ErrInvalidAddress)
+		return nil, fmt.Errorf("%w: receiver address cannot be nil", types.ErrInvalidAddress)
 	}
 
 	req := &core.UnDelegateResourceContract{
@@ -148,7 +148,7 @@ func (m *ResourcesManager) UnDelegateResource(ctx context.Context, ownerAddress,
 // CancelAllUnfreezeV2 cancels all unfreeze operations (v2)
 func (m *ResourcesManager) CancelAllUnfreezeV2(ctx context.Context, ownerAddress *types.Address) (*api.TransactionExtention, error) {
 	if ownerAddress == nil {
-		return nil, fmt.Errorf("%w: invalid owner address: nil", types.ErrInvalidAddress)
+		return nil, fmt.Errorf("%w: owner address cannot be nil", types.ErrInvalidAddress)
 	}
 
 	req := &core.CancelAllUnfreezeV2Contract{OwnerAddress: ownerAddress.Bytes()}
@@ -160,7 +160,7 @@ func (m *ResourcesManager) CancelAllUnfreezeV2(ctx context.Context, ownerAddress
 // WithdrawExpireUnfreeze withdraws expired unfreeze amount
 func (m *ResourcesManager) WithdrawExpireUnfreeze(ctx context.Context, ownerAddress *types.Address) (*api.TransactionExtention, error) {
 	if ownerAddress == nil {
-		return nil, fmt.Errorf("%w: invalid owner address: nil", types.ErrInvalidAddress)
+		return nil, fmt.Errorf("%w: owner address cannot be nil", types.ErrInvalidAddress)
 	}
 
 	req := &core.WithdrawExpireUnfreezeContract{OwnerAddress: ownerAddress.Bytes()}
@@ -172,10 +172,10 @@ func (m *ResourcesManager) WithdrawExpireUnfreeze(ctx context.Context, ownerAddr
 // GetDelegatedResourceV2 gets delegated resource information (v2)
 func (m *ResourcesManager) GetDelegatedResourceV2(ctx context.Context, fromAddress, toAddress *types.Address) (*api.DelegatedResourceList, error) {
 	if fromAddress == nil {
-		return nil, fmt.Errorf("%w: invalid from address: nil", types.ErrInvalidAddress)
+		return nil, fmt.Errorf("%w: from address cannot be nil", types.ErrInvalidAddress)
 	}
 	if toAddress == nil {
-		return nil, fmt.Errorf("%w: invalid to address: nil", types.ErrInvalidAddress)
+		return nil, fmt.Errorf("%w: to address cannot be nil", types.ErrInvalidAddress)
 	}
 
 	req := &api.DelegatedResourceMessage{FromAddress: fromAddress.Bytes(), ToAddress: toAddress.Bytes()}
@@ -187,7 +187,7 @@ func (m *ResourcesManager) GetDelegatedResourceV2(ctx context.Context, fromAddre
 // GetDelegatedResourceAccountIndexV2 gets delegated resource account index (v2)
 func (m *ResourcesManager) GetDelegatedResourceAccountIndexV2(ctx context.Context, address *types.Address) (*core.DelegatedResourceAccountIndex, error) {
 	if address == nil {
-		return nil, fmt.Errorf("%w: invalid address: nil", types.ErrInvalidAddress)
+		return nil, fmt.Errorf("%w: address cannot be nil", types.ErrInvalidAddress)
 	}
 
 	req := &api.BytesMessage{Value: address.Bytes()}
@@ -199,7 +199,7 @@ func (m *ResourcesManager) GetDelegatedResourceAccountIndexV2(ctx context.Contex
 // GetCanDelegatedMaxSize gets maximum delegatable resource size
 func (m *ResourcesManager) GetCanDelegatedMaxSize(ctx context.Context, ownerAddress *types.Address, delegateType int32) (*api.CanDelegatedMaxSizeResponseMessage, error) {
 	if ownerAddress == nil {
-		return nil, fmt.Errorf("%w: invalid owner address: nil", types.ErrInvalidAddress)
+		return nil, fmt.Errorf("%w: owner address cannot be nil", types.ErrInvalidAddress)
 	}
 
 	req := &api.CanDelegatedMaxSizeRequestMessage{OwnerAddress: ownerAddress.Bytes(), Type: delegateType}
@@ -211,7 +211,7 @@ func (m *ResourcesManager) GetCanDelegatedMaxSize(ctx context.Context, ownerAddr
 // GetAvailableUnfreezeCount gets available unfreeze count
 func (m *ResourcesManager) GetAvailableUnfreezeCount(ctx context.Context, ownerAddress *types.Address) (*api.GetAvailableUnfreezeCountResponseMessage, error) {
 	if ownerAddress == nil {
-		return nil, fmt.Errorf("%w: invalid owner address: nil", types.ErrInvalidAddress)
+		return nil, fmt.Errorf("%w: owner address cannot be nil", types.ErrInvalidAddress)
 	}
 
 	req := &api.GetAvailableUnfreezeCountRequestMessage{OwnerAddress: ownerAddress.Bytes()}
@@ -223,7 +223,7 @@ func (m *ResourcesManager) GetAvailableUnfreezeCount(ctx context.Context, ownerA
 // GetCanWithdrawUnfreezeAmount gets withdrawable unfreeze amount
 func (m *ResourcesManager) GetCanWithdrawUnfreezeAmount(ctx context.Context, ownerAddress *types.Address, timestamp int64) (*api.CanWithdrawUnfreezeAmountResponseMessage, error) {
 	if ownerAddress == nil {
-		return nil, fmt.Errorf("%w: invalid owner address: nil", types.ErrInvalidAddress)
+		return nil, fmt.Errorf("%w: owner address cannot be nil", types.ErrInvalidAddress)
 	}
 
 	req := &api.CanWithdrawUnfreezeAmountRequestMessage{OwnerAddress: ownerAddress.Bytes(), Timestamp: timestamp}

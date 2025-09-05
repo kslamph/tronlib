@@ -41,14 +41,30 @@ const (
 	TronMessagePrefix = "\x19TRON Signed Message:\n"
 )
 
-// PrivateKeySigner implements the Signer interface using a private key
+// PrivateKeySigner implements the Signer interface using a private key.
+//
+// The PrivateKeySigner allows you to sign transactions and messages using a
+// private key. It automatically derives the corresponding public key and address.
 type PrivateKeySigner struct {
 	address *types.Address
 	privKey *ecdsa.PrivateKey
 	pubKey  *ecdsa.PublicKey
 }
 
-// NewPrivateKeySigner creates a new PrivateKeySigner from a hex private key
+// NewPrivateKeySigner creates a new PrivateKeySigner from a hex private key.
+//
+// This function creates a signer from a hexadecimal private key string. The
+// private key can be provided with or without the "0x" prefix.
+//
+// Example:
+//   signer, err := signer.NewPrivateKeySigner("0xYourPrivateKeyHere")
+//   if err != nil {
+//       // handle error
+//   }
+//   
+//   // Get the address associated with this private key
+//   address := signer.Address()
+//   fmt.Printf("Address: %s\n", address.String())
 func NewPrivateKeySigner(hexPrivKey string) (*PrivateKeySigner, error) {
 	// Remove 0x prefix if present
 	// if strings.HasPrefix(hexPrivKey, "0x") {
@@ -96,7 +112,14 @@ func newPrivateKeySigner(privKey *ecdsa.PrivateKey) (*PrivateKeySigner, error) {
 	}, nil
 }
 
-// Address returns the account's address
+// Address returns the account's address.
+//
+// This method returns the TRON address associated with the private key.
+//
+// Example:
+//   signer, _ := signer.NewPrivateKeySigner("0xYourPrivateKeyHere")
+//   address := signer.Address()
+//   fmt.Printf("Address: %s\n", address.String())
 func (s *PrivateKeySigner) Address() *types.Address {
 	return s.address
 }
@@ -112,8 +135,18 @@ func (s *PrivateKeySigner) PrivateKeyHex() string {
 	return hex.EncodeToString(privateKeyBytes)
 }
 
-// Sign signs a transaction using the private key
-// It supports both *core.Transaction and *api.TransactionExtention types
+// Sign signs a transaction using the private key.
+//
+// This method signs either a *core.Transaction or *api.TransactionExtention
+// using the private key. The signature is appended to the transaction's
+// Signature field.
+//
+// Example:
+//   signer, _ := signer.NewPrivateKeySigner("0xYourPrivateKeyHere")
+//   err := signer.Sign(transaction)
+//   if err != nil {
+//       // handle error
+//   }
 func (s *PrivateKeySigner) Sign(tx any) error {
 
 	if tx == nil {

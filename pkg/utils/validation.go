@@ -21,7 +21,6 @@
 package utils
 
 import (
-	"errors"
 	"fmt"
 	"math/big"
 	"regexp"
@@ -47,8 +46,11 @@ func IsValidAmount(amount *big.Int) bool {
 
 // ValidateAmount validates an amount and returns error if invalid
 func ValidateAmount(amount *big.Int) error {
-	if !IsValidAmount(amount) {
-		return errors.New("amount is not valid")
+	if amount == nil {
+		return fmt.Errorf("%w: amount cannot be nil", types.ErrInvalidAmount)
+	}
+	if amount.Sign() <= 0 {
+		return fmt.Errorf("%w: amount must be positive, got %s", types.ErrInvalidAmount, amount.String())
 	}
 	return nil
 }
@@ -63,18 +65,18 @@ func VerifyMessageV2(message string, signature string, expectedAddress string) (
 
 	// Parse the signature
 	if !strings.HasPrefix(signature, "0x") {
-		return false, errors.New("signature must start with 0x")
+		return false, fmt.Errorf("%w: signature must start with 0x, got %s", types.ErrInvalidParameter, signature)
 	}
 
 	sigBytes := common.FromHex(signature)
 	if len(sigBytes) != 65 {
-		return false, errors.New("signature must be 65 bytes")
+		return false, fmt.Errorf("%w: signature must be 65 bytes, got %d bytes", types.ErrInvalidParameter, len(sigBytes))
 	}
 
 	// Adjust recovery ID (v) back to go-ethereum format
 	// Tron uses 27/28, go-ethereum uses 0/1
 	if sigBytes[64] < 27 {
-		return false, errors.New("invalid recovery ID")
+		return false, fmt.Errorf("%w: invalid recovery ID, must be 27 or 28, got %d", types.ErrInvalidParameter, sigBytes[64])
 	}
 	sigBytes[64] -= 27
 
@@ -117,17 +119,17 @@ func VerifyMessageV2(message string, signature string, expectedAddress string) (
 // ValidateContractData validates smart contract call data
 func ValidateContractData(data []byte) error {
 	if len(data) == 0 {
-		return errors.New("contract data cannot be empty")
+		return fmt.Errorf("%w: contract data cannot be empty", types.ErrInvalidContract)
 	}
 
 	// Check minimum length for method signature
 	if len(data) < 4 {
-		return errors.New("contract data must be at least 4 bytes (method signature)")
+		return fmt.Errorf("%w: contract data must be at least 4 bytes (method signature), got %d bytes", types.ErrInvalidContract, len(data))
 	}
 
 	// Check maximum reasonable size
 	if len(data) > types.MaxContractSize {
-		return fmt.Errorf("contract data size %d exceeds maximum %d", len(data), types.MaxContractSize)
+		return fmt.Errorf("%w: contract data size %d exceeds maximum %d bytes", types.ErrInvalidContract, len(data), types.MaxContractSize)
 	}
 
 	return nil
@@ -136,31 +138,31 @@ func ValidateContractData(data []byte) error {
 // ValidateTransactionOptions validates transaction options
 func ValidateTransactionOptions(opts *types.TransactionOptions) error {
 	if opts == nil {
-		return errors.New("transaction options cannot be nil")
+		return fmt.Errorf("%w: transaction options cannot be nil", types.ErrInvalidParameter)
 	}
 
 	// Validate fee limit
 	if opts.FeeLimit < 0 {
-		return errors.New("fee limit cannot be negative")
+		return fmt.Errorf("%w: fee limit cannot be negative, got %d", types.ErrInvalidParameter, opts.FeeLimit)
 	}
 
 	// Validate call value
 	if opts.CallValue < 0 {
-		return errors.New("call value cannot be negative")
+		return fmt.Errorf("%w: call value cannot be negative, got %d", types.ErrInvalidParameter, opts.CallValue)
 	}
 
 	// Validate token values
 	if opts.TokenValue < 0 {
-		return errors.New("token value cannot be negative")
+		return fmt.Errorf("%w: token value cannot be negative, got %d", types.ErrInvalidParameter, opts.TokenValue)
 	}
 
 	if opts.TokenID < 0 {
-		return errors.New("token ID cannot be negative")
+		return fmt.Errorf("%w: token ID cannot be negative, got %d", types.ErrInvalidParameter, opts.TokenID)
 	}
 
 	// Validate permission ID
 	if opts.PermissionID < 0 {
-		return errors.New("permission ID cannot be negative")
+		return fmt.Errorf("%w: permission ID cannot be negative, got %d", types.ErrInvalidParameter, opts.PermissionID)
 	}
 
 	return nil
@@ -182,11 +184,11 @@ func IsValidMethodName(method string) bool {
 // ValidateMethodName validates a method name and returns error if invalid
 func ValidateMethodName(method string) error {
 	if method == "" {
-		return errors.New("method name cannot be empty")
+		return fmt.Errorf("%w: method name cannot be empty", types.ErrInvalidParameter)
 	}
 
 	if !IsValidMethodName(method) {
-		return fmt.Errorf("invalid method name format: %s", method)
+		return fmt.Errorf("%w: invalid method name format: %s (must be valid identifier)", types.ErrInvalidParameter, method)
 	}
 
 	return nil
@@ -206,15 +208,15 @@ func IsValidTokenSymbol(symbol string) bool {
 // ValidateTokenSymbol validates a token symbol and returns error if invalid
 func ValidateTokenSymbol(symbol string) error {
 	if symbol == "" {
-		return errors.New("token symbol cannot be empty")
+		return fmt.Errorf("%w: token symbol cannot be empty", types.ErrInvalidParameter)
 	}
 
 	if len(symbol) > 10 {
-		return errors.New("token symbol cannot be longer than 10 characters")
+		return fmt.Errorf("%w: token symbol cannot be longer than 10 characters, got %d characters", types.ErrInvalidParameter, len(symbol))
 	}
 
 	if !IsValidTokenSymbol(symbol) {
-		return fmt.Errorf("invalid token symbol format: %s", symbol)
+		return fmt.Errorf("%w: invalid token symbol format: %s (must be alphanumeric and uppercase)", types.ErrInvalidParameter, symbol)
 	}
 
 	return nil
@@ -248,11 +250,11 @@ func IsValidNodeURL(url string) bool {
 // ValidateNodeURL validates a node URL and returns error if invalid
 func ValidateNodeURL(url string) error {
 	if url == "" {
-		return errors.New("node URL cannot be empty")
+		return fmt.Errorf("%w: node URL cannot be empty", types.ErrInvalidParameter)
 	}
 
 	if !IsValidNodeURL(url) {
-		return fmt.Errorf("invalid node URL format: %s", url)
+		return fmt.Errorf("%w: invalid node URL format: %s (expected grpc://host:port or grpcs://host:port)", types.ErrInvalidParameter, url)
 	}
 
 	return nil
@@ -268,11 +270,11 @@ func IsValidDecimals(decimals int) bool {
 // ValidateDecimals validates token decimals and returns error if invalid
 func ValidateDecimals(decimals int) error {
 	if decimals < 0 {
-		return errors.New("decimals cannot be negative")
+		return fmt.Errorf("%w: decimals cannot be negative, got %d", types.ErrInvalidParameter, decimals)
 	}
 
 	if decimals > 18 {
-		return errors.New("decimals cannot be greater than 18")
+		return fmt.Errorf("%w: decimals cannot be greater than 18, got %d", types.ErrInvalidParameter, decimals)
 	}
 
 	return nil
@@ -286,7 +288,7 @@ func IsValidPermissionID(permissionID int32) bool {
 // ValidatePermissionID validates a permission ID and returns error if invalid
 func ValidatePermissionID(permissionID int32) error {
 	if !IsValidPermissionID(permissionID) {
-		return fmt.Errorf("invalid permission ID: %d (must be 0-255)", permissionID)
+		return fmt.Errorf("%w: invalid permission ID: %d (must be 0-255)", types.ErrInvalidParameter, permissionID)
 	}
 
 	return nil
@@ -314,7 +316,7 @@ func IsValidContractName(name string) bool {
 // ValidateContractName validates a contract name and returns error if invalid
 func ValidateContractName(name string) error {
 	if !IsValidContractName(name) {
-		return fmt.Errorf("invalid contract name: contains non-visible characters")
+		return fmt.Errorf("%w: invalid contract name: contains non-visible characters", types.ErrInvalidParameter)
 	}
 
 	return nil
@@ -323,7 +325,7 @@ func ValidateContractName(name string) error {
 // ValidateConsumeUserResourcePercent validates the consume user resource percentage
 func ValidateConsumeUserResourcePercent(percent int64) error {
 	if percent < 0 || percent > 100 {
-		return fmt.Errorf("consume user resource percent must be between 0 and 100, got %d", percent)
+		return fmt.Errorf("%w: consume user resource percent must be between 0 and 100, got %d", types.ErrInvalidParameter, percent)
 	}
 
 	return nil

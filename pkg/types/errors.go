@@ -31,49 +31,49 @@ import (
 
 var (
 	// ErrInvalidAddress indicates an invalid address format or value
-	ErrInvalidAddress = errors.New("invalid address")
+	ErrInvalidAddress = errors.New("invalid address: check format and ensure it's a valid TRON address")
 
 	// ErrInvalidAmount indicates an invalid amount value
-	ErrInvalidAmount = errors.New("invalid amount")
+	ErrInvalidAmount = errors.New("invalid amount: must be positive and within valid range")
 
 	// ErrInvalidContract indicates an invalid contract
-	ErrInvalidContract = errors.New("invalid contract")
+	ErrInvalidContract = errors.New("invalid contract: check contract address and ABI")
 
 	// ErrInvalidTransaction indicates an invalid transaction
-	ErrInvalidTransaction = errors.New("invalid transaction")
+	ErrInvalidTransaction = errors.New("invalid transaction: check transaction format and parameters")
 
 	// ErrInsufficientBalance indicates insufficient balance for operation
-	ErrInsufficientBalance = errors.New("insufficient balance")
+	ErrInsufficientBalance = errors.New("insufficient balance: check account balance and required amount")
 
 	// ErrInsufficientEnergy indicates insufficient energy for contract execution
-	ErrInsufficientEnergy = errors.New("insufficient energy")
+	ErrInsufficientEnergy = errors.New("insufficient energy: freeze TRX for energy or wait for energy regeneration")
 
 	// ErrInsufficientBandwidth indicates insufficient bandwidth for transaction
-	ErrInsufficientBandwidth = errors.New("insufficient bandwidth")
+	ErrInsufficientBandwidth = errors.New("insufficient bandwidth: freeze TRX for bandwidth or wait for bandwidth regeneration")
 
 	// ErrTransactionFailed indicates transaction execution failed
-	ErrTransactionFailed = errors.New("transaction failed")
+	ErrTransactionFailed = errors.New("transaction failed: check transaction details and account resources")
 
 	// ErrContractExecutionFailed indicates contract execution failed
-	ErrContractExecutionFailed = errors.New("contract execution failed")
+	ErrContractExecutionFailed = errors.New("contract execution failed: check contract state and parameters")
 
 	// ErrNetworkError indicates a network-related error
-	ErrNetworkError = errors.New("network error")
+	ErrNetworkError = errors.New("network error: check connection and node availability")
 
 	// ErrTimeout indicates operation timeout
-	ErrTimeout = errors.New("operation timeout")
+	ErrTimeout = errors.New("operation timeout: try again or increase timeout duration")
 
 	// ErrNotFound indicates resource not found
-	ErrNotFound = errors.New("not found")
+	ErrNotFound = errors.New("not found: check resource identifier and network")
 
 	// ErrAlreadyExists indicates resource already exists
-	ErrAlreadyExists = errors.New("already exists")
+	ErrAlreadyExists = errors.New("already exists: resource with this identifier already exists")
 
 	// ErrPermissionDenied indicates insufficient permissions
-	ErrPermissionDenied = errors.New("permission denied")
+	ErrPermissionDenied = errors.New("permission denied: check account permissions and authorization")
 
 	// ErrInvalidParameter indicates invalid parameter value
-	ErrInvalidParameter = errors.New("invalid parameter")
+	ErrInvalidParameter = errors.New("invalid parameter: check parameter value and format")
 )
 
 // TronError wraps TRON-specific errors with additional context.

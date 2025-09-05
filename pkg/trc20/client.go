@@ -35,6 +35,14 @@ import (
 )
 
 // TRC20Manager provides a high-level, type-safe interface for TRC20 token interactions.
+//
+// The TRC20Manager wraps a smart contract instance with convenience methods for
+// common TRC20 operations. It automatically handles:
+//   - Conversion between human-readable decimal amounts and on-chain integer values
+//   - Caching of immutable token properties (name, symbol, decimals)
+//   - Encoding and decoding of method calls and return values
+//
+// Use NewManager to create a new TRC20Manager instance for a specific token contract.
 type TRC20Manager struct {
 	contract *smartcontract.Instance // Underlying smart contract client
 
@@ -50,6 +58,27 @@ type TRC20Manager struct {
 
 // NewManager constructs a TRC20 manager bound to the given token contract
 // address using the provided TRON connection provider.
+//
+// This function creates a new TRC20Manager instance for interacting with a
+// specific TRC20 token contract. It automatically fetches and caches the
+// token's metadata (name, symbol, decimals) for efficient subsequent operations.
+//
+// Example:
+//   cli, err := client.NewClient("grpc://127.0.0.1:50051")
+//   if err != nil {
+//       // handle error
+//   }
+//   defer cli.Close()
+//   
+//   tokenAddr, err := types.NewAddress("TContractAddressHere")
+//   if err != nil {
+//       // handle error
+//   }
+//   
+//   trc20Mgr, err := trc20.NewManager(cli, tokenAddr)
+//   if err != nil {
+//       // handle error
+//   }
 func NewManager(tronClient lowlevel.ConnProvider, contractAddress *types.Address) (*TRC20Manager, error) {
 	// Create a generic smart contract instance
 	contract, err := smartcontract.NewInstance(tronClient, contractAddress, ERC20ABI)
@@ -100,6 +129,16 @@ func FromWeiWithDecimals(value *big.Int, decimals uint8) (decimal.Decimal, error
 }
 
 // Name returns the token name, fetching and caching it on first call.
+//
+// This method returns the name of the TRC20 token (e.g., "TetherUSD").
+// The result is cached after the first successful call for improved performance.
+//
+// Example:
+//   name, err := trc20Mgr.Name(ctx)
+//   if err != nil {
+//       // handle error
+//   }
+//   fmt.Printf("Token name: %s\n", name)
 func (t *TRC20Manager) Name(ctx context.Context) (string, error) {
 	t.mu.RLock()
 	if t.cachedName != "" {
@@ -128,6 +167,16 @@ func (t *TRC20Manager) Name(ctx context.Context) (string, error) {
 }
 
 // Symbol returns the token symbol, fetching and caching it on first call.
+//
+// This method returns the symbol of the TRC20 token (e.g., "USDT").
+// The result is cached after the first successful call for improved performance.
+//
+// Example:
+//   symbol, err := trc20Mgr.Symbol(ctx)
+//   if err != nil {
+//       // handle error
+//   }
+//   fmt.Printf("Token symbol: %s\n", symbol)
 func (t *TRC20Manager) Symbol(ctx context.Context) (string, error) {
 	t.mu.RLock()
 	if t.cachedSymbol != "" {
@@ -156,6 +205,17 @@ func (t *TRC20Manager) Symbol(ctx context.Context) (string, error) {
 }
 
 // Decimals returns the token's decimals, fetching and caching it on first call.
+//
+// This method returns the number of decimal places the token uses for display purposes.
+// For example, USDT typically uses 6 decimals, meaning 1 USDT is represented as 1000000
+// in on-chain integer values. The result is cached after the first successful call.
+//
+// Example:
+//   decimals, err := trc20Mgr.Decimals(ctx)
+//   if err != nil {
+//       // handle error
+//   }
+//   fmt.Printf("Token decimals: %d\n", decimals)
 func (t *TRC20Manager) Decimals(ctx context.Context) (uint8, error) {
 	t.mu.RLock()
 	if t.cachedDecimals != 0 { // Assuming 0 is not a valid decimal count for a TRC20 token
@@ -209,6 +269,17 @@ func (t *TRC20Manager) TotalSupply(ctx context.Context) (decimal.Decimal, error)
 }
 
 // BalanceOf retrieves the owner's balance as a decimal.Decimal.
+//
+// This method returns the token balance of the specified address. The balance is
+// automatically converted from the on-chain integer representation to a human-readable
+// decimal value using the token's decimals.
+//
+// Example:
+//   balance, err := trc20Mgr.BalanceOf(ctx, address)
+//   if err != nil {
+//       // handle error
+//   }
+//   fmt.Printf("Token balance: %s\n", balance.String())
 func (t *TRC20Manager) BalanceOf(ctx context.Context, ownerAddress *types.Address) (decimal.Decimal, error) {
 	decimals, err := t.Decimals(ctx)
 	if err != nil {
@@ -234,6 +305,23 @@ func (t *TRC20Manager) BalanceOf(ctx context.Context, ownerAddress *types.Addres
 
 // Transfer transfers tokens from the caller to a recipient using a
 // decimal.Decimal amount. Returns txid (hex) and the raw transaction extension.
+//
+// This method creates a TRC20 token transfer transaction from one address to another.
+// The transaction is not signed or broadcast - use client.SignAndBroadcast to complete
+// the transfer. The amount should be specified as a decimal value (not in the smallest
+// token units).
+//
+// Example:
+//   amount := decimal.NewFromFloat(10.5) // 10.5 tokens
+//   txExt, err := trc20Mgr.Transfer(ctx, from, to, amount)
+//   if err != nil {
+//       // handle error
+//   }
+//   
+//   // Sign and broadcast the transaction
+//   opts := client.DefaultBroadcastOptions()
+//   opts.FeeLimit = 50_000_000 // 50 TRX max fee for TRC20 operations
+//   result, err := cli.SignAndBroadcast(ctx, txExt, opts, signer)
 func (t *TRC20Manager) Transfer(ctx context.Context, fromAddress *types.Address, toAddress *types.Address, amount decimal.Decimal) (*api.TransactionExtention, error) {
 	decimals, err := t.Decimals(ctx)
 	if err != nil {
@@ -254,6 +342,21 @@ func (t *TRC20Manager) Transfer(ctx context.Context, fromAddress *types.Address,
 }
 
 // Approve authorizes a spender for a given amount using decimal.Decimal.
+//
+// This method creates an approve transaction that allows a spender address to
+// spend a specified amount of tokens on behalf of the owner. The transaction
+// is not signed or broadcast - use client.SignAndBroadcast to complete the approval.
+//
+// Example:
+//   amount := decimal.NewFromFloat(100.0) // Allow spending 100 tokens
+//   txExt, err := trc20Mgr.Approve(ctx, owner, spender, amount)
+//   if err != nil {
+//       // handle error
+//   }
+//   
+//   // Sign and broadcast the transaction
+//   opts := client.DefaultBroadcastOptions()
+//   result, err := cli.SignAndBroadcast(ctx, txExt, opts, signer)
 func (t *TRC20Manager) Approve(ctx context.Context, ownerAddress *types.Address, spenderAddress *types.Address, amount decimal.Decimal) (*api.TransactionExtention, error) {
 	decimals, err := t.Decimals(ctx)
 	if err != nil {
@@ -275,6 +378,17 @@ func (t *TRC20Manager) Approve(ctx context.Context, ownerAddress *types.Address,
 
 // Allowance retrieves the spender's allowance over the owner's tokens as a
 // decimal.Decimal.
+//
+// This method returns the amount of tokens that the spender is allowed to spend
+// on behalf of the owner. The allowance is automatically converted from the
+// on-chain integer representation to a human-readable decimal value.
+//
+// Example:
+//   allowance, err := trc20Mgr.Allowance(ctx, owner, spender)
+//   if err != nil {
+//       // handle error
+//   }
+//   fmt.Printf("Allowance: %s\n", allowance.String())
 func (t *TRC20Manager) Allowance(ctx context.Context, ownerAddress *types.Address, spenderAddress *types.Address) (decimal.Decimal, error) {
 	decimals, err := t.Decimals(ctx)
 	if err != nil {

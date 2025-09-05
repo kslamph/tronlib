@@ -39,6 +39,10 @@ type contractClient interface {
 // Instance represents a high-level client bound to a deployed smart contract
 // address and ABI, providing helpers for encoding inputs, invoking methods,
 // constant calls, and decoding results and events.
+//
+// The Instance allows you to interact with a deployed smart contract by calling
+// its methods, both state-changing (Invoke) and read-only (Call) functions.
+// It handles ABI encoding/decoding automatically.
 type Instance struct {
 	ABI     *core.SmartContract_ABI
 	Address *types.Address
@@ -51,13 +55,30 @@ type Instance struct {
 // NewInstance constructs a contract instance for the given address using the
 // provided TRON client. The ABI can be omitted to fetch from the network, or
 // supplied as either a JSON string or a *core.SmartContract_ABI.
+//
+// This function creates a new Instance for interacting with a deployed smart contract.
+// If no ABI is provided, it will be fetched from the network (the contract must have
+// its ABI published on-chain).
+//
+// Example:
+//   // With ABI provided
+//   instance, err := smartcontract.NewInstance(cli, contractAddr, abiJSON)
+//   if err != nil {
+//       // handle error
+//   }
+//   
+//   // Without ABI (fetch from network)
+//   instance, err := smartcontract.NewInstance(cli, contractAddr)
+//   if err != nil {
+//       // handle error
+//   }
 func NewInstance(tronClient contractClient, contractAddress *types.Address, abi ...any) (*Instance, error) {
 	if tronClient == nil {
-		return nil, fmt.Errorf("tron client cannot be nil")
+		return nil, fmt.Errorf("%w: tron client cannot be nil", types.ErrInvalidParameter)
 	}
 
 	if contractAddress == nil {
-		return nil, fmt.Errorf("contract address cannot be nil")
+		return nil, fmt.Errorf("%w: contract address cannot be nil", types.ErrInvalidAddress)
 	}
 
 	var contractABI *core.SmartContract_ABI
@@ -70,10 +91,10 @@ func NewInstance(tronClient contractClient, contractAddress *types.Address, abi 
 		defer cancel()
 		contractInfo, err := getContractFromNetwork(ctx, tronClient, contractAddress)
 		if err != nil {
-			return nil, fmt.Errorf("failed to retrieve contract from network: %v", err)
+			return nil, fmt.Errorf("%w: failed to retrieve contract from network: %v", types.ErrNetworkError, err)
 		}
 		if contractInfo.GetAbi() == nil {
-			return nil, fmt.Errorf("contract has no ABI available on network")
+			return nil, fmt.Errorf("%w: contract has no ABI available on network", types.ErrNotFound)
 		}
 		contractABI = contractInfo.GetAbi()
 	} else if len(abi) == 1 {
@@ -82,26 +103,26 @@ func NewInstance(tronClient contractClient, contractAddress *types.Address, abi 
 		case string:
 			// Handle ABI JSON string
 			if v == "" {
-				return nil, fmt.Errorf("empty ABI string")
+				return nil, fmt.Errorf("%w: empty ABI string", types.ErrInvalidContract)
 			}
 			processor := utils.NewABIProcessor(nil)
 			contractABI, err = processor.ParseABI(v)
 			if err != nil {
-				return nil, fmt.Errorf("failed to parse ABI string: %v", err)
+				return nil, fmt.Errorf("%w: failed to parse ABI string: %v", types.ErrInvalidContract, err)
 			}
 
 		case *core.SmartContract_ABI:
 			// Handle parsed ABI object
 			if v == nil {
-				return nil, fmt.Errorf("ABI cannot be nil")
+				return nil, fmt.Errorf("%w: ABI cannot be nil", types.ErrInvalidContract)
 			}
 			contractABI = v
 
 		default:
-			return nil, fmt.Errorf("ABI must be string or *core.SmartContract_ABI, got %T", v)
+			return nil, fmt.Errorf("%w: ABI must be string or *core.SmartContract_ABI, got %T", types.ErrInvalidParameter, v)
 		}
 	} else {
-		return nil, fmt.Errorf("too many ABI arguments provided, expected 0 or 1")
+		return nil, fmt.Errorf("%w: too many ABI arguments provided, expected 0 or 1", types.ErrInvalidParameter)
 	}
 
 	return &Instance{
@@ -116,7 +137,7 @@ func NewInstance(tronClient contractClient, contractAddress *types.Address, abi 
 // getContractFromNetwork retrieves smart contract information from the network
 func getContractFromNetwork(ctx context.Context, client contractClient, contractAddress *types.Address) (*core.SmartContract, error) {
 	if contractAddress == nil {
-		return nil, fmt.Errorf("contract address cannot be nil")
+		return nil, fmt.Errorf("%w: contract address cannot be nil", types.ErrInvalidAddress)
 	}
 
 	req := &api.BytesMessage{Value: contractAddress.Bytes()}
@@ -125,23 +146,41 @@ func getContractFromNetwork(ctx context.Context, client contractClient, contract
 	})
 }
 
-// TriggerSmartContract builds a transaction that calls a method on the contract.
-// The result should be signed and broadcasted by the caller.
 // Invoke builds a transaction that calls a state-changing method on the contract.
 // The result should be signed and broadcasted by the caller.
+//
+// This method creates a transaction to call a state-changing function on the smart contract.
+// The transaction is not signed or broadcast - use client.SignAndBroadcast to complete the call.
+//
+// Parameters:
+//   - ctx: Context for the operation
+//   - owner: Address that will execute the transaction
+//   - callValue: Amount of TRX to send with the call (in SUN)
+//   - method: Name of the contract method to call
+//   - params: Optional parameters to pass to the method
+//
+// Example:
+//   txExt, err := instance.Invoke(ctx, owner, 0, "setValue", uint64(42))
+//   if err != nil {
+//       // handle error
+//   }
+//   
+//   // Sign and broadcast the transaction
+//   opts := client.DefaultBroadcastOptions()
+//   result, err := cli.SignAndBroadcast(ctx, txExt, opts, signer)
 func (i *Instance) Invoke(ctx context.Context, owner *types.Address, callValue int64, method string, params ...interface{}) (*api.TransactionExtention, error) {
 
 	if owner == nil {
-		return nil, fmt.Errorf("owner address cannot be nil")
+		return nil, fmt.Errorf("%w: owner address cannot be nil", types.ErrInvalidAddress)
 	}
 	if callValue < 0 {
-		return nil, fmt.Errorf("call value cannot be negative")
+		return nil, fmt.Errorf("%w: call value cannot be negative, got %d", types.ErrInvalidParameter, callValue)
 	}
 
 	// Encode method call data
 	data, err := i.Encode(method, params...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode input for method %s: %v", method, err)
+		return nil, fmt.Errorf("%w: failed to encode input for method %s: %v", types.ErrInvalidContract, method, err)
 	}
 
 	// Create trigger smart contract request
@@ -163,16 +202,37 @@ func (i *Instance) Invoke(ctx context.Context, owner *types.Address, callValue i
 // Call performs a constant (read-only) method call and returns the decoded
 // result value. If the method has multiple outputs, the return is a []interface{};
 // if one output, it's that single value; if none, nil.
+//
+// This method calls a read-only function on the smart contract and returns the result.
+// Unlike Invoke, this method doesn't create a transaction and doesn't change the
+// blockchain state.
+//
+// Parameters:
+//   - ctx: Context for the operation
+//   - owner: Address making the call (for permission checks)
+//   - method: Name of the contract method to call
+//   - params: Optional parameters to pass to the method
+//
+// Example:
+//   result, err := instance.Call(ctx, owner, "getValue")
+//   if err != nil {
+//       // handle error
+//   }
+//   value, ok := result.(uint64)
+//   if !ok {
+//       // handle type assertion
+//   }
+//   fmt.Printf("Value: %d\n", value)
 func (i *Instance) Call(ctx context.Context, owner *types.Address, method string, params ...interface{}) (interface{}, error) {
 
 	if owner == nil {
-		return nil, fmt.Errorf("owner address cannot be nil")
+		return nil, fmt.Errorf("%w: owner address cannot be nil", types.ErrInvalidAddress)
 	}
 
 	// Encode method call data
 	data, err := i.Encode(method, params...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode input for method %s: %v", method, err)
+		return nil, fmt.Errorf("%w: failed to encode input for method %s: %v", types.ErrInvalidContract, method, err)
 	}
 
 	// Create trigger smart contract request
@@ -192,13 +252,13 @@ func (i *Instance) Call(ctx context.Context, owner *types.Address, method string
 	}
 
 	if result == nil {
-		return nil, fmt.Errorf("nil result from constant contract call")
+		return nil, fmt.Errorf("%w: nil result from constant contract call", types.ErrInvalidContract)
 	}
 
 	// Get the constant result bytes
 	constantResult := result.GetConstantResult()
 	if len(constantResult) == 0 {
-		return nil, fmt.Errorf("empty constant result")
+		return nil, fmt.Errorf("%w: empty constant result", types.ErrInvalidContract)
 	}
 
 	// Decode the result using the contract's DecodeResult method
@@ -212,7 +272,7 @@ func (i *Instance) Call(ctx context.Context, owner *types.Address, method string
 
 	decoded, err := i.DecodeResult(method, concatenatedResult)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode result for method %s: %v", method, err)
+		return nil, fmt.Errorf("%w: failed to decode result for method %s: %v", types.ErrInvalidContract, method, err)
 	}
 
 	return decoded, nil
@@ -230,13 +290,13 @@ type SimulateResult struct {
 func (i *Instance) Simulate(ctx context.Context, owner *types.Address, callValue int64, method string, params ...interface{}) (*SimulateResult, error) {
 
 	if owner == nil {
-		return nil, fmt.Errorf("owner address cannot be nil")
+		return nil, fmt.Errorf("%w: owner address cannot be nil", types.ErrInvalidAddress)
 	}
 
 	// Encode method call data
 	data, err := i.Encode(method, params...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode input for method %s: %v", method, err)
+		return nil, fmt.Errorf("%w: failed to encode input for method %s: %v", types.ErrInvalidContract, method, err)
 	}
 
 	// Create trigger smart contract request
@@ -252,11 +312,11 @@ func (i *Instance) Simulate(ctx context.Context, owner *types.Address, callValue
 		return cl.TriggerConstantContract(ctx, req)
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to trigger constant contract: %v", err)
+		return nil, fmt.Errorf("%w: failed to trigger constant contract: %v", types.ErrNetworkError, err)
 	}
 
 	if result == nil {
-		return nil, fmt.Errorf("nil result from constant contract call")
+		return nil, fmt.Errorf("%w: nil result from constant contract call", types.ErrInvalidContract)
 	}
 	return &SimulateResult{
 		Energy:    result.GetEnergyUsed(),

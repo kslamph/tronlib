@@ -37,14 +37,44 @@ const (
 
 // Address represents a TRON address that can be stored in different formats.
 // Always construct via the NewAddress[...] helpers to ensure validation.
+//
+// The Address type can represent TRON addresses in multiple formats:
+//   - Base58: T-prefixed 34-character string (e.g., "TLCuBEbV6jp9432t4Xhg5E5j7v7vK4gkgX")
+//   - Bytes: 0x41-prefixed 21-byte array
+//   - Hex: 42-character hex string with 0x41 prefix
+//   - EVM Bytes: 20-byte array without prefix (for Ethereum compatibility)
+//
+// Use the various constructor functions to create Address instances safely.
 type Address struct {
 	base58Addr string //T prefixed 34 chars base58 representation
 	bytesAddr  []byte // 0x41 prefixed 21 bytes address
 }
 
-// NewAddress creates an Address from a string, []byte, or base58 string
-// it will try to parse the address as base58 first, then hex, then bytes
-// performance penalty is expected
+// NewAddress creates an Address from a string, []byte, or base58 string.
+//
+// This generic function attempts to parse the input in the following order:
+//   1. As a Base58 TRON address (T-prefixed)
+//   2. As a hex string (with or without 0x prefix)
+//   3. As raw bytes
+//
+// Supported input types:
+//   - string: Base58 address, hex string
+//   - []byte: Raw address bytes
+//   - *Address: Returns the same address
+//   - *eCommon.Address: Ethereum address (will be converted)
+//   - [20]byte: Raw 20-byte address
+//   - [21]byte: Raw 21-byte address with 0x41 prefix
+//
+// Example:
+//   addr, err := types.NewAddress("TLCuBEbV6jp9432t4Xhg5E5j7v7vK4gkgX")
+//   if err != nil {
+//       // handle error
+//   }
+//   
+//   addr2, err := types.NewAddress("0x41a614f803b6fd780986a42c78ec9c7f77e6ded13c")
+//   if err != nil {
+//       // handle error
+//   }
 type addressAllowed interface {
 	~string | ~[]byte | *Address | *eCommon.Address | [20]byte | [21]byte
 }
@@ -90,6 +120,16 @@ func NewAddress[T addressAllowed](v T) (*Address, error) {
 
 // NewAddressFromBase58 creates an Address from a Base58Check string.
 // The string must be length 34, T-prefixed.
+//
+// This function parses a Base58-encoded TRON address and validates its checksum.
+// The address must be exactly 34 characters long and start with "T".
+//
+// Example:
+//   addr, err := types.NewAddressFromBase58("TLCuBEbV6jp9432t4Xhg5E5j7v7vK4gkgX")
+//   if err != nil {
+//       // handle error
+//   }
+//   fmt.Printf("Address: %s\n", addr.String())
 func NewAddressFromBase58(base58Addr string) (*Address, error) {
 	// Address must start with T
 	if !strings.HasPrefix(base58Addr, "T") {
@@ -231,7 +271,14 @@ func encodeBase58Addr(bytesAddr []byte) string {
 	return base58.Encode(combined)
 }
 
-// String returns the T prefixed 34 chars base58 representation
+// String returns the T prefixed 34 chars base58 representation.
+//
+// This method implements the fmt.Stringer interface, returning the Base58
+// representation of the address which is the default string representation.
+//
+// Example:
+//   addr, _ := types.NewAddressFromBase58("TLCuBEbV6jp9432t4Xhg5E5j7v7vK4gkgX")
+//   fmt.Printf("Address: %s\n", addr.String()) // Prints: TLCuBEbV6jp9432t4Xhg5E5j7v7vK4gkgX
 func (a *Address) String() string {
 	if a == nil {
 		return ""
@@ -247,7 +294,14 @@ func (a *Address) Base58() string {
 	return a.base58Addr
 }
 
-// Bytes returns the raw bytes of the address (0x41 prefixed 21 bytes)
+// Bytes returns the raw bytes of the address (0x41 prefixed 21 bytes).
+//
+// This method returns the raw byte representation of the address, which includes
+// the 0x41 prefix followed by the 20-byte address hash.
+//
+// Example:
+//   addr, _ := types.NewAddressFromBase58("TLCuBEbV6jp9432t4Xhg5E5j7v7vK4gkgX")
+//   bytes := addr.Bytes() // Returns 21 bytes: [0x41, ...]
 func (a *Address) Bytes() []byte {
 	if a == nil {
 		return nil

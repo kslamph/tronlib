@@ -31,10 +31,26 @@ import (
 	"github.com/kslamph/tronlib/pkg/utils"
 )
 
-// Manager provides high-level smart contract operations
+// Manager provides high-level smart contract operations.
+//
+// The Manager allows you to deploy new smart contracts and perform administrative
+// operations on existing contracts. For interacting with deployed contracts,
+// use the Instance type which provides methods for calling contract functions.
 type Manager struct{ conn lowlevel.ConnProvider }
 
-// NewManager creates a new smart contract manager
+// NewManager creates a new smart contract manager.
+//
+// The smart contract manager requires a connection provider (typically a *client.Client)
+// to communicate with the TRON network.
+//
+// Example:
+//   cli, err := client.NewClient("grpc://127.0.0.1:50051")
+//   if err != nil {
+//       // handle error
+//   }
+//   defer cli.Close()
+//   
+//   contractMgr := smartcontract.NewManager(cli)
 func NewManager(conn lowlevel.ConnProvider) *Manager {
 	return &Manager{conn: conn}
 }
@@ -46,11 +62,31 @@ func (m *Manager) Instance(contractAddress *types.Address, abi ...any) (*Instanc
 	return NewInstance(m.conn, contractAddress, abi...)
 }
 
-// Deploy deploys a smart contract with constructor parameters
-// abi: ABI can be:
-//   - string: ABI JSON string
-//   - *core.SmartContract_ABI: Parsed ABI object
-//   - nil: No ABI provided
+// Deploy deploys a smart contract with constructor parameters.
+//
+// This method creates a transaction to deploy a new smart contract to the TRON network.
+// The transaction is not signed or broadcast - use client.SignAndBroadcast to complete
+// the deployment.
+//
+// Parameters:
+//   - ownerAddress: Address that will own the contract
+//   - contractName: Human-readable name for the contract
+//   - abi: Contract ABI (string, *core.SmartContract_ABI, or nil)
+//   - bytecode: Compiled contract bytecode
+//   - callValue: TRX amount to send with deployment (in SUN)
+//   - consumeUserResourcePercent: Percentage of energy consumed by user (0-100)
+//   - originEnergyLimit: Maximum energy the contract can consume
+//   - constructorParams: Optional constructor parameters
+//
+// Example:
+//   txExt, err := contractMgr.Deploy(ctx, owner, "MyContract", abiJSON, bytecode, 0, 100, 30000, param1, param2)
+//   if err != nil {
+//       // handle error
+//   }
+//   
+//   // Sign and broadcast the transaction
+//   opts := client.DefaultBroadcastOptions()
+//   result, err := cli.SignAndBroadcast(ctx, txExt, opts, signer)
 func (m *Manager) Deploy(ctx context.Context, ownerAddress *types.Address, contractName string, abi any, bytecode []byte, callValue, consumeUserResourcePercent, originEnergyLimit int64, constructorParams ...interface{}) (*api.TransactionExtention, error) {
 	// Validate inputs
 	if err := utils.ValidateContractName(contractName); err != nil {

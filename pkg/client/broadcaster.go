@@ -37,6 +37,9 @@ import (
 // BroadcastOptions controls high-level signing and broadcasting workflows.
 // Fields with zero values are defaulted by DefaultBroadcastOptions unless
 // explicitly documented otherwise.
+//
+// These options control how transactions are signed, broadcast, and confirmed.
+// Use DefaultBroadcastOptions() to get sensible defaults, then modify as needed.
 type BroadcastOptions struct {
 	FeeLimit       int64         // Fee limit for the transaction
 	PermissionID   int32         // Permission ID for the transaction
@@ -46,6 +49,13 @@ type BroadcastOptions struct {
 }
 
 // DefaultBroadcastOptions returns sane defaults for broadcasting transactions.
+//
+// The default options are:
+//   - FeeLimit: 150,000,000 SUN (0.15 TRX)
+//   - PermissionID: 0 (owner permission)
+//   - WaitForReceipt: true (wait for transaction confirmation)
+//   - WaitTimeout: 15 seconds
+//   - PollInterval: 3 seconds
 func DefaultBroadcastOptions() BroadcastOptions {
 	return BroadcastOptions{
 		FeeLimit:       150_000_000,
@@ -58,6 +68,10 @@ func DefaultBroadcastOptions() BroadcastOptions {
 
 // BroadcastResult summarizes the outcome of a simulation or a broadcasted
 // transaction, including TRON return status, resource usage, and logs.
+//
+// This struct contains the results of either a Simulate or SignAndBroadcast operation.
+// When WaitForReceipt is true in SignAndBroadcast, additional fields like EnergyUsage
+// and Logs will be populated with data from the transaction receipt.
 type BroadcastResult struct {
 	TxID    string                 `json:"txID"`
 	Success bool                   `json:"success"`
@@ -77,8 +91,22 @@ type BroadcastResult struct {
 // Simulate performs a read-only execution of a single-contract transaction and
 // returns a BroadcastResult with constant return data, energy usage, and logs.
 //
+// This method allows you to test a transaction without actually broadcasting it
+// to the network. It's useful for estimating energy usage and checking if a
+// transaction would succeed before actually sending it.
+//
 // Supported input types are *api.TransactionExtention and *core.Transaction.
 // The transaction must contain exactly one contract and must not be expired.
+//
+// Example:
+//   sim, err := cli.Simulate(ctx, txExt)
+//   if err != nil {
+//       // handle error
+//   }
+//   if !sim.Success {
+//       // transaction would fail
+//   }
+//   fmt.Printf("Energy usage: %d\n", sim.EnergyUsage)
 func (c *Client) Simulate(ctx context.Context, anytx any) (*BroadcastResult, error) {
 	if anytx == nil {
 		return nil, fmt.Errorf("transaction cannot be nil")
@@ -149,7 +177,24 @@ func (c *Client) Simulate(ctx context.Context, anytx any) (*BroadcastResult, err
 // and optionally waits for receipt. It returns a BroadcastResult with txid,
 // TRON return code/message, and, if waiting, resource usage and logs.
 //
+// This is the primary method for sending transactions to the TRON network.
+// It handles signing, broadcasting, and (optionally) waiting for the transaction
+// to be confirmed.
+//
 // Supported input types are *api.TransactionExtention and *core.Transaction.
+//
+// Example:
+//   opts := client.DefaultBroadcastOptions()
+//   opts.FeeLimit = 100_000_000
+//   opts.WaitForReceipt = true
+//   
+//   result, err := cli.SignAndBroadcast(ctx, txExt, opts, signer)
+//   if err != nil {
+//       // handle error
+//   }
+//   if result.Success {
+//       fmt.Printf("Transaction successful: %s\n", result.TxID)
+//   }
 func (c *Client) SignAndBroadcast(ctx context.Context, anytx any, opt BroadcastOptions, signers ...signer.Signer) (*BroadcastResult, error) {
 	// Apply defaults for zero-values without breaking explicit non-zero caller values.
 	def := DefaultBroadcastOptions()
