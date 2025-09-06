@@ -44,12 +44,12 @@ type HDWalletSigner struct {
 }
 
 // NewHDWalletSigner creates a new HDWalletSigner from a mnemonic and derivation path.
-func NewHDWalletSigner(mnemonic, path string) (*HDWalletSigner, error) {
+func NewHDWalletSigner(mnemonic, passphrase, path string) (*HDWalletSigner, error) {
 	if !bip39.IsMnemonicValid(mnemonic) {
 		return nil, fmt.Errorf("invalid mnemonic")
 	}
 
-	seed := bip39.NewSeed(mnemonic, "") // No password for now
+	seed := bip39.NewSeed(mnemonic, passphrase) // No password for now
 	masterKey, err := hdwallet.NewMasterKey(seed)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create master key: %w", err)

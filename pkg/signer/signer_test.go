@@ -24,6 +24,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
+
+	"github.com/kslamph/tronlib/pb/core"
 )
 
 // Test data migrated from pkg_old/types/account_test.go
@@ -121,7 +125,49 @@ func TestInvalidPrivateKeys(t *testing.T) {
 	}
 }
 
-func TestMessageSigningV2(t *testing.T) {
+func TestPrivateKeySigner_Sign(t *testing.T) {
+	privateKey := "f8c6f45b2aa8b68ab5f3910bdeb5239428b731618113e2881f46e374bf796b02"
+
+	signer, err := NewPrivateKeySigner(privateKey)
+	require.NoError(t, err)
+	require.NotNil(t, signer)
+
+	// Create a minimal *core.Transaction for testing
+	// Use a fixed timestamp for deterministic testing
+	fixedTimestamp := int64(1678886400000) // March 15, 2023 12:00:00 AM GMT in milliseconds
+
+	tx := &core.Transaction{
+		RawData: &core.TransactionRaw{ // Corrected: Use TransactionRaw
+			Timestamp:  fixedTimestamp,
+			Expiration: fixedTimestamp + (60 * 1000), // Expiration 60 seconds after timestamp
+			FeeLimit:   1_000_000,                    // Example fee limit
+			Contract: []*core.Transaction_Contract{
+				{
+					Type: core.Transaction_Contract_TransferContract,
+					Parameter: &anypb.Any{
+						TypeUrl: "/protocol.TransferContract",
+						Value:   []byte("some transfer contract data"), // Placeholder
+					},
+				},
+			},
+		},
+		Signature: make([][]byte, 0),
+	}
+
+	err = signer.Sign(tx)
+	require.NoError(t, err)
+	require.NotEmpty(t, tx.Signature)
+
+	signedTxBytes, err := proto.Marshal(tx)
+	require.NoError(t, err)
+	require.NotEmpty(t, signedTxBytes)
+
+	expectedSignature := []byte{0x3f, 0x39, 0xec, 0xd2, 0x72, 0xe7, 0x5a, 0xde, 0x1e, 0x05, 0x84, 0xd5, 0xb2, 0x0a, 0xb6, 0x0b, 0xa5, 0x3b, 0x00, 0x9f, 0xbe, 0x8c, 0x3c, 0x95, 0xee, 0x4b, 0x81, 0xee, 0x32, 0xea, 0xa2, 0x80, 0x13, 0x43, 0x37, 0xa4, 0xaa, 0x88, 0xc6, 0xc9, 0x59, 0x8f, 0x1a, 0xec, 0x4c, 0x1e, 0xe7, 0xcb, 0x8a, 0x3c, 0x38, 0xb4, 0xad, 0x9f, 0x73, 0xdc, 0xfa, 0xbc, 0x02, 0x9c, 0x26, 0xf6, 0xbe, 0x38, 0x00}
+	require.Equal(t, expectedSignature, tx.Signature[0])
+
+}
+
+func TestPrivateKeySigner_SignMessageV2(t *testing.T) {
 	// Test data migrated from pkg_old/crypto/verify_message_v2_test.go
 	privateKey := "f8c6f45b2aa8b68ab5f3910bdeb5239428b731618113e2881f46e374bf796b02"
 	message := "sign message testing"
