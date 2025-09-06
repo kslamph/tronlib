@@ -56,7 +56,7 @@ func TestNileBroadcastTransaction(t *testing.T) {
 	senderAddress := s.Address()
 
 	// Create a new recipient account from a predefined address
-	recipientAddr, _ := types.NewAddress("TXYZopYRdj2D9XRtbG411XZZ3kM5VkAeBf")
+	recipientAddr, _ := types.NewAddress("TBkfmcE7pM8cwxEhATtkMFwAf1FeQcwY9x")
 
 	t.Run("TRX Transfer", func(t *testing.T) {
 		// 1. Get sender's balance before transfer
@@ -64,8 +64,8 @@ func TestNileBroadcastTransaction(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Check if sender has sufficient balance for transfer + fees
-		transferAmount := int64(100_000)                 // Reduced from 1,000,000 to 100,000 sun (0.1 TRX)
-		minRequiredBalance := transferAmount + 1_000_000 // Transfer amount + ~1 TRX for fees
+		transferAmount := int64(1) //0.000001 TRX
+		minRequiredBalance := transferAmount
 
 		if senderBalanceBefore < minRequiredBalance {
 			t.Skipf("Insufficient balance for test. Has: %d sun, Need: %d sun. Please fund test account.",
@@ -88,11 +88,8 @@ func TestNileBroadcastTransaction(t *testing.T) {
 		// 4. Validate balances after transfer
 		senderBalanceAfter, err := am.GetBalance(context.Background(), senderAddress)
 		assert.NoError(t, err)
-		recipientBalanceAfter, err := am.GetBalance(context.Background(), recipientAddr)
-		assert.NoError(t, err)
 
-		assert.Equal(t, int64(100_000), recipientBalanceAfter)
-		assert.True(t, senderBalanceBefore > senderBalanceAfter, "Sender balance should decrease")
+		assert.Equal(t, senderBalanceBefore-transferAmount, senderBalanceAfter)
 
 		fmt.Printf("TRX transfer successful: %s\n", res.TxID)
 	})

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"math/big"
 	"os"
@@ -17,7 +16,6 @@ import (
 	"github.com/kslamph/tronlib/pkg/client/lowlevel"
 	"github.com/kslamph/tronlib/pkg/signer"
 	"github.com/kslamph/tronlib/pkg/smartcontract"
-	"github.com/kslamph/tronlib/pkg/trc20"
 	"github.com/kslamph/tronlib/pkg/types"
 	"github.com/shopspring/decimal"
 )
@@ -30,9 +28,9 @@ func handleApprovalIfNeeded(cli *client.Client, ctx context.Context, key *signer
 	}
 
 	// Create TRC20 manager
-	trc20Mgr, err := trc20.NewManager(cli, tokenAddr)
-	if err != nil {
-		return fmt.Errorf("failed to create TRC20 manager: %v", err)
+	trc20Mgr := cli.TRC20(tokenAddr)
+	if trc20Mgr == nil {
+		return fmt.Errorf("failed to create TRC20 manager")
 	}
 
 	from := key.Address()
@@ -605,7 +603,7 @@ func handleBurnTransaction(cli *client.Client, ctx context.Context, key *signer.
 	fmt.Println("\nExecuting burn transaction using smartcontract package...")
 
 	// Load the ABI for the shielded contract
-	abiBytes, err := ioutil.ReadFile("/home/kslam/goproj/tronlib/cmd/setup_nile_testnet/test_contract/build/ShieldedTRC20.abi")
+	abiBytes, err := os.ReadFile("/home/kslam/goproj/tronlib/cmd/setup_nile_testnet/test_contract/build/ShieldedTRC20.abi")
 	if err != nil {
 		return nil, fmt.Errorf("failed to read shielded contract ABI: %v", err)
 	}
@@ -690,9 +688,9 @@ func handleBurnTransaction(cli *client.Client, ctx context.Context, key *signer.
 // verifyBurnResult checks if the burn was successful by checking balance changes
 func verifyBurnResult(cli *client.Client, ctx context.Context, key *signer.PrivateKeySigner, tokenAddr *types.Address, initialBalance decimal.Decimal) error {
 	// Create TRC20 manager to check balance
-	trc20Mgr, err := trc20.NewManager(cli, tokenAddr)
-	if err != nil {
-		return fmt.Errorf("failed to create TRC20 manager: %v", err)
+	trc20Mgr := cli.TRC20(tokenAddr)
+	if trc20Mgr == nil {
+		return fmt.Errorf("failed to create TRC20 manager")
 	}
 
 	from := key.Address()

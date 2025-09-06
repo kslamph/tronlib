@@ -2,6 +2,15 @@
 
 The `types` package provides fundamental data types, constants, and utilities that form the foundation of TronLib. Understanding these types is essential for effective use of the library.
 
+## 📚 Learning Path
+
+This document is part of the TronLib learning path:
+1. [Quick Start Guide](quickstart.md) - Basic usage
+2. [Architecture Overview](architecture.md) - Understanding the design
+3. **Types Package Reference** (this document) - Fundamental data types
+4. [Other Package Documentation](../README.md#package-references) - Additional functionality
+5. [API Reference](API_REFERENCE.md) - Complete function documentation
+
 ## 📋 Overview
 
 The types package handles:
@@ -155,13 +164,20 @@ The types package defines important blockchain constants:
 // SUN is the smallest unit of TRX
 const SUN_PER_TRX = 1_000_000
 
-// Convert between TRX and SUN
-trxAmount := 5.5
-sunAmount := int64(trxAmount * types.SUN_PER_TRX) // 5,500,000 SUN
+// For exact integer-based conversions:
+trxAmountTRX := int64(5)
+sunAmount := trxAmountTRX * types.SUN_PER_TRX // 5,000,000 SUN
 
 sunAmount := int64(10_000_000)
-trxAmount := float64(sunAmount) / types.SUN_PER_TRX // 10.0 TRX
+// For display purposes, use utils.HumanReadableBalance instead of direct division
 ```
+
+**Note on Currency Conversion:**
+TronLib intentionally avoids showing examples with `float64` arithmetic for currency conversions due to precision concerns. For financial applications, it's recommended to:
+
+1. Use integer arithmetic for exact calculations (work in SUN)
+2. Use `utils.HumanReadableBalance()` for displaying TRX amounts
+3. Use `decimal.Decimal` for user input that requires fractional precision
 
 ### Address Constants
 ```go
@@ -284,23 +300,56 @@ func FormatAddress(addr *types.Address, format string) string {
 ### Amount Conversion Utilities
 
 #### TRX/SUN Conversion
-```go
-// Helper functions for amount conversion
-func TRXToSUN(trx float64) int64 {
-    return int64(trx * types.SUN_PER_TRX)
-}
 
-func SUNToTRX(sun int64) float64 {
-    return float64(sun) / types.SUN_PER_TRX
-}
+TronLib does not provide direct `TRXToSUN` and `SUNToTRX` conversion functions that use `float64` for TRX amounts. This is an intentional design decision to prevent precision issues that commonly occur with floating-point arithmetic in financial applications.
 
-// Example usage
-userInput := 12.5 // TRX
-sunAmount := TRXToSUN(userInput) // 12,500,000 SUN
+**Why Direct Conversion Functions Are Not Provided:**
 
-receiptAmount := int64(5_000_000) // SUN from blockchain
-trxAmount := SUNToTRX(receiptAmount) // 5.0 TRX for display
-```
+1. **Floating-Point Precision Issues**: Using `float64` for financial calculations can lead to rounding errors and precision loss. For example, `0.1 + 0.2` in floating-point arithmetic does not equal exactly `0.3`.
+
+2. **Financial Accuracy Requirements**: Blockchain applications require exact precision for monetary calculations. Even small rounding errors can lead to significant discrepancies in financial transactions.
+
+3. **Best Practice Approach**: TronLib follows financial industry best practices by using integer-based arithmetic (SUN) for internal calculations and providing utility functions that handle conversions with proper precision.
+
+**Recommended Approaches for TRX/SUN Conversion:**
+
+1. **For Display Purposes**: Use `utils.HumanReadableBalance()` which provides properly formatted numbers with comma separators:
+   ```go
+   import "github.com/kslamph/tronlib/pkg/utils"
+   
+   balanceInSUN := int64(12500000)
+   trxBalance, err := utils.HumanReadableBalance(balanceInSUN, 6) // "12.500000"
+   if err != nil {
+       // handle error
+   }
+   fmt.Printf("Balance: %s TRX\n", trxBalance)
+   ```
+
+2. **For TRC20 Token Operations**: Use the built-in decimal conversion in the TRC20 package:
+   ```go
+   import (
+       "github.com/shopspring/decimal"
+       "github.com/kslamph/tronlib/pkg/trc20"
+   )
+   
+   // Convert human-readable amount to on-chain integer value
+   humanAmount := decimal.NewFromFloat(12.5)
+   weiAmount, err := trc20.ToWei(humanAmount, 6) // 6 decimals for USDT
+   if err != nil {
+       // handle error
+   }
+   ```
+
+3. **For Manual Integer-Based Conversion**: When you need to convert between TRX and SUN, use integer arithmetic:
+   ```go
+   // TRX to SUN (for exact values)
+   trxAmountSUN := trxAmountTRX * types.SUN_PER_TRX // where trxAmountTRX is an integer
+   
+   // SUN to TRX display (using utils package)
+   trxAmountString, err := utils.HumanReadableBalance(sunAmount, 6)
+   ```
+
+By avoiding direct float64-based conversions, TronLib ensures that all financial calculations maintain the precision required for blockchain applications.
 
 #### Safe Amount Handling
 ```go

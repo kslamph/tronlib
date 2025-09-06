@@ -8,7 +8,6 @@ import (
 	"log"
 
 	"github.com/kslamph/tronlib/pkg/client"
-	"github.com/kslamph/tronlib/pkg/trc20"
 	"github.com/kslamph/tronlib/pkg/types"
 )
 
@@ -24,9 +23,9 @@ func main() {
 	tokenAddr, _ := types.NewAddress("TWRvzd6FQcsyp7hwCtttjZGpU1kfvVEtNK")
 
 	// Create TRC20 manager
-	trc20Mgr, err := trc20.NewManager(cli, tokenAddr)
-	if err != nil {
-		log.Fatal(err)
+	trc20Mgr := cli.TRC20(tokenAddr)
+	if trc20Mgr == nil {
+		log.Fatal("Failed to create TRC20 manager")
 	}
 
 	ctx := context.Background()

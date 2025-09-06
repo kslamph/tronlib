@@ -2,6 +2,15 @@
 
 This document provides comprehensive documentation for the TronLib SDK, covering all public functions, methods, types, and constants. The SDK is organized into several packages, each with specific responsibilities.
 
+## 📚 Learning Path
+
+This document is part of the TronLib learning path:
+1. [Quick Start Guide](quickstart.md) - Basic usage
+2. [Architecture Overview](architecture.md) - Understanding the design
+3. [Package Documentation](../README.md#package-references) - Detailed package references
+4. **API Reference** (this document) - Complete function documentation
+5. [Examples](../example/) - Real-world implementations
+
 ## Table of Contents
 
 1. [client package](#client-package)
@@ -398,12 +407,25 @@ This method returns the TRX balance in SUN (1 TRX = 1,000,000 SUN). It's a conve
 
 Example:
 ```go
+import (
+    "fmt"
+    "log"
+
+    "github.com/kslamph/tronlib/pkg/utils"
+)
+
 balance, err := accountMgr.GetBalance(ctx, address)
 if err != nil {
     // handle error
 }
-trxBalance := float64(balance) / 1_000_000
-fmt.Printf("Balance: %.6f TRX\n", trxBalance)
+// Convert SUN to TRX using utils package
+trxBalance, err := utils.HumanReadableBalance(balance, 6) // 6 decimal places for TRX
+if err != nil {
+    log.Printf("Warning: Failed to format balance: %v", err)
+    fmt.Printf("Balance: %d SUN\n", balance)
+} else {
+    fmt.Printf("Balance: %s TRX\n", trxBalance)
+}
 ```
 
 #### TransferTRX

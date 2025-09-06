@@ -2,6 +2,15 @@
 
 The `smartcontract` package provides comprehensive tools for deploying, managing, and interacting with smart contracts on the TRON blockchain. It offers both high-level convenience methods and low-level control for advanced use cases.
 
+## 📚 Learning Path
+
+This document is part of the TronLib learning path:
+1. [Quick Start Guide](quickstart.md) - Basic usage
+2. [Architecture Overview](architecture.md) - Understanding the design
+3. **Smart Contract Package Reference** (this document) - Detailed contract operations
+4. [Other Package Documentation](../README.md#package-references) - Additional functionality
+5. [API Reference](API_REFERENCE.md) - Complete function documentation
+
 ## 📋 Overview
 
 The smartcontract package features:
@@ -402,6 +411,13 @@ if err == nil {
 ### Energy Estimation
 
 ```go
+import (
+    "fmt"
+    "log"
+
+    "github.com/kslamph/tronlib/pkg/utils"
+)
+
 // Estimate energy cost before execution
 caller, _ := types.NewAddress("TLyqzVGLV1srkB7dToTAEqgDSfPtXRJZYH")
 
@@ -415,9 +431,14 @@ if err != nil {
     // Calculate cost in TRX (approximate)
     energyPriceInSun := int64(420) // Current energy price
     costInSun := estimatedEnergy * energyPriceInSun
-    costInTRX := float64(costInSun) / 1_000_000
-    
-    fmt.Printf("Estimated cost: %.6f TRX\n", costInTRX)
+    // Convert SUN to TRX using utils package
+    costInTRX, err := utils.HumanReadableBalance(costInSun, 6) // 6 decimal places for TRX
+    if err != nil {
+        log.Printf("Warning: Failed to format cost: %v", err)
+        fmt.Printf("Estimated cost: %d SUN\n", costInSun)
+    } else {
+        fmt.Printf("Estimated cost: %s TRX\n", costInTRX)
+    }
 }
 ```
 
@@ -780,7 +801,7 @@ func SafeContractCall(ctx context.Context, instance *smartcontract.Instance, cal
 func TestContractDeployment(t *testing.T) {
     // Mock client for testing
     mockClient := &MockClient{}
-    mgr := mockClient.SmartContracts()
+    mgr := mockClient.SmartContract()
 
     owner := types.MustNewAddressFromBase58("TLyqzVGLV1srkB7dToTAEqgDSfPtXRJZYH")
     

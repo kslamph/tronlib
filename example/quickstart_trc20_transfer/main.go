@@ -9,7 +9,6 @@ import (
 
 	"github.com/kslamph/tronlib/pkg/client"
 	"github.com/kslamph/tronlib/pkg/signer"
-	"github.com/kslamph/tronlib/pkg/trc20"
 	"github.com/kslamph/tronlib/pkg/types"
 	"github.com/shopspring/decimal"
 )
@@ -32,9 +31,9 @@ func main() {
 
 	// Create TRC20 manager for test TRC20 token
 	usdtAddr, _ := types.NewAddress("TWRvzd6FQcsyp7hwCtttjZGpU1kfvVEtNK")
-	trc20Mgr, err := trc20.NewManager(cli, usdtAddr)
-	if err != nil {
-		log.Fatalf("Failed to create TRC20 manager: %v", err)
+	trc20Mgr := cli.TRC20(usdtAddr)
+	if trc20Mgr == nil {
+		log.Fatal("Failed to create TRC20 manager")
 	}
 
 	// Check balance

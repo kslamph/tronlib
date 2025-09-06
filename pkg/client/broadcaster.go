@@ -67,11 +67,15 @@ func DefaultBroadcastOptions() BroadcastOptions {
 }
 
 // BroadcastResult summarizes the outcome of a simulation or a broadcasted
-// transaction, including TRON return status, resource usage, and logs.
+// transaction, including TRON return status, and for smart contract transactions,
+// resource usage and logs.
 //
 // This struct contains the results of either a Simulate or SignAndBroadcast operation.
-// When WaitForReceipt is true in SignAndBroadcast, additional fields like EnergyUsage
-// and Logs will be populated with data from the transaction receipt.
+// For smart contract transactions (CreateSmartContract and TriggerSmartContract),
+// when WaitForReceipt is true in SignAndBroadcast, additional fields like EnergyUsage
+// and Logs will be populated with data from the transaction receipt. For other
+// transaction types (like TRX transfers), only the basic success/failure information
+// will be available.
 type BroadcastResult struct {
 	TxID    string                 `json:"txID"`
 	Success bool                   `json:"success"`
@@ -79,9 +83,11 @@ type BroadcastResult struct {
 	Message string                 `json:"returnMessage"` // TRON return message concat with contract return message
 
 	// ConstantReturn has the details of the contract returned error message or result
+	// Populated for smart contract transactions when WaitForReceipt is true
 	ConstantReturn [][]byte //test if nil before use
 
-	// Fields primarily populated by simulation (TriggerConstantContract)
+	// Fields primarily populated by simulation (TriggerConstantContract) or
+	// for smart contract transactions when WaitForReceipt is true
 	EnergyUsage int64                       `json:"energyUsed,omitempty"`
 	NetUsage    int64                       `json:"netUsage,omitempty"`
 	Logs        []*core.TransactionInfo_Log `json:"logs,omitempty"`
@@ -176,11 +182,17 @@ func (c *Client) Simulate(ctx context.Context, anytx any) (*BroadcastResult, err
 // SignAndBroadcast signs a single-contract transaction using the provided
 // signers (if any), applies BroadcastOptions, broadcasts it to the network,
 // and optionally waits for receipt. It returns a BroadcastResult with txid,
-// TRON return code/message, and, if waiting, resource usage and logs.
+// TRON return code/message, and, if waiting for smart contract transactions,
+// resource usage and logs.
 //
 // This is the primary method for sending transactions to the TRON network.
 // It handles signing, broadcasting, and (optionally) waiting for the transaction
 // to be confirmed.
+//
+// For smart contract transactions (CreateSmartContract and TriggerSmartContract),
+// when WaitForReceipt is enabled, it will retrieve execution results including
+// energy usage, logs, and contract return values. For other transaction types
+// (like TRX transfers), it will only indicate success/failure status.
 //
 // Supported input types are *api.TransactionExtention and *core.Transaction.
 //
@@ -196,6 +208,10 @@ func (c *Client) Simulate(ctx context.Context, anytx any) (*BroadcastResult, err
 //	}
 //	if result.Success {
 //	    fmt.Printf("Transaction successful: %s\n", result.TxID)
+//	    // For smart contract transactions, additional info will be available:
+//	    if result.EnergyUsage > 0 {
+//	        fmt.Printf("Energy used: %d\n", result.EnergyUsage)
+//	    }
 //	}
 func (c *Client) SignAndBroadcast(ctx context.Context, anytx any, opt BroadcastOptions, signers ...signer.Signer) (*BroadcastResult, error) {
 	// Apply defaults for zero-values without breaking explicit non-zero caller values.
@@ -266,7 +282,12 @@ func (c *Client) SignAndBroadcast(ctx context.Context, anytx any, opt BroadcastO
 	result.Code = ret.GetCode()
 	result.Message = string(ret.GetMessage())
 
-	if !opt.WaitForReceipt {
+	// Check if this is a smart contract transaction (only applicable to CreateSmartContract and TriggerSmartContract)
+	contractType := coretx.GetRawData().GetContract()[0].GetType()
+	isSmartContractTx := contractType == core.Transaction_Contract_CreateSmartContract ||
+		contractType == core.Transaction_Contract_TriggerSmartContract
+
+	if !opt.WaitForReceipt || !isSmartContractTx {
 		return result, nil
 	}
 
@@ -278,7 +299,6 @@ func (c *Client) SignAndBroadcast(ctx context.Context, anytx any, opt BroadcastO
 	result.Success = result.Success && txInfo.GetResult() == core.TransactionInfo_SUCESS
 
 	result.Message = result.Message + string(txInfo.GetResMessage())
-
 	result.ConstantReturn = txInfo.GetContractResult()
 	result.EnergyUsage = txInfo.GetReceipt().GetEnergyUsageTotal()
 	result.NetUsage = txInfo.GetReceipt().GetNetUsage()

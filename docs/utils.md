@@ -2,6 +2,15 @@
 
 The `utils` package provides essential ABI (Application Binary Interface) encoding/decoding functionality and type conversion utilities. It serves as the backbone for smart contract interactions and event processing.
 
+## 📚 Learning Path
+
+This document is part of the TronLib learning path:
+1. [Quick Start Guide](quickstart.md) - Basic usage
+2. [Architecture Overview](architecture.md) - Understanding the design
+3. **Utils Package Reference** (this document) - ABI and utility functions
+4. [Other Package Documentation](../README.md#package-references) - Additional functionality
+5. [API Reference](API_REFERENCE.md) - Complete function documentation
+
 ## 📋 Overview
 
 The utils package handles:

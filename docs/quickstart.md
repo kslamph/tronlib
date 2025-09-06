@@ -1,6 +1,14 @@
 # 🚀 Quick Start Guide
 
-This guide will get you up and running with TronLib in minutes. We'll cover the most common operations: TRX transfers and TRC20 token interactions.
+This guide will get you up and running with TronLib in minutes. We'll cover the most common operations: TRX transfers and TRC20 token interactions. This is the first step in learning TronLib.
+
+## 📚 Learning Path
+
+1. **Quick Start Guide** (this document) - Basic usage
+2. [Architecture Overview](architecture.md) - Understanding the design
+3. [Package Documentation](../README.md#package-references) - Detailed API references
+4. [API Reference](API_REFERENCE.md) - Complete function documentation
+5. [Examples](../example/) - Real-world implementations
 
 ## 📋 Prerequisites
 
@@ -35,6 +43,7 @@ import (
     "github.com/kslamph/tronlib/pkg/client"
     "github.com/kslamph/tronlib/pkg/signer"
     "github.com/kslamph/tronlib/pkg/types"
+    "github.com/kslamph/tronlib/pkg/utils"
 )
 
 func main() {
@@ -86,13 +95,19 @@ func main() {
     ctx := context.Background()
     
     // Check balance before transfer
-    balance, err := cli.Accounts().GetBalance(ctx, from)
+    balance, err := cli.Account().GetBalance(ctx, from)
     if err != nil {
         log.Fatalf("Failed to get balance: %v", err)
     }
     
-    trxBalance := float64(balance) / 1_000_000 // Convert SUN to TRX
-    fmt.Printf("Current balance: %.2f TRX\n", trxBalance)
+    // Convert SUN to TRX using utils package
+    trxBalance, err := utils.HumanReadableBalance(balance, 6) // 6 decimal places for TRX
+    if err != nil {
+        log.Printf("Warning: Failed to format balance: %v", err)
+        fmt.Printf("Current balance: %d SUN\n", balance)
+    } else {
+        fmt.Printf("Current balance: %s TRX\n", trxBalance)
+    }
     
     if balance < 2_000_000 { // Need at least 2 TRX
         log.Fatal("❌ Insufficient balance. Get test TRX from Nile faucet!")
@@ -115,11 +130,17 @@ func main() {
     // Transfer 1 TRX (1,000,000 SUN)
     transferAmount := int64(1_000_000)
     
-    fmt.Printf("Transferring %.2f TRX to %s...\n", 
-        float64(transferAmount)/1_000_000, to)
+    // Convert SUN to TRX for display using utils package
+    transferAmountTRX, convErr := utils.HumanReadableBalance(transferAmount, 6)
+    if convErr != nil {
+        log.Printf("Warning: Failed to format transfer amount: %v", convErr)
+        fmt.Printf("Transferring %d SUN to %s...\n", transferAmount, to)
+    } else {
+        fmt.Printf("Transferring %s TRX to %s...\n", transferAmountTRX, to)
+    }
 
     // Build the transaction
-    tx, err := cli.Accounts().TransferTRX(ctx, from, to, transferAmount)
+    tx, err := cli.Account().TransferTRX(ctx, from, to, transferAmount)
     if err != nil {
         log.Fatalf("Failed to build transaction: %v", err)
     }
@@ -161,6 +182,7 @@ import (
     "github.com/kslamph/tronlib/pkg/client"
     "github.com/kslamph/tronlib/pkg/signer"
     "github.com/kslamph/tronlib/pkg/types"
+    "github.com/kslamph/tronlib/pkg/utils"
 )
 
 func main() {
@@ -182,19 +204,35 @@ func main() {
     ctx := context.Background()
 
     // Check balance
-    balance, err := cli.Accounts().GetBalance(ctx, from)
+    balance, err := cli.Account().GetBalance(ctx, from)
     if err != nil {
         log.Fatalf("Failed to get balance: %v", err)
     }
 
-    fmt.Printf("Balance: %.2f TRX\n", float64(balance)/1_000_000)
+    // Convert SUN to TRX using utils package
+    trxBalance, err := utils.HumanReadableBalance(balance, 6) // 6 decimal places for TRX
+    if err != nil {
+        log.Printf("Warning: Failed to format balance: %v", err)
+        fmt.Printf("Balance: %d SUN\n", balance)
+    } else {
+        fmt.Printf("Balance: %s TRX\n", trxBalance)
+    }
 
     // Transfer setup
     to, _ := types.NewAddress("TBkfmcE7pM8cwxEhATtkMFwAf1FeQcwY9x")
     transferAmount := int64(1_000_000) // 1 TRX
+    
+    // Convert SUN to TRX for display using utils package
+    transferAmountTRX, convErr := utils.HumanReadableBalance(transferAmount, 6)
+    if convErr != nil {
+        log.Printf("Warning: Failed to format transfer amount: %v", convErr)
+        fmt.Printf("Transferring %d SUN to %s...\n", transferAmount, to)
+    } else {
+        fmt.Printf("Transferring %s TRX to %s...\n", transferAmountTRX, to)
+    }
 
     // Build and send transaction
-    tx, err := cli.Accounts().TransferTRX(ctx, from, to, transferAmount)
+    tx, err := cli.Account().TransferTRX(ctx, from, to, transferAmount)
     if err != nil {
         log.Fatalf("Failed to build transaction: %v", err)
     }
@@ -267,9 +305,9 @@ func main() {
     }
 
     // Create TRC20 manager
-    trc20Mgr, err := trc20.NewManager(cli, usdtAddr)
-    if err != nil {
-        log.Fatalf("Failed to create TRC20 manager: %v", err)
+    trc20Mgr := cli.TRC20(usdtAddr)
+    if trc20Mgr == nil {
+        log.Fatal("Failed to create TRC20 manager")
     }
 
     // The manager automatically fetches and caches token metadata
@@ -421,7 +459,7 @@ Before spending real TRX on fees, you can simulate transactions to predict their
 
 ```go
 // Build transaction as usual
-tx, err := cli.Accounts().TransferTRX(ctx, from, to, amount)
+tx, err := cli.Account().TransferTRX(ctx, from, to, amount)
 if err != nil {
     log.Fatal(err)
 }

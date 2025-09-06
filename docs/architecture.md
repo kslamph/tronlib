@@ -1,6 +1,14 @@
 # 🏗️ TronLib Architecture
 
-This document provides a comprehensive overview of TronLib's architecture, design principles, and component interactions.
+This document provides a comprehensive overview of TronLib's architecture, design principles, and component interactions. It's designed to be read after completing the [Quick Start Guide](quickstart.md) and serves as a deep dive into how the library is structured.
+
+## 📚 Learning Path
+
+1. [Quick Start Guide](quickstart.md) - Basic usage
+2. **Architecture Overview** (this document) - Understanding the design
+3. [Package Documentation](../README.md#package-references) - Detailed API references
+4. [API Reference](API_REFERENCE.md) - Complete function documentation
+5. [Examples](../example/) - Real-world implementations
 
 ## 🎯 Design Principles
 
@@ -90,9 +98,9 @@ cli, err := client.NewClient("grpc://grpc.trongrid.io:50051",
 
 **Manager Access Pattern**:
 ```go
-accountMgr := cli.Accounts()          // Account operations
+accountMgr := cli.Account()          // Account operations
 trc20Mgr, _ := cli.TRC20(tokenAddr)   // TRC20 operations
-contractMgr := cli.SmartContracts()   // Contract operations
+contractMgr := cli.SmartContract()   // Contract operations
 ```
 
 ### 🏷️ Types Package (`pkg/types`)
@@ -162,7 +170,7 @@ encoded, _ := processor.EncodeMethod("transfer",
 - Account resource management
 
 ```go
-am := client.Accounts()
+am := client.Account()
 
 // Query operations
 balance, _ := am.GetBalance(ctx, address)
@@ -426,3 +434,328 @@ func init() {
 ```
 
 This architecture enables TronLib to provide both simplicity for common use cases and flexibility for advanced scenarios, while maintaining high performance and type safety throughout the stack.
+
+## 🎛️ Advanced Architecture and Internal Design
+
+### Key Architectural Principles
+
+- **Separation of Concerns**: Each package has a single responsibility, making the codebase maintainable and testable.
+- **Abstraction**: Interfaces are used to abstract implementation details, enabling easy testing and extensibility.
+- **Resource Management**: Connection pooling and proper cleanup ensure efficient resource utilization.
+- **Error Handling**: Consistent error handling with sentinel errors for better error categorization.
+- **Type Safety**: Strong typing with custom types for addresses, transactions, and other domain objects.
+
+### Design Patterns Used
+
+#### Client-Manager Pattern
+The SDK uses a central `Client` that acts as a gateway to specialized managers for different blockchain functionalities:
+- **Account Management** (`account.Manager`) - TRX transfers, account information
+- **Smart Contracts** (`smartcontract.Manager`) - Contract deployment and management
+- **TRC20 Tokens** (`trc20.Manager`) - TRC20 token standard implementation
+- **Network Operations** (`network.Manager`) - Node and network information
+- **Resource Management** (`resources.Manager`) - Bandwidth and energy management
+- **TRC10 Tokens** (`trc10.Manager`) - TRC10 token standard implementation
+- **Voting** (`voting.Manager`) - Voting and witness operations
+
+The client provides factory methods to access these managers:
+```go
+accountMgr := client.Account()
+contractMgr := client.SmartContract()
+trc20Mgr := client.TRC20(tokenAddress)
+```
+
+#### Connection Pooling
+The `client` package implements a connection pool for efficient gRPC connection management:
+- Reuses connections to reduce overhead
+- Manages connection lifecycle with proper cleanup
+- Supports configurable pool sizes with `WithPool(initConnections, maxConnections)`
+- Implements lazy connection creation on first use
+
+#### Functional Options Pattern
+The SDK uses functional options for flexible configuration:
+```go
+client, err := client.NewClient("grpc://node:50051", 
+    client.WithTimeout(30*time.Second),
+    client.WithPool(5, 10))
+```
+
+#### Interface-Based Design
+Key components use interfaces for loose coupling:
+- `signer.Signer` interface for transaction signing
+- `lowlevel.ConnProvider` for connection abstraction
+- `contractClient` interface for smart contract operations
+
+#### Builder Pattern
+Transaction building uses a fluent builder pattern:
+```go
+builder := types.NewTransactionBuilder()
+tx := builder.WithRefBlock(hash, num).WithContract(type, params).Build()
+```
+
+#### Factory Pattern
+Smart contract instances are created using factory methods:
+```go
+// Create contract instance with ABI from network
+contract, err := smartcontract.NewInstance(client, contractAddress)
+
+// Create contract instance with provided ABI
+contract, err := smartcontract.NewInstance(client, contractAddress, abiString)
+```
+
+#### Wrapper Pattern
+The SDK wraps gRPC calls with validation and error handling:
+```go
+// Low-level call wrapper with validation
+result, err := lowlevel.Call(connProvider, ctx, "operation", func(client api.WalletClient, ctx context.Context) (*core.Account, error) {
+    return client.GetAccount(ctx, req)
+})
+```
+
+### Data Flow Patterns
+
+#### Request-Response Flow
+
+```mermaid
+sequenceDiagram
+    participant App as Application
+    participant Client as Client
+    participant Pool as Connection Pool
+    participant GRPC as gRPC Server
+    participant Manager as Manager
+    
+    App->>Client: Call method (e.g., GetAccount)
+    Client->>Manager: Create manager instance
+    Manager->>Client: Get connection from pool
+    Client->>Pool: GetConnection()
+    Pool->>GRPC: Establish connection if needed
+    Pool-->>Client: Return connection
+    Client->>Manager: Pass connection
+    Manager->>GRPC: Execute gRPC call
+    GRPC-->>Manager: Return response
+    Manager-->>Client: Process and validate
+    Client-->>App: Return result
+```
+
+#### Transaction Signing and Broadcasting Flow
+
+```mermaid
+sequenceDiagram
+    participant App as Application
+    participant Client as Client
+    participant Signer as Signer
+    participant Broadcaster as Broadcaster
+    participant GRPC as gRPC Server
+    
+    App->>Client: Create transaction
+    Client->>App: Return unsigned transaction
+    App->>Signer: Sign transaction
+    Signer-->>App: Return signed transaction
+    App->>Client: Broadcast transaction
+    Client->>Broadcaster: SignAndBroadcast()
+    Broadcaster->>GRPC: BroadcastTransaction
+    GRPC-->>Broadcaster: Return result
+    Broadcaster->>Client: Wait for receipt (optional)
+    Client-->>App: Return BroadcastResult
+```
+
+#### Smart Contract Interaction Flow
+
+```mermaid
+sequenceDiagram
+    participant App as Application
+    participant Client as Client
+    participant Contract as Contract Instance
+    participant ABIProc as ABI Processor
+    participant GRPC as gRPC Server
+    
+    App->>Client: Create contract instance
+    Client->>Contract: NewInstance()
+    Contract->>ABIProc: NewABIProcessor()
+    
+    App->>Contract: Call constant method
+    Contract->>ABIProc: Encode method call
+    ABIProc-->>Contract: Return encoded data
+    Contract->>GRPC: TriggerConstantContract
+    GRPC-->>Contract: Return result
+    Contract->>ABIProc: Decode result
+    ABIProc-->>Contract: Return decoded data
+    Contract-->>App: Return result
+    
+    App->>Contract: Invoke state-changing method
+    Contract->>ABIProc: Encode method call
+    ABIProc-->>Contract: Return encoded data
+    Contract->>App: Return unsigned transaction
+    App->>Signer: Sign transaction
+    Signer-->>App: Return signed transaction
+    App->>Client: Broadcast transaction
+    Client->>GRPC: BroadcastTransaction
+    GRPC-->>Client: Return result
+    Client-->>App: Return BroadcastResult
+```
+
+### Package Structure and Responsibilities
+
+#### Core Packages
+
+| Package | Responsibility |
+|---------|----------------|
+| `pkg/client` | Main client implementation, connection pooling, broadcasting, and manager accessors |
+| `pkg/account` | Account-related operations (balance, transfers, account information) |
+| `pkg/smartcontract` | Smart contract deployment, interaction, contract instances, and ABI processing |
+| `pkg/trc20` | TRC20 token standard implementation with decimal handling |
+| `pkg/signer` | Transaction signing implementations (private key, hardware wallets planned) |
+| `pkg/types` | Shared types, address handling, error definitions, and constants |
+| `pkg/network` | Network information and node status operations |
+| `pkg/resources` | Bandwidth and energy resource management (freezing, unfreezing) |
+| `pkg/trc10` | TRC10 token standard implementation |
+| `pkg/voting` | Voting and witness-related operations |
+| `pkg/eventdecoder` | Smart contract event decoding and signature registry |
+| `pkg/utils` | Utility functions for ABI encoding/decoding, validation, and conversion |
+
+#### Low-Level Packages
+
+| Package | Responsibility |
+|---------|----------------|
+| `pkg/client/lowlevel` | Low-level gRPC call wrappers and utilities |
+| `pb/api` | Generated gRPC API protobuf definitions |
+| `pb/core` | Generated core TRON protobuf definitions |
+
+#### Package Dependencies
+
+The package dependency structure follows a layered approach:
+
+```
+Application Layer
+    ↓
+pkg/client (entry point)
+    ↓
+Business Logic Layer:
+pkg/account, pkg/smartcontract, pkg/trc20,
+pkg/network, pkg/resources, pkg/trc10, pkg/voting
+    ↓
+Utility Layer:
+pkg/signer, pkg/types, pkg/eventdecoder, pkg/utils
+    ↓
+Low-Level Layer:
+pkg/client/lowlevel
+    ↓
+Protocol Layer:
+pb/api, pb/core
+```
+
+Each package in the business logic layer depends on:
+1. `pkg/client/lowlevel` for gRPC wrappers
+2. `pkg/types` for shared types and errors
+3. Their specific utility packages (e.g., `pkg/smartcontract` uses `pkg/utils` for ABI processing)
+
+### Key Interfaces and Implementations
+
+#### Signer Interface
+
+```go
+type Signer interface {
+    Address() *types.Address
+    PublicKey() *ecdsa.PublicKey
+    Sign(tx any) error
+    SignMessageV2(message string) (string, error)
+}
+```
+
+**Implementation**: `PrivateKeySigner` in `pkg/signer`
+
+The Signer interface supports signing both `*core.Transaction` and `*api.TransactionExtention` types, making it flexible for different transaction formats. It also supports TIP-191 message signing for off-chain message authentication.
+
+#### Connection Provider Interface
+
+```go
+type ConnProvider interface {
+    GetConnection(ctx context.Context) (*grpc.ClientConn, error)
+    ReturnConnection(conn *grpc.ClientConn)
+    GetTimeout() time.Duration
+}
+```
+
+**Implementation**: `Client` in `pkg/client`
+
+The ConnProvider interface abstracts connection management, allowing different implementations for testing, load balancing, or custom connection strategies.
+
+#### Contract Client Interface
+
+```go
+type contractClient interface {
+    lowlevel.ConnProvider
+}
+```
+
+**Implementation**: Used by `smartcontract.Instance`
+
+This interface ensures that contract instances can work with any connection provider that implements the basic connection functionality.
+
+#### Manager Interface Pattern
+
+Each manager follows a consistent pattern:
+```go
+type Manager struct {
+    conn lowlevel.ConnProvider
+}
+
+func NewManager(conn lowlevel.ConnProvider) *Manager {
+    return &Manager{conn: conn}
+}
+```
+
+This pattern ensures all managers have consistent construction and dependency injection.
+
+### Extension Points and Customization
+
+#### Custom Signers
+Developers can implement the `signer.Signer` interface to support different signing mechanisms:
+- Hardware wallets (Ledger, Trezor)
+- Multi-signature schemes
+- External signing services (HSM, cloud KMS)
+- Custom key derivation schemes
+
+Example implementation:
+```go
+type HardwareSigner struct {
+    devicePath string
+    address    *types.Address
+}
+
+func (h *HardwareSigner) Address() *types.Address { return h.address }
+func (h *HardwareSigner) PublicKey() *ecdsa.PublicKey { /* implementation */ }
+func (h *HardwareSigner) Sign(tx any) error { /* implementation */ }
+func (h *HardwareSigner) SignMessageV2(message string) (string, string) { /* implementation */ }
+```
+
+#### Custom Connection Providers
+The `ConnProvider` interface allows for custom connection management:
+- Load balancing across multiple nodes
+- Custom authentication mechanisms
+- Proxy support with custom headers
+- Circuit breaker patterns for resilience
+- Custom retry logic and timeout handling
+
+#### Custom ABI Processing
+The `utils.ABIProcessor` can be extended for custom ABI handling:
+- Custom type encoding/decoding for specialized contracts
+- Specialized parameter validation for domain-specific contracts
+- Custom method signature handling for non-standard contracts
+
+#### Event Decoding Extensions
+The `eventdecoder` package can be extended with:
+- Custom event signature registries for private networks
+- Specialized parameter formatting for custom types
+- Custom event filtering and processing logic
+
+#### Custom Error Handling
+The SDK uses sentinel errors that can be extended:
+- Custom error types for domain-specific errors
+- Enhanced error wrapping with additional context
+- Custom error reporting and logging mechanisms
+
+#### Custom Address Handling
+The `types.Address` type can be extended with:
+- Custom address validation for private networks
+- Additional address formatting options
+- Custom address derivation schemes

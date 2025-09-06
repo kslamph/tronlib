@@ -2,6 +2,15 @@
 
 The `eventdecoder` package provides powerful tools for decoding smart contract event logs into structured, readable data. It includes built-in support for common TRC20 events, hundreds of common events and allows runtime registration of custom contract ABIs.
 
+## 📚 Learning Path
+
+This document is part of the TronLib learning path:
+1. [Quick Start Guide](quickstart.md) - Basic usage
+2. [Architecture Overview](architecture.md) - Understanding the design
+3. **Event Decoder Package Reference** (this document) - Event log processing
+4. [Other Package Documentation](../README.md#package-references) - Additional functionality
+5. [API Reference](API_REFERENCE.md) - Complete function documentation
+
 ## 📋 Overview
 
 The eventdecoder package features:

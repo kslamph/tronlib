@@ -120,12 +120,18 @@ func (m *AccountManager) GetAccountResource(ctx context.Context, address *types.
 //
 // Example:
 //
-//	balance, err := accountMgr.GetBalance(ctx, address)
-//	if err != nil {
-//	    // handle error
-//	}
-//	trxBalance := float64(balance) / 1_000_000
-//	fmt.Printf("Balance: %.6f TRX\n", trxBalance)
+//		balance, err := accountMgr.GetBalance(ctx, address)
+//		if err != nil {
+//		    // handle error
+//		}
+//	    // Convert SUN to TRX using utils package for proper formatting
+//		trxBalance, err := utils.HumanReadableBalance(balance, 6) // 6 decimal places for TRX
+//		if err != nil {
+//		    // handle error
+//		    fmt.Printf("Balance: %d SUN\n", balance)
+//		} else {
+//		    fmt.Printf("Balance: %s TRX\n", trxBalance)
+//		}
 func (m *AccountManager) GetBalance(ctx context.Context, address *types.Address) (int64, error) {
 	// Get account info
 	account, err := m.GetAccount(ctx, address)

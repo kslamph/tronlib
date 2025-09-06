@@ -11,6 +11,7 @@ import (
 	"github.com/kslamph/tronlib/pkg/client"
 	"github.com/kslamph/tronlib/pkg/signer"
 	"github.com/kslamph/tronlib/pkg/types"
+	"github.com/kslamph/tronlib/pkg/utils"
 )
 
 func main() {
@@ -37,7 +38,14 @@ func main() {
 		log.Fatalf("Failed to get balance: %v", err)
 	}
 
-	fmt.Printf("Balance: %.2f TRX\n", float64(balance)/1_000_000)
+	// Convert SUN to TRX using utils package for proper formatting
+	trxBalance, err := utils.HumanReadableBalance(balance, 6) // 6 decimal places for TRX
+	if err != nil {
+		log.Printf("Warning: Failed to format balance: %v", err)
+		fmt.Printf("Balance: %d SUN\n", balance)
+	} else {
+		fmt.Printf("Balance: %s TRX\n", trxBalance)
+	}
 
 	// Transfer setup
 	to, _ := types.NewAddress("TBkfmcE7pM8cwxEhATtkMFwAf1FeQcwY9x")

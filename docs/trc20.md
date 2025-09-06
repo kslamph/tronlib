@@ -2,6 +2,15 @@
 
 The `trc20` package provides a comprehensive, user-friendly interface for interacting with TRC20 tokens on the TRON blockchain. It handles decimal precision, caches immutable properties, and provides all standard TRC20 operations.
 
+## 📚 Learning Path
+
+This document is part of the TronLib learning path:
+1. [Quick Start Guide](quickstart.md) - Basic usage
+2. [Architecture Overview](architecture.md) - Understanding the design
+3. **TRC20 Package Reference** (this document) - Detailed TRC20 operations
+4. [Other Package Documentation](../README.md#package-references) - Additional functionality
+5. [API Reference](API_REFERENCE.md) - Complete function documentation
+
 ## 📋 Overview
 
 The TRC20 package features:
@@ -65,9 +74,9 @@ func main() {
     }
 
     // Create TRC20 manager
-    trc20Mgr, err := trc20.NewManager(cli, usdtAddr)
-    if err != nil {
-        log.Fatal(err)
+    trc20Mgr := cli.TRC20(usdtAddr)
+    if trc20Mgr == nil {
+        log.Fatal("Failed to create TRC20 manager")
     }
 
     ctx := context.Background()

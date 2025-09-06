@@ -59,7 +59,7 @@ func main() {
     to, _ := types.NewAddress("TBkfmcE7pM8cwxEhATtkMFwAf1FeQcwY9x")
 
     // Transfer 1 TRX (1,000,000 SUN)
-    tx, err := cli.Accounts().TransferTRX(context.Background(), from, to, 1_000_000)
+    tx, err := cli.Account().TransferTRX(context.Background(), from, to, 1_000_000)
     if err != nil {
         log.Fatal(err)
     }
@@ -102,9 +102,9 @@ func main() {
     to, _ := types.NewAddress("TBkfmcE7pM8cwxEhATtkMFwAf1FeQcwY9x")
 
     // Create TRC20 manager
-    trc20Mgr, err := trc20.NewManager(cli, token)
-    if err != nil {
-        log.Fatal(err)
+    trc20Mgr := cli.TRC20(token)
+    if trc20Mgr == nil {
+        log.Fatal("Failed to create TRC20 manager")
     }
 
     // Transfer 10 USDT
@@ -126,20 +126,24 @@ func main() {
 
 ## 📚 Documentation
 
-### Core Concepts
-- **[Architecture Overview](docs/architecture.md)** - Understanding the library structure
-- **[Quick Start Guide](docs/quickstart.md)** - Get up and running quickly
+To get the most out of TronLib, follow this learning path:
 
-### Package Documentation
+### 🚀 Getting Started
+- **[Quick Start Guide](docs/quickstart.md)** - Step-by-step guide to basic operations
+
+### 🏗️ Core Concepts
+- **[Architecture Overview](docs/architecture.md)** - Understanding the library structure and design patterns
+
+### 📦 Package References
+Detailed documentation for each package:
 - **[Types](docs/types.md)** - Address handling and fundamental types
-- **[Client](docs/client.md)** - gRPC client and connection management  
 - **[TRC20](docs/trc20.md)** - TRC20 token operations and decimal handling
 - **[Smart Contracts](docs/smartcontract.md)** - Contract deployment and interaction
 - **[Event Decoder](docs/eventdecoder.md)** - Transaction log decoding
 - **[Utils](docs/utils.md)** - ABI encoding/decoding utilities
-- **[Signer](docs/signer.md)** - Key management and transaction signing
 
-### Examples
+### 💡 Advanced Topics
+- **[API Reference](docs/API_REFERENCE.md)** - Complete API documentation
 - **[Complete Examples](example/)** - Real-world usage examples
 - **[Integration Tests](integration_test/)** - Comprehensive test suite
 

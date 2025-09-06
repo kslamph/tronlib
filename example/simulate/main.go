@@ -56,9 +56,9 @@ func main() {
 	}
 
 	// Build an TRC20 manager for USDT
-	trc20Mgr, err := trc20.NewManager(cli, token)
-	if err != nil {
-		log.Fatalf("failed to init TRC20 manager: %v", err)
+	trc20Mgr := cli.TRC20(token)
+	if trc20Mgr == nil {
+		log.Fatal("Failed to create TRC20 manager")
 	}
 
 	// Register TRC20 ABI once for event decoding
