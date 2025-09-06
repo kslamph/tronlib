@@ -17,38 +17,9 @@
 // IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-// Package signer contains key management and transaction signing utilities,
-// including HD wallet derivation and raw private key signing.
-//
-// # Private Key Signing
-//
-// Sign transactions with a private key:
-//
-//	pk, _ := signer.NewPrivateKeySigner("0x<hex-privkey>")
-//	signature, _ := pk.Sign(transaction)
-//
-// HDWalletSigner Example:
-//
-//	mnemonic := "tag voyage vapor fence fossil mimic pelican gorilla grocery solar talent"
-//	path := "m/44'/195'/0'/0/0"
-//	hdSigner, _ := signer.NewHDWalletSigner(mnemonic, path)
-//	signature, _ := hdSigner.Sign(transaction)
-//
-// # HD Wallet Support
-//
-// Derive keys from an HD wallet:
-//
-//	mnemonic := "your twelve word mnemonic phrase"
-//	wallet, _ := signer.NewHDWallet(mnemonic)
-//	account, _ := wallet.DerivePath("m/44'/195'/0'/0/0")
-//	pk, _ := account.PrivateKey()
-//
-// # Error Handling
-//
-// Common error types:
-//   - ErrInvalidPrivateKey - Invalid private key format
-//   - ErrInvalidMnemonic - Invalid mnemonic phrase
-//   - ErrDeriveFailed - Key derivation failed
-//
-// Always check for errors in production code.
 package signer
+
+const (
+	// TronWeb message prefix (v1) for TIP-191 signing
+	TronMessagePrefix = "\x19TRON Signed Message:\n"
+)

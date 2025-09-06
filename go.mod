@@ -5,6 +5,7 @@ go 1.25.0
 require (
 	github.com/ethereum/go-ethereum v1.16.3
 	github.com/joho/godotenv v1.5.1
+	github.com/kslamph/bip39-hdwallet v1.0.1
 	github.com/mr-tron/base58 v1.2.0
 	github.com/shopspring/decimal v1.4.0
 	github.com/stretchr/testify v1.11.1
@@ -15,6 +16,8 @@ require (
 )
 
 require (
+	github.com/btcsuite/btcd/btcec/v2 v2.3.5 // indirect
+	github.com/btcsuite/btcd/btcutil v1.1.6 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0 // indirect
 	github.com/holiman/uint256 v1.3.2 // indirect

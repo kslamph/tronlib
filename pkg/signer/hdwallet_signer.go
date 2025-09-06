@@ -22,137 +22,79 @@ package signer
 import (
 	"crypto/ecdsa"
 	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/kslamph/bip39-hdwallet/bip39"
+	"github.com/kslamph/bip39-hdwallet/hdwallet"
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
-	"google.golang.org/protobuf/proto"
-
 	"github.com/kslamph/tronlib/pkg/types"
+	"google.golang.org/protobuf/proto"
 )
 
-// PrivateKeySigner implements the Signer interface using a private key.
-//
-// The PrivateKeySigner allows you to sign transactions and messages using a
-// private key. It automatically derives the corresponding public key and address.
-type PrivateKeySigner struct {
-	address *types.Address
-	privKey *ecdsa.PrivateKey
-	pubKey  *ecdsa.PublicKey
+// HDWalletSigner implements the Signer interface using a HD wallet
+type HDWalletSigner struct {
+	mnemonic string
+	path     string
+	privKey  *ecdsa.PrivateKey
+	address  *types.Address
 }
 
-// NewPrivateKeySigner creates a new PrivateKeySigner from a hex private key.
-//
-// This function creates a signer from a hexadecimal private key string. The
-// private key can be provided with or without the "0x" prefix.
-//
-// Example:
-//
-//	signer, err := signer.NewPrivateKeySigner("0xYourPrivateKeyHere")
-//	if err != nil {
-//	    // handle error
-//	}
-//
-//	// Get the address associated with this private key
-//	address := signer.Address()
-//	fmt.Printf("Address: %s\n", address.String())
-func NewPrivateKeySigner(hexPrivKey string) (*PrivateKeySigner, error) {
-	// Remove 0x prefix if present
-	// if strings.HasPrefix(hexPrivKey, "0x") {
-	// 	hexPrivKey = hexPrivKey[2:]
-	// }
-	hexPrivKey = strings.TrimPrefix(hexPrivKey, "0x")
-
-	// Decode and validate private key
-	key, err := hex.DecodeString(hexPrivKey)
-	if err != nil {
-		return nil, fmt.Errorf("invalid hex private key: %w", err)
+// NewHDWalletSigner creates a new HDWalletSigner from a mnemonic and derivation path.
+func NewHDWalletSigner(mnemonic, path string) (*HDWalletSigner, error) {
+	if !bip39.IsMnemonicValid(mnemonic) {
+		return nil, fmt.Errorf("invalid mnemonic")
 	}
 
-	privKey, err := crypto.ToECDSA(key)
+	seed := bip39.NewSeed(mnemonic, "") // No password for now
+	masterKey, err := hdwallet.NewMasterKey(seed)
 	if err != nil {
-		return nil, fmt.Errorf("invalid private key: %w", err)
+		return nil, fmt.Errorf("failed to create master key: %w", err)
 	}
 
-	return newPrivateKeySigner(privKey)
-}
-
-// NewPrivateKeySignerFromECDSA creates a new PrivateKeySigner from an ECDSA private key
-func NewPrivateKeySignerFromECDSA(privKey *ecdsa.PrivateKey) (*PrivateKeySigner, error) {
-	return newPrivateKeySigner(privKey)
-}
-
-// newPrivateKeySigner creates a new PrivateKeySigner from a private key
-func newPrivateKeySigner(privKey *ecdsa.PrivateKey) (*PrivateKeySigner, error) {
-	pubKey := privKey.PublicKey
-	ethAddr := crypto.PubkeyToAddress(pubKey)
-
-	// Add TRON prefix (0x41)
-	tronBytes := append([]byte{0x41}, ethAddr.Bytes()...)
-
-	// Convert to base58 address
-	tronAddr, err := types.NewAddressFromBytes(tronBytes)
+	wallet, err := masterKey.DerivePath(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create tron address: %w", err)
+		return nil, fmt.Errorf("failed to derive path: %w", err)
 	}
 
-	return &PrivateKeySigner{
-		address: tronAddr,
-		privKey: privKey,
-		pubKey:  &pubKey,
+	privKey, err := wallet.ToECDSA() // Returns *ecdsa.PrivateKey, error
+	if err != nil {
+		return nil, fmt.Errorf("failed to get private key from wallet: %w", err)
+	}
+
+	address, err := types.NewAddressFromEVM(crypto.PubkeyToAddress(privKey.PublicKey))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create tron address from EVM address: %w", err)
+	}
+
+	return &HDWalletSigner{
+		mnemonic: mnemonic,
+		path:     path,
+		privKey:  privKey,
+		address:  address,
 	}, nil
 }
 
 // Address returns the account's address.
-//
-// This method returns the TRON address associated with the private key.
-//
-// Example:
-//
-//	signer, _ := signer.NewPrivateKeySigner("0xYourPrivateKeyHere")
-//	address := signer.Address()
-//	fmt.Printf("Address: %s\n", address.String())
-func (s *PrivateKeySigner) Address() *types.Address {
+func (s *HDWalletSigner) Address() *types.Address {
 	return s.address
 }
 
-// PublicKey returns the account's public key
-func (s *PrivateKeySigner) PublicKey() *ecdsa.PublicKey {
-	return s.pubKey
+// PublicKey returns the account's public key.
+func (s *HDWalletSigner) PublicKey() *ecdsa.PublicKey {
+	return &s.privKey.PublicKey
 }
 
-// PrivateKeyHex returns the account's private key in hex format
-func (s *PrivateKeySigner) PrivateKeyHex() string {
-	privateKeyBytes := crypto.FromECDSA(s.privKey)
-	return hex.EncodeToString(privateKeyBytes)
-}
-
-// Sign signs a transaction using the private key.
-//
-// This method signs either a *core.Transaction or *api.TransactionExtention
-// using the private key. The signature is appended to the transaction's
-// Signature field.
-//
-// Example:
-//
-//	signer, _ := signer.NewPrivateKeySigner("0xYourPrivateKeyHere")
-//	err := signer.Sign(transaction)
-//	if err != nil {
-//	    // handle error
-//	}
-func (s *PrivateKeySigner) Sign(tx any) error {
-
+// Sign signs a transaction.
+func (s *HDWalletSigner) Sign(tx any) error {
 	if tx == nil {
 		return fmt.Errorf("transaction cannot be nil")
 	}
 	switch t := tx.(type) {
-
 	case *core.Transaction:
-
 		rawData, err := proto.Marshal(t.GetRawData())
 		if err != nil {
 			return fmt.Errorf("failed to marshal transaction: %w", err)
@@ -194,8 +136,8 @@ func (s *PrivateKeySigner) Sign(tx any) error {
 	return nil
 }
 
-// SignMessageV2 signs a message using TIP-191 format (v2)
-func (s *PrivateKeySigner) SignMessageV2(message string) (string, error) {
+// SignMessageV2 signs a message using TIP-191 format (v2).
+func (s *HDWalletSigner) SignMessageV2(message string) (string, error) {
 	var data []byte
 	if strings.HasPrefix(message, "0x") {
 		// Assume hex-encoded string
