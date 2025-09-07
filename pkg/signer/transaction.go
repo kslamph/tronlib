@@ -13,8 +13,18 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-// SignTx hashes the transaction, signs it using the provided signer,
-// and attaches the signature to the transaction.
+// SignTx takes a transaction, hashes it, signs it using the provided signer,
+// and attaches the signature to the transaction. It supports both *core.Transaction
+// and *api.TransactionExtention types.
+//
+// Example:
+//
+//	tx := &core.Transaction{...} // Your transaction object
+//	pkSigner, _ := NewPrivateKeySigner("0x...")
+//	err := SignTx(pkSigner, tx)
+//	if err != nil {
+//	    // Handle error
+//	}
 func SignTx(s Signer, tx any) error {
 	if tx == nil {
 		return fmt.Errorf("transaction cannot be nil")
@@ -65,8 +75,19 @@ func SignTx(s Signer, tx any) error {
 	return nil
 }
 
-// SignMessageV2 signs a message using TIP-191 format (v2).
-// This function is intended to be used directly by clients and not as part of the Signer interface.
+// SignMessageV2 signs a message using the TIP-191 format (v2) with the provided signer.
+// It prefixes the message, hashes it, and then signs the hash.
+//
+// Example:
+//
+//	privateKey := "0x..."
+//	message := "Hello Tron!"
+//	pkSigner, _ := NewPrivateKeySigner(privateKey)
+//	signature, err := SignMessageV2(pkSigner, message)
+//	if err != nil {
+//	    // Handle error
+//	}
+//	fmt.Printf("Signed Message Signature: %s\n", signature)
 func SignMessageV2(s Signer, message string) (string, error) {
 	var data []byte
 	if strings.HasPrefix(message, "0x") {

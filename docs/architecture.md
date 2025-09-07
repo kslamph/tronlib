@@ -128,15 +128,21 @@ bytes := addr.Bytes()         // 21-byte slice
 
 ### 🔐 Signer Package (`pkg/signer`)
 
-**Role**: Key management and transaction signing
+**Role**: Key management and cryptographic signing operations.
 
-**Signing Methods**:
-- Private key signing
-- Multiple key format support
+**Key Features**:
+- **`Signer` Interface**: Defines the contract for signing data (e.g., transaction hashes, message hashes).
+- **`SignTx` Function**: A package-level utility for comprehensive transaction signing, including hashing and attaching signatures.
+- **`SignMessageV2` Function**: A package-level utility for signing arbitrary messages using TIP-191 format (v2).
+- **`PrivateKeySigner`**: An implementation of the `Signer` interface for signing with a raw private key.
+- **`HDWalletSigner`**: An implementation of the `Signer` interface for HD wallet-based signing.
 
 ```go
-// Private key signer
-signer, _ := signer.NewPrivateKeySigner("hex-private-key")
+// Example: Using SignTx with a PrivateKeySigner
+pk, _ := signer.NewPrivateKeySigner("0x<hex-privkey>")
+tx := &core.Transaction{} // Your unsigned transaction
+err := signer.SignTx(pk, tx)
+// Handle error and broadcast
 ```
 
 ### 🛠️ Utils Package (`pkg/utils`)
@@ -254,16 +260,20 @@ sequenceDiagram
     participant App as Application
     participant Client as Client
     participant AM as AccountManager
-    participant Signer as Signer
+    participant SignerImpl as Signer (Implementation)
+    participant SignTxFunc as signer.SignTx
     participant Node as TRON Node
     
     App->>Client: NewClient(endpoint)
-    App->>Signer: NewPrivateKeySigner(key)
+    App->>SignerImpl: NewPrivateKeySigner(key)
     App->>AM: TransferTRX(from, to, amount)
     AM->>Node: Build transaction via gRPC
-    AM-->>App: Return unsigned transaction
-    App->>Client: SignAndBroadcast(tx, opts, signer)
-    Client->>Signer: Sign(transaction)
+    AM-->>App: Return unsigned transaction (tx)
+    App->>SignTxFunc: SignTx(signerImpl, tx)
+    SignTxFunc->>SignerImpl: Sign(hash)
+    SignerImpl-->>SignTxFunc: signature
+    SignTxFunc-->>App: Return signed transaction
+    App->>Client: Broadcast(signedTx)
     Client->>Node: Broadcast signed transaction
     Client-->>App: Return broadcast result
 ```
@@ -543,19 +553,20 @@ sequenceDiagram
     participant App as Application
     participant Client as Client
     participant Signer as Signer
-    participant Broadcaster as Broadcaster
+    participant Broadcaster as Client.SignAndBroadcast
+    participant SignTx as signer.SignTx
     participant GRPC as gRPC Server
     
     App->>Client: Create transaction
     Client->>App: Return unsigned transaction
-    App->>Signer: Sign transaction
-    Signer-->>App: Return signed transaction
-    App->>Client: Broadcast transaction
-    Client->>Broadcaster: SignAndBroadcast()
-    Broadcaster->>GRPC: BroadcastTransaction
-    GRPC-->>Broadcaster: Return result
-    Broadcaster->>Client: Wait for receipt (optional)
-    Client-->>App: Return BroadcastResult
+    App->>Broadcaster: SignAndBroadcast(tx, opts, signer)
+    Broadcaster->>SignTx: SignTx(signer, tx)
+    SignTx->>Signer: Sign(hash)
+    Signer-->>SignTx: signature
+    SignTx-->>Broadcaster: signedTx
+    Broadcaster->>GRPC: BroadcastTransaction(signedTx)
+    GRPC-->>Broadcaster: Result
+    Broadcaster-->>App: Return broadcast result
 ```
 
 #### Smart Contract Interaction Flow
@@ -566,6 +577,8 @@ sequenceDiagram
     participant Client as Client
     participant Contract as Contract Instance
     participant ABIProc as ABI Processor
+    participant SignTx as signer.SignTx
+    participant SignerImpl as Signer (Implementation)
     participant GRPC as gRPC Server
     
     App->>Client: Create contract instance
@@ -584,10 +597,12 @@ sequenceDiagram
     App->>Contract: Invoke state-changing method
     Contract->>ABIProc: Encode method call
     ABIProc-->>Contract: Return encoded data
-    Contract->>App: Return unsigned transaction
-    App->>Signer: Sign transaction
-    Signer-->>App: Return signed transaction
-    App->>Client: Broadcast transaction
+    Contract->>App: Return unsigned transaction (tx)
+    App->>SignTx: SignTx(signerImpl, tx)
+    SignTx->>SignerImpl: Sign(hash)
+    SignerImpl-->>SignTx: signature
+    SignTx-->>App: Return signed transaction
+    App->>Client: Broadcast(signedTx)
     Client->>GRPC: BroadcastTransaction
     GRPC-->>Client: Return result
     Client-->>App: Return BroadcastResult
@@ -656,14 +671,13 @@ Each package in the business logic layer depends on:
 type Signer interface {
     Address() *types.Address
     PublicKey() *ecdsa.PublicKey
-    Sign(tx any) error
-    SignMessageV2(message string) (string, error)
+    Sign(hash []byte) ([]byte, error)
 }
 ```
 
-**Implementation**: `PrivateKeySigner` in `pkg/signer`
+**Implementation**: `PrivateKeySigner` and `HDWalletSigner` in `pkg/signer`
 
-The Signer interface supports signing both `*core.Transaction` and `*api.TransactionExtention` types, making it flexible for different transaction formats. It also supports TIP-191 message signing for off-chain message authentication.
+The `Signer` interface defines a contract for signing a cryptographic hash, making it highly flexible for various signing mechanisms (e.g., private keys, hardware wallets, cloud KMS). Transaction-specific handling (like hashing and signature attachment) is managed by the `signer.SignTx` utility function.
 
 #### Connection Provider Interface
 
@@ -717,15 +731,20 @@ Developers can implement the `signer.Signer` interface to support different sign
 
 Example implementation:
 ```go
-type HardwareSigner struct {
-    devicePath string
-    address    *types.Address
+type CustomSigner struct {
+    // ... fields relevant to your custom signer
 }
 
-func (h *HardwareSigner) Address() *types.Address { return h.address }
-func (h *HardwareSigner) PublicKey() *ecdsa.PublicKey { /* implementation */ }
-func (h *HardwareSigner) Sign(tx any) error { /* implementation */ }
-func (h *HardwareSigner) SignMessageV2(message string) (string, string) { /* implementation */ }
+// Implement the signer.Signer interface
+func (s *CustomSigner) Address() *types.Address { /* ... */ }
+func (s *CustomSigner) PublicKey() *ecdsa.PublicKey { /* ... */ }
+func (s *CustomSigner) Sign(hash []byte) ([]byte, error) { /* ... */ }
+
+// Example usage with your custom signer
+// customSigner := &CustomSigner{...}
+// tx := &core.Transaction{} // Your unsigned transaction
+// err := signer.SignTx(customSigner, tx)
+// // ...
 ```
 
 #### Custom Connection Providers

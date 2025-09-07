@@ -1489,20 +1489,16 @@ Package signer contains key management and transaction signing utilities, includ
 type Signer interface {
     // Address returns the account's address
     Address() *types.Address
-
     // PublicKey returns the account's public key
     PublicKey() *ecdsa.PublicKey
-
-    // Sign signs a transaction, supporting both *core.Transaction and *api.TransactionExtention types
-    // It modifies the transaction in place by appending the signature
-    Sign(tx any) error
-
-    // SignMessageV2 signs a message using TIP-191 format (v2)
-    SignMessageV2(message string) (string, error)
+    // Sign signs a given hash and returns the raw signature bytes.
+    // Implementations should ensure this function only signs the provided hash,
+    // without any additional hashing or prefixing.
+    Sign(hash []byte) ([]byte, error)
 }
 ```
 
-Signer defines the interface for signing Tron transactions and messages.
+Signer defines the interface for signing cryptographic hashes, providing a flexible contract for various signing mechanisms (e.g., private keys, hardware wallets, cloud KMS).
 
 #### PrivateKeySigner
 
@@ -1553,6 +1549,43 @@ NewPrivateKeySignerFromECDSA creates a new PrivateKeySigner from an ECDSA privat
 #### Address
 
 ```go
+#### SignTx
+
+```go
+func SignTx(s Signer, tx any) error
+```
+
+SignTx takes a transaction, hashes it, signs it using the provided signer, and attaches the signature to the transaction. It supports both *core.Transaction and *api.TransactionExtention types.
+
+Example:
+```go
+tx := &core.Transaction{} // Your transaction object
+pkSigner, _ := NewPrivateKeySigner("0x...")
+err := SignTx(pkSigner, tx)
+if err != nil {
+    // Handle error
+}
+```
+
+#### SignMessageV2
+
+```go
+func SignMessageV2(s Signer, message string) (string, error)
+```
+
+SignMessageV2 signs a message using the TIP-191 format (v2) with the provided signer. It prefixes the message, hashes it, and then signs the hash.
+
+Example:
+```go
+privateKey := "0x..."
+message := "Hello Tron!"
+pkSigner, _ := NewPrivateKeySigner(privateKey)
+signature, err := SignMessageV2(pkSigner, message)
+if err != nil {
+    // Handle error
+}
+fmt.Printf("Signed Message Signature: %s\n", signature)
+```
 func (s *PrivateKeySigner) Address() *types.Address
 ```
 
@@ -1583,32 +1616,6 @@ func (s *PrivateKeySigner) PrivateKeyHex() string
 
 PrivateKeyHex returns the account's private key in hex format.
 
-#### Sign
-
-```go
-func (s *PrivateKeySigner) Sign(tx any) error
-```
-
-Sign signs a transaction using the private key.
-
-This method signs either a *core.Transaction or *api.TransactionExtention using the private key. The signature is appended to the transaction's Signature field.
-
-Example:
-```go
-signer, _ := signer.NewPrivateKeySigner("0xYourPrivateKeyHere")
-err := signer.Sign(transaction)
-if err != nil {
-    // handle error
-}
-```
-
-#### SignMessageV2
-
-```go
-func (s *PrivateKeySigner) SignMessageV2(message string) (string, error)
-```
-
-SignMessageV2 signs a message using TIP-191 format (v2).
 
 ---
 

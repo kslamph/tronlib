@@ -20,28 +20,30 @@
 // Package signer contains key management and transaction signing utilities,
 // including HD wallet derivation and raw private key signing.
 //
-// # Private Key Signing
+// # Transaction Signing
 //
-// Sign transactions with a private key:
+// To sign transactions, use the package-level `SignTx` function along with a `Signer` implementation:
+//
+// Private Key Signer Example:
 //
 //	pk, _ := signer.NewPrivateKeySigner("0x<hex-privkey>")
-//	signature, _ := pk.Sign(transaction)
+//	err := signer.SignTx(pk, transaction)
 //
 // HDWalletSigner Example:
 //
 //	mnemonic := "tag voyage vapor fence fossil mimic pelican gorilla grocery solar talent"
 //	path := "m/44'/195'/0'/0/0"
-//	hdSigner, _ := signer.NewHDWalletSigner(mnemonic, path)
-//	signature, _ := hdSigner.Sign(transaction)
+//	hdSigner, _ := signer.NewHDWalletSigner(mnemonic, "", path) // Passphrase is optional
+//	err := signer.SignTx(hdSigner, transaction)
 //
-// # HD Wallet Support
+// # Message Signing
 //
-// Derive keys from an HD wallet:
+// To sign arbitrary messages using TIP-191 format (v2), use the package-level `SignMessageV2` function:
 //
-//	mnemonic := "your twelve word mnemonic phrase"
-//	wallet, _ := signer.NewHDWallet(mnemonic)
-//	account, _ := wallet.DerivePath("m/44'/195'/0'/0/0")
-//	pk, _ := account.PrivateKey()
+//	privateKey := "0x..."
+//	message := "Hello Tron!"
+//	signer, _ := signer.NewPrivateKeySigner(privateKey)
+//	signature, err := SignMessageV2(signer, message)
 //
 // # Error Handling
 //

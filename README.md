@@ -171,6 +171,56 @@ tronlib/
 
 ## 🚀 Advanced Usage
 
+### Signing Operations
+
+TronLib provides flexible options for signing transactions and messages.
+
+#### Manual Transaction Signing and Broadcasting
+
+If you prefer to sign transactions manually before broadcasting, or need to integrate with external signers (e.g., hardware wallets, cloud KMS), you can use the `signer.SignTx` function.
+
+```go
+// Example for manual signing and broadcasting:
+// 1. Create the transaction
+// tx, err := cli.Account().TransferTRX(...)
+// if err != nil {
+//     log.Fatal(err)
+// }
+//
+// 2. Sign the transaction using SignTx
+// err = signer.SignTx(yourSigner, tx) // 'yourSigner' is an instance of signer.Signer
+// if err != nil {
+//     log.Fatal(err)
+// }
+//
+// 3. Broadcast the signed transaction
+// result, err := cli.Broadcast(context.Background(), tx)
+// if err != nil {
+//     log.Fatal(err)
+// }
+// fmt.Printf("Transaction ID: %s\n", result.TxID)
+```
+
+#### Message Signing (TIP-191 v2)
+
+To sign arbitrary messages following the TRON Improvement Proposal 191 (TIP-191) v2 format, use the standalone `signer.SignMessageV2` function.
+
+```go
+// Sign an arbitrary message using the standalone SignMessageV2 function
+// privateKey := "your-private-key-hex"
+// pkSigner, err := signer.NewPrivateKeySigner(privateKey)
+// if err != nil {
+//     log.Fatal(err)
+// }
+//
+// message := "Hello TronLib!"
+// signature, err := signer.SignMessageV2(pkSigner, message)
+// if err != nil {
+//     log.Fatal(err)
+// }
+// fmt.Printf("Signed Message: %s\n", signature)
+```
+
 ### Transaction Simulation
 
 Test transactions before broadcasting:
@@ -274,7 +324,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🙏 Acknowledgments
 
 - Built on the foundation of TRON's gRPC API
-- Inspired by Ethereum's web3 libraries
 - Uses Google Protocol Buffers for efficient communication
 
 ---

@@ -31,9 +31,7 @@ import (
 )
 
 // PrivateKeySigner implements the Signer interface using a private key.
-//
-// The PrivateKeySigner allows you to sign transactions and messages using a
-// private key. It automatically derives the corresponding public key and address.
+// It automatically derives the corresponding public key and address.
 type PrivateKeySigner struct {
 	address *types.Address
 	privKey *ecdsa.PrivateKey
@@ -126,19 +124,8 @@ func (s *PrivateKeySigner) PrivateKeyHex() string {
 	return hex.EncodeToString(privateKeyBytes)
 }
 
-// Sign signs a transaction using the private key.
-//
-// This method signs either a *core.Transaction or *api.TransactionExtention
-// using the private key. The signature is appended to the transaction's
-// Signature field.
-//
-// Example:
-//
-//	signer, _ := signer.NewPrivateKeySigner("0xYourPrivateKeyHere")
-//	err := signer.Sign(transaction)
-//	if err != nil {
-//	    // handle error
-//	}
+// Sign signs a given hash using the private key and returns the raw signature bytes.
+// This method implements the Signer interface.
 func (s *PrivateKeySigner) Sign(hash []byte) ([]byte, error) {
 	// Sign the hash
 	signature, err := crypto.Sign(hash, s.privKey)

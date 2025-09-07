@@ -29,7 +29,7 @@ import (
 	"github.com/kslamph/tronlib/pkg/types"
 )
 
-// HDWalletSigner implements the Signer interface using a HD wallet
+// HDWalletSigner implements the Signer interface using an HD wallet.
 type HDWalletSigner struct {
 	mnemonic string
 	path     string
@@ -82,7 +82,8 @@ func (s *HDWalletSigner) PublicKey() *ecdsa.PublicKey {
 	return &s.privKey.PublicKey
 }
 
-// Sign signs a transaction.
+// Sign signs a given hash using the HD wallet's private key and returns the raw signature bytes.
+// This method implements the Signer interface.
 func (s *HDWalletSigner) Sign(hash []byte) ([]byte, error) {
 	// Sign the hash
 	signature, err := crypto.Sign(hash, s.privKey)
