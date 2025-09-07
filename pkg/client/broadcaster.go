@@ -30,7 +30,7 @@ import (
 	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/client/lowlevel"
 	"github.com/kslamph/tronlib/pkg/signer"
-	"github.com/kslamph/tronlib/pkg/types"
+	"github.com/kslamph/tronlib/pkg/utils"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -268,7 +268,7 @@ func (c *Client) SignAndBroadcast(ctx context.Context, anytx any, opt BroadcastO
 		}
 	}
 
-	txid := types.GetTransactionID(coretx)
+	txid := utils.GetTransactionID(coretx)
 	// fmt.Printf("txid:%x\n", txid)
 	result := &BroadcastResult{TxID: hex.EncodeToString(txid)}
 

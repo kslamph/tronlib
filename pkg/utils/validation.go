@@ -135,39 +135,6 @@ func ValidateContractData(data []byte) error {
 	return nil
 }
 
-// ValidateTransactionOptions validates transaction options
-func ValidateTransactionOptions(opts *types.TransactionOptions) error {
-	if opts == nil {
-		return fmt.Errorf("%w: transaction options cannot be nil", types.ErrInvalidParameter)
-	}
-
-	// Validate fee limit
-	if opts.FeeLimit < 0 {
-		return fmt.Errorf("%w: fee limit cannot be negative, got %d", types.ErrInvalidParameter, opts.FeeLimit)
-	}
-
-	// Validate call value
-	if opts.CallValue < 0 {
-		return fmt.Errorf("%w: call value cannot be negative, got %d", types.ErrInvalidParameter, opts.CallValue)
-	}
-
-	// Validate token values
-	if opts.TokenValue < 0 {
-		return fmt.Errorf("%w: token value cannot be negative, got %d", types.ErrInvalidParameter, opts.TokenValue)
-	}
-
-	if opts.TokenID < 0 {
-		return fmt.Errorf("%w: token ID cannot be negative, got %d", types.ErrInvalidParameter, opts.TokenID)
-	}
-
-	// Validate permission ID
-	if opts.PermissionID < 0 {
-		return fmt.Errorf("%w: permission ID cannot be negative, got %d", types.ErrInvalidParameter, opts.PermissionID)
-	}
-
-	return nil
-}
-
 // String validation
 
 // IsValidMethodName validates a smart contract method name

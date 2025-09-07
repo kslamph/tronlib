@@ -29,7 +29,7 @@ import (
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/signer"
-	"github.com/kslamph/tronlib/pkg/types"
+	"github.com/kslamph/tronlib/pkg/utils"
 )
 
 func TestSimulate_HappyPath(t *testing.T) {
@@ -83,7 +83,7 @@ func TestSignAndBroadcast_NoSigners(t *testing.T) {
 	if !res.Success {
 		t.Fatalf("expected success true")
 	}
-	wantTxID := hex.EncodeToString(types.GetTransactionID(tx))
+	wantTxID := hex.EncodeToString(utils.GetTransactionID(tx))
 	if res.TxID != wantTxID {
 		t.Fatalf("unexpected txid: got %s want %s", res.TxID, wantTxID)
 	}
@@ -130,7 +130,7 @@ func TestSignAndBroadcast_WaitForReceipt_Success(t *testing.T) {
 
 	srv := &testWalletServer{
 		BroadcastHandler: func(ctx context.Context, in *core.Transaction) (*api.Return, error) {
-			txidSeen = types.GetTransactionID(in)
+			txidSeen = utils.GetTransactionID(in)
 			return &api.Return{Result: true, Code: api.Return_SUCCESS}, nil
 		},
 		GetTxInfoByIdHandler: func(ctx context.Context, in *api.BytesMessage) (*core.TransactionInfo, error) {
