@@ -84,7 +84,7 @@ func NewAddress[T addressAllowed](v T) (*Address, error) {
 		return a, nil
 
 	case *eCommon.Address:
-		ea := any(v).(eCommon.Address)
+		ea := any(v).(*eCommon.Address)
 		return NewAddressFromBytes(ea.Bytes())
 
 	case [20]byte:
