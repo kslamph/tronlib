@@ -14,7 +14,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 
 	_ "github.com/ethereum/go-ethereum/common" // Used in SignMessageV2
-	_ "github.com/ethereum/go-ethereum/crypto"  // Used in SignMessageV2
+	_ "github.com/ethereum/go-ethereum/crypto" // Used in SignMessageV2
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/types"
@@ -22,8 +22,8 @@ import (
 
 // MockSigner for testing SignTx and SignMessageV2 without actual private keys
 type MockSigner struct {
-	addr    *types.Address
-	pubKey  *ecdsa.PublicKey
+	addr     *types.Address
+	pubKey   *ecdsa.PublicKey
 	signFunc func([]byte) ([]byte, error)
 }
 
@@ -46,8 +46,8 @@ func (m *MockSigner) Sign(hash []byte) ([]byte, error) {
 func TestSignTx(t *testing.T) {
 	// Setup a mock signer
 	mockSigner := &MockSigner{
-		addr: types.MustNewAddressFromBase58("TQJ6R9SPvD5SyqgYqTBq3yc6mFtEgatPDu"), // Valid dummy address
-		pubKey: &ecdsa.PublicKey{}, // Dummy public key
+		addr:   types.MustNewAddressFromBase58("TQJ6R9SPvD5SyqgYqTBq3yc6mFtEgatPDu"), // Valid dummy address
+		pubKey: &ecdsa.PublicKey{},                                                   // Dummy public key
 		signFunc: func(hash []byte) ([]byte, error) {
 			// Simulate a successful signing
 			return []byte(fmt.Sprintf("signed_%x", hash)), nil
@@ -147,8 +147,8 @@ func TestSignTx(t *testing.T) {
 func TestSignMessageV2(t *testing.T) {
 	// Setup a mock signer
 	mockSigner := &MockSigner{
-		addr: types.MustNewAddressFromBase58("TQJ6R9SPvD5SyqgYqTBq3yc6mFtEgatPDu"), // Valid dummy address
-		pubKey: &ecdsa.PublicKey{}, // Dummy public key
+		addr:   types.MustNewAddressFromBase58("TQJ6R9SPvD5SyqgYqTBq3yc6mFtEgatPDu"), // Valid dummy address
+		pubKey: &ecdsa.PublicKey{},                                                   // Dummy public key
 		signFunc: func(hash []byte) ([]byte, error) {
 			// Simulate a successful signing by returning a dummy 65-byte signature
 			return make([]byte, 65), nil
@@ -160,7 +160,7 @@ func TestSignMessageV2(t *testing.T) {
 		signature, err := SignMessageV2(mockSigner, message)
 		require.NoError(t, err)
 		assert.True(t, strings.HasPrefix(signature, "0x")) // Check for "0x" prefix
-		assert.Len(t, signature, 132) // 0x + 65 bytes * 2 = 130 hex chars = 132 length
+		assert.Len(t, signature, 132)                      // 0x + 65 bytes * 2 = 130 hex chars = 132 length
 	})
 
 	t.Run("Sign hex message successfully", func(t *testing.T) {
@@ -168,7 +168,7 @@ func TestSignMessageV2(t *testing.T) {
 		signature, err := SignMessageV2(mockSigner, message)
 		require.NoError(t, err)
 		assert.True(t, strings.HasPrefix(signature, "0x")) // Check for "0x" prefix
-		assert.Len(t, signature, 132) // 0x + 65 bytes * 2 = 130 hex chars = 132 length
+		assert.Len(t, signature, 132)                      // 0x + 65 bytes * 2 = 130 hex chars = 132 length
 	})
 
 	t.Run("Handle signer Sign error in message signing", func(t *testing.T) {
