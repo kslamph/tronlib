@@ -261,8 +261,8 @@ func (c *Client) SignAndBroadcast(ctx context.Context, anytx any, opt BroadcastO
 			coretx.RawData.GetContract()[0].PermissionId = opt.PermissionID
 		}
 		coretx.RawData.FeeLimit = opt.FeeLimit
-		for _, signer := range signers {
-			if err := signer.Sign(coretx); err != nil {
+		for _, s := range signers {
+			if err := signer.SignTx(s, coretx); err != nil {
 				return nil, fmt.Errorf("failed to sign transaction: %w", err)
 			}
 		}
