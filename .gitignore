@@ -1,5 +1,5 @@
-.VSCodeCounter/
-/doc/
-.aider*
 .env
 tmp/
+reports/
+coverage.out
+coverage.txt
