@@ -116,9 +116,9 @@ func TestAddressHexEVM(t *testing.T) {
 	t.Run("Valid address EVM hex", func(t *testing.T) {
 		evmHex := addr.HexEVM()
 		assert.NotEmpty(t, evmHex)
-		assert.True(t, len(evmHex) > 2) // Should have 0x prefix
+		assert.True(t, len(evmHex) > 2)   // Should have 0x prefix
 		assert.Equal(t, "0x", evmHex[:2]) // Should start with 0x
-		assert.Len(t, evmHex, 42) // 0x + 40 hex chars = 42 chars
+		assert.Len(t, evmHex, 42)         // 0x + 40 hex chars = 42 chars
 	})
 
 	t.Run("Nil address EVM hex", func(t *testing.T) {
@@ -170,7 +170,7 @@ func TestNewAddressFromEVM(t *testing.T) {
 	t.Run("Round trip conversion", func(t *testing.T) {
 		addr, err := NewAddressFromEVM(evmAddr)
 		require.NoError(t, err)
-		
+
 		// Convert back to EVM address
 		evmAddr2 := addr.EVMAddress()
 		assert.Equal(t, evmAddr, evmAddr2)
