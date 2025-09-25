@@ -59,6 +59,17 @@ func (m *NetworkManager) GetBlockByNumber(ctx context.Context, blockNumber int64
 	})
 }
 
+func (m *NetworkManager) GetTransactionInfoByBlockNum(ctx context.Context, blockNumber int64) (*api.TransactionInfoList, error) {
+	if blockNumber < 0 {
+		return nil, fmt.Errorf("%w: block number must be non-negative", types.ErrInvalidParameter)
+	}
+
+	req := &api.NumberMessage{Num: blockNumber}
+	return lowlevel.Call(m.conn, ctx, "get transactioninfo by num", func(cl api.WalletClient, ctx context.Context) (*api.TransactionInfoList, error) {
+		return cl.GetTransactionInfoByBlockNum(ctx, req)
+	})
+}
+
 // GetBlockById retrieves a block by its ID (hash)
 func (m *NetworkManager) GetBlockById(ctx context.Context, blockId []byte) (*core.Block, error) {
 	if len(blockId) == 0 {

@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestABIEncoder_Comprehensive tests the EncodeMethod function with various scenarios
-func TestABIEncoder_Comprehensive(t *testing.T) {
+// TestABIEncoderComprehensive tests the EncodeMethod function with various scenarios
+func TestABIEncoderComprehensive(t *testing.T) {
 	processor := NewABIProcessor(nil)
 	// Create a sample ABI with a constructor
 	abi := &core.SmartContract_ABI{
@@ -133,8 +133,8 @@ func TestABIEncoder_Comprehensive(t *testing.T) {
 	})
 }
 
-// TestABIEncoder_AdditionalCoverage tests additional functions to improve coverage
-func TestABIEncoder_AdditionalCoverage(t *testing.T) {
+// TestABIEncoderAdditionalCoverage tests additional functions to improve coverage
+func TestABIEncoderAdditionalCoverage(t *testing.T) {
 	processor := NewABIProcessor(nil)
 
 	// Test GetConstructorTypes
@@ -194,8 +194,8 @@ func TestABIEncoder_AdditionalCoverage(t *testing.T) {
 	})
 }
 
-// TestABIEncoder_ConvertParameter_Comprehensive tests the convertParameter function with various types
-func TestABIEncoder_ConvertParameter_Comprehensive(t *testing.T) {
+// TestABIEncoderConvertParameterComprehensive tests the convertParameter function with various types
+func TestABIEncoderConvertParameterComprehensive(t *testing.T) {
 	processor := NewABIProcessor(nil)
 
 	// Test case 1: Address conversion
@@ -295,8 +295,8 @@ func TestABIEncoder_ConvertParameter_Comprehensive(t *testing.T) {
 	})
 }
 
-// TestABIDecoder_Comprehensive tests the DecodeInputData function with various scenarios
-func TestABIDecoder_Comprehensive(t *testing.T) {
+// TestABIDecoderComprehensive tests the DecodeInputData function with various scenarios
+func TestABIDecoderComprehensive(t *testing.T) {
 	// Create a sample ABI with a transfer function
 	abi := &core.SmartContract_ABI{
 		Entrys: []*core.SmartContract_ABI_Entry{
@@ -376,8 +376,8 @@ func TestABIDecoder_Comprehensive(t *testing.T) {
 	})
 }
 
-// TestABIDecoder_DecodeResult_Comprehensive tests the DecodeResult function
-func TestABIDecoder_DecodeResult_Comprehensive(t *testing.T) {
+// TestABIDecoderDecodeResultComprehensive tests the DecodeResult function
+func TestABIDecoderDecodeResultComprehensive(t *testing.T) {
 	processor := NewABIProcessor(nil)
 
 	// Test case 1: No outputs
@@ -449,8 +449,8 @@ func TestABIDecoder_DecodeResult_Comprehensive(t *testing.T) {
 	})
 }
 
-// TestABIDecoder_FormatDecodedValue_Comprehensive tests the formatDecodedValue function
-func TestABIDecoder_FormatDecodedValue_Comprehensive(t *testing.T) {
+// TestABIDecoderFormatDecodedValueComprehensive tests the formatDecodedValue function
+func TestABIDecoderFormatDecodedValueComprehensive(t *testing.T) {
 	processor := NewABIProcessor(nil)
 
 	// Test case 1: Address formatting
