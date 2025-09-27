@@ -202,7 +202,7 @@ func TestTokenSymbolValidation(t *testing.T) {
 
 func TestNodeURLValidation(t *testing.T) {
 	validURLs := []string{
-		"grpc://127.0.0.1:50051",
+		"grpc://grpc.trongrid.io:50051",
 		"grpcs://grpc.trongrid.io:50051",
 	}
 

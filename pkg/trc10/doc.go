@@ -4,7 +4,7 @@
 //
 // The TRC10 manager provides methods for TRC10 token operations:
 //
-//	cli, _ := client.NewClient("grpc://127.0.0.1:50051")
+//	cli, _ := client.NewClient("grpc://grpc.trongrid.io:50051")
 //	defer cli.Close()
 //
 //	tm := trc10.NewManager(cli)

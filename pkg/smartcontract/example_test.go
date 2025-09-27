@@ -15,7 +15,7 @@ func ExampleManager() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	cli, _ := client.NewClient("grpc://127.0.0.1:50051")
+	cli, _ := client.NewClient("grpc://grpc.trongrid.io:50051")
 	defer cli.Close()
 
 	mgr := cli.SmartContract()
@@ -31,7 +31,7 @@ func ExampleManager() {
 
 // ExampleInstance_Encode demonstrates encoding of a method call.
 func ExampleInstance_Encode() {
-	cli, _ := client.NewClient("grpc://127.0.0.1:50051")
+	cli, _ := client.NewClient("grpc://grpc.trongrid.io:50051")
 	defer cli.Close()
 
 	addr, _ := types.NewAddress("Tcontractxxxxxxxxxxxxxxxxxxxxxxxx")
@@ -43,7 +43,7 @@ func ExampleInstance_Encode() {
 
 // ExampleInstance_DecodeResult demonstrates decoding of a constant method return.
 func ExampleInstance_DecodeResult() {
-	cli, _ := client.NewClient("grpc://127.0.0.1:50051")
+	cli, _ := client.NewClient("grpc://grpc.trongrid.io:50051")
 	defer cli.Close()
 
 	addr, _ := types.NewAddress("Tcontractxxxxxxxxxxxxxxxxxxxxxxxx")

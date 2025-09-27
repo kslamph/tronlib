@@ -103,7 +103,7 @@ Options can be used to configure:
 
 Example:
 ```go
-cli, err := client.NewClient("grpc://127.0.0.1:50051",
+cli, err := client.NewClient("grpc://grpc.trongrid.io:50051",
     client.WithTimeout(30*time.Second),
     client.WithPool(5, 10))
 if err != nil {
@@ -259,7 +259,7 @@ func (c *Client) GetNodeAddress() string
 
 GetNodeAddress returns the configured node address.
 
-The address is in the format scheme://host:port (e.g., grpc://127.0.0.1:50051).
+The address is in the format scheme://host:port (e.g., grpc://grpc.trongrid.io:50051).
 
 #### IsConnected
 
@@ -356,7 +356,7 @@ The account manager requires a connection provider (typically a *client.Client) 
 
 Example:
 ```go
-cli, err := client.NewClient("grpc://127.0.0.1:50051")
+cli, err := client.NewClient("grpc://grpc.trongrid.io:50051")
 if err != nil {
     // handle error
 }
@@ -498,7 +498,7 @@ This function creates a new TRC20Manager instance for interacting with a specifi
 
 Example:
 ```go
-cli, err := client.NewClient("grpc://127.0.0.1:50051")
+cli, err := client.NewClient("grpc://grpc.trongrid.io:50051")
 if err != nil {
     // handle error
 }
@@ -744,7 +744,7 @@ The smart contract manager requires a connection provider (typically a *client.C
 
 Example:
 ```go
-cli, err := client.NewClient("grpc://127.0.0.1:50051")
+cli, err := client.NewClient("grpc://grpc.trongrid.io:50051")
 if err != nil {
     // handle error
 }

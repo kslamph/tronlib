@@ -46,7 +46,7 @@ type TRC20Manager struct {
 //
 // Example:
 //
-//	cli, err := client.NewClient("grpc://127.0.0.1:50051")
+//	cli, err := client.NewClient("grpc://grpc.trongrid.io:50051")
 //	if err != nil {
 //	    // handle error
 //	}

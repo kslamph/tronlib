@@ -16,7 +16,7 @@ func ExampleNewManager() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	cli, _ := client.NewClient("grpc://127.0.0.1:50051")
+	cli, _ := client.NewClient("grpc://grpc.trongrid.io:50051")
 	defer cli.Close()
 
 	token, _ := types.NewAddress("Ttokenxxxxxxxxxxxxxxxxxxxxxxxxxxx")

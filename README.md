@@ -283,7 +283,7 @@ for _, log := range result.Logs {
 ### Client Options
 
 ```go
-cli, err := client.NewClient("grpc://127.0.0.1:50051",
+cli, err := client.NewClient("grpc://grpc.trongrid.io:50051",
     client.WithTimeout(30*time.Second),     // Default timeout
     client.WithPool(5, 10),                 // Connection pool: 5 initial, 10 max
 )

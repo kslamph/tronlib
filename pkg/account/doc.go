@@ -5,7 +5,7 @@
 //
 // The account manager provides methods for common account operations:
 //
-//	cli, _ := client.NewClient("grpc://127.0.0.1:50051")
+//	cli, _ := client.NewClient("grpc://grpc.trongrid.io:50051")
 //	defer cli.Close()
 //
 //	am := cli.Account()

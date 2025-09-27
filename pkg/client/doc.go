@@ -15,7 +15,7 @@
 // The client maintains a pool of connections to improve performance. The pool
 // size can be configured during client creation:
 //
-//	cli, err := client.NewClient("grpc://127.0.0.1:50051",
+//	cli, err := client.NewClient("grpc://grpc.trongrid.io:50051",
 //	    client.WithPool(5, 10),     // 5 initial, 10 max connections
 //	    client.WithTimeout(30*time.Second))
 //	if err != nil { /* handle */ }
@@ -23,7 +23,7 @@
 //
 // # Quick Start
 //
-//	cli, err := client.NewClient("grpc://127.0.0.1:50051", client.WithTimeout(30*time.Second))
+//	cli, err := client.NewClient("grpc://grpc.trongrid.io:50051", client.WithTimeout(30*time.Second))
 //	if err != nil { /* handle */ }
 //	defer cli.Close()
 //
@@ -91,7 +91,7 @@
 // # Common Usage Patterns
 //
 //  1. Creating a client with custom configuration:
-//     cli, err := client.NewClient("grpc://127.0.0.1:50051",
+//     cli, err := client.NewClient("grpc://grpc.trongrid.io:50051",
 //     client.WithTimeout(30*time.Second),
 //     client.WithPool(5, 10))
 //

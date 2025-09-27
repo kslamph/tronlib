@@ -77,7 +77,7 @@ type Client struct {
 //
 // Example:
 //
-//	cli, err := client.NewClient("grpc://127.0.0.1:50051",
+//	cli, err := client.NewClient("grpc://grpc.trongrid.io:50051",
 //	    client.WithTimeout(30*time.Second),
 //	    client.WithPool(5, 10))
 //	if err != nil {
@@ -94,7 +94,7 @@ func NewClient(endpoint string, opts ...Option) (*Client, error) {
 	// Enforce scheme-based address: grpc://host:port or grpcs://host:port
 	parsed, err := url.Parse(endpoint)
 	if err != nil || parsed.Scheme == "" {
-		return nil, fmt.Errorf("invalid node address, expected scheme://host:port (e.g., grpc://127.0.0.1:50051)")
+		return nil, fmt.Errorf("invalid node address, expected scheme://host:port (e.g., grpc://grpc.trongrid.io:50051)")
 	}
 	scheme := strings.ToLower(parsed.Scheme)
 	if scheme != "grpc" && scheme != "grpcs" {
@@ -220,7 +220,7 @@ func (c *Client) GetTimeout() time.Duration {
 
 // GetNodeAddress returns the configured node address.
 //
-// The address is in the format scheme://host:port (e.g., grpc://127.0.0.1:50051).
+// The address is in the format scheme://host:port (e.g., grpc://grpc.trongrid.io:50051).
 func (c *Client) GetNodeAddress() string {
 	return c.nodeAddress
 }

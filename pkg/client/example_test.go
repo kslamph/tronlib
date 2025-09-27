@@ -9,7 +9,7 @@ import (
 
 // ExampleClient_SignAndBroadcast demonstrates customizing broadcast options.
 func ExampleClient_SignAndBroadcast() {
-	cli, _ := client.NewClient("grpc://127.0.0.1:50051")
+	cli, _ := client.NewClient("grpc://grpc.trongrid.io:50051")
 	defer cli.Close()
 
 	// Some transaction built elsewhere; nil here just to illustrate API.
@@ -29,7 +29,7 @@ func ExampleClient_SignAndBroadcast() {
 
 // ExampleClient_Simulate demonstrates read-only simulation of a transaction.
 func ExampleClient_Simulate() {
-	cli, _ := client.NewClient("grpc://127.0.0.1:50051")
+	cli, _ := client.NewClient("grpc://grpc.trongrid.io:50051")
 	defer cli.Close()
 
 	// Some transaction built elsewhere; nil here just to illustrate API.

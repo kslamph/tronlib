@@ -8,11 +8,11 @@ This guide documents how we test high-level public functions against real TRON n
 - Produce stable, reproducible tests with clear preconditions and logs
 
 ## Networks policy
-- **Mainnet (read-only)**: Query-only tests that do not mutate chain state. Default endpoint: `grpc://127.0.0.1:50051` (configurable).
+- **Mainnet (read-only)**: Query-only tests that do not mutate chain state. Default endpoint: `grpc://grpc.trongrid.io:50051` (configurable).
 - **Nile (write tests)**: Transactions that spend TRX, freeze/unfreeze resources, transfer TRC20/TRC10, vote, deploy contracts, etc. Default endpoint: `grpc://grpc.nile.trongrid.io:50051`.
 
 Environment variables (see `integration_test/test.env`):
-- `MAINNET_NODE_URL` (default `grpc://127.0.0.1:50051`)
+- `MAINNET_NODE_URL` (default `grpc://grpc.trongrid.io:50051`)
 - `NILE_NODE_URL` (default `grpc://grpc.nile.trongrid.io:50051`)
 - `NILE_TEST_KEY1`, `NILE_TEST_KEY2` (funded test accounts for Nile write tests)
 - Contract addresses populated by the setup tool:(already deployed)
@@ -48,7 +48,7 @@ Recommended usage:
 
 Mainnet read-only tests:
 ```bash
-MAINNET_NODE_URL=grpc://127.0.0.1:50051 \
+MAINNET_NODE_URL=grpc://grpc.trongrid.io:50051 \
 go test -v ./integration_test/read_tests/...
 ```
 

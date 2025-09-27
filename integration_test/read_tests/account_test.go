@@ -23,7 +23,7 @@ type TestConfig struct {
 // getTestConfig returns the test configuration
 func getTestConfig() TestConfig {
 	return TestConfig{
-		Endpoint: "grpc://127.0.0.1:50051",
+		Endpoint: "grpc://grpc.trongrid.io:50051",
 		Timeout:  30 * time.Second,
 	}
 }
