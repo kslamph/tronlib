@@ -65,3 +65,24 @@ func CreateCommonTransaction(cp ConnProvider, ctx context.Context, req *core.Tra
 		return client.CreateCommonTransaction(ctx, req)
 	})
 }
+
+// GetTransactionFromPending gets transaction from pending
+func GetTransactionFromPending(cp ConnProvider, ctx context.Context, req *api.BytesMessage) (*core.Transaction, error) {
+	return Call(cp, ctx, "get transaction from pending", func(client api.WalletClient, ctx context.Context) (*core.Transaction, error) {
+		return client.GetTransactionFromPending(ctx, req)
+	})
+}
+
+// GetTransactionListFromPending gets transaction list from pending
+func GetTransactionListFromPending(cp ConnProvider, ctx context.Context, req *api.EmptyMessage) (*api.TransactionIdList, error) {
+	return Call(cp, ctx, "get transaction list from pending", func(client api.WalletClient, ctx context.Context) (*api.TransactionIdList, error) {
+		return client.GetTransactionListFromPending(ctx, req)
+	})
+}
+
+// GetPendingSize gets pending size
+func GetPendingSize(cp ConnProvider, ctx context.Context, req *api.EmptyMessage) (*api.NumberMessage, error) {
+	return Call(cp, ctx, "get pending size", func(client api.WalletClient, ctx context.Context) (*api.NumberMessage, error) {
+		return client.GetPendingSize(ctx, req)
+	})
+}

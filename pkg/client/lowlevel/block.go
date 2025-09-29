@@ -106,3 +106,10 @@ func GetBurnTrx(cp ConnProvider, ctx context.Context, req *api.EmptyMessage) (*a
 		return client.GetBurnTrx(ctx, req)
 	})
 }
+
+// GetBlock gets block by ID or number
+func GetBlock(cp ConnProvider, ctx context.Context, req *api.BlockReq) (*api.BlockExtention, error) {
+	return Call(cp, ctx, "get block", func(client api.WalletClient, ctx context.Context) (*api.BlockExtention, error) {
+		return client.GetBlock(ctx, req)
+	})
+}

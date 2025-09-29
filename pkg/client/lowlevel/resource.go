@@ -86,3 +86,17 @@ func GetCanWithdrawUnfreezeAmount(cp ConnProvider, ctx context.Context, req *api
 		return client.GetCanWithdrawUnfreezeAmount(ctx, req)
 	})
 }
+
+// FreezeBalance2 freezes balance for resources (v2 - preferred)
+func FreezeBalance2(cp ConnProvider, ctx context.Context, req *core.FreezeBalanceContract) (*api.TransactionExtention, error) {
+	return TxCall(cp, ctx, "freeze balance2", func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
+		return client.FreezeBalance2(ctx, req)
+	})
+}
+
+// UnfreezeBalance2 unfreezes balance (v2 - preferred)
+func UnfreezeBalance2(cp ConnProvider, ctx context.Context, req *core.UnfreezeBalanceContract) (*api.TransactionExtention, error) {
+	return TxCall(cp, ctx, "unfreeze balance2", func(client api.WalletClient, ctx context.Context) (*api.TransactionExtention, error) {
+		return client.UnfreezeBalance2(ctx, req)
+	})
+}

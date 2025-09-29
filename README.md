@@ -3,6 +3,7 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/kslamph/tronlib.svg)](https://pkg.go.dev/github.com/kslamph/tronlib)
 [![Go Report Card](https://goreportcard.com/badge/github.com/kslamph/tronlib)](https://goreportcard.com/report/github.com/kslamph/tronlib)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![codecov](https://codecov.io/gh/kslamph/tronlib/graph/badge.svg?token=QIN77Y7S2T)](https://codecov.io/gh/kslamph/tronlib)
 
 A comprehensive, production-ready Go SDK for interacting with the TRON blockchain. TronLib provides high-level abstractions for common operations while maintaining flexibility for advanced use cases.
 

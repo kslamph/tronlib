@@ -65,3 +65,17 @@ func AccountPermissionUpdate(cp ConnProvider, ctx context.Context, req *core.Acc
 		return client.AccountPermissionUpdate(ctx, req)
 	})
 }
+
+// GetAccountBalance gets account balance
+func GetAccountBalance(cp ConnProvider, ctx context.Context, req *core.AccountBalanceRequest) (*core.AccountBalanceResponse, error) {
+	return Call(cp, ctx, "get account balance", func(client api.WalletClient, ctx context.Context) (*core.AccountBalanceResponse, error) {
+		return client.GetAccountBalance(ctx, req)
+	})
+}
+
+// GetBlockBalanceTrace gets block balance trace
+func GetBlockBalanceTrace(cp ConnProvider, ctx context.Context, req *core.BlockBalanceTrace_BlockIdentifier) (*core.BlockBalanceTrace, error) {
+	return Call(cp, ctx, "get block balance trace", func(client api.WalletClient, ctx context.Context) (*core.BlockBalanceTrace, error) {
+		return client.GetBlockBalanceTrace(ctx, req)
+	})
+}
