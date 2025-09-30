@@ -194,6 +194,14 @@ var builtinSig4 = map[[4]byte]*EventDef{
 			{Type: "string", Indexed: false, Name: "toAddress"},
 		},
 	},
+	{0x0b, 0x41, 0xc0, 0x0d}: {
+		Name: "DepositStaked",
+		Inputs: []ParamDef{
+			{Type: "address", Indexed: true, Name: "user"},
+			{Type: "uint256", Indexed: false, Name: "amount"},
+			{Type: "bool", Indexed: false, Name: "locked"},
+		},
+	},
 	{0x0b, 0xb7, 0xd7, 0x16}: {
 		Name: "TokensRedeemed",
 		Inputs: []ParamDef{
@@ -480,6 +488,14 @@ var builtinSig4 = map[[4]byte]*EventDef{
 			{Type: "uint256", Indexed: true, Name: "token_amount"},
 		},
 	},
+	{0x18, 0x7d, 0xf3, 0xc8}: {
+		Name: "AuditRewardPaid",
+		Inputs: []ParamDef{
+			{Type: "address", Indexed: true, Name: "user"},
+			{Type: "uint256", Indexed: false, Name: "amount"},
+			{Type: "uint256", Indexed: false, Name: "id"},
+		},
+	},
 	{0x1a, 0x8e, 0xad, 0x41}: {
 		Name: "ProposalUpdated",
 		Inputs: []ParamDef{
@@ -588,12 +604,30 @@ var builtinSig4 = map[[4]byte]*EventDef{
 			{Type: "uint256", Indexed: false, Name: "total"},
 		},
 	},
+	{0x20, 0xef, 0xd6, 0xd5}: {
+		Name: "Swap",
+		Inputs: []ParamDef{
+			{Type: "address", Indexed: false, Name: "sender"},
+			{Type: "address", Indexed: false, Name: "srcToken"},
+			{Type: "address", Indexed: false, Name: "dstToken"},
+			{Type: "address", Indexed: false, Name: "dstReceiver"},
+			{Type: "uint256", Indexed: false, Name: "spentAmount"},
+			{Type: "uint256", Indexed: false, Name: "returnAmount"},
+		},
+	},
 	{0x20, 0xf9, 0x75, 0xd6}: {
 		Name: "RewardDistributed",
 		Inputs: []ParamDef{
 			{Type: "address", Indexed: true, Name: "user"},
 			{Type: "string", Indexed: false, Name: "planCode"},
 			{Type: "uint256", Indexed: false, Name: "amount"},
+		},
+	},
+	{0x21, 0x38, 0xb9, 0x31}: {
+		Name: "UserRegistered",
+		Inputs: []ParamDef{
+			{Type: "address", Indexed: true, Name: "user"},
+			{Type: "address", Indexed: true, Name: "referrer"},
 		},
 	},
 	{0x21, 0xd5, 0x4a, 0x4c}: {
@@ -615,6 +649,13 @@ var builtinSig4 = map[[4]byte]*EventDef{
 			{Type: "bytes", Indexed: false, Name: "message"},
 			{Type: "bytes", Indexed: false, Name: "extraData"},
 			{Type: "bytes", Indexed: false, Name: "reason"},
+		},
+	},
+	{0x22, 0x28, 0x38, 0xdb}: {
+		Name: "Redeem",
+		Inputs: []ParamDef{
+			{Type: "address", Indexed: true, Name: "from"},
+			{Type: "uint256", Indexed: false, Name: "value"},
 		},
 	},
 	{0x22, 0x38, 0x0c, 0x05}: {
@@ -767,6 +808,13 @@ var builtinSig4 = map[[4]byte]*EventDef{
 			{Type: "uint256", Indexed: false, Name: "seizeTokens"},
 		},
 	},
+	{0x29, 0xbe, 0xae, 0xc9}: {
+		Name: "NativeCoinBatchSent",
+		Inputs: []ParamDef{
+			{Type: "uint256", Indexed: false, Name: "total"},
+			{Type: "uint256", Indexed: false, Name: "recipientCount"},
+		},
+	},
 	{0x29, 0xcf, 0x57, 0x05}: {
 		Name: "BridgeHandlerSet",
 		Inputs: []ParamDef{
@@ -901,12 +949,25 @@ var builtinSig4 = map[[4]byte]*EventDef{
 			{Type: "address", Indexed: false, Name: "profitToken"},
 		},
 	},
+	{0x2f, 0x56, 0x81, 0x0a}: {
+		Name: "CommitOwnership",
+		Inputs: []ParamDef{
+			{Type: "address", Indexed: false, Name: "admin"},
+		},
+	},
 	{0x2f, 0x87, 0x88, 0x11}: {
 		Name: "RoleGranted",
 		Inputs: []ParamDef{
 			{Type: "bytes32", Indexed: true, Name: "role"},
 			{Type: "address", Indexed: true, Name: "account"},
 			{Type: "address", Indexed: true, Name: "sender"},
+		},
+	},
+	{0x30, 0x38, 0x5c, 0x84}: {
+		Name: "Minted",
+		Inputs: []ParamDef{
+			{Type: "address", Indexed: true, Name: "to"},
+			{Type: "uint256", Indexed: false, Name: "amount"},
 		},
 	},
 	{0x30, 0x67, 0x04, 0x8b}: {
@@ -916,6 +977,16 @@ var builtinSig4 = map[[4]byte]*EventDef{
 			{Type: "uint128", Indexed: false, Name: "liquidity"},
 			{Type: "uint256", Indexed: false, Name: "amount0"},
 			{Type: "uint256", Indexed: false, Name: "amount1"},
+		},
+	},
+	{0x30, 0x8b, 0xc6, 0x45}: {
+		Name: "ActionRewardPaid",
+		Inputs: []ParamDef{
+			{Type: "address", Indexed: true, Name: "user"},
+			{Type: "uint256", Indexed: false, Name: "amount"},
+			{Type: "uint256", Indexed: false, Name: "nonce"},
+			{Type: "uint256", Indexed: false, Name: "deadline"},
+			{Type: "uint8", Indexed: false, Name: "action"},
 		},
 	},
 	{0x31, 0x15, 0xd1, 0x44}: {
@@ -1283,11 +1354,29 @@ var builtinSig4 = map[[4]byte]*EventDef{
 			{Type: "uint256", Indexed: false, Name: "oldReward"},
 		},
 	},
+	{0x45, 0x45, 0xbf, 0x13}: {
+		Name: "BatchSent",
+		Inputs: []ParamDef{
+			{Type: "address", Indexed: true, Name: "token"},
+			{Type: "uint256", Indexed: false, Name: "total"},
+			{Type: "uint256", Indexed: false, Name: "recipientCount"},
+		},
+	},
 	{0x45, 0x54, 0x0d, 0xa1}: {
 		Name: "MerkleRequested",
 		Inputs: []ParamDef{
 			{Type: "address", Indexed: false, Name: "requester"},
 			{Type: "uint256", Indexed: false, Name: "amount"},
+		},
+	},
+	{0x45, 0x66, 0xdf, 0xc2}: {
+		Name: "Deposit",
+		Inputs: []ParamDef{
+			{Type: "address", Indexed: true, Name: "provider"},
+			{Type: "uint256", Indexed: false, Name: "value"},
+			{Type: "uint256", Indexed: true, Name: "locktime"},
+			{Type: "int128", Indexed: false, Name: "type"},
+			{Type: "uint256", Indexed: false, Name: "ts"},
 		},
 	},
 	{0x45, 0xb9, 0x6f, 0xe4}: {
@@ -1415,6 +1504,14 @@ var builtinSig4 = map[[4]byte]*EventDef{
 			{Type: "address", Indexed: true, Name: "sender"},
 			{Type: "address", Indexed: false, Name: "token"},
 			{Type: "uint256", Indexed: false, Name: "totalTransfers"},
+		},
+	},
+	{0x49, 0x99, 0x5e, 0x5d}: {
+		Name: "Burn",
+		Inputs: []ParamDef{
+			{Type: "address", Indexed: true, Name: "burner"},
+			{Type: "uint256", Indexed: false, Name: "value"},
+			{Type: "uint256", Indexed: false, Name: "burnRate"},
 		},
 	},
 	{0x49, 0xbc, 0x8f, 0x1c}: {
@@ -1697,6 +1794,14 @@ var builtinSig4 = map[[4]byte]*EventDef{
 			{Type: "address", Indexed: true, Name: "_bridgeAddress"},
 		},
 	},
+	{0x54, 0x07, 0x98, 0xdf}: {
+		Name: "RewardPaid",
+		Inputs: []ParamDef{
+			{Type: "address", Indexed: true, Name: "user"},
+			{Type: "address", Indexed: true, Name: "rewardsToken"},
+			{Type: "uint256", Indexed: false, Name: "reward"},
+		},
+	},
 	{0x54, 0x11, 0xe8, 0xeb}: {
 		Name: "BaseURIChanged",
 		Inputs: []ParamDef{
@@ -1839,6 +1944,19 @@ var builtinSig4 = map[[4]byte]*EventDef{
 			{Type: "bytes", Indexed: false, Name: "from"},
 		},
 	},
+	{0x59, 0xdd, 0x3a, 0x4e}: {
+		Name: "Withdraws",
+		Inputs: []ParamDef{
+			{Type: "tuple[]", Indexed: false, Name: "withdrawRequests"},
+		},
+	},
+	{0x5a, 0x29, 0x7b, 0x23}: {
+		Name: "SetMerkleData",
+		Inputs: []ParamDef{
+			{Type: "bytes32", Indexed: true, Name: "root"},
+			{Type: "string", Indexed: false, Name: "merkleTreeLink"},
+		},
+	},
 	{0x5a, 0x29, 0x7b, 0x2c}: {
 		Name: "ClientIdLog",
 		Inputs: []ParamDef{
@@ -1886,6 +2004,15 @@ var builtinSig4 = map[[4]byte]*EventDef{
 		Inputs: []ParamDef{
 			{Type: "trcToken", Indexed: false, Name: "id"},
 			{Type: "uint256", Indexed: false, Name: "total"},
+		},
+	},
+	{0x5b, 0xc9, 0x7d, 0x73}: {
+		Name: "Purchase",
+		Inputs: []ParamDef{
+			{Type: "address", Indexed: false, Name: "buyer"},
+			{Type: "uint256", Indexed: false, Name: "packId"},
+			{Type: "uint256", Indexed: false, Name: "amountUSDT"},
+			{Type: "uint256", Indexed: false, Name: "atlaAmount"},
 		},
 	},
 	{0x5c, 0x35, 0xd0, 0x17}: {
@@ -1957,6 +2084,13 @@ var builtinSig4 = map[[4]byte]*EventDef{
 			{Type: "bytes32", Indexed: false, Name: "_lockId"},
 			{Type: "address", Indexed: false, Name: "_msgSender"},
 			{Type: "address", Indexed: false, Name: "_proposedImpl"},
+		},
+	},
+	{0x5e, 0x2a, 0xa6, 0x6e}: {
+		Name: "Supply",
+		Inputs: []ParamDef{
+			{Type: "uint256", Indexed: false, Name: "prevSupply"},
+			{Type: "uint256", Indexed: false, Name: "supply"},
 		},
 	},
 	{0x5e, 0x69, 0xb8, 0xfb}: {
@@ -2102,6 +2236,13 @@ var builtinSig4 = map[[4]byte]*EventDef{
 			{Type: "uint256", Indexed: false, Name: "amount"},
 			{Type: "uint256", Indexed: false, Name: "total"},
 			{Type: "bytes", Indexed: false, Name: "signerPubkey"},
+		},
+	},
+	{0x69, 0x6d, 0xe4, 0x25}: {
+		Name: "Burned",
+		Inputs: []ParamDef{
+			{Type: "address", Indexed: true, Name: "from"},
+			{Type: "uint256", Indexed: false, Name: "amount"},
 		},
 	},
 	{0x69, 0x85, 0xa0, 0x22}: {
@@ -2457,6 +2598,13 @@ var builtinSig4 = map[[4]byte]*EventDef{
 			{Type: "address", Indexed: true, Name: "current"},
 		},
 	},
+	{0x79, 0x0a, 0xcb, 0x62}: {
+		Name: "BindReferer",
+		Inputs: []ParamDef{
+			{Type: "address", Indexed: true, Name: "referer"},
+			{Type: "address", Indexed: true, Name: "referee"},
+		},
+	},
 	{0x79, 0x3c, 0xb7, 0x30}: {
 		Name: "BillingAccessControllerSet",
 		Inputs: []ParamDef{
@@ -2666,6 +2814,15 @@ var builtinSig4 = map[[4]byte]*EventDef{
 			{Type: "address", Indexed: true, Name: "newAddress"},
 		},
 	},
+	{0x84, 0x46, 0x80, 0xc7}: {
+		Name: "Withdraw",
+		Inputs: []ParamDef{
+			{Type: "string[]", Indexed: false, Name: "requestIds"},
+			{Type: "address[]", Indexed: false, Name: "tokenAddresses"},
+			{Type: "address[]", Indexed: false, Name: "receivers"},
+			{Type: "uint256[]", Indexed: false, Name: "amounts"},
+		},
+	},
 	{0x84, 0x58, 0x50, 0x99}: {
 		Name: "TransferTo",
 		Inputs: []ParamDef{
@@ -2697,6 +2854,13 @@ var builtinSig4 = map[[4]byte]*EventDef{
 			{Type: "address", Indexed: true, Name: "fromAddress"},
 			{Type: "uint256", Indexed: false, Name: "amountSentLD"},
 			{Type: "uint256", Indexed: false, Name: "amountReceivedLD"},
+		},
+	},
+	{0x85, 0x6c, 0xf5, 0x54}: {
+		Name: "ReferralSpentUpdated",
+		Inputs: []ParamDef{
+			{Type: "address", Indexed: true, Name: "user"},
+			{Type: "uint256", Indexed: false, Name: "amount"},
 		},
 	},
 	{0x87, 0x28, 0x6a, 0xd1}: {
@@ -2911,6 +3075,13 @@ var builtinSig4 = map[[4]byte]*EventDef{
 			{Type: "address", Indexed: false, Name: ""},
 		},
 	},
+	{0x90, 0x90, 0x81, 0x3b}: {
+		Name: "MintStaked",
+		Inputs: []ParamDef{
+			{Type: "address", Indexed: true, Name: "user"},
+			{Type: "uint256", Indexed: false, Name: "amount"},
+		},
+	},
 	{0x90, 0xc7, 0xf9, 0xf5}: {
 		Name: "OrderApprovedPartOne",
 		Inputs: []ParamDef{
@@ -2957,6 +3128,14 @@ var builtinSig4 = map[[4]byte]*EventDef{
 		Name: "DefaultFeeBpsSet",
 		Inputs: []ParamDef{
 			{Type: "uint16", Indexed: false, Name: "feeBps"},
+		},
+	},
+	{0x93, 0xfb, 0x44, 0x8e}: {
+		Name: "PayReferReward",
+		Inputs: []ParamDef{
+			{Type: "address", Indexed: true, Name: "referee"},
+			{Type: "address", Indexed: true, Name: "referer"},
+			{Type: "uint256", Indexed: false, Name: "value"},
 		},
 	},
 	{0x94, 0x44, 0xbf, 0xcf}: {
@@ -3112,6 +3291,13 @@ var builtinSig4 = map[[4]byte]*EventDef{
 		Inputs: []ParamDef{
 			{Type: "bytes32", Indexed: false, Name: "_lockId"},
 			{Type: "address", Indexed: false, Name: "_newImpl"},
+		},
+	},
+	{0x9d, 0xb2, 0xd9, 0x5c}: {
+		Name: "AtletaRefUpdated",
+		Inputs: []ParamDef{
+			{Type: "address", Indexed: true, Name: "oldRef"},
+			{Type: "address", Indexed: true, Name: "newRef"},
 		},
 	},
 	{0x9e, 0x71, 0xbc, 0x8e}: {
@@ -3344,6 +3530,13 @@ var builtinSig4 = map[[4]byte]*EventDef{
 		Inputs: []ParamDef{
 			{Type: "address", Indexed: true, Name: "customerAddress"},
 			{Type: "uint256", Indexed: false, Name: "tokens"},
+		},
+	},
+	{0xad, 0x2f, 0x86, 0xb0}: {
+		Name: "RewardsDurationUpdated",
+		Inputs: []ParamDef{
+			{Type: "address", Indexed: false, Name: "token"},
+			{Type: "uint256", Indexed: false, Name: "newDuration"},
 		},
 	},
 	{0xad, 0xec, 0x52, 0xfc}: {
@@ -3796,6 +3989,16 @@ var builtinSig4 = map[[4]byte]*EventDef{
 			{Type: "uint256", Indexed: false, Name: "tronEarned"},
 		},
 	},
+	{0xc4, 0x97, 0x14, 0x02}: {
+		Name: "unlockLimitByManager",
+		Inputs: []ParamDef{
+			{Type: "address", Indexed: false, Name: "user"},
+			{Type: "uint256", Indexed: false, Name: "limit"},
+			{Type: "uint256", Indexed: false, Name: "amount"},
+			{Type: "uint256", Indexed: false, Name: "stage"},
+			{Type: "uint256", Indexed: false, Name: "timeStamp"},
+		},
+	},
 	{0xc4, 0xa5, 0xaa, 0xdd}: {
 		Name: "EditFuncBlackList",
 		Inputs: []ParamDef{
@@ -3923,6 +4126,14 @@ var builtinSig4 = map[[4]byte]*EventDef{
 			{Type: "tuple", Indexed: false, Name: "fee"},
 		},
 	},
+	{0xc9, 0x5d, 0x55, 0x8e}: {
+		Name: "TransferExecuted",
+		Inputs: []ParamDef{
+			{Type: "address", Indexed: true, Name: "from"},
+			{Type: "address", Indexed: true, Name: "to"},
+			{Type: "uint256", Indexed: false, Name: "amount"},
+		},
+	},
 	{0xc9, 0xaf, 0xff, 0x09}: {
 		Name: "ShareMinted",
 		Inputs: []ParamDef{
@@ -3990,6 +4201,15 @@ var builtinSig4 = map[[4]byte]*EventDef{
 		Name: "Deprecate",
 		Inputs: []ParamDef{
 			{Type: "address", Indexed: false, Name: "newAddress"},
+		},
+	},
+	{0xcc, 0x5b, 0x27, 0x8c}: {
+		Name: "unlockLimitByUser",
+		Inputs: []ParamDef{
+			{Type: "address", Indexed: false, Name: "user"},
+			{Type: "uint256", Indexed: false, Name: "amount"},
+			{Type: "uint256", Indexed: false, Name: "stage"},
+			{Type: "uint256", Indexed: false, Name: "timeStamp"},
 		},
 	},
 	{0xcc, 0x65, 0xe4, 0xd9}: {
@@ -4274,6 +4494,13 @@ var builtinSig4 = map[[4]byte]*EventDef{
 	{0xd8, 0x0e, 0x68, 0x29}: {
 		Name: "TrxWithdrawn",
 		Inputs: []ParamDef{
+			{Type: "uint256", Indexed: false, Name: "amount"},
+		},
+	},
+	{0xd8, 0x13, 0x8f, 0x8a}: {
+		Name: "Claimed",
+		Inputs: []ParamDef{
+			{Type: "address", Indexed: true, Name: "user"},
 			{Type: "uint256", Indexed: false, Name: "amount"},
 		},
 	},
@@ -4661,6 +4888,12 @@ var builtinSig4 = map[[4]byte]*EventDef{
 			{Type: "address", Indexed: false, Name: "oracle"},
 		},
 	},
+	{0xeb, 0xee, 0x2d, 0x57}: {
+		Name: "ApplyOwnership",
+		Inputs: []ParamDef{
+			{Type: "address", Indexed: false, Name: "admin"},
+		},
+	},
 	{0xed, 0x00, 0xf4, 0xb3}: {
 		Name: "DecreaseBalance",
 		Inputs: []ParamDef{
@@ -4802,6 +5035,14 @@ var builtinSig4 = map[[4]byte]*EventDef{
 			{Type: "uint256", Indexed: false, Name: "amount"},
 		},
 	},
+	{0xf2, 0x79, 0xe6, 0xa1}: {
+		Name: "Withdraw",
+		Inputs: []ParamDef{
+			{Type: "address", Indexed: true, Name: "user"},
+			{Type: "uint256", Indexed: false, Name: "amount"},
+			{Type: "uint256", Indexed: false, Name: "timeStamp"},
+		},
+	},
 	{0xf2, 0xef, 0x97, 0x4b}: {
 		Name: "ChangeTransitCross",
 		Inputs: []ParamDef{
@@ -4828,6 +5069,15 @@ var builtinSig4 = map[[4]byte]*EventDef{
 		Name: "OwnerAddition",
 		Inputs: []ParamDef{
 			{Type: "address", Indexed: true, Name: "owner"},
+		},
+	},
+	{0xf3, 0xe9, 0xd5, 0xcb}: {
+		Name: "PayDividend",
+		Inputs: []ParamDef{
+			{Type: "uint256", Indexed: true, Name: "index"},
+			{Type: "address", Indexed: true, Name: "recipient"},
+			{Type: "uint256", Indexed: false, Name: "value"},
+			{Type: "uint256", Indexed: false, Name: "num"},
 		},
 	},
 	{0xf4, 0x0b, 0x9c, 0xa2}: {

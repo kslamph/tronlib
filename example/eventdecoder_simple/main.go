@@ -1,41 +1,79 @@
-// This snippet is from docs/eventdecoder.md
-// Simple Event Decoding
+// This snippet demonstrates how to retrieve and decode events from a transaction ID
 package main
 
 import (
-	"encoding/hex"
+	"bufio"
+	"context"
 	"fmt"
-	"log"
+	"os"
+	"strings"
 
+	"github.com/kslamph/tronlib/pkg/client"
 	"github.com/kslamph/tronlib/pkg/eventdecoder"
 )
 
 func main() {
-	// Example: TRC20 Transfer event log data
-	// This data would typically come from transaction logs
-
-	// Transfer event signature hash
-	transferSig, _ := hex.DecodeString("ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef")
-
-	// Indexed parameters (from, to addresses)
-	fromTopic, _ := hex.DecodeString("000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48")
-	toTopic, _ := hex.DecodeString("0000000000000000000000004e83362442b8d1bec281594cea3050c8eb01311c")
-
-	// Non-indexed data (amount)
-	amountData, _ := hex.DecodeString("00000000000000000000000000000000000000000000000000000000000003e8") // 1000
-
-	topics := [][]byte{transferSig, fromTopic, toTopic}
-
-	// Decode the event
-	event, err := eventdecoder.DecodeLog(topics, amountData)
+	// Ask user for transaction ID
+	fmt.Print("Enter a transaction ID: ")
+	reader := bufio.NewReader(os.Stdin)
+	txid, err := reader.ReadString('\n')
 	if err != nil {
-		log.Fatalf("Failed to decode event: %v", err)
+		fmt.Printf("Error reading input: %v\n", err)
+		return
 	}
 
-	// Print decoded event
-	fmt.Printf("Event: %s\n", event.EventName)
+	// Trim whitespace from the input
+	txid = strings.TrimSpace(txid)
 
-	for _, param := range event.Parameters {
-		fmt.Printf("  %s (%s): %v\n", param.Name, param.Type, param.Value)
+	// Validate transaction ID format (should be 64 hex characters)
+	if len(txid) != 64 {
+		fmt.Println("Invalid transaction ID format. Expected 64 hex characters.")
+		return
+	}
+
+	// Create client connection to TronGrid
+	nodeaddr := "grpc://grpc.trongrid.io:50051"
+	cli, err := client.NewClient(nodeaddr)
+	if err != nil {
+		fmt.Printf("Failed to create client: %v\n", err)
+		return
+	}
+	defer cli.Close()
+
+	// Retrieve transaction info by ID
+	tx, err := cli.Network().GetTransactionInfoById(context.Background(), txid)
+	if err != nil {
+		fmt.Printf("Failed to retrieve transaction: %v\n", err)
+		return
+	}
+
+	// Check if transaction has logs
+	logs := tx.GetLog()
+	if len(logs) == 0 {
+		fmt.Println("No events found in this transaction.")
+		return
+	}
+
+	// Decode all logs in the transaction
+	decodedEvents, err := eventdecoder.DecodeLogs(logs)
+	if err != nil {
+		fmt.Printf("Failed to decode events: %v\n", err)
+		return
+	}
+
+	// Print decoded events in a clear format
+	fmt.Printf("Transaction ID: %s\n", txid)
+	fmt.Printf("Number of events found: %d\n\n", len(decodedEvents))
+
+	for i, decodedEvent := range decodedEvents {
+		fmt.Printf("Event %d:\n", i+1)
+		fmt.Printf("  Contract: %s\n", decodedEvent.Contract)
+		fmt.Printf("  Event Name: %s\n", decodedEvent.EventName)
+		fmt.Printf("  Parameters:\n")
+
+		for _, param := range decodedEvent.Parameters {
+			fmt.Printf("    %s (%s): %v\n", param.Name, param.Type, param.Value)
+		}
+		fmt.Println()
 	}
 }

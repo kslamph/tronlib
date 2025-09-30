@@ -126,7 +126,7 @@ func main() {
 		startBlock int64
 		sleepMs    int
 	)
-	flag.StringVar(&nodeAddr, "node", "grpc://grpc.trongrid.io:50051", "TRON node URL (grpc://host:port or grpcs://host:port)")
+	flag.StringVar(&nodeAddr, "node", "grpc://127.0.0.1:50051", "TRON node URL (grpc://host:port or grpcs://host:port)")
 	flag.StringVar(&outFile, "out", "tmp/events_registry.json", "output JSON file for collected events")
 	flag.Int64Var(&startBlock, "start", -1, "start from this block number (default: latest)")
 	flag.IntVar(&sleepMs, "sleep", 250, "sleep milliseconds between blocks to reduce load")
