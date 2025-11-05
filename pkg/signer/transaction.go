@@ -17,11 +17,29 @@ import (
 // and attaches the signature to the transaction. It supports both *core.Transaction
 // and *api.TransactionExtention types.
 //
+// IMPORTANT: Transaction parameters (such as permission ID, fee limit, etc.) must be set
+// BEFORE calling this function, as the signature is calculated based on the transaction's
+// raw data. Changing transaction parameters after signing will invalidate the signature.
+//
+// For multi-signature transactions, call this function multiple times with different
+// signers on the same transaction object.
+//
 // Example:
 //
-//	tx := &core.Transaction{...} // Your transaction object
+//	tx, err := cli.Account().TransferTRX(ctx, from, to, amount)
+//	if err != nil {
+//	    // handle error
+//	}
+//
+//	// Set any required parameters BEFORE signing
+//	err = utils.SetPermissionID(tx, 3)  // For multi-sig scenarios
+//	if err != nil {
+//	    // handle error
+//	}
+//
+//	// Now sign the transaction
 //	pkSigner, _ := NewPrivateKeySigner("0x...")
-//	err := SignTx(pkSigner, tx)
+//	err = SignTx(pkSigner, tx)
 //	if err != nil {
 //	    // Handle error
 //	}
