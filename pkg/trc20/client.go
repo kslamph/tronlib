@@ -28,11 +28,11 @@ type TRC20Manager struct {
 	contract *smartcontract.Instance // Underlying smart contract client
 
 	// Cached properties (read-only and typically constant for a TRC20 token)
-	cachedName       string
-	cachedSymbol     string
-	cachedDecimals   uint8
-	decimalsCached   bool // Flag to track if decimals have been cached
-	mu               sync.RWMutex // Mutex for thread-safe access to cached properties
+	cachedName     string
+	cachedSymbol   string
+	cachedDecimals uint8
+	decimalsCached bool         // Flag to track if decimals have been cached
+	mu             sync.RWMutex // Mutex for thread-safe access to cached properties
 
 	// Pre-parsed ABI for common TRC20 methods
 	trc20ABI *abi.ABI
