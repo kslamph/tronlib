@@ -3,6 +3,7 @@ package smartcontract
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
@@ -15,6 +16,12 @@ import (
 // Satisfied by *client.Client.
 type contractClient interface {
 	lowlevel.ConnProvider
+}
+
+// methodCache stores cached method type information
+type methodCache struct {
+	inputTypes  []string
+	outputTypes []string
 }
 
 // Instance represents a high-level client bound to a deployed smart contract
@@ -31,6 +38,14 @@ type Instance struct {
 
 	// Utility instance for encoding/decoding
 	abiProcessor *utils.ABIProcessor
+
+	// Cache for method types to avoid repeated parsing
+	abiCache     map[string]*methodCache
+	abiCacheLock sync.RWMutex
+
+	// Cache for constructor types
+	constructorTypes []string
+	constructorOnce  sync.Once
 }
 
 // NewInstance constructs a contract instance for the given address using the
@@ -113,6 +128,7 @@ func NewInstance(tronClient contractClient, contractAddress *types.Address, abi 
 		Client:  tronClient,
 
 		abiProcessor: utils.NewABIProcessor(contractABI),
+		abiCache:     make(map[string]*methodCache),
 	}, nil
 }
 
@@ -310,12 +326,68 @@ func (i *Instance) Simulate(ctx context.Context, owner *types.Address, callValue
 
 }
 
+// getMethodTypes retrieves method types from cache or ABI
+func (i *Instance) getMethodTypes(methodName string) ([]string, []string, error) {
+	// Try to get from cache first
+	i.abiCacheLock.RLock()
+	if cache, ok := i.abiCache[methodName]; ok {
+		i.abiCacheLock.RUnlock()
+		return cache.inputTypes, cache.outputTypes, nil
+	}
+	i.abiCacheLock.RUnlock()
+
+	// Not in cache, parse from ABI
+	for _, entry := range i.ABI.Entrys {
+		if entry.Name == methodName && entry.Type == core.SmartContract_ABI_Entry_Function {
+			inputTypes := make([]string, len(entry.Inputs))
+			for i, input := range entry.Inputs {
+				inputTypes[i] = input.Type
+			}
+
+			outputTypes := make([]string, len(entry.Outputs))
+			for i, output := range entry.Outputs {
+				outputTypes[i] = output.Type
+			}
+
+			// Cache the result
+			i.abiCacheLock.Lock()
+			i.abiCache[methodName] = &methodCache{
+				inputTypes:  inputTypes,
+				outputTypes: outputTypes,
+			}
+			i.abiCacheLock.Unlock()
+
+			return inputTypes, outputTypes, nil
+		}
+	}
+	return nil, nil, fmt.Errorf("method %s not found", methodName)
+}
+
+// getConstructorTypes retrieves constructor types from cache or ABI
+func (i *Instance) getConstructorTypes() ([]string, error) {
+	var err error
+	i.constructorOnce.Do(func() {
+		for _, entry := range i.ABI.Entrys {
+			if entry.Type == core.SmartContract_ABI_Entry_Constructor {
+				inputTypes := make([]string, len(entry.Inputs))
+				for i, input := range entry.Inputs {
+					inputTypes[i] = input.Type
+				}
+				i.constructorTypes = inputTypes
+				return
+			}
+		}
+		err = fmt.Errorf("constructor not found")
+	})
+	return i.constructorTypes, err
+}
+
 // Encode encodes a method invocation into call data. For constructors, pass an
 // empty method name and only parameters.
 func (i *Instance) Encode(method string, params ...interface{}) ([]byte, error) {
 	// Special handling for constructors (empty method name)
 	if method == "" {
-		paramTypes, err := i.abiProcessor.GetConstructorTypes(i.ABI)
+		paramTypes, err := i.getConstructorTypes()
 		if err != nil {
 			return nil, fmt.Errorf("failed to get constructor types: %v", err)
 		}
@@ -326,8 +398,8 @@ func (i *Instance) Encode(method string, params ...interface{}) ([]byte, error) 
 		return tempProcessor.EncodeMethod("", paramTypes, params)
 	}
 
-	// Get method parameter types from ABI
-	inputTypes, _, err := i.abiProcessor.GetMethodTypes(method)
+	// Get method parameter types from cache
+	inputTypes, _, err := i.getMethodTypes(method)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get method types: %v", err)
 	}
@@ -338,8 +410,8 @@ func (i *Instance) Encode(method string, params ...interface{}) ([]byte, error) 
 // DecodeResult decodes a method's return bytes into a Go value. Single-output
 // methods return the value directly; multiple outputs return []interface{}.
 func (i *Instance) DecodeResult(method string, data []byte) (interface{}, error) {
-	// Get method output types from ABI
-	_, outputTypes, err := i.abiProcessor.GetMethodTypes(method)
+	// Get method output types from cache
+	_, outputTypes, err := i.getMethodTypes(method)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get method types: %v", err)
 	}
