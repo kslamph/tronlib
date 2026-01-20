@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 )
 
 // connPool manages a pool of gRPC client connections.
@@ -50,6 +51,16 @@ func (p *connPool) get(ctx context.Context) (*grpc.ClientConn, error) {
 
 	select {
 	case conn := <-p.conns:
+		// Check connection health before returning
+		if conn.GetState() != connectivity.Ready {
+			// Connection is not ready, close it and create a new one
+			_ = conn.Close()
+			conn, err := p.factory(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("connection failed: %v", err)
+			}
+			return conn, nil
+		}
 		return conn, nil
 	case <-ctx.Done():
 		return nil, ctx.Err()
@@ -67,6 +78,16 @@ func (p *connPool) get(ctx context.Context) (*grpc.ClientConn, error) {
 		// Wait for a connection to be returned to the pool
 		select {
 		case conn := <-p.conns:
+			// Check connection health before returning
+			if conn.GetState() != connectivity.Ready {
+				// Connection is not ready, close it and create a new one
+				_ = conn.Close()
+				conn, err := p.factory(ctx)
+				if err != nil {
+					return nil, fmt.Errorf("connection failed: %v", err)
+				}
+				return conn, nil
+			}
 			return conn, nil
 		case <-ctx.Done():
 			return nil, ctx.Err()

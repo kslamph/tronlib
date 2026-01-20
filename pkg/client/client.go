@@ -188,9 +188,7 @@ func (c *Client) ReturnConnection(conn *grpc.ClientConn) {
 		return
 	}
 	if c.pool != nil {
-		if c.pool != nil {
-			c.pool.put(conn)
-		}
+		c.pool.put(conn)
 	}
 }
 
@@ -203,11 +201,7 @@ func (c *Client) Close() {
 		return // Already closed
 	}
 	if c.pool != nil {
-		if c.pool != nil {
-			if c.pool != nil {
-				c.pool.close()
-			}
-		}
+		c.pool.close()
 	}
 }
 
