@@ -28,10 +28,11 @@ type TRC20Manager struct {
 	contract *smartcontract.Instance // Underlying smart contract client
 
 	// Cached properties (read-only and typically constant for a TRC20 token)
-	cachedName     string
-	cachedSymbol   string
-	cachedDecimals uint8
-	mu             sync.RWMutex // Mutex for thread-safe access to cached properties
+	cachedName       string
+	cachedSymbol     string
+	cachedDecimals   uint8
+	decimalsCached   bool // Flag to track if decimals have been cached
+	mu               sync.RWMutex // Mutex for thread-safe access to cached properties
 
 	// Pre-parsed ABI for common TRC20 methods
 	trc20ABI *abi.ABI
@@ -203,7 +204,7 @@ func (t *TRC20Manager) Symbol(ctx context.Context) (string, error) {
 //	fmt.Printf("Token decimals: %d\n", decimals)
 func (t *TRC20Manager) Decimals(ctx context.Context) (uint8, error) {
 	t.mu.RLock()
-	if t.cachedDecimals != 0 { // Assuming 0 is not a valid decimal count for a TRC20 token
+	if t.decimalsCached {
 		defer t.mu.RUnlock()
 		return t.cachedDecimals, nil
 	}
@@ -211,7 +212,7 @@ func (t *TRC20Manager) Decimals(ctx context.Context) (uint8, error) {
 
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	if t.cachedDecimals != 0 { // Double-check locking
+	if t.decimalsCached { // Double-check locking
 		return t.cachedDecimals, nil
 	}
 
@@ -227,6 +228,7 @@ func (t *TRC20Manager) Decimals(ctx context.Context) (uint8, error) {
 		return 0, fmt.Errorf("unexpected type for uint8 result: %T", result)
 	}
 	t.cachedDecimals = decimalsResult
+	t.decimalsCached = true
 	return decimalsResult, nil
 }
 
