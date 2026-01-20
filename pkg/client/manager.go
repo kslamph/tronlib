@@ -26,13 +26,8 @@ func (c *Client) SmartContract() *smartcontract.Manager {
 // ContractInstance constructs a contract instance for the given address using the
 // provided TRON client. The ABI can be omitted to fetch from the network, or
 // supplied as either a JSON string or a *core.SmartContract_ABI.
-// check nil value before use
-func (c *Client) ContractInstance(contractAddress *types.Address, abi any) *smartcontract.Instance {
-	inst, err := smartcontract.NewInstance(c, contractAddress, abi)
-	if err != nil {
-		return nil
-	}
-	return inst
+func (c *Client) ContractInstance(contractAddress *types.Address, abi any) (*smartcontract.Instance, error) {
+	return smartcontract.NewInstance(c, contractAddress, abi)
 }
 
 // TRC20 returns a TRC20 manager for a given token address.
