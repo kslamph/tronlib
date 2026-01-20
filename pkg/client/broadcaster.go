@@ -250,7 +250,7 @@ func (c *Client) SignAndBroadcast(ctx context.Context, anytx any, opt BroadcastO
 	}
 
 	txid := utils.GetTransactionID(coretx)
-	// fmt.Printf("txid:%x\n", txid)
+
 	result := &BroadcastResult{TxID: hex.EncodeToString(txid)}
 
 	ret, err := lowlevel.Call(c, ctx, "broadcast transaction", func(cl api.WalletClient, ctx context.Context) (*api.Return, error) {

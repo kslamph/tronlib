@@ -397,7 +397,6 @@ func (t *TRC20Manager) Allowance(ctx context.Context, ownerAddress *types.Addres
 	convertedAllowance, err := fromWei(rawAllowance, decimals)
 	if err != nil {
 		return decimal.Zero, fmt.Errorf("failed to convert raw allowance: %w", err)
-
 	}
 
 	return convertedAllowance, nil

@@ -11,7 +11,6 @@ import (
 )
 
 // connPool manages a pool of gRPC client connections.
-// connPool manages a pool of gRPC client connections.
 // For testing purposes, GetFunc can be overridden to mock connection behavior.
 type connPool struct {
 	mu          sync.Mutex

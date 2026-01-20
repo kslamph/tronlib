@@ -36,9 +36,7 @@ type PrivateKeySigner struct {
 //	fmt.Printf("Address: %s\n", address.String())
 func NewPrivateKeySigner(hexPrivKey string) (*PrivateKeySigner, error) {
 	// Remove 0x prefix if present
-	// if strings.HasPrefix(hexPrivKey, "0x") {
-	// 	hexPrivKey = hexPrivKey[2:]
-	// }
+
 	hexPrivKey = strings.TrimPrefix(hexPrivKey, "0x")
 
 	// Decode and validate private key
