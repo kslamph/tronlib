@@ -18,14 +18,15 @@ import (
 func (p *ABIProcessor) GetMethodTypes(methodName string) ([]string, []string, error) {
 	for _, entry := range p.abi.Entrys {
 		if entry.Name == methodName && entry.Type == core.SmartContract_ABI_Entry_Function {
-			inputTypes := make([]string, len(entry.Inputs))
-			for i, input := range entry.Inputs {
-				inputTypes[i] = input.Type
+			// Pre-allocate slices with known capacity
+			inputTypes := make([]string, 0, len(entry.Inputs))
+			for _, input := range entry.Inputs {
+				inputTypes = append(inputTypes, input.Type)
 			}
 
-			outputTypes := make([]string, len(entry.Outputs))
-			for i, output := range entry.Outputs {
-				outputTypes[i] = output.Type
+			outputTypes := make([]string, 0, len(entry.Outputs))
+			for _, output := range entry.Outputs {
+				outputTypes = append(outputTypes, output.Type)
 			}
 
 			return inputTypes, outputTypes, nil
@@ -38,9 +39,10 @@ func (p *ABIProcessor) GetMethodTypes(methodName string) ([]string, []string, er
 func (p *ABIProcessor) GetConstructorTypes(abi *core.SmartContract_ABI) ([]string, error) {
 	for _, entry := range abi.Entrys {
 		if entry.Type == core.SmartContract_ABI_Entry_Constructor {
-			inputTypes := make([]string, len(entry.Inputs))
-			for i, input := range entry.Inputs {
-				inputTypes[i] = input.Type
+			// Pre-allocate slice with known capacity
+			inputTypes := make([]string, 0, len(entry.Inputs))
+			for _, input := range entry.Inputs {
+				inputTypes = append(inputTypes, input.Type)
 			}
 			return inputTypes, nil
 		}
