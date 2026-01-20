@@ -314,17 +314,17 @@ func (t *TRC20Manager) BalanceOf(ctx context.Context, ownerAddress *types.Addres
 func (t *TRC20Manager) Transfer(ctx context.Context, fromAddress *types.Address, toAddress *types.Address, amount decimal.Decimal) (*api.TransactionExtention, error) {
 	decimals, err := t.Decimals(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("%w: failed to get decimals for Transfer", err)
+		return nil, fmt.Errorf("failed to get decimals for Transfer: %w", err)
 	}
 
 	rawAmount, err := toWei(amount, decimals)
 	if err != nil {
-		return nil, fmt.Errorf("%w: invalid amount", err)
+		return nil, fmt.Errorf("invalid amount: %w", err)
 	}
 
 	txExt, err := t.contract.Invoke(ctx, fromAddress, 0, "transfer", toAddress, rawAmount)
 	if err != nil {
-		return nil, fmt.Errorf("%w: failed to call transfer method", err)
+		return nil, fmt.Errorf("failed to call transfer method: %w", err)
 	}
 
 	return txExt, nil
@@ -350,17 +350,17 @@ func (t *TRC20Manager) Transfer(ctx context.Context, fromAddress *types.Address,
 func (t *TRC20Manager) Approve(ctx context.Context, ownerAddress *types.Address, spenderAddress *types.Address, amount decimal.Decimal) (*api.TransactionExtention, error) {
 	decimals, err := t.Decimals(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("%w: failed to get decimals for Approve", err)
+		return nil, fmt.Errorf("failed to get decimals for Approve: %w", err)
 	}
 
 	rawAmount, err := toWei(amount, decimals)
 	if err != nil {
-		return nil, fmt.Errorf("%w: invalid amount", err)
+		return nil, fmt.Errorf("invalid amount: %w", err)
 	}
 
 	txExt, err := t.contract.Invoke(ctx, ownerAddress, 0, "approve", spenderAddress, rawAmount)
 	if err != nil {
-		return nil, fmt.Errorf("%w: failed to call approve method", err)
+		return nil, fmt.Errorf("failed to call approve method: %w", err)
 	}
 
 	return txExt, nil
