@@ -268,8 +268,14 @@ func decodeTopicValue(topic []byte, paramType string) string {
 		"int256", "int128", "int64", "int32", "int16", "int8":
 		return new(big.Int).SetBytes(topic).String()
 	case "bool":
-		if len(topic) > 0 && topic[0] != 0 {
-			return "true"
+		// ABI encodes bool as uint8 in a 32-byte word: true = 0x00...01, false = 0x00...00
+		// Check if any byte in the topic is non-zero (the 1 is in the last byte).
+		if len(topic) > 0 {
+			for _, b := range topic {
+				if b != 0 {
+					return "true"
+				}
+			}
 		}
 		return "false"
 	case "bytes32":
