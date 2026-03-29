@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	types "github.com/kslamph/tronlib/pkg/types"
+	"golang.org/x/crypto/sha3"
 )
 
 // HexToBytes converts hex string to bytes
@@ -53,14 +54,12 @@ func PadRight(data []byte, length int) []byte {
 }
 
 // EncodeMethodSignature encodes a method signature for smart contract calls
+// using the first 4 bytes of the Keccak256 hash of the canonical signature
+// (e.g., "transfer(address,uint256)" -> 0xa9059cbb).
 func EncodeMethodSignature(method string) []byte {
-	// This is a simplified implementation
-	// In a real implementation, you would use keccak256 hash
-	methodBytes := []byte(method)
-	if len(methodBytes) >= 4 {
-		return methodBytes[:4]
-	}
-	return PadRight(methodBytes, 4)
+	hasher := sha3.NewLegacyKeccak256()
+	hasher.Write([]byte(method))
+	return hasher.Sum(nil)[:4]
 }
 
 // EncodeParameters encodes parameters for smart contract calls using ABI

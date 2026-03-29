@@ -188,17 +188,17 @@ func TestEncodeMethodSignature(t *testing.T) {
 		{
 			name:     "Standard method",
 			method:   "transfer(address,uint256)",
-			expected: []byte{'t', 'r', 'a', 'n'},
+			expected: []byte{0xa9, 0x05, 0x9c, 0xbb},
 		},
 		{
 			name:     "Short method",
 			method:   "a()",
-			expected: []byte{'a', '(', ')', 0x00},
+			expected: []byte{0x0d, 0xbe, 0x67, 0x1f},
 		},
 		{
 			name:     "Empty method",
 			method:   "",
-			expected: []byte{0x00, 0x00, 0x00, 0x00},
+			expected: []byte{0xc5, 0xd2, 0x46, 0x01},
 		},
 	}
 
