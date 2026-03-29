@@ -117,7 +117,10 @@ func DecodeParameters(abiJSON string, method string, data []byte) ([]interface{}
 // EncodeTRC20Transfer encodes a TRC20 transfer call
 func EncodeTRC20Transfer(to string, amount *big.Int) ([]byte, error) {
 	// Method signature for transfer(address,uint256)
-	methodSig, _ := HexToBytes(types.TRC20TransferMethodID)
+	methodSig, err := HexToBytes(types.TRC20TransferMethodID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid transfer method ID: %v", err)
+	}
 
 	// Encode address (32 bytes, left-padded)
 	toAddr, err := HexToBytes(to)
@@ -142,7 +145,10 @@ func EncodeTRC20Transfer(to string, amount *big.Int) ([]byte, error) {
 // EncodeTRC20BalanceOf encodes a TRC20 balanceOf call
 func EncodeTRC20BalanceOf(address string) ([]byte, error) {
 	// Method signature for balanceOf(address)
-	methodSig, _ := HexToBytes(types.TRC20BalanceOfMethodID)
+	methodSig, err := HexToBytes(types.TRC20BalanceOfMethodID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid balanceOf method ID: %v", err)
+	}
 
 	// Encode address (32 bytes, left-padded)
 	addr, err := HexToBytes(address)
