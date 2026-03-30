@@ -1,0 +1,9 @@
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 5%
+
+ignore:
+  - "pkg/client/lowlevel/**"
