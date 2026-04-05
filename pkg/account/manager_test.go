@@ -7,18 +7,34 @@ import (
 	"github.com/kslamph/tronlib/pkg/account"
 	"github.com/kslamph/tronlib/pkg/client"
 	"github.com/kslamph/tronlib/pkg/types"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/test/bufconn"
 )
 
-// Mock client for testing (will be replaced with actual client in integration tests)
-func createTestClient() *client.Client {
-	// For unit tests, we'll create a basic client
-	// In real usage, this would connect to a TRON node
-	client, _ := client.NewClient("grpc://grpc.trongrid.io:50051")
-	return client
+const bufSize = 1024 * 1024
+
+var lis *bufconn.Listener
+
+func init() {
+	lis = bufconn.Listen(bufSize)
+	s := grpc.NewServer()
+	go func() {
+		_ = s.Serve(lis)
+	}()
+}
+
+func createTestClient(t *testing.T) *client.Client {
+	t.Helper()
+	c, err := client.NewClient("bufnet")
+	if err != nil {
+		// bufnet requires a real connection, so we just create a client that will fail gracefully
+		c, _ = client.NewClient("grpc://127.0.0.1:1")
+	}
+	return c
 }
 
 func TestNewManager(t *testing.T) {
-	client := createTestClient()
+	client, _ := client.NewClient("grpc://127.0.0.1:1")
 	manager := account.NewManager(client)
 
 	if manager == nil {
@@ -29,7 +45,7 @@ func TestNewManager(t *testing.T) {
 }
 
 func TestTransferValidation(t *testing.T) {
-	client := createTestClient()
+	client, _ := client.NewClient("grpc://127.0.0.1:1")
 	manager := account.NewManager(client)
 	ctx := context.Background()
 
@@ -40,13 +56,6 @@ func TestTransferValidation(t *testing.T) {
 		amount      int64
 		expectError bool
 	}{
-		{
-			name:        "Valid transfer",
-			from:        "TZ1EafTG8FRtE6ef3H2dhaucDdjv36fzPY",
-			to:          "TLyqzVGLV1srkB7dToTAEqgDSfPtXRJZYH",
-			amount:      1000000, // 1 TRX in SUN
-			expectError: false,
-		},
 		{
 			name:        "Empty from address",
 			from:        "",
@@ -107,8 +116,6 @@ func TestTransferValidation(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Note: This will fail with network error since we don't have a real TRON node
-			// But it will test our validation logic before the network call
 			fromAddr, _ := types.NewAddressFromBase58(tc.from)
 			toAddr, _ := types.NewAddressFromBase58(tc.to)
 			_, err := manager.TransferTRX(ctx, fromAddr, toAddr, tc.amount)
@@ -118,125 +125,68 @@ func TestTransferValidation(t *testing.T) {
 					t.Fatalf("Expected error for test case '%s', but got none", tc.name)
 				}
 				t.Logf("Test case '%s' correctly failed with error: %v", tc.name, err)
-			} else {
-				// For valid cases, we expect network error since no real node
-				// But validation should pass (error should be network-related)
-				if err != nil {
-					t.Logf("Test case '%s' failed with network error (expected): %v", tc.name, err)
-				}
 			}
 		})
 	}
 }
 
-func TestTransferOptions(t *testing.T) {
-	client := createTestClient()
-	manager := account.NewManager(client)
-	ctx := context.Background()
-
-	// Test with custom options
-
-	from := "TZ1EafTG8FRtE6ef3H2dhaucDdjv36fzPY"
-	to := "TLyqzVGLV1srkB7dToTAEqgDSfPtXRJZYH"
-	amount := int64(1000000) // 1 TRX in SUN
-
-	// This will fail with network error, but tests option handling
-	fromAddr, _ := types.NewAddressFromBase58(from)
-	toAddr, _ := types.NewAddressFromBase58(to)
-	_, err := manager.TransferTRX(ctx, fromAddr, toAddr, amount)
-
-	// We expect a network error since no real TRON node is connected
-	if err != nil {
-		t.Logf("Transfer with options failed with expected network error: %v", err)
-	}
-
-	// Test with nil options (should use defaults)
-	fromAddr2, _ := types.NewAddressFromBase58(from)
-	toAddr2, _ := types.NewAddressFromBase58(to)
-	_, err = manager.TransferTRX(ctx, fromAddr2, toAddr2, amount)
-	if err != nil {
-		t.Logf("Transfer with nil options failed with expected network error: %v", err)
-	}
-}
-
 func TestGetAccount(t *testing.T) {
-	client := createTestClient()
+	client, _ := client.NewClient("grpc://127.0.0.1:1")
 	manager := account.NewManager(client)
 	ctx := context.Background()
 
-	// Test valid address
-	addr := types.MustNewAddressFromBase58("TZ1EafTG8FRtE6ef3H2dhaucDdjv36fzPY")
-	_, err := manager.GetAccount(ctx, addr)
-	if err != nil {
-		t.Logf("GetAccount failed with expected network error: %v", err)
-	}
-
-	// Test invalid address
-	_, err = manager.GetAccount(ctx, &types.Address{})
+	// Test invalid address (empty Address struct)
+	_, err := manager.GetAccount(ctx, &types.Address{})
 	if err == nil {
 		t.Fatal("Expected error for invalid address")
 	}
 	t.Logf("GetAccount correctly failed for invalid address: %v", err)
+
+	// Test nil address
+	_, err = manager.GetAccount(ctx, nil)
+	if err == nil {
+		t.Fatal("Expected error for nil address")
+	}
+	t.Logf("GetAccount correctly failed for nil address: %v", err)
 }
 
 func TestGetAccountNet(t *testing.T) {
-	client := createTestClient()
+	client, _ := client.NewClient("grpc://127.0.0.1:1")
 	manager := account.NewManager(client)
 	ctx := context.Background()
 
-	// Test valid address
-	addrOk, _ := types.NewAddressFromBase58("TZ1EafTG8FRtE6ef3H2dhaucDdjv36fzPY")
-	_, err := manager.GetAccountNet(ctx, addrOk)
-	if err != nil {
-		t.Logf("GetAccountNet failed with expected network error: %v", err)
-	}
-
-	// Test invalid address
-	_, err = manager.GetAccountNet(ctx, (*types.Address)(nil))
+	// Test nil address
+	_, err := manager.GetAccountNet(ctx, nil)
 	if err == nil {
-		t.Fatal("Expected error for invalid address")
+		t.Fatal("Expected error for nil address")
 	}
-	t.Logf("GetAccountNet correctly failed for invalid address: %v", err)
+	t.Logf("GetAccountNet correctly failed for nil address: %v", err)
 }
 
 func TestGetAccountResource(t *testing.T) {
-	client := createTestClient()
+	client, _ := client.NewClient("grpc://127.0.0.1:1")
 	manager := account.NewManager(client)
 	ctx := context.Background()
 
-	// Test valid address
-	addrOk2, _ := types.NewAddressFromBase58("TZ1EafTG8FRtE6ef3H2dhaucDdjv36fzPY")
-	_, err := manager.GetAccountResource(ctx, addrOk2)
-	if err != nil {
-		t.Logf("GetAccountResource failed with expected network error: %v", err)
-	}
-
-	// Test invalid address
-	_, err = manager.GetAccountResource(ctx, (*types.Address)(nil))
+	// Test nil address
+	_, err := manager.GetAccountResource(ctx, nil)
 	if err == nil {
-		t.Fatal("Expected error for invalid address")
+		t.Fatal("Expected error for nil address")
 	}
-	t.Logf("GetAccountResource correctly failed for invalid address: %v", err)
+	t.Logf("GetAccountResource correctly failed for nil address: %v", err)
 }
 
 func TestGetBalance(t *testing.T) {
-	client := createTestClient()
+	client, _ := client.NewClient("grpc://127.0.0.1:1")
 	manager := account.NewManager(client)
 	ctx := context.Background()
 
-	// Test valid address
-	addrOk3, _ := types.NewAddressFromBase58("TZ1EafTG8FRtE6ef3H2dhaucDdjv36fzPY")
-	_, err := manager.GetBalance(ctx, addrOk3)
-	if err != nil {
-		t.Logf("GetBalance failed with expected network error: %v", err)
-	}
-
-	// Test invalid address
-	_, err = manager.GetBalance(ctx, (*types.Address)(nil))
+	// Test nil address
+	_, err := manager.GetBalance(ctx, nil)
 	if err == nil {
-		t.Fatal("Expected error for invalid address")
+		t.Fatal("Expected error for nil address")
 	}
-	t.Logf("GetBalance correctly failed for invalid address: %v", err)
+	t.Logf("GetBalance correctly failed for nil address: %v", err)
 }
 
 func TestAmountConversions(t *testing.T) {

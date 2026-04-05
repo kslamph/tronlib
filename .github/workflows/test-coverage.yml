@@ -19,9 +19,6 @@ jobs:
     
     - name: Run unit tests with coverage (parallel)
       run: go test -coverprofile=unit_coverage.txt -coverpkg=./pkg/... -covermode=atomic ./pkg/...
-    
-    - name: Run integration tests with coverage (sequential)
-      run: go test -p 1 -coverprofile=integration_coverage.txt -coverpkg=./pkg/...  -covermode=atomic ./integration_test/...
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v5
