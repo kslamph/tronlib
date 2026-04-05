@@ -670,3 +670,39 @@ func TestMainnetEventDecoder(t *testing.T) {
 		t.Logf("✅ Input validation tests passed")
 	})
 }
+
+// TestMainnetGetNodeInfo tests GetNodeInfo against a public mainnet node.
+func TestMainnetGetNodeInfo(t *testing.T) {
+	mainnetGRPC := "grpc://grpc.trongrid.io:50051"
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	cli, err := client.NewClient(mainnetGRPC, client.WithTimeout(30*time.Second))
+	require.NoError(t, err, "Client creation should succeed")
+	defer cli.Close()
+
+	nm := network.NewManager(cli)
+	nodeInfo, err := nm.GetNodeInfo(ctx)
+	require.NoError(t, err, "GetNodeInfo should succeed")
+	require.NotNil(t, nodeInfo, "NodeInfo should not be nil")
+	t.Logf("Node Info: %v", nodeInfo)
+}
+
+// TestMainnetGetChainParameters tests GetChainParameters against a public mainnet node.
+func TestMainnetGetChainParameters(t *testing.T) {
+	mainnetGRPC := "grpc://grpc.trongrid.io:50051"
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	cli, err := client.NewClient(mainnetGRPC, client.WithTimeout(30*time.Second))
+	require.NoError(t, err, "Client creation should succeed")
+	defer cli.Close()
+
+	nm := network.NewManager(cli)
+	chainParams, err := nm.GetChainParameters(ctx)
+	require.NoError(t, err, "GetChainParameters should succeed")
+	require.NotNil(t, chainParams, "ChainParameters should not be nil")
+	t.Logf("Chain Parameters: %v", chainParams)
+}

@@ -19,17 +19,17 @@ const bufSize = 1024 * 1024
 type fakeWalletServer struct {
 	api.UnimplementedWalletServer
 
-	FreezeBalanceV2Func              func(ctx context.Context, in *core.FreezeBalanceV2Contract) (*api.TransactionExtention, error)
-	UnfreezeBalanceV2Func            func(ctx context.Context, in *core.UnfreezeBalanceV2Contract) (*api.TransactionExtention, error)
-	DelegateResourceFunc             func(ctx context.Context, in *core.DelegateResourceContract) (*api.TransactionExtention, error)
-	UnDelegateResourceFunc           func(ctx context.Context, in *core.UnDelegateResourceContract) (*api.TransactionExtention, error)
-	CancelAllUnfreezeV2Func          func(ctx context.Context, in *core.CancelAllUnfreezeV2Contract) (*api.TransactionExtention, error)
-	WithdrawExpireUnfreezeFunc       func(ctx context.Context, in *core.WithdrawExpireUnfreezeContract) (*api.TransactionExtention, error)
-	GetDelegatedResourceV2Func       func(ctx context.Context, in *api.DelegatedResourceMessage) (*api.DelegatedResourceList, error)
+	FreezeBalanceV2Func                    func(ctx context.Context, in *core.FreezeBalanceV2Contract) (*api.TransactionExtention, error)
+	UnfreezeBalanceV2Func                  func(ctx context.Context, in *core.UnfreezeBalanceV2Contract) (*api.TransactionExtention, error)
+	DelegateResourceFunc                   func(ctx context.Context, in *core.DelegateResourceContract) (*api.TransactionExtention, error)
+	UnDelegateResourceFunc                 func(ctx context.Context, in *core.UnDelegateResourceContract) (*api.TransactionExtention, error)
+	CancelAllUnfreezeV2Func                func(ctx context.Context, in *core.CancelAllUnfreezeV2Contract) (*api.TransactionExtention, error)
+	WithdrawExpireUnfreezeFunc             func(ctx context.Context, in *core.WithdrawExpireUnfreezeContract) (*api.TransactionExtention, error)
+	GetDelegatedResourceV2Func             func(ctx context.Context, in *api.DelegatedResourceMessage) (*api.DelegatedResourceList, error)
 	GetDelegatedResourceAccountIndexV2Func func(ctx context.Context, in *api.BytesMessage) (*core.DelegatedResourceAccountIndex, error)
-	GetCanDelegatedMaxSizeFunc       func(ctx context.Context, in *api.CanDelegatedMaxSizeRequestMessage) (*api.CanDelegatedMaxSizeResponseMessage, error)
-	GetAvailableUnfreezeCountFunc    func(ctx context.Context, in *api.GetAvailableUnfreezeCountRequestMessage) (*api.GetAvailableUnfreezeCountResponseMessage, error)
-	GetCanWithdrawUnfreezeAmountFunc func(ctx context.Context, in *api.CanWithdrawUnfreezeAmountRequestMessage) (*api.CanWithdrawUnfreezeAmountResponseMessage, error)
+	GetCanDelegatedMaxSizeFunc             func(ctx context.Context, in *api.CanDelegatedMaxSizeRequestMessage) (*api.CanDelegatedMaxSizeResponseMessage, error)
+	GetAvailableUnfreezeCountFunc          func(ctx context.Context, in *api.GetAvailableUnfreezeCountRequestMessage) (*api.GetAvailableUnfreezeCountResponseMessage, error)
+	GetCanWithdrawUnfreezeAmountFunc       func(ctx context.Context, in *api.CanWithdrawUnfreezeAmountRequestMessage) (*api.CanWithdrawUnfreezeAmountResponseMessage, error)
 }
 
 func (s *fakeWalletServer) FreezeBalanceV2(ctx context.Context, in *core.FreezeBalanceV2Contract) (*api.TransactionExtention, error) {

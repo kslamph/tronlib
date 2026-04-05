@@ -115,7 +115,7 @@ func (m *mockConnProvider) GetConnection(_ context.Context) (*grpc.ClientConn, e
 	return m.conn, nil
 }
 func (m *mockConnProvider) ReturnConnection(_ *grpc.ClientConn) {}
-func (m *mockConnProvider) GetTimeout() time.Duration            { return 30 * time.Second }
+func (m *mockConnProvider) GetTimeout() time.Duration           { return 30 * time.Second }
 
 func setupTestServer(t *testing.T, fake *fakeWalletServer) (*NetworkManager, func()) {
 	t.Helper()
