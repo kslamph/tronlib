@@ -2,6 +2,7 @@ package resources_test
 
 import (
 	"context"
+	"testing"
 	"time"
 
 	"github.com/kslamph/tronlib/pkg/client"
@@ -11,6 +12,9 @@ import (
 
 // ExampleNewManager demonstrates freezing energy.
 func ExampleNewManager() {
+	if testing.Short() {
+		return
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 

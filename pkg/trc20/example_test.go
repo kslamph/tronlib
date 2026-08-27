@@ -2,6 +2,7 @@ package trc20_test
 
 import (
 	"context"
+	"testing"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -13,6 +14,9 @@ import (
 
 // ExampleNewManager shows basic TRC20 reads and a transfer build using NewManager.
 func ExampleNewManager() {
+	if testing.Short() {
+		return
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 

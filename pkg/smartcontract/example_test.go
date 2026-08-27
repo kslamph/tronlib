@@ -3,6 +3,7 @@ package smartcontract_test
 import (
 	"context"
 	"encoding/hex"
+	"testing"
 	"time"
 
 	"github.com/kslamph/tronlib/pkg/client"
@@ -12,6 +13,9 @@ import (
 
 // ExampleManager demonstrates constructing the manager and deploying a contract.
 func ExampleManager() {
+	if testing.Short() {
+		return
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -31,6 +35,9 @@ func ExampleManager() {
 
 // ExampleInstance_Encode demonstrates encoding of a method call.
 func ExampleInstance_Encode() {
+	if testing.Short() {
+		return
+	}
 	cli, _ := client.NewClient("grpc://grpc.trongrid.io:50051")
 	defer cli.Close()
 
@@ -43,6 +50,9 @@ func ExampleInstance_Encode() {
 
 // ExampleInstance_DecodeResult demonstrates decoding of a constant method return.
 func ExampleInstance_DecodeResult() {
+	if testing.Short() {
+		return
+	}
 	cli, _ := client.NewClient("grpc://grpc.trongrid.io:50051")
 	defer cli.Close()
 

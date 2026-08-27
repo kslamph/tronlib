@@ -1,6 +1,9 @@
 name: Test Coverage
 
 on:
+   push:
+     branches: [main, master]
+   pull_request:
    workflow_dispatch:
 
 jobs:
@@ -18,7 +21,7 @@ jobs:
       run: go mod download
     
     - name: Run unit tests with coverage (parallel)
-      run: go test -coverprofile=unit_coverage.txt -coverpkg=./pkg/... -covermode=atomic ./pkg/...
+      run: go test -short -coverprofile=unit_coverage.txt -coverpkg=./pkg/... -covermode=atomic ./pkg/...
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v5

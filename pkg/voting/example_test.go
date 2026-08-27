@@ -2,6 +2,7 @@ package voting_test
 
 import (
 	"context"
+	"testing"
 	"time"
 
 	"github.com/kslamph/tronlib/pkg/client"
@@ -10,6 +11,9 @@ import (
 
 // ExampleNewManager shows constructing the voting manager.
 func ExampleNewManager() {
+	if testing.Short() {
+		return
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
