@@ -124,7 +124,7 @@ func TestClient_Voting(t *testing.T) {
 	}
 }
 
-func TestClient_TRC20(t *testing.T) {
+func TestClient_TRC20Manager(t *testing.T) {
 	srv := &testWalletServer{}
 	lis, _, cleanupSrv := newBufconnServer(t, srv)
 	defer cleanupSrv()
@@ -132,11 +132,19 @@ func TestClient_TRC20(t *testing.T) {
 	c, cleanupClient := newTestClientWithBufConn(t, lis, 500*time.Millisecond)
 	defer cleanupClient()
 
-	// TRC20 returns nil if NewManager fails, but we verify it doesn't panic
 	addr, _ := types.NewAddress("TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t")
-	mgr := c.TRC20(addr)
-	// mgr may be nil if initialization fails, but the method should not panic
-	_ = mgr
+
+	// The default fake serves no usable token metadata, so the manager
+	// constructor must report an error rather than returning a nil manager.
+	_, err := c.TRC20Manager(addr)
+	if err == nil {
+		t.Fatal("expected error when token metadata cannot be fetched")
+	}
+
+	// The deprecated gateway swallows that error and yields nil.
+	if mgr := c.TRC20(addr); mgr != nil {
+		t.Fatal("expected nil manager from deprecated TRC20 on failure")
+	}
 }
 
 func TestClient_ContractInstance(t *testing.T) {

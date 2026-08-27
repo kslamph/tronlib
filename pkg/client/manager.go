@@ -31,12 +31,24 @@ func (c *Client) ContractInstance(contractAddress *types.Address, abi any) (*sma
 }
 
 // TRC20 returns a TRC20 manager for a given token address.
+// It returns nil when the manager cannot be initialized (for example when the
+// token metadata cannot be fetched from the node).
+//
+// Deprecated: TRC20 swallows the initialization error and returns nil on
+// failure. Use TRC20Manager, which reports the error instead.
 func (c *Client) TRC20(addr *types.Address) *trc20.TRC20Manager {
 	trc20mgr, err := trc20.NewManager(c, addr)
 	if err != nil {
 		return nil
 	}
 	return trc20mgr
+}
+
+// TRC20Manager returns a TRC20 manager for a given token address, reporting
+// initialization errors (invalid contract, unreachable node, non-TRC20
+// contract) instead of silently returning nil.
+func (c *Client) TRC20Manager(addr *types.Address) (*trc20.TRC20Manager, error) {
+	return trc20.NewManager(c, addr)
 }
 
 // Network returns the high-level NetworkManager.
