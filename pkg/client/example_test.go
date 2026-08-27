@@ -2,6 +2,7 @@ package client_test
 
 import (
 	"context"
+	"testing"
 	"time"
 
 	"github.com/kslamph/tronlib/pkg/client"
@@ -9,6 +10,9 @@ import (
 
 // ExampleClient_SignAndBroadcast demonstrates customizing broadcast options.
 func ExampleClient_SignAndBroadcast() {
+	if testing.Short() {
+		return
+	}
 	cli, _ := client.NewClient("grpc://grpc.trongrid.io:50051")
 	defer cli.Close()
 
@@ -29,6 +33,9 @@ func ExampleClient_SignAndBroadcast() {
 
 // ExampleClient_Simulate demonstrates read-only simulation of a transaction.
 func ExampleClient_Simulate() {
+	if testing.Short() {
+		return
+	}
 	cli, _ := client.NewClient("grpc://grpc.trongrid.io:50051")
 	defer cli.Close()
 

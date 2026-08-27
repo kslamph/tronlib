@@ -2,6 +2,7 @@ package account_test
 
 import (
 	"context"
+	"testing"
 	"time"
 
 	"github.com/kslamph/tronlib/pkg/account"
@@ -11,6 +12,9 @@ import (
 
 // ExampleNewManager demonstrates creating an account manager and performing basic operations.
 func ExampleNewManager() {
+	if testing.Short() {
+		return
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
