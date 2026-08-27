@@ -1,5 +1,10 @@
 # Nile Testnet Setup Implementation Summary
 
+> **Historical report** — written when the tool lived under
+> `integration_test/setup_nile_test/`. Paths below may be stale; the tool now
+> lives in `cmd/setup_nile_testnet/` and updates only its own gitignored
+> `test.env`. Trust `README.md` and `main.go` for current behavior.
+
 ## Overview
 I have successfully implemented the Nile testnet contract deployment and testing environment setup program based on the plan in `plans/2025-07-25-nile-testnet-setup-v1.md`.
 

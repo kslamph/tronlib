@@ -1,3 +1,5 @@
+//go:build integration
+
 package read_tests
 
 import (

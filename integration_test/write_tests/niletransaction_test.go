@@ -1,3 +1,5 @@
+//go:build integration
+
 package write_tests
 
 import (
@@ -20,7 +22,7 @@ import (
 func TestNileBroadcastTransaction(t *testing.T) {
 	loadEnv("../../cmd/setup_nile_testnet/test.env")
 
-	c, err := newTestNileClient()
+	c, err := newTestNileClient(t)
 	if err != nil {
 		t.Fatalf("Failed to create Nile client: %v", err)
 	}
@@ -29,9 +31,9 @@ func TestNileBroadcastTransaction(t *testing.T) {
 	am := account.NewManager(c)
 
 	// Get sender's private key and address
-	senderKey := os.Getenv("INTEGRATION_TEST_KEY1")
+	senderKey := os.Getenv("NILE_TEST_KEY1")
 	if senderKey == "" {
-		t.Fatal("INTEGRATION_TEST_KEY1 not set")
+		t.Skip("NILE_TEST_KEY1 not set; skipping live-network test")
 	}
 	s, err := signer.NewPrivateKeySigner(senderKey)
 	assert.NoError(t, err)

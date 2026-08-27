@@ -3,3 +3,4 @@ tmp/
 reports/
 coverage.out
 coverage.txt
+cmd/setup_nile_testnet/test.env

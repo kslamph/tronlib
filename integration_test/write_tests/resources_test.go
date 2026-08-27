@@ -1,3 +1,5 @@
+//go:build integration
+
 package write_tests
 
 import (
@@ -19,13 +21,9 @@ import (
 
 // TestResourcesManager covers freeze/unfreeze, delegate/undelegate and read-only getters.
 func TestResourcesManager_Nile(t *testing.T) {
-	// if os.Getenv("RUN_NILE_WRITE_TESTS") != "true" {
-	// 	t.Skip("RUN_NILE_WRITE_TESTS not set; skipping Nile write tests")
-	// }
-
 	loadEnv("../../cmd/setup_nile_testnet/test.env")
 
-	c, err := newTestNileClient()
+	c, err := newTestNileClient(t)
 	if err != nil {
 		t.Fatalf("failed to create Nile client: %v", err)
 	}
@@ -34,17 +32,17 @@ func TestResourcesManager_Nile(t *testing.T) {
 	rm := resources.NewManager(c)
 
 	// Owner/sender from env
-	key := os.Getenv("INTEGRATION_TEST_KEY1")
+	key := os.Getenv("NILE_TEST_KEY1")
 	if key == "" {
-		t.Fatal("INTEGRATION_TEST_KEY1 not set")
+		t.Skip("NILE_TEST_KEY1 not set; skipping live-network test")
 	}
 	s, err := signer.NewPrivateKeySigner(key)
 	assert.NoError(t, err)
 	ownerAddr := s.Address()
 
-	key2 := os.Getenv("INTEGRATION_TEST_KEY2")
+	key2 := os.Getenv("NILE_TEST_KEY2")
 	if key2 == "" {
-		t.Fatal("INTEGRATION_TEST_KEY2 not set")
+		t.Skip("NILE_TEST_KEY2 not set; skipping live-network test")
 	}
 	s2, err := signer.NewPrivateKeySigner(key2)
 	assert.NoError(t, err)

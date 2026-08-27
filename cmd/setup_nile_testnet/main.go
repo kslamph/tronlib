@@ -512,9 +512,14 @@ func loadSetupConfig() (SetupConfig, error) {
 		return SetupConfig{}, fmt.Errorf("failed to create signer: %w", err)
 	}
 
-	shieldedTRC20ContractAddress, err := types.NewAddress("TWRvzd6FQcsyp7hwCtttjZGpU1kfvVEtNK")
+	// SHIELDEDTRC20_CONTRACT_ADDRESS overrides the default deployed address.
+	shieldedAddrStr := os.Getenv("SHIELDEDTRC20_CONTRACT_ADDRESS")
+	if shieldedAddrStr == "" {
+		shieldedAddrStr = "TWRvzd6FQcsyp7hwCtttjZGpU1kfvVEtNK" // known deployment on Nile
+	}
+	shieldedTRC20ContractAddress, err := types.NewAddress(shieldedAddrStr)
 	if err != nil {
-		return SetupConfig{}, fmt.Errorf("failed to create shieldedTRC20ContractAddress: %w", err)
+		return SetupConfig{}, fmt.Errorf("invalid SHIELDEDTRC20_CONTRACT_ADDRESS %q: %w", shieldedAddrStr, err)
 	}
 
 	config := SetupConfig{
@@ -543,12 +548,12 @@ func loadKey1FromEnv(envPath string) (string, error) {
 
 	lines := strings.Split(string(content), "\n")
 	for _, line := range lines {
-		if strings.HasPrefix(line, "INTEGRATION_TEST_KEY1=") {
-			return strings.TrimPrefix(line, "INTEGRATION_TEST_KEY1="), nil
+		if strings.HasPrefix(line, "NILE_TEST_KEY1=") {
+			return strings.TrimPrefix(line, "NILE_TEST_KEY1="), nil
 		}
 	}
 
-	return "", fmt.Errorf("INTEGRATION_TEST_KEY1 not found in %s", envPath)
+	return "", fmt.Errorf("NILE_TEST_KEY1 not found in %s", envPath)
 }
 
 // cleanup performs cleanup operations

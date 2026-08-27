@@ -1,3 +1,5 @@
+//go:build integration
+
 package write_tests
 
 import (
@@ -19,15 +21,15 @@ import (
 func TestTRC20_Approve_Nile(t *testing.T) {
 	loadEnv("../../cmd/setup_nile_testnet/test.env")
 
-	c, err := newTestNileClient()
+	c, err := newTestNileClient(t)
 	if err != nil {
 		t.Fatalf("failed to create Nile client: %v", err)
 	}
 	defer c.Close()
 
-	keyOwner := os.Getenv("INTEGRATION_TEST_KEY1")
+	keyOwner := os.Getenv("NILE_TEST_KEY1")
 	if keyOwner == "" {
-		t.Fatal("INTEGRATION_TEST_KEY1 not set")
+		t.Skip("NILE_TEST_KEY1 not set; skipping live-network test")
 	}
 	sOwner, err := signer.NewPrivateKeySigner(keyOwner)
 	assert.NoError(t, err)

@@ -12,8 +12,8 @@ The setup program deploys 3 smart contracts to Nile testnet:
 ## Prerequisites
 
 1. **Account Balance**: Key1 account must have at least 3000 TRX for deployment fees
-2. **Contract Files**: All contract ABI and bytecode files must be present in `integration_test/setup_nile_test/test_contract/build/`
-3. **Environment Files**: Key1 private key must be configured in `integration_test/setup_nile_test/test.env`
+2. **Contract Files**: All contract ABI and bytecode files must be present in `cmd/setup_nile_testnet/test_contract/build/`
+3. **Environment Files**: Key1 private key must be configured in `cmd/setup_nile_testnet/test.env` (gitignored; generated/kept local)
 
 ## Usage
 
@@ -45,9 +45,9 @@ DRY_RUN=true ./bin/setup_nile_testnet  # Dry run
 The program automatically loads configuration from:
 
 - **Node URL**: `grpc.nile.trongrid.io:50051`
-- **Key1 Private Key**: From `integration_test/setup_nile_test/test.env`
-- **Contract Files**: From `integration_test/setup_nile_test/test_contract/build/`
-- **Environment Files**: Updates both `integration_test/test.env` and `integration_test/setup_nile_test/test.env`
+- **Key1 Private Key**: From `cmd/setup_nile_testnet/test.env` (gitignored; generated/kept local)
+- **Contract Files**: From `cmd/setup_nile_testnet/test_contract/build/`
+- **Environment Files**: Updates `cmd/setup_nile_testnet/test.env` only (gitignored, kept local)
 
 ## Contract Deployment Parameters
 
@@ -87,13 +87,17 @@ The program automatically loads configuration from:
 
 After successful deployment, the following environment variables will be updated:
 
-### `integration_test/test.env`
+### `cmd/setup_nile_testnet/test.env` (gitignored)
 ```
-TESTALLTYPES_CONTRACT_ADDRESS=T...
 TRC20_CONTRACT_ADDRESS=T...
+TESTCOMPREHENSIVETYPES_CONTRACT_ADDRESS=T...
+MINIMALCONTRACT_CONTRACT_ADDRESS=T...
 ```
 
-### `integration_test/setup_nile_test/test.env`
+The committed `integration_test/test.env` is NOT modified by this tool; update
+it manually when a redeployment changes an address.
+
+### `cmd/setup_nile_testnet/test.env` (gitignored; generated/kept local)
 ```
 MINIMAL_CONTRACT_ADDRESS=T...
 TESTALLTYPES_CONTRACT_ADDRESS=T...
