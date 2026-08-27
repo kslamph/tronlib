@@ -2,37 +2,35 @@ package trc10_test
 
 import (
 	"context"
-	"fmt"
-	"net"
 	"testing"
 	"time"
 
+	"github.com/kslamph/tronlib/internal/testutil"
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/trc10"
 	"github.com/kslamph/tronlib/pkg/types"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/test/bufconn"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // ---- bufconn test infrastructure ----
 
-const trc10BufSize = 1024 * 1024
-
 type trc10FakeWalletServer struct {
 	api.UnimplementedWalletServer
 
-	CreateAssetIssue2Func             func(ctx context.Context, in *core.AssetIssueContract) (*api.TransactionExtention, error)
-	UpdateAsset2Func                  func(ctx context.Context, in *core.UpdateAssetContract) (*api.TransactionExtention, error)
-	TransferAsset2Func                func(ctx context.Context, in *core.TransferAssetContract) (*api.TransactionExtention, error)
-	ParticipateAssetIssue2Func        func(ctx context.Context, in *core.ParticipateAssetIssueContract) (*api.TransactionExtention, error)
-	UnfreezeAsset2Func                func(ctx context.Context, in *core.UnfreezeAssetContract) (*api.TransactionExtention, error)
-	GetAssetIssueByAccountFunc        func(ctx context.Context, in *core.Account) (*api.AssetIssueList, error)
-	GetAssetIssueByNameFunc           func(ctx context.Context, in *api.BytesMessage) (*core.AssetIssueContract, error)
-	GetAssetIssueListByNameFunc       func(ctx context.Context, in *api.BytesMessage) (*api.AssetIssueList, error)
-	GetAssetIssueByIdFunc             func(ctx context.Context, in *api.BytesMessage) (*core.AssetIssueContract, error)
-	GetAssetIssueListFunc             func(ctx context.Context, in *api.EmptyMessage) (*api.AssetIssueList, error)
-	GetPaginatedAssetIssueListFunc    func(ctx context.Context, in *api.PaginatedMessage) (*api.AssetIssueList, error)
+	CreateAssetIssue2Func          func(ctx context.Context, in *core.AssetIssueContract) (*api.TransactionExtention, error)
+	UpdateAsset2Func               func(ctx context.Context, in *core.UpdateAssetContract) (*api.TransactionExtention, error)
+	TransferAsset2Func             func(ctx context.Context, in *core.TransferAssetContract) (*api.TransactionExtention, error)
+	ParticipateAssetIssue2Func     func(ctx context.Context, in *core.ParticipateAssetIssueContract) (*api.TransactionExtention, error)
+	UnfreezeAsset2Func             func(ctx context.Context, in *core.UnfreezeAssetContract) (*api.TransactionExtention, error)
+	GetAssetIssueByAccountFunc     func(ctx context.Context, in *core.Account) (*api.AssetIssueList, error)
+	GetAssetIssueByNameFunc        func(ctx context.Context, in *api.BytesMessage) (*core.AssetIssueContract, error)
+	GetAssetIssueListByNameFunc    func(ctx context.Context, in *api.BytesMessage) (*api.AssetIssueList, error)
+	GetAssetIssueByIdFunc          func(ctx context.Context, in *api.BytesMessage) (*core.AssetIssueContract, error)
+	GetAssetIssueListFunc          func(ctx context.Context, in *api.EmptyMessage) (*api.AssetIssueList, error)
+	GetPaginatedAssetIssueListFunc func(ctx context.Context, in *api.PaginatedMessage) (*api.AssetIssueList, error)
 }
 
 func (s *trc10FakeWalletServer) CreateAssetIssue2(ctx context.Context, in *core.AssetIssueContract) (*api.TransactionExtention, error) {
@@ -124,27 +122,10 @@ func (m *trc10MockConnProvider) GetTimeout() time.Duration           { return 5 
 
 func setupTRC10TestServer(t *testing.T, fake api.WalletServer) (*trc10.TRC10Manager, func()) {
 	t.Helper()
-	lis := bufconn.Listen(trc10BufSize)
-	srv := grpc.NewServer()
-	api.RegisterWalletServer(srv, fake)
-	go func() { _ = srv.Serve(lis) }()
-
-	conn, err := grpc.Dial("passthrough:///bufnet",
-		grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
-			return lis.DialContext(ctx)
-		}),
-		grpc.WithInsecure(),
-	)
-	if err != nil {
-		t.Fatalf("failed to dial bufnet: %v", err)
-	}
-
+	lis := testutil.NewBufconnServer(t, fake)
+	conn := testutil.DialBufconn(t, lis)
 	mgr := trc10.NewManager(&trc10MockConnProvider{conn: conn})
-	cleanup := func() {
-		conn.Close()
-		srv.Stop()
-	}
-	return mgr, cleanup
+	return mgr, func() {}
 }
 
 func mustTRC10Addr(t *testing.T, s string) *types.Address {
@@ -195,26 +176,6 @@ func TestTRC10_CreateAssetIssue2_WithFrozenSupply(t *testing.T) {
 	}
 }
 
-func TestTRC10_CreateAssetIssue2_ServerError(t *testing.T) {
-	serverErr := fmt.Errorf("rpc error: server busy")
-	fake := &trc10FakeWalletServer{
-		CreateAssetIssue2Func: func(_ context.Context, _ *core.AssetIssueContract) (*api.TransactionExtention, error) {
-			return nil, serverErr
-		},
-	}
-	mgr, cleanup := setupTRC10TestServer(t, fake)
-	defer cleanup()
-
-	owner := mustTRC10Addr(t, "TGj1Ej1qRzL9feLTLhjwgxXF4Ct6GTWg2U")
-	_, err := mgr.CreateAssetIssue2(context.Background(), owner,
-		"MyToken", "MTK", 1000000, 100, 100,
-		1640995200000, 1640995300000, "A test token", "https://example.com",
-		1000, 1000, nil)
-	if err == nil {
-		t.Fatal("expected error from server")
-	}
-}
-
 func TestTRC10_CreateAssetIssue2_TransactionErrorResult(t *testing.T) {
 	fake := &trc10FakeWalletServer{
 		CreateAssetIssue2Func: func(_ context.Context, _ *core.AssetIssueContract) (*api.TransactionExtention, error) {
@@ -251,23 +212,6 @@ func TestTRC10_UpdateAsset2_Success(t *testing.T) {
 	}
 }
 
-func TestTRC10_UpdateAsset2_ServerError(t *testing.T) {
-	serverErr := fmt.Errorf("update failed")
-	fake := &trc10FakeWalletServer{
-		UpdateAsset2Func: func(_ context.Context, _ *core.UpdateAssetContract) (*api.TransactionExtention, error) {
-			return nil, serverErr
-		},
-	}
-	mgr, cleanup := setupTRC10TestServer(t, fake)
-	defer cleanup()
-
-	owner := mustTRC10Addr(t, "TGj1Ej1qRzL9feLTLhjwgxXF4Ct6GTWg2U")
-	_, err := mgr.UpdateAsset2(context.Background(), owner, "desc", "url", 1000, 2000)
-	if err == nil {
-		t.Fatal("expected server error")
-	}
-}
-
 func TestTRC10_TransferAsset2_Success(t *testing.T) {
 	fake := &trc10FakeWalletServer{}
 	mgr, cleanup := setupTRC10TestServer(t, fake)
@@ -281,24 +225,6 @@ func TestTRC10_TransferAsset2_Success(t *testing.T) {
 	}
 	if result == nil {
 		t.Fatal("expected non-nil result")
-	}
-}
-
-func TestTRC10_TransferAsset2_ServerError(t *testing.T) {
-	serverErr := fmt.Errorf("transfer failed")
-	fake := &trc10FakeWalletServer{
-		TransferAsset2Func: func(_ context.Context, _ *core.TransferAssetContract) (*api.TransactionExtention, error) {
-			return nil, serverErr
-		},
-	}
-	mgr, cleanup := setupTRC10TestServer(t, fake)
-	defer cleanup()
-
-	owner := mustTRC10Addr(t, "TGj1Ej1qRzL9feLTLhjwgxXF4Ct6GTWg2U")
-	to := mustTRC10Addr(t, "TBXeeuh3jHM7oE889Ys2DqvRS1YuEPoa2o")
-	_, err := mgr.TransferAsset2(context.Background(), owner, to, "TestAsset", 100)
-	if err == nil {
-		t.Fatal("expected server error")
 	}
 }
 
@@ -318,24 +244,6 @@ func TestTRC10_ParticipateAssetIssue2_Success(t *testing.T) {
 	}
 }
 
-func TestTRC10_ParticipateAssetIssue2_ServerError(t *testing.T) {
-	serverErr := fmt.Errorf("participate failed")
-	fake := &trc10FakeWalletServer{
-		ParticipateAssetIssue2Func: func(_ context.Context, _ *core.ParticipateAssetIssueContract) (*api.TransactionExtention, error) {
-			return nil, serverErr
-		},
-	}
-	mgr, cleanup := setupTRC10TestServer(t, fake)
-	defer cleanup()
-
-	owner := mustTRC10Addr(t, "TGj1Ej1qRzL9feLTLhjwgxXF4Ct6GTWg2U")
-	to := mustTRC10Addr(t, "TBXeeuh3jHM7oE889Ys2DqvRS1YuEPoa2o")
-	_, err := mgr.ParticipateAssetIssue2(context.Background(), owner, to, "TestAsset", 1000)
-	if err == nil {
-		t.Fatal("expected server error")
-	}
-}
-
 func TestTRC10_UnfreezeAsset2_Success(t *testing.T) {
 	fake := &trc10FakeWalletServer{}
 	mgr, cleanup := setupTRC10TestServer(t, fake)
@@ -348,23 +256,6 @@ func TestTRC10_UnfreezeAsset2_Success(t *testing.T) {
 	}
 	if result == nil {
 		t.Fatal("expected non-nil result")
-	}
-}
-
-func TestTRC10_UnfreezeAsset2_ServerError(t *testing.T) {
-	serverErr := fmt.Errorf("unfreeze failed")
-	fake := &trc10FakeWalletServer{
-		UnfreezeAsset2Func: func(_ context.Context, _ *core.UnfreezeAssetContract) (*api.TransactionExtention, error) {
-			return nil, serverErr
-		},
-	}
-	mgr, cleanup := setupTRC10TestServer(t, fake)
-	defer cleanup()
-
-	owner := mustTRC10Addr(t, "TGj1Ej1qRzL9feLTLhjwgxXF4Ct6GTWg2U")
-	_, err := mgr.UnfreezeAsset2(context.Background(), owner)
-	if err == nil {
-		t.Fatal("expected server error")
 	}
 }
 
@@ -383,23 +274,6 @@ func TestTRC10_GetAssetIssueByAccount_Success(t *testing.T) {
 	}
 }
 
-func TestTRC10_GetAssetIssueByAccount_ServerError(t *testing.T) {
-	serverErr := fmt.Errorf("query failed")
-	fake := &trc10FakeWalletServer{
-		GetAssetIssueByAccountFunc: func(_ context.Context, _ *core.Account) (*api.AssetIssueList, error) {
-			return nil, serverErr
-		},
-	}
-	mgr, cleanup := setupTRC10TestServer(t, fake)
-	defer cleanup()
-
-	addr := mustTRC10Addr(t, "TGj1Ej1qRzL9feLTLhjwgxXF4Ct6GTWg2U")
-	_, err := mgr.GetAssetIssueByAccount(context.Background(), addr)
-	if err == nil {
-		t.Fatal("expected server error")
-	}
-}
-
 func TestTRC10_GetAssetIssueByName_Success(t *testing.T) {
 	fake := &trc10FakeWalletServer{}
 	mgr, cleanup := setupTRC10TestServer(t, fake)
@@ -411,22 +285,6 @@ func TestTRC10_GetAssetIssueByName_Success(t *testing.T) {
 	}
 	if result == nil {
 		t.Fatal("expected non-nil result")
-	}
-}
-
-func TestTRC10_GetAssetIssueByName_ServerError(t *testing.T) {
-	serverErr := fmt.Errorf("not found")
-	fake := &trc10FakeWalletServer{
-		GetAssetIssueByNameFunc: func(_ context.Context, _ *api.BytesMessage) (*core.AssetIssueContract, error) {
-			return nil, serverErr
-		},
-	}
-	mgr, cleanup := setupTRC10TestServer(t, fake)
-	defer cleanup()
-
-	_, err := mgr.GetAssetIssueByName(context.Background(), "TestAsset")
-	if err == nil {
-		t.Fatal("expected server error")
 	}
 }
 
@@ -444,22 +302,6 @@ func TestTRC10_GetAssetIssueListByName_Success(t *testing.T) {
 	}
 }
 
-func TestTRC10_GetAssetIssueListByName_ServerError(t *testing.T) {
-	serverErr := fmt.Errorf("list query failed")
-	fake := &trc10FakeWalletServer{
-		GetAssetIssueListByNameFunc: func(_ context.Context, _ *api.BytesMessage) (*api.AssetIssueList, error) {
-			return nil, serverErr
-		},
-	}
-	mgr, cleanup := setupTRC10TestServer(t, fake)
-	defer cleanup()
-
-	_, err := mgr.GetAssetIssueListByName(context.Background(), "TestAsset")
-	if err == nil {
-		t.Fatal("expected server error")
-	}
-}
-
 func TestTRC10_GetAssetIssueById_Success(t *testing.T) {
 	fake := &trc10FakeWalletServer{}
 	mgr, cleanup := setupTRC10TestServer(t, fake)
@@ -471,22 +313,6 @@ func TestTRC10_GetAssetIssueById_Success(t *testing.T) {
 	}
 	if result == nil {
 		t.Fatal("expected non-nil result")
-	}
-}
-
-func TestTRC10_GetAssetIssueById_ServerError(t *testing.T) {
-	serverErr := fmt.Errorf("asset not found")
-	fake := &trc10FakeWalletServer{
-		GetAssetIssueByIdFunc: func(_ context.Context, _ *api.BytesMessage) (*core.AssetIssueContract, error) {
-			return nil, serverErr
-		},
-	}
-	mgr, cleanup := setupTRC10TestServer(t, fake)
-	defer cleanup()
-
-	_, err := mgr.GetAssetIssueById(context.Background(), []byte("1000001"))
-	if err == nil {
-		t.Fatal("expected server error")
 	}
 }
 
@@ -504,22 +330,6 @@ func TestTRC10_GetAssetIssueList_Success(t *testing.T) {
 	}
 }
 
-func TestTRC10_GetAssetIssueList_ServerError(t *testing.T) {
-	serverErr := fmt.Errorf("list failed")
-	fake := &trc10FakeWalletServer{
-		GetAssetIssueListFunc: func(_ context.Context, _ *api.EmptyMessage) (*api.AssetIssueList, error) {
-			return nil, serverErr
-		},
-	}
-	mgr, cleanup := setupTRC10TestServer(t, fake)
-	defer cleanup()
-
-	_, err := mgr.GetAssetIssueList(context.Background())
-	if err == nil {
-		t.Fatal("expected server error")
-	}
-}
-
 func TestTRC10_GetPaginatedAssetIssueList_Success(t *testing.T) {
 	fake := &trc10FakeWalletServer{}
 	mgr, cleanup := setupTRC10TestServer(t, fake)
@@ -531,22 +341,6 @@ func TestTRC10_GetPaginatedAssetIssueList_Success(t *testing.T) {
 	}
 	if result == nil {
 		t.Fatal("expected non-nil result")
-	}
-}
-
-func TestTRC10_GetPaginatedAssetIssueList_ServerError(t *testing.T) {
-	serverErr := fmt.Errorf("pagination failed")
-	fake := &trc10FakeWalletServer{
-		GetPaginatedAssetIssueListFunc: func(_ context.Context, _ *api.PaginatedMessage) (*api.AssetIssueList, error) {
-			return nil, serverErr
-		},
-	}
-	mgr, cleanup := setupTRC10TestServer(t, fake)
-	defer cleanup()
-
-	_, err := mgr.GetPaginatedAssetIssueList(context.Background(), 0, 10)
-	if err == nil {
-		t.Fatal("expected server error")
 	}
 }
 
@@ -565,173 +359,223 @@ func TestTRC10_GetPaginatedAssetIssueList_MaxLimit(t *testing.T) {
 	}
 }
 
-func TestTRC10_CreateAssetIssue2_NilResultNoError(t *testing.T) {
-	// Server returns nil TransactionExtention with no error - ValidateTransactionResult will catch
-	fake := &trc10FakeWalletServer{
-		CreateAssetIssue2Func: func(_ context.Context, _ *core.AssetIssueContract) (*api.TransactionExtention, error) {
-			return nil, nil
-		},
-	}
-	mgr, cleanup := setupTRC10TestServer(t, fake)
-	defer cleanup()
-
-	owner := mustTRC10Addr(t, "TGj1Ej1qRzL9feLTLhjwgxXF4Ct6GTWg2U")
-	_, err := mgr.CreateAssetIssue2(context.Background(), owner,
-		"MyToken", "MTK", 1000000, 100, 100,
-		1640995200000, 1640995300000, "A test token", "https://example.com",
-		1000, 1000, nil)
-	if err == nil {
-		t.Fatal("expected error for nil result")
-	}
+// trc10RPCCase drives one manager RPC against a fake wallet server, so one
+// table exercises both failure modes across every method:
+//   - "server error": the handler returns a gRPC status error
+//   - "empty response": the handler returns a zero-value TransactionExtention,
+//     which is exactly what a client observes when a server returns a nil
+//     extention or one without a Result (the former NilResult tests covered
+//     this same wire shape twice)
+type trc10RPCCase struct {
+	name string
+	// serverErr wires this RPC's handler to return a transport error.
+	serverErr func() *trc10FakeWalletServer
+	// emptyResp wires this RPC's handler to return a zero-value
+	// TransactionExtention. nil means an empty response is legitimate for
+	// this RPC (read-only getters return typed lists, not extenders).
+	emptyResp func() *trc10FakeWalletServer
+	call      func(m *trc10.TRC10Manager) error
 }
 
-func TestTRC10_UpdateAsset2_NilResultNoError(t *testing.T) {
-	fake := &trc10FakeWalletServer{
-		UpdateAsset2Func: func(_ context.Context, _ *core.UpdateAssetContract) (*api.TransactionExtention, error) {
-			return nil, nil
-		},
-	}
-	mgr, cleanup := setupTRC10TestServer(t, fake)
-	defer cleanup()
-
-	owner := mustTRC10Addr(t, "TGj1Ej1qRzL9feLTLhjwgxXF4Ct6GTWg2U")
-	_, err := mgr.UpdateAsset2(context.Background(), owner, "desc", "url", 1000, 2000)
-	if err == nil {
-		t.Fatal("expected error for nil result")
-	}
-}
-
-func TestTRC10_TransferAsset2_NilResultNoError(t *testing.T) {
-	fake := &trc10FakeWalletServer{
-		TransferAsset2Func: func(_ context.Context, _ *core.TransferAssetContract) (*api.TransactionExtention, error) {
-			return nil, nil
-		},
-	}
-	mgr, cleanup := setupTRC10TestServer(t, fake)
-	defer cleanup()
-
+func buildTRC10RPCCases(t *testing.T) []trc10RPCCase {
 	owner := mustTRC10Addr(t, "TGj1Ej1qRzL9feLTLhjwgxXF4Ct6GTWg2U")
 	to := mustTRC10Addr(t, "TBXeeuh3jHM7oE889Ys2DqvRS1YuEPoa2o")
-	_, err := mgr.TransferAsset2(context.Background(), owner, to, "TestAsset", 100)
-	if err == nil {
-		t.Fatal("expected error for nil result")
+	ctx := context.Background()
+
+	return []trc10RPCCase{
+		{
+			name: "CreateAssetIssue2",
+			serverErr: func() *trc10FakeWalletServer {
+				return &trc10FakeWalletServer{CreateAssetIssue2Func: func(_ context.Context, _ *core.AssetIssueContract) (*api.TransactionExtention, error) {
+					return nil, status.Error(codes.Unavailable, "node unavailable")
+				}}
+			},
+			emptyResp: func() *trc10FakeWalletServer {
+				return &trc10FakeWalletServer{CreateAssetIssue2Func: func(_ context.Context, _ *core.AssetIssueContract) (*api.TransactionExtention, error) {
+					return &api.TransactionExtention{}, nil
+				}}
+			},
+			call: func(m *trc10.TRC10Manager) error {
+				_, err := m.CreateAssetIssue2(ctx, owner,
+					"MyToken", "MTK", 1000000, 100, 100,
+					1640995200000, 1640995300000, "A test token", "https://example.com",
+					1000, 1000, nil)
+				return err
+			},
+		},
+		{
+			name: "UpdateAsset2",
+			serverErr: func() *trc10FakeWalletServer {
+				return &trc10FakeWalletServer{UpdateAsset2Func: func(_ context.Context, _ *core.UpdateAssetContract) (*api.TransactionExtention, error) {
+					return nil, status.Error(codes.Unavailable, "node unavailable")
+				}}
+			},
+			emptyResp: func() *trc10FakeWalletServer {
+				return &trc10FakeWalletServer{UpdateAsset2Func: func(_ context.Context, _ *core.UpdateAssetContract) (*api.TransactionExtention, error) {
+					return &api.TransactionExtention{}, nil
+				}}
+			},
+			call: func(m *trc10.TRC10Manager) error {
+				_, err := m.UpdateAsset2(ctx, owner, "desc", "url", 1000, 2000)
+				return err
+			},
+		},
+		{
+			name: "TransferAsset2",
+			serverErr: func() *trc10FakeWalletServer {
+				return &trc10FakeWalletServer{TransferAsset2Func: func(_ context.Context, _ *core.TransferAssetContract) (*api.TransactionExtention, error) {
+					return nil, status.Error(codes.Unavailable, "node unavailable")
+				}}
+			},
+			emptyResp: func() *trc10FakeWalletServer {
+				return &trc10FakeWalletServer{TransferAsset2Func: func(_ context.Context, _ *core.TransferAssetContract) (*api.TransactionExtention, error) {
+					return &api.TransactionExtention{}, nil
+				}}
+			},
+			call: func(m *trc10.TRC10Manager) error {
+				_, err := m.TransferAsset2(ctx, owner, to, "TestAsset", 100)
+				return err
+			},
+		},
+		{
+			name: "ParticipateAssetIssue2",
+			serverErr: func() *trc10FakeWalletServer {
+				return &trc10FakeWalletServer{ParticipateAssetIssue2Func: func(_ context.Context, _ *core.ParticipateAssetIssueContract) (*api.TransactionExtention, error) {
+					return nil, status.Error(codes.Unavailable, "node unavailable")
+				}}
+			},
+			emptyResp: func() *trc10FakeWalletServer {
+				return &trc10FakeWalletServer{ParticipateAssetIssue2Func: func(_ context.Context, _ *core.ParticipateAssetIssueContract) (*api.TransactionExtention, error) {
+					return &api.TransactionExtention{}, nil
+				}}
+			},
+			call: func(m *trc10.TRC10Manager) error {
+				_, err := m.ParticipateAssetIssue2(ctx, owner, to, "TestAsset", 1000)
+				return err
+			},
+		},
+		{
+			name: "UnfreezeAsset2",
+			serverErr: func() *trc10FakeWalletServer {
+				return &trc10FakeWalletServer{UnfreezeAsset2Func: func(_ context.Context, _ *core.UnfreezeAssetContract) (*api.TransactionExtention, error) {
+					return nil, status.Error(codes.Unavailable, "node unavailable")
+				}}
+			},
+			emptyResp: func() *trc10FakeWalletServer {
+				return &trc10FakeWalletServer{UnfreezeAsset2Func: func(_ context.Context, _ *core.UnfreezeAssetContract) (*api.TransactionExtention, error) {
+					return &api.TransactionExtention{}, nil
+				}}
+			},
+			call: func(m *trc10.TRC10Manager) error {
+				_, err := m.UnfreezeAsset2(ctx, owner)
+				return err
+			},
+		},
+		{
+			name: "GetAssetIssueByAccount",
+			serverErr: func() *trc10FakeWalletServer {
+				return &trc10FakeWalletServer{GetAssetIssueByAccountFunc: func(_ context.Context, _ *core.Account) (*api.AssetIssueList, error) {
+					return nil, status.Error(codes.Unavailable, "node unavailable")
+				}}
+			},
+			call: func(m *trc10.TRC10Manager) error {
+				_, err := m.GetAssetIssueByAccount(ctx, owner)
+				return err
+			},
+		},
+		{
+			name: "GetAssetIssueByName",
+			serverErr: func() *trc10FakeWalletServer {
+				return &trc10FakeWalletServer{GetAssetIssueByNameFunc: func(_ context.Context, _ *api.BytesMessage) (*core.AssetIssueContract, error) {
+					return nil, status.Error(codes.Unavailable, "node unavailable")
+				}}
+			},
+			call: func(m *trc10.TRC10Manager) error {
+				_, err := m.GetAssetIssueByName(ctx, "TestAsset")
+				return err
+			},
+		},
+		{
+			name: "GetAssetIssueListByName",
+			serverErr: func() *trc10FakeWalletServer {
+				return &trc10FakeWalletServer{GetAssetIssueListByNameFunc: func(_ context.Context, _ *api.BytesMessage) (*api.AssetIssueList, error) {
+					return nil, status.Error(codes.Unavailable, "node unavailable")
+				}}
+			},
+			call: func(m *trc10.TRC10Manager) error {
+				_, err := m.GetAssetIssueListByName(ctx, "TestAsset")
+				return err
+			},
+		},
+		{
+			name: "GetAssetIssueById",
+			serverErr: func() *trc10FakeWalletServer {
+				return &trc10FakeWalletServer{GetAssetIssueByIdFunc: func(_ context.Context, _ *api.BytesMessage) (*core.AssetIssueContract, error) {
+					return nil, status.Error(codes.Unavailable, "node unavailable")
+				}}
+			},
+			call: func(m *trc10.TRC10Manager) error {
+				_, err := m.GetAssetIssueById(ctx, []byte("1000001"))
+				return err
+			},
+		},
+		{
+			name: "GetAssetIssueList",
+			serverErr: func() *trc10FakeWalletServer {
+				return &trc10FakeWalletServer{GetAssetIssueListFunc: func(_ context.Context, _ *api.EmptyMessage) (*api.AssetIssueList, error) {
+					return nil, status.Error(codes.Unavailable, "node unavailable")
+				}}
+			},
+			call: func(m *trc10.TRC10Manager) error {
+				_, err := m.GetAssetIssueList(ctx)
+				return err
+			},
+		},
+		{
+			name: "GetPaginatedAssetIssueList",
+			serverErr: func() *trc10FakeWalletServer {
+				return &trc10FakeWalletServer{GetPaginatedAssetIssueListFunc: func(_ context.Context, _ *api.PaginatedMessage) (*api.AssetIssueList, error) {
+					return nil, status.Error(codes.Unavailable, "node unavailable")
+				}}
+			},
+			call: func(m *trc10.TRC10Manager) error {
+				_, err := m.GetPaginatedAssetIssueList(ctx, 0, 10)
+				return err
+			},
+		},
 	}
 }
 
-func TestTRC10_ParticipateAssetIssue2_NilResultNoError(t *testing.T) {
-	fake := &trc10FakeWalletServer{
-		ParticipateAssetIssue2Func: func(_ context.Context, _ *core.ParticipateAssetIssueContract) (*api.TransactionExtention, error) {
-			return nil, nil
-		},
+// TestTRC10_RPC_FailureModes runs every RPC through both canned failure
+// shapes and asserts the manager surfaces an error each time.
+func TestTRC10_RPC_FailureModes(t *testing.T) {
+	modes := []struct {
+		name string
+		fake func(c trc10RPCCase) *trc10FakeWalletServer
+	}{
+		{"server error", func(c trc10RPCCase) *trc10FakeWalletServer { return c.serverErr() }},
+		{"empty response", func(c trc10RPCCase) *trc10FakeWalletServer {
+			if c.emptyResp == nil {
+				return nil // empty list is a legitimate response for getters
+			}
+			return c.emptyResp()
+		}},
 	}
-	mgr, cleanup := setupTRC10TestServer(t, fake)
-	defer cleanup()
-
-	owner := mustTRC10Addr(t, "TGj1Ej1qRzL9feLTLhjwgxXF4Ct6GTWg2U")
-	to := mustTRC10Addr(t, "TBXeeuh3jHM7oE889Ys2DqvRS1YuEPoa2o")
-	_, err := mgr.ParticipateAssetIssue2(context.Background(), owner, to, "TestAsset", 1000)
-	if err == nil {
-		t.Fatal("expected error for nil result")
-	}
-}
-
-func TestTRC10_UnfreezeAsset2_NilResultNoError(t *testing.T) {
-	fake := &trc10FakeWalletServer{
-		UnfreezeAsset2Func: func(_ context.Context, _ *core.UnfreezeAssetContract) (*api.TransactionExtention, error) {
-			return nil, nil
-		},
-	}
-	mgr, cleanup := setupTRC10TestServer(t, fake)
-	defer cleanup()
-
-	owner := mustTRC10Addr(t, "TGj1Ej1qRzL9feLTLhjwgxXF4Ct6GTWg2U")
-	_, err := mgr.UnfreezeAsset2(context.Background(), owner)
-	if err == nil {
-		t.Fatal("expected error for nil result")
-	}
-}
-
-func TestTRC10_NilResultValidation_TransactionWithNilResultField(t *testing.T) {
-	fake := &trc10FakeWalletServer{
-		CreateAssetIssue2Func: func(_ context.Context, _ *core.AssetIssueContract) (*api.TransactionExtention, error) {
-			return &api.TransactionExtention{Result: nil}, nil
-		},
-	}
-	mgr, cleanup := setupTRC10TestServer(t, fake)
-	defer cleanup()
-
-	owner := mustTRC10Addr(t, "TGj1Ej1qRzL9feLTLhjwgxXF4Ct6GTWg2U")
-	_, err := mgr.CreateAssetIssue2(context.Background(), owner,
-		"MyToken", "MTK", 1000000, 100, 100,
-		1640995200000, 1640995300000, "A test token", "https://example.com",
-		1000, 1000, nil)
-	if err == nil {
-		t.Fatal("expected error for nil Result field")
-	}
-}
-
-func TestTRC10_UpdateAsset2_NilResultField(t *testing.T) {
-	fake := &trc10FakeWalletServer{
-		UpdateAsset2Func: func(_ context.Context, _ *core.UpdateAssetContract) (*api.TransactionExtention, error) {
-			return &api.TransactionExtention{Result: nil}, nil
-		},
-	}
-	mgr, cleanup := setupTRC10TestServer(t, fake)
-	defer cleanup()
-
-	owner := mustTRC10Addr(t, "TGj1Ej1qRzL9feLTLhjwgxXF4Ct6GTWg2U")
-	_, err := mgr.UpdateAsset2(context.Background(), owner, "desc", "url", 1000, 2000)
-	if err == nil {
-		t.Fatal("expected error for nil Result field")
-	}
-}
-
-func TestTRC10_TransferAsset2_NilResultField(t *testing.T) {
-	fake := &trc10FakeWalletServer{
-		TransferAsset2Func: func(_ context.Context, _ *core.TransferAssetContract) (*api.TransactionExtention, error) {
-			return &api.TransactionExtention{Result: nil}, nil
-		},
-	}
-	mgr, cleanup := setupTRC10TestServer(t, fake)
-	defer cleanup()
-
-	owner := mustTRC10Addr(t, "TGj1Ej1qRzL9feLTLhjwgxXF4Ct6GTWg2U")
-	to := mustTRC10Addr(t, "TBXeeuh3jHM7oE889Ys2DqvRS1YuEPoa2o")
-	_, err := mgr.TransferAsset2(context.Background(), owner, to, "TestAsset", 100)
-	if err == nil {
-		t.Fatal("expected error for nil Result field")
-	}
-}
-
-func TestTRC10_ParticipateAssetIssue2_NilResultField(t *testing.T) {
-	fake := &trc10FakeWalletServer{
-		ParticipateAssetIssue2Func: func(_ context.Context, _ *core.ParticipateAssetIssueContract) (*api.TransactionExtention, error) {
-			return &api.TransactionExtention{Result: nil}, nil
-		},
-	}
-	mgr, cleanup := setupTRC10TestServer(t, fake)
-	defer cleanup()
-
-	owner := mustTRC10Addr(t, "TGj1Ej1qRzL9feLTLhjwgxXF4Ct6GTWg2U")
-	to := mustTRC10Addr(t, "TBXeeuh3jHM7oE889Ys2DqvRS1YuEPoa2o")
-	_, err := mgr.ParticipateAssetIssue2(context.Background(), owner, to, "TestAsset", 1000)
-	if err == nil {
-		t.Fatal("expected error for nil Result field")
-	}
-}
-
-func TestTRC10_UnfreezeAsset2_NilResultField(t *testing.T) {
-	fake := &trc10FakeWalletServer{
-		UnfreezeAsset2Func: func(_ context.Context, _ *core.UnfreezeAssetContract) (*api.TransactionExtention, error) {
-			return &api.TransactionExtention{Result: nil}, nil
-		},
-	}
-	mgr, cleanup := setupTRC10TestServer(t, fake)
-	defer cleanup()
-
-	owner := mustTRC10Addr(t, "TGj1Ej1qRzL9feLTLhjwgxXF4Ct6GTWg2U")
-	_, err := mgr.UnfreezeAsset2(context.Background(), owner)
-	if err == nil {
-		t.Fatal("expected error for nil Result field")
+	for _, mode := range modes {
+		t.Run(mode.name, func(t *testing.T) {
+			for _, tc := range buildTRC10RPCCases(t) {
+				t.Run(tc.name, func(t *testing.T) {
+					fake := mode.fake(tc)
+					if fake == nil {
+						t.Skipf("empty response is legitimate for %s", tc.name)
+					}
+					mgr, cleanup := setupTRC10TestServer(t, fake)
+					defer cleanup()
+					if err := tc.call(mgr); err == nil {
+						t.Fatalf("expected error from %s", tc.name)
+					}
+				})
+			}
+		})
 	}
 }

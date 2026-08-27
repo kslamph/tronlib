@@ -3,18 +3,15 @@ package smartcontract
 import (
 	"context"
 	"math/big"
-	"net"
 	"testing"
 	"time"
 
+	"github.com/kslamph/tronlib/internal/testutil"
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/types"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/test/bufconn"
 )
-
-const scBufSize = 1024 * 1024
 
 type fakeSCWalletServer struct {
 	api.UnimplementedWalletServer
@@ -109,28 +106,10 @@ func (m *scMockConnProvider) GetTimeout() time.Duration           { return 30 * 
 
 func setupSCTestServer(t *testing.T, fake *fakeSCWalletServer) (*Manager, func()) {
 	t.Helper()
-	lis := bufconn.Listen(scBufSize)
-	srv := grpc.NewServer()
-	api.RegisterWalletServer(srv, fake)
-	go func() { _ = srv.Serve(lis) }()
-
-	conn, err := grpc.Dial("passthrough:///bufnet",
-		grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
-			return lis.DialContext(ctx)
-		}),
-		grpc.WithInsecure(),
-	)
-	if err != nil {
-		t.Fatalf("failed to dial bufnet: %v", err)
-	}
-
+	lis := testutil.NewBufconnServer(t, fake)
+	conn := testutil.DialBufconn(t, lis)
 	mgr := NewManager(&scMockConnProvider{conn: conn})
-	cleanup := func() {
-		conn.Close()
-		srv.Stop()
-		lis.Close()
-	}
-	return mgr, cleanup
+	return mgr, func() {}
 }
 
 var (

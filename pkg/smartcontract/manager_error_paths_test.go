@@ -15,6 +15,8 @@ import (
 	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/client/lowlevel"
 	"github.com/kslamph/tronlib/pkg/utils"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // testConstructorABI defines an ABI with a constructor that takes (string, uint256) params.
@@ -36,97 +38,51 @@ const testConstructorABI = `[
 
 // --- Deploy coverage tests ---
 
-func TestMockDeployInvalidContractName(t *testing.T) {
-	mgr, cleanup := setupSCTestServer(t, &fakeSCWalletServer{})
-	defer cleanup()
-	// Contract names with control characters (below 0x20 or 0x7f) are invalid
-	_, err := mgr.Deploy(context.Background(), scTestAddr, "\x01test", testERC20ABI, []byte{0x60}, 0, 100, 30000)
-	assert.Error(t, err, "should fail with control characters in name")
-}
-
-func TestMockDeployInvalidResourcePercent(t *testing.T) {
-	mgr, cleanup := setupSCTestServer(t, &fakeSCWalletServer{})
-	defer cleanup()
-	_, err := mgr.Deploy(context.Background(), scTestAddr, "Test", testERC20ABI, []byte{0x60}, 0, 101, 30000)
-	assert.Error(t, err, "should fail with percent > 100")
-}
-
-func TestMockDeployEmptyABIString(t *testing.T) {
-	mgr, cleanup := setupSCTestServer(t, &fakeSCWalletServer{})
-	defer cleanup()
-	_, err := mgr.Deploy(context.Background(), scTestAddr, "Test", "", []byte{0x60}, 0, 100, 30000)
-	assert.Error(t, err, "should fail with empty ABI string")
-}
-
-func TestMockDeployBadABIString(t *testing.T) {
-	mgr, cleanup := setupSCTestServer(t, &fakeSCWalletServer{})
-	defer cleanup()
-	_, err := mgr.Deploy(context.Background(), scTestAddr, "Test", "not-json", []byte{0x60}, 0, 100, 30000)
-	assert.Error(t, err, "should fail with invalid ABI JSON")
-}
-
-func TestMockDeployNilABIObject(t *testing.T) {
-	mgr, cleanup := setupSCTestServer(t, &fakeSCWalletServer{})
-	defer cleanup()
-	_, err := mgr.Deploy(context.Background(), scTestAddr, "Test", (*core.SmartContract_ABI)(nil), []byte{0x60}, 0, 100, 30000)
-	assert.Error(t, err, "should fail with nil ABI object")
-}
-
-func TestMockDeployWithABIObject(t *testing.T) {
-	mgr, cleanup := setupSCTestServer(t, &fakeSCWalletServer{})
-	defer cleanup()
+func TestDeploy_ValidationAndEncoding(t *testing.T) {
 	processor := utils.NewABIProcessor(nil)
 	parsedABI, err := processor.ParseABI(testERC20ABI)
 	require.NoError(t, err)
-	result, err := mgr.Deploy(context.Background(), scTestAddr, "Test", parsedABI, []byte{0x60}, 0, 100, 30000)
-	assert.NoError(t, err)
-	assert.NotNil(t, result)
-}
 
-func TestMockDeployUnsupportedABIType(t *testing.T) {
-	mgr, cleanup := setupSCTestServer(t, &fakeSCWalletServer{})
-	defer cleanup()
-	_, err := mgr.Deploy(context.Background(), scTestAddr, "Test", 123, []byte{0x60}, 0, 100, 30000)
-	assert.Error(t, err, "should fail with unsupported ABI type")
-}
+	tests := []struct {
+		name         string
+		contractName string
+		abi          any
+		resourcePct  int64
+		params       []any
+		wantErr      bool
+	}{
+		{"control characters in name", "\x01test", testERC20ABI, 100, nil, true},
+		{"resource percent above 100", "Test", testERC20ABI, 101, nil, true},
+		{"empty ABI string", "Test", "", 100, nil, true},
+		{"invalid ABI JSON", "Test", "not-json", 100, nil, true},
+		{"nil ABI object", "Test", (*core.SmartContract_ABI)(nil), 100, nil, true},
+		{"parsed ABI object", "Test", parsedABI, 100, nil, false},
+		{"unsupported ABI type", "Test", 123, 100, nil, true},
+		{"constructor params with nil ABI", "Test", nil, 100, []any{"param1"}, true},
+		{"constructor params but ABI has none", "Test", testERC20ABI, 100, []any{"param1"}, true},
+		{"constructor param count mismatch", "Test", testConstructorABI, 100, []any{"only_one_param"}, true},
+		{"valid constructor params", "Test", testConstructorABI, 100, []any{"MyToken", big.NewInt(1000000)}, false},
+	}
 
-func TestMockDeployConstructorParamsNilABI(t *testing.T) {
-	mgr, cleanup := setupSCTestServer(t, &fakeSCWalletServer{})
-	defer cleanup()
-	// Pass constructor params but nil ABI → should error
-	_, err := mgr.Deploy(context.Background(), scTestAddr, "Test", nil, []byte{0x60}, 0, 100, 30000, "param1")
-	assert.Error(t, err, "should fail with nil ABI and constructor params")
-}
-
-func TestMockDeployConstructorParamsNoConstructor(t *testing.T) {
-	mgr, cleanup := setupSCTestServer(t, &fakeSCWalletServer{})
-	defer cleanup()
-	// testERC20ABI has no constructor, so encodeConstructor should fail
-	_, err := mgr.Deploy(context.Background(), scTestAddr, "Test", testERC20ABI, []byte{0x60}, 0, 100, 30000, "param1")
-	assert.Error(t, err, "should fail with ABI without constructor and constructor params")
-}
-
-func TestMockDeployConstructorParamCountMismatch(t *testing.T) {
-	mgr, cleanup := setupSCTestServer(t, &fakeSCWalletServer{})
-	defer cleanup()
-	// testConstructorABI expects 2 params, pass 1
-	_, err := mgr.Deploy(context.Background(), scTestAddr, "Test", testConstructorABI, []byte{0x60}, 0, 100, 30000, "only_one_param")
-	assert.Error(t, err, "should fail with wrong constructor param count")
-}
-
-func TestMockDeployValidConstructorParams(t *testing.T) {
-	mgr, cleanup := setupSCTestServer(t, &fakeSCWalletServer{})
-	defer cleanup()
-	// testConstructorABI expects (string, uint256) → pass correct params
-	result, err := mgr.Deploy(context.Background(), scTestAddr, "Test", testConstructorABI, []byte{0x60}, 0, 100, 30000, "MyToken", big.NewInt(1000000))
-	assert.NoError(t, err)
-	assert.NotNil(t, result)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mgr, cleanup := setupSCTestServer(t, &fakeSCWalletServer{})
+			defer cleanup()
+			result, err := mgr.Deploy(context.Background(), scTestAddr, tt.contractName, tt.abi, []byte{0x60}, 0, tt.resourcePct, 30000, tt.params...)
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.NotNil(t, result)
+		})
+	}
 }
 
 func TestMockDeployServerTxError(t *testing.T) {
 	fake := &fakeSCWalletServer{
 		DeployContractFunc: func(ctx context.Context, in *core.CreateSmartContract) (*api.TransactionExtention, error) {
-			return nil, fmt.Errorf("deploy server error")
+			return nil, status.Error(codes.Unavailable, "node unavailable")
 		},
 	}
 	mgr, cleanup := setupSCTestServer(t, fake)
@@ -147,10 +103,12 @@ func TestMockCallEncodeError(t *testing.T) {
 	assert.Error(t, err, "should fail with invalid method")
 }
 
-func TestMockCallNilResult(t *testing.T) {
+func TestMockCallEmptyResponse(t *testing.T) {
+	// A zero-value extention is what the client actually receives when the
+	// server returns no usable result — never a Go nil.
 	fake := &fakeSCWalletServer{
 		TriggerConstantContractFunc: func(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error) {
-			return nil, nil
+			return &api.TransactionExtention{}, nil
 		},
 	}
 	mgr, cleanup := setupSCTestServer(t, fake)
@@ -158,7 +116,7 @@ func TestMockCallNilResult(t *testing.T) {
 	inst, err := mgr.Instance(scTestAddr, testERC20ABI)
 	require.NoError(t, err)
 	_, err = inst.Call(context.Background(), scTestAddr, "name")
-	assert.Error(t, err, "should fail with nil result")
+	assert.Error(t, err, "should fail with empty response")
 }
 
 func TestMockCallEmptyConstantResult(t *testing.T) {
@@ -198,7 +156,7 @@ func TestMockCallDecodeError(t *testing.T) {
 func TestMockCallServerError(t *testing.T) {
 	fake := &fakeSCWalletServer{
 		TriggerConstantContractFunc: func(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error) {
-			return nil, fmt.Errorf("gRPC error")
+			return nil, status.Error(codes.Unavailable, "node unavailable")
 		},
 	}
 	mgr, cleanup := setupSCTestServer(t, fake)
@@ -223,7 +181,7 @@ func TestMockSimulateEncodeError(t *testing.T) {
 func TestMockSimulateServerError(t *testing.T) {
 	fake := &fakeSCWalletServer{
 		TriggerConstantContractFunc: func(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error) {
-			return nil, fmt.Errorf("simulate gRPC error")
+			return nil, status.Error(codes.Unavailable, "node unavailable")
 		},
 	}
 	mgr, cleanup := setupSCTestServer(t, fake)
@@ -234,21 +192,8 @@ func TestMockSimulateServerError(t *testing.T) {
 	assert.Error(t, err, "should fail on server error")
 }
 
-func TestMockSimulateServerNilResult(t *testing.T) {
-	// Simulate wraps lowlevel.Call; returning nil from RPC yields a zero-value
-	// protobuf, not Go nil. Test the error path by having the server fail.
-	fake := &fakeSCWalletServer{
-		TriggerConstantContractFunc: func(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error) {
-			return nil, fmt.Errorf("simulate nil result")
-		},
-	}
-	mgr, cleanup := setupSCTestServer(t, fake)
-	defer cleanup()
-	inst, err := mgr.Instance(scTestAddr, testERC20ABI)
-	require.NoError(t, err)
-	_, err = inst.Simulate(context.Background(), scTestAddr, 0, "name")
-	assert.Error(t, err, "should fail with server error")
-}
+// (TestMockSimulate_ServerError was removed: an exact duplicate of
+// TestMockSimulateServerError above.)
 
 // --- Invoke coverage tests ---
 
@@ -370,25 +315,26 @@ func (m *mockClientWithConnError) GetTimeout() time.Duration {
 
 // --- Manager method coverage with nil addresses ---
 
-func TestMockUpdateEnergyLimitNilContract(t *testing.T) {
+func TestManager_NilContractAddress(t *testing.T) {
 	mgr, cleanup := setupSCTestServer(t, &fakeSCWalletServer{})
 	defer cleanup()
-	_, err := mgr.UpdateEnergyLimit(context.Background(), scTestAddr, nil, 10000)
-	assert.Error(t, err, "should fail with nil contract address")
-}
 
-func TestMockUpdateSettingNilContract(t *testing.T) {
-	mgr, cleanup := setupSCTestServer(t, &fakeSCWalletServer{})
-	defer cleanup()
-	_, err := mgr.UpdateSetting(context.Background(), scTestAddr, nil, 100)
-	assert.Error(t, err, "should fail with nil contract address")
-}
-
-func TestMockClearContractABINilContract(t *testing.T) {
-	mgr, cleanup := setupSCTestServer(t, &fakeSCWalletServer{})
-	defer cleanup()
-	_, err := mgr.ClearContractABI(context.Background(), scTestAddr, nil)
-	assert.Error(t, err, "should fail with nil contract address")
+	tests := []struct {
+		name string
+		call func() error
+	}{
+		{"UpdateEnergyLimit", func() error {
+			_, err := mgr.UpdateEnergyLimit(context.Background(), scTestAddr, nil, 10000)
+			return err
+		}},
+		{"UpdateSetting", func() error { _, err := mgr.UpdateSetting(context.Background(), scTestAddr, nil, 100); return err }},
+		{"ClearContractABI", func() error { _, err := mgr.ClearContractABI(context.Background(), scTestAddr, nil); return err }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Error(t, tt.call(), "should fail with nil contract address")
+		})
+	}
 }
 
 // --- EstimateEnergy coverage ---
