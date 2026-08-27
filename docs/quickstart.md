@@ -305,9 +305,9 @@ func main() {
     }
 
     // Create TRC20 manager
-    trc20Mgr := cli.TRC20(usdtAddr)
-    if trc20Mgr == nil {
-        log.Fatal("Failed to create TRC20 manager")
+    trc20Mgr, err := cli.TRC20Manager(usdtAddr)
+    if err != nil {
+        log.Fatal(err)
     }
 
     // The manager automatically fetches and caches token metadata
@@ -354,8 +354,7 @@ func main() {
     fmt.Printf("Transferring %s USDT to %s...\n", amount.String(), recipient)
 
     // Build TRC20 transfer transaction
-    // Note: This returns both transaction ID (for immediate use) and transaction object
-    _, tx, err := trc20Mgr.Transfer(ctx, from, recipient, amount)
+    ext, err := trc20Mgr.Transfer(ctx, from, recipient, amount)
     if err != nil {
         log.Fatalf("Failed to build transfer: %v", err)
     }
@@ -367,7 +366,7 @@ func main() {
     opts.WaitTimeout = 30 * time.Second
 
     // Sign and broadcast
-    result, err := cli.SignAndBroadcast(ctx, tx, opts, signer)
+    result, err := cli.SignAndBroadcast(ctx, ext, opts, signer)
     if err != nil {
         log.Fatalf("Transaction failed: %v", err)
     }
@@ -434,7 +433,7 @@ func main() {
     recipient, _ := types.NewAddress("TBkfmcE7pM8cwxEhATtkMFwAf1FeQcwY9x")
     amount := decimal.NewFromFloat(10.5)
 
-    _, tx, err := trc20Mgr.Transfer(ctx, from, recipient, amount)
+    ext, err := trc20Mgr.Transfer(ctx, from, recipient, amount)
     if err != nil {
         log.Fatalf("Failed to build transfer: %v", err)
     }
@@ -443,7 +442,7 @@ func main() {
     opts.FeeLimit = 50_000_000
     opts.WaitForReceipt = true
 
-    result, err := cli.SignAndBroadcast(ctx, tx, opts, signer)
+    result, err := cli.SignAndBroadcast(ctx, ext, opts, signer)
     if err != nil {
         log.Fatalf("Transaction failed: %v", err)
     }

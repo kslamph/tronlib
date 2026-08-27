@@ -99,7 +99,8 @@ cli, err := client.NewClient("grpc://grpc.trongrid.io:50051",
 **Manager Access Pattern**:
 ```go
 accountMgr := cli.Account()          // Account operations
-trc20Mgr, _ := cli.TRC20(tokenAddr)   // TRC20 operations
+trc20Mgr, err := cli.TRC20Manager(tokenAddr) // TRC20 operations
+if err != nil { /* handle */ }
 contractMgr := cli.SmartContract()   // Contract operations
 ```
 

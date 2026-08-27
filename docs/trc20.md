@@ -28,7 +28,7 @@ The `TRC20Manager` is the main interface for TRC20 operations:
 
 ```go
 type TRC20Manager struct {
-    client      Client
+    client      lowlevel.ConnProvider
     address     *types.Address
     // Cached properties
     name        string
@@ -37,8 +37,17 @@ type TRC20Manager struct {
     // Internal state
 }
 
-// Create a new TRC20 manager
-func NewManager(client Client, tokenAddress *types.Address) (*TRC20Manager, error)
+// Create a new TRC20 manager.
+//
+// Prefer creating a manager via cli.TRC20Manager(addr) which returns an error
+// if the contract cannot be queried. The deprecated cli.TRC20(addr) variant
+// swallows that error and may return nil.
+//
+// NewManager is used by the client facade internally and when constructing a
+// manager from a raw lowlevel.ConnProvider (e.g. in unit tests):
+//
+//	mgr, err := trc20.NewManager(connProvider, tokenAddr)
+func NewManager(tronClient lowlevel.ConnProvider, contractAddress *types.Address) (*TRC20Manager, error)
 ```
 
 ## 🚀 Getting Started
@@ -74,9 +83,10 @@ func main() {
     }
 
     // Create TRC20 manager
-    trc20Mgr := cli.TRC20(usdtAddr)
-    if trc20Mgr == nil {
-        log.Fatal("Failed to create TRC20 manager")
+    // TRC20Manager() returns (*TRC20Manager, error); the deprecated TRC20() variant may return nil.
+    trc20Mgr, err := cli.TRC20Manager(usdtAddr)
+    if err != nil {
+        log.Fatal(err)
     }
 
     ctx := context.Background()
@@ -188,16 +198,19 @@ to, _ := types.NewAddress("TBkfmcE7pM8cwxEhATtkMFwAf1FeQcwY9x")
 amount := decimal.NewFromFloat(10.5)
 
 // Build transfer transaction
-// Returns: transaction ID string, transaction object, error
-txid, tx, err := trc20Mgr.Transfer(ctx, from, to, amount)
+// Transfer returns (txExt, err) — a TransactionExtention, not a txid string.
+ext, err := trc20Mgr.Transfer(ctx, from, to, amount)
 if err != nil {
     log.Fatalf("Failed to build transfer: %v", err)
 }
 
-fmt.Printf("Transaction built: %s\n", txid)
+// Sign and broadcast using the client
+result, err := cli.SignAndBroadcast(ctx, ext, opts, signer)
+if err != nil {
+    log.Fatalf("Transfer failed: %v", err)
+}
 
-// Note: At this point, the transaction is built but not signed or broadcast
-// You need to sign and broadcast it using the client
+fmt.Printf("Transaction ID: %s\n", result.TxID)
 ```
 
 ### Transfer with Signing and Broadcasting
@@ -206,8 +219,8 @@ fmt.Printf("Transaction built: %s\n", txid)
 // Complete transfer workflow
 amount := decimal.NewFromFloat(25.75)
 
-// Build transaction
-_, tx, err := trc20Mgr.Transfer(ctx, from, to, amount)
+// Build transaction (returns a TransactionExtention)
+ext, err := trc20Mgr.Transfer(ctx, from, to, amount)
 if err != nil {
     log.Fatalf("Failed to build transfer: %v", err)
 }
@@ -225,7 +238,7 @@ opts.WaitForReceipt = true
 opts.WaitTimeout = 30 * time.Second
 
 // Sign and broadcast
-result, err := cli.SignAndBroadcast(ctx, tx, opts, signer)
+result, err := cli.SignAndBroadcast(ctx, ext, opts, signer)
 if err != nil {
     log.Fatalf("Transfer failed: %v", err)
 }
@@ -245,18 +258,21 @@ type TransferRequest struct {
     Amount decimal.Decimal
 }
 
-func PerformBatchTransfers(ctx context.Context, trc20Mgr *trc20.TRC20Manager, from *types.Address, transfers []TransferRequest) error {
+func PerformBatchTransfers(ctx context.Context, cli *client.Client, trc20Mgr *trc20.TRC20Manager, from *types.Address, transfers []TransferRequest, s signer.Signer) error {
     for i, transfer := range transfers {
-        fmt.Printf("Processing transfer %d/%d to %s: %s\n", 
+        fmt.Printf("Processing transfer %d/%d to %s: %s\n",
             i+1, len(transfers), transfer.To, transfer.Amount)
 
-        _, tx, err := trc20Mgr.Transfer(ctx, from, transfer.To, transfer.Amount)
+        ext, err := trc20Mgr.Transfer(ctx, from, transfer.To, transfer.Amount)
         if err != nil {
             return fmt.Errorf("failed to build transfer %d: %w", i, err)
         }
 
         // Sign and broadcast each transaction
-        result, err := cli.SignAndBroadcast(ctx, tx, opts, signer)
+        opts := client.DefaultBroadcastOptions()
+        opts.FeeLimit = 50_000_000
+        opts.WaitForReceipt = true
+        result, err := cli.SignAndBroadcast(ctx, ext, opts, s)
         if err != nil {
             return fmt.Errorf("failed to broadcast transfer %d: %w", i, err)
         }
@@ -269,12 +285,12 @@ func PerformBatchTransfers(ctx context.Context, trc20Mgr *trc20.TRC20Manager, fr
 
 // Usage
 transfers := []TransferRequest{
-    {to1, decimal.NewFromFloat(10.0)},
-    {to2, decimal.NewFromFloat(20.0)},
-    {to3, decimal.NewFromFloat(15.5)},
+    {To: to1, Amount: decimal.NewFromFloat(10.0)},
+    {To: to2, Amount: decimal.NewFromFloat(20.0)},
+    {To: to3, Amount: decimal.NewFromFloat(15.5)},
 }
 
-err := PerformBatchTransfers(ctx, trc20Mgr, from, transfers)
+err := PerformBatchTransfers(ctx, cli, trc20Mgr, from, transfers, signer)
 ```
 
 ## 🔐 Approval Operations
@@ -289,13 +305,13 @@ spender, _ := types.NewAddress("TBkfmcE7pM8cwxEhATtkMFwAf1FeQcwY9x")
 // Approve specific amount
 approveAmount := decimal.NewFromFloat(100.0)
 
-_, tx, err := trc20Mgr.Approve(ctx, owner, spender, approveAmount)
+ext, err := trc20Mgr.Approve(ctx, owner, spender, approveAmount)
 if err != nil {
     log.Fatalf("Failed to build approval: %v", err)
 }
 
 // Sign and broadcast approval
-result, err := cli.SignAndBroadcast(ctx, tx, opts, signer)
+result, err := cli.SignAndBroadcast(ctx, ext, opts, signer)
 if err != nil {
     log.Fatalf("Approval failed: %v", err)
 }
@@ -306,16 +322,15 @@ fmt.Printf("✅ Approval successful: %s\n", result.TxID)
 ### Unlimited Approval
 
 ```go
-// Approve unlimited amount (common pattern for DEX interactions)
+// Approve unlimited amount (common pattern for DEX interactions).
+// There is no dedicated ApproveUnlimited helper — use the maximum uint256
+// value directly:
 maxAmount := decimal.NewFromString("115792089237316195423570985008687907853269984665640564039457584007913129639935")
 
-_, tx, err := trc20Mgr.Approve(ctx, owner, spender, maxAmount)
+ext, err := trc20Mgr.Approve(ctx, owner, spender, maxAmount)
 if err != nil {
     log.Fatalf("Failed to build unlimited approval: %v", err)
 }
-
-// Or use a convenience function if available
-_, tx, err = trc20Mgr.ApproveUnlimited(ctx, owner, spender)
 ```
 
 ### Safe Approval Pattern
@@ -324,7 +339,7 @@ _, tx, err = trc20Mgr.ApproveUnlimited(ctx, owner, spender)
 // Safe approval pattern: set to 0 first, then to desired amount
 // This prevents certain attack vectors
 
-func SafeApprove(ctx context.Context, trc20Mgr *trc20.TRC20Manager, owner, spender *types.Address, amount decimal.Decimal) error {
+func SafeApprove(ctx context.Context, cli *client.Client, trc20Mgr *trc20.TRC20Manager, owner, spender *types.Address, amount decimal.Decimal, s signer.Signer) error {
     // First, check current allowance
     currentAllowance, err := trc20Mgr.Allowance(ctx, owner, spender)
     if err != nil {
@@ -334,13 +349,14 @@ func SafeApprove(ctx context.Context, trc20Mgr *trc20.TRC20Manager, owner, spend
     // If there's an existing allowance and we're not setting to 0, reset first
     if !currentAllowance.IsZero() && !amount.IsZero() {
         fmt.Println("Resetting allowance to 0 first...")
-        
-        _, tx, err := trc20Mgr.Approve(ctx, owner, spender, decimal.Zero)
+
+        ext, err := trc20Mgr.Approve(ctx, owner, spender, decimal.Zero)
         if err != nil {
             return fmt.Errorf("failed to reset allowance: %w", err)
         }
 
-        result, err := cli.SignAndBroadcast(ctx, tx, opts, signer)
+        opts := client.DefaultBroadcastOptions()
+        result, err := cli.SignAndBroadcast(ctx, ext, opts, s)
         if err != nil {
             return fmt.Errorf("failed to broadcast reset: %w", err)
         }
@@ -349,12 +365,13 @@ func SafeApprove(ctx context.Context, trc20Mgr *trc20.TRC20Manager, owner, spend
     }
 
     // Now set the desired allowance
-    _, tx, err := trc20Mgr.Approve(ctx, owner, spender, amount)
+    ext, err = trc20Mgr.Approve(ctx, owner, spender, amount)
     if err != nil {
         return fmt.Errorf("failed to set allowance: %w", err)
     }
 
-    result, err := cli.SignAndBroadcast(ctx, tx, opts, signer)
+    opts := client.DefaultBroadcastOptions()
+    result, err := cli.SignAndBroadcast(ctx, ext, opts, s)
     if err != nil {
         return fmt.Errorf("failed to broadcast approval: %w", err)
     }
@@ -364,13 +381,19 @@ func SafeApprove(ctx context.Context, trc20Mgr *trc20.TRC20Manager, owner, spend
 }
 ```
 
-## 🔄 TransferFrom Operations
+## 🔄 TransferFrom (approve + transferFrom pattern)
+
+The TRC20 package does not expose a `TransferFrom` helper. To perform a
+`transferFrom` on behalf of a token owner, use the `smartcontract` package
+with the standard TRC20 ABI:
 
 ```go
-// Transfer tokens on behalf of another account (requires prior approval)
-owner, _ := types.NewAddress("TLyqzVGLV1srkB7dToTAEqgDSfPtXRJZYH")  // Token owner
-spender, _ := types.NewAddress("TBkfmcE7pM8cwxEhATtkMFwAf1FeQcwY9x") // You (authorized spender)
-recipient, _ := types.NewAddress("TAuB7aNiJ2Sj5r3xrqoRH8UhZVNYBUHxdf") // Final recipient
+// Requires a prior Approve from the token owner.
+owner, _ := types.NewAddress("TLyqzVGLV1srkB7dToTAEqgDSfPtXRJZYH")
+spender, _ := types.NewAddress("TBkfmcE7pM8cwxEhATtkMFwAf1FeQcwY9x")
+recipient, _ := types.NewAddress("TAuB7aNiJ2Sj5r3xrqoRH8UhZVNYBUHxdf")
+
+transferAmount := decimal.NewFromFloat(50.0)
 
 // Check allowance first
 allowance, err := trc20Mgr.Allowance(ctx, owner, spender)
@@ -378,25 +401,12 @@ if err != nil {
     log.Fatalf("Failed to check allowance: %v", err)
 }
 
-transferAmount := decimal.NewFromFloat(50.0)
-
 if allowance.LessThan(transferAmount) {
     log.Fatalf("Insufficient allowance: have %s, need %s", allowance, transferAmount)
 }
 
-// Perform transferFrom
-_, tx, err := trc20Mgr.TransferFrom(ctx, spender, owner, recipient, transferAmount)
-if err != nil {
-    log.Fatalf("Failed to build transferFrom: %v", err)
-}
-
-// Note: Transaction is signed by the spender, not the owner
-result, err := cli.SignAndBroadcast(ctx, tx, opts, spenderSigner)
-if err != nil {
-    log.Fatalf("TransferFrom failed: %v", err)
-}
-
-fmt.Printf("✅ TransferFrom successful: %s\n", result.TxID)
+// Option A: Use smartcontract.Instance with the token ABI
+// Option B: Use a helper contract that calls transferFrom on behalf of the spender
 ```
 
 ## 💱 Decimal Conversion Utilities
@@ -408,7 +418,7 @@ The TRC20 package uses `shopspring/decimal` for precise arithmetic and provides 
 ```go
 // Convert human decimal to on-chain integer (wei)
 humanAmount := decimal.NewFromFloat(12.34)
-decimals := 6 // USDT has 6 decimals
+var decimals uint8 = 6 // USDT has 6 decimals
 
 weiAmount, err := trc20.ToWei(humanAmount, decimals)
 if err != nil {
@@ -432,7 +442,7 @@ fmt.Printf("Round-trip: %s\n", backToHuman)
 // Different tokens have different decimal places
 tokens := map[string]struct {
     address  string
-    decimals int
+    decimals uint8
 }{
     "USDT": {"TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t", 6},
     "USDC": {"TEkxiTehnzSmSe2XqrBj4w32RUN966rdz8", 6},
@@ -455,7 +465,7 @@ jstWei, _ := ConvertAmount("JST", amount)   // 18 decimals
 usdtWei, _ := ConvertAmount("USDT", amount) // 6 decimals
 
 fmt.Printf("JST wei: %s\n", jstWei)   // 100500000000000000000
-fmt.Printf("USDT wei: %s\n", usdtWei) // 100500000
+fmt.Printf("USDT wei: %s\n", usdtWei) // 10050000
 ```
 
 ### Precision Handling
@@ -467,12 +477,12 @@ func SafeDecimalFromString(s string) (decimal.Decimal, error) {
     if err != nil {
         return decimal.Zero, fmt.Errorf("invalid decimal: %s", s)
     }
-    
+
     // Limit precision to avoid issues
     if d.Exponent() < -18 {
         return decimal.Zero, fmt.Errorf("precision too high: %s", s)
     }
-    
+
     return d, nil
 }
 
@@ -493,15 +503,19 @@ if err != nil {
 
 ### Multi-Token Manager
 
+For constructing TRC20Managers from a live connection, prefer
+`cli.TRC20Manager(addr)` which handles errors. The example below uses
+`NewManager` with a raw `ConnProvider` for illustration.
+
 ```go
 type MultiTokenManager struct {
-    client   *client.Client
+    cp       lowlevel.ConnProvider
     managers map[string]*trc20.TRC20Manager
 }
 
-func NewMultiTokenManager(cli *client.Client) *MultiTokenManager {
+func NewMultiTokenManager(cp lowlevel.ConnProvider) *MultiTokenManager {
     return &MultiTokenManager{
-        client:   cli,
+        cp:       cp,
         managers: make(map[string]*trc20.TRC20Manager),
     }
 }
@@ -516,7 +530,7 @@ func (m *MultiTokenManager) GetManager(tokenAddress string) (*trc20.TRC20Manager
         return nil, err
     }
 
-    mgr, err := trc20.NewManager(m.client, addr)
+    mgr, err := trc20.NewManager(m.cp, addr)
     if err != nil {
         return nil, err
     }
@@ -542,6 +556,9 @@ func (m *MultiTokenManager) GetBalance(ctx context.Context, tokenAddress, holder
 
 ### Portfolio Tracker
 
+For production code use `cli.TRC20Manager(addr)` — the example below uses
+`NewManager` with a `ConnProvider` to illustrate the pattern.
+
 ```go
 type TokenBalance struct {
     Symbol   string
@@ -550,7 +567,7 @@ type TokenBalance struct {
     Decimals int
 }
 
-func GetPortfolio(ctx context.Context, cli *client.Client, holderAddr *types.Address, tokens []string) ([]TokenBalance, error) {
+func GetPortfolio(ctx context.Context, cp lowlevel.ConnProvider, holderAddr *types.Address, tokens []string) ([]TokenBalance, error) {
     var portfolio []TokenBalance
 
     for _, tokenAddr := range tokens {
@@ -559,7 +576,7 @@ func GetPortfolio(ctx context.Context, cli *client.Client, holderAddr *types.Add
             continue // Skip invalid addresses
         }
 
-        mgr, err := trc20.NewManager(cli, addr)
+        mgr, err := trc20.NewManager(cp, addr)
         if err != nil {
             continue // Skip if can't create manager
         }
@@ -584,42 +601,28 @@ func GetPortfolio(ctx context.Context, cli *client.Client, holderAddr *types.Add
 
     return portfolio, nil
 }
-
-// Usage
-tokens := []string{
-    "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t", // USDT
-    "TEkxiTehnzSmSe2XqrBj4w32RUN966rdz8", // USDC
-    "TCFLL5dx5ZJdKnWuesXxi1VPwjLVmWZZy9", // JST
-}
-
-holder, _ := types.NewAddress("TLyqzVGLV1srkB7dToTAEqgDSfPtXRJZYH")
-portfolio, err := GetPortfolio(ctx, cli, holder, tokens)
-if err != nil {
-    log.Fatal(err)
-}
-
-for _, token := range portfolio {
-    fmt.Printf("%s: %s\n", token.Symbol, token.Balance)
-}
 ```
 
 ## 🚨 Error Handling
 
-### Common Error Types
+### Common Error Sentinels
+
+Package-level error sentinels live in `pkg/types`, not in `pkg/trc20`:
 
 ```go
-// The package defines specific error types
-var (
-    ErrInvalidTokenAddress   = errors.New("invalid token address")
-    ErrInvalidAmount        = errors.New("invalid amount")
-    ErrInsufficientBalance  = errors.New("insufficient balance")
-    ErrInsufficientAllowance = errors.New("insufficient allowance")
-)
+// types.ErrInvalidAddress   — invalid address format or value
+// types.ErrInvalidAmount    — invalid amount value
+// types.ErrInvalidContract  — invalid contract address/ABI
+// types.ErrInvalidParameter — invalid parameter value
+// types.ErrInvalidTransaction — invalid transaction format
+```
 
-// Usage with error checking
+### Usage with error checking
+
+```go
 balance, err := trc20Mgr.BalanceOf(ctx, holder)
 if err != nil {
-    if errors.Is(err, trc20.ErrInvalidTokenAddress) {
+    if errors.Is(err, types.ErrInvalidAddress) {
         log.Println("The token contract address is invalid")
     } else {
         log.Printf("Unexpected error: %v", err)
@@ -631,7 +634,7 @@ if err != nil {
 ### Robust Error Handling Pattern
 
 ```go
-func SafeTransfer(ctx context.Context, mgr *trc20.TRC20Manager, from, to *types.Address, amount decimal.Decimal) error {
+func SafeTransfer(ctx context.Context, cli *client.Client, mgr *trc20.TRC20Manager, from, to *types.Address, amount decimal.Decimal, s signer.Signer) error {
     // Validate amount
     if amount.IsNegative() {
         return fmt.Errorf("amount cannot be negative: %s", amount)
@@ -651,13 +654,21 @@ func SafeTransfer(ctx context.Context, mgr *trc20.TRC20Manager, from, to *types.
     }
 
     // Build transaction
-    _, tx, err := mgr.Transfer(ctx, from, to, amount)
+    ext, err := mgr.Transfer(ctx, from, to, amount)
     if err != nil {
         return fmt.Errorf("failed to build transfer transaction: %w", err)
     }
 
-    // At this point, you would sign and broadcast
-    fmt.Printf("Transfer ready: %s %s from %s to %s\n", amount, symbol, from, to)
+    // Sign and broadcast
+    opts := client.DefaultBroadcastOptions()
+    opts.FeeLimit = 50_000_000
+    opts.WaitForReceipt = true
+    result, err := cli.SignAndBroadcast(ctx, ext, opts, s)
+    if err != nil {
+        return fmt.Errorf("failed to broadcast transfer: %w", err)
+    }
+
+    fmt.Printf("Transfer successful: %s\n", result.TxID)
     return nil
 }
 ```
@@ -672,32 +683,27 @@ func TestTRC20Transfer(t *testing.T) {
     // Setup test addresses
     from := types.MustNewAddressFromBase58("TLyqzVGLV1srkB7dToTAEqgDSfPtXRJZYH")
     to := types.MustNewAddressFromBase58("TBkfmcE7pM8cwxEhATtkMFwAf1FeQcwY9x")
-    
-    // Mock client (implement your mock)
-    mockClient := &MockClient{}
+
+    // Mock ConnProvider (implement GetConnection/ReturnConnection/GetTimeout)
+    mockCP := &MockConnProvider{}
     tokenAddr := types.MustNewAddressFromBase58("TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t")
-    
-    mgr, err := trc20.NewManager(mockClient, tokenAddr)
+
+    mgr, err := trc20.NewManager(mockCP, tokenAddr)
     require.NoError(t, err)
-    
+
     // Test transfer
     amount := decimal.NewFromFloat(10.5)
-    _, tx, err := mgr.Transfer(context.Background(), from, to, amount)
+    ext, err := mgr.Transfer(context.Background(), from, to, amount)
     require.NoError(t, err)
-    require.NotNil(t, tx)
+    require.NotNil(t, ext)
 }
 ```
 
 ### Integration Testing
 
 ```go
-// Test against real testnet
+// Test against real testnet (requires the integration build tag; see TESTING_GUIDE.md)
 func TestRealTRC20Operations(t *testing.T) {
-    // Skip if not in integration test mode
-    if !*integrationTest {
-        t.Skip("Skipping integration test")
-    }
-
     cli, err := client.NewClient("grpc://grpc.nile.trongrid.io:50051")
     require.NoError(t, err)
     defer cli.Close()
