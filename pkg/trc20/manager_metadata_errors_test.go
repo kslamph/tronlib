@@ -4,22 +4,18 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"net"
 	"testing"
-	"time"
 
 	eabi "github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/shopspring/decimal"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
+	"github.com/kslamph/tronlib/internal/testutil"
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
-	"github.com/kslamph/tronlib/pkg/client"
 	"github.com/kslamph/tronlib/pkg/trc20"
 	"github.com/kslamph/tronlib/pkg/types"
-	"google.golang.org/grpc/test/bufconn"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // ---- ToWeiWithDecimals / FromWeiWithDecimals (trivial wrappers) ----
@@ -114,22 +110,12 @@ func (s *flexServer) GetAccountInfo(_ context.Context, _ *core.Account) (*core.A
 	return &core.Account{AccountName: []byte("test")}, nil
 }
 
-func newFlexClient(t *testing.T, impl api.WalletServer) (*client.Client, func()) {
+// newFlexConn wires a mock connection provider to an in-process fake wallet
+// server for trc20.NewManager; cleanup is registered with t.Cleanup.
+func newFlexConn(t *testing.T, impl api.WalletServer) *testutil.MockConnProvider {
 	t.Helper()
-	lis := bufconn.Listen(trc20BufSize)
-	srv := grpc.NewServer()
-	api.RegisterWalletServer(srv, impl)
-	go func() { _ = srv.Serve(lis) }()
-	c, err := client.NewClientWithDialer(
-		"passthrough:///bufnet",
-		func(ctx context.Context, s string) (net.Conn, error) { return lis.DialContext(ctx) },
-		client.WithTimeout(500*time.Millisecond),
-		client.WithPool(1, 1),
-	)
-	if err != nil {
-		t.Fatalf("NewClientWithDialer: %v", err)
-	}
-	return c, func() { _ = lis.Close(); srv.Stop(); c.Close() }
+	lis := testutil.NewBufconnServer(t, impl)
+	return testutil.NewMockConnProvider(testutil.DialBufconn(t, lis))
 }
 
 func packTRC20Result(data interface{}) ([]byte, error) {
@@ -168,8 +154,7 @@ func defaultOKServer() *flexServer {
 
 func makeManager(t *testing.T, srv *flexServer) *trc20.TRC20Manager {
 	t.Helper()
-	c, cleanup := newFlexClient(t, srv)
-	t.Cleanup(cleanup)
+	c := newFlexConn(t, srv)
 	token := types.MustNewAddressFromBase58("TKCTfkQ8L9beavNu9iaGtCHFxrwNHUxfr2")
 	m, err := trc20.NewManager(c, token)
 	if err != nil {
@@ -223,8 +208,7 @@ func TestTRC20Manager_Name_UnexpectedType(t *testing.T) {
 		out, _ := packTRC20Result(uint8(42))
 		return &api.TransactionExtention{Result: &api.Return{Result: true, Code: api.Return_SUCCESS}, ConstantResult: [][]byte{out}}, nil
 	}
-	c, cleanup := newFlexClient(t, srv)
-	defer cleanup()
+	c := newFlexConn(t, srv)
 	token := types.MustNewAddressFromBase58("TKCTfkQ8L9beavNu9iaGtCHFxrwNHUxfr2")
 	_, err := trc20.NewManager(c, token)
 	if err == nil {
@@ -238,8 +222,7 @@ func TestTRC20Manager_Symbol_UnexpectedType(t *testing.T) {
 		out, _ := packTRC20Result(uint8(42))
 		return &api.TransactionExtention{Result: &api.Return{Result: true, Code: api.Return_SUCCESS}, ConstantResult: [][]byte{out}}, nil
 	}
-	c, cleanup := newFlexClient(t, srv)
-	defer cleanup()
+	c := newFlexConn(t, srv)
 	token := types.MustNewAddressFromBase58("TKCTfkQ8L9beavNu9iaGtCHFxrwNHUxfr2")
 	_, err := trc20.NewManager(c, token)
 	if err == nil {
@@ -252,8 +235,7 @@ func TestTRC20Manager_Symbol_UnexpectedType(t *testing.T) {
 func TestTRC20Manager_Name_RPCError(t *testing.T) {
 	srv := defaultOKServer()
 	srv.errorSelectors[selName] = "name call failed"
-	c, cleanup := newFlexClient(t, srv)
-	defer cleanup()
+	c := newFlexConn(t, srv)
 	token := types.MustNewAddressFromBase58("TKCTfkQ8L9beavNu9iaGtCHFxrwNHUxfr2")
 	_, err := trc20.NewManager(c, token)
 	if err == nil {
@@ -264,8 +246,7 @@ func TestTRC20Manager_Name_RPCError(t *testing.T) {
 func TestTRC20Manager_Symbol_RPCError(t *testing.T) {
 	srv := defaultOKServer()
 	srv.errorSelectors[selSymbol] = "symbol call failed"
-	c, cleanup := newFlexClient(t, srv)
-	defer cleanup()
+	c := newFlexConn(t, srv)
 	token := types.MustNewAddressFromBase58("TKCTfkQ8L9beavNu9iaGtCHFxrwNHUxfr2")
 	_, err := trc20.NewManager(c, token)
 	if err == nil {
@@ -276,8 +257,7 @@ func TestTRC20Manager_Symbol_RPCError(t *testing.T) {
 func TestTRC20Manager_Decimals_RPCError(t *testing.T) {
 	srv := defaultOKServer()
 	srv.errorSelectors[selDecimals] = "decimals call failed"
-	c, cleanup := newFlexClient(t, srv)
-	defer cleanup()
+	c := newFlexConn(t, srv)
 	token := types.MustNewAddressFromBase58("TKCTfkQ8L9beavNu9iaGtCHFxrwNHUxfr2")
 	_, err := trc20.NewManager(c, token)
 	if err == nil {

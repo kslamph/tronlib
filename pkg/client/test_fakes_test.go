@@ -6,14 +6,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kslamph/tronlib/internal/testutil"
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 )
-
-// Bufconn size for in-memory gRPC server
-const bufSize = 1024 * 1024
 
 // testWalletServer is a minimal fake implementing api.WalletServer for unit tests.
 type testWalletServer struct {
@@ -46,25 +44,16 @@ func (s *testWalletServer) GetTransactionInfoById(ctx context.Context, in *api.B
 	if s.GetTxInfoByIdHandler != nil {
 		return s.GetTxInfoByIdHandler(ctx, in)
 	}
-	// default: none
-	return nil, nil
+	// Default: empty info (an unconfirmed transaction), never a Go nil.
+	return &core.TransactionInfo{}, nil
 }
 
 // newBufconnServer spins up a bufconn-backed gRPC server.
 // Returns listener, server, and cleanup that stops the server and closes the listener.
 func newBufconnServer(t *testing.T, impl api.WalletServer) (*bufconn.Listener, *grpc.Server, func()) {
 	t.Helper()
-	lis := bufconn.Listen(bufSize)
-	srv := grpc.NewServer()
-	api.RegisterWalletServer(srv, impl)
-
-	go func() { _ = srv.Serve(lis) }()
-
-	cleanup := func() {
-		_ = lis.Close()
-		srv.Stop()
-	}
-	return lis, srv, cleanup
+	lis := testutil.NewBufconnServer(t, impl)
+	return lis, nil, func() {}
 }
 
 // newTestClientWithBufConn creates a *Client via NewClient and ensures a real pool and real *grpc.ClientConn using bufconn.

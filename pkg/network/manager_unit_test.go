@@ -2,17 +2,12 @@ package network
 
 import (
 	"context"
-	"net"
 	"testing"
-	"time"
 
+	"github.com/kslamph/tronlib/internal/testutil"
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/test/bufconn"
 )
-
-const bufSize = 1024 * 1024
 
 type fakeWalletServer struct {
 	api.UnimplementedWalletServer
@@ -107,51 +102,16 @@ func (s *fakeWalletServer) GetTransactionById(ctx context.Context, in *api.Bytes
 	return &core.Transaction{}, nil
 }
 
-type mockConnProvider struct {
-	conn *grpc.ClientConn
-}
-
-func (m *mockConnProvider) GetConnection(_ context.Context) (*grpc.ClientConn, error) {
-	return m.conn, nil
-}
-func (m *mockConnProvider) ReturnConnection(_ *grpc.ClientConn) {}
-func (m *mockConnProvider) GetTimeout() time.Duration           { return 30 * time.Second }
-
 func setupTestServer(t *testing.T, fake *fakeWalletServer) (*NetworkManager, func()) {
 	t.Helper()
-	lis := bufconn.Listen(bufSize)
-	srv := grpc.NewServer()
-	api.RegisterWalletServer(srv, fake)
-	go func() { _ = srv.Serve(lis) }()
-
-	conn, err := grpc.Dial("passthrough:///bufnet",
-		grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
-			return lis.DialContext(ctx)
-		}),
-		grpc.WithInsecure(),
-	)
-	if err != nil {
-		t.Fatalf("failed to dial bufnet: %v", err)
-	}
-
-	mgr := NewManager(&mockConnProvider{conn: conn})
-	cleanup := func() {
-		conn.Close()
-		srv.Stop()
-		lis.Close()
-	}
-	return mgr, cleanup
+	lis := testutil.NewBufconnServer(t, fake)
+	conn := testutil.DialBufconn(t, lis)
+	mgr := NewManager(testutil.NewMockConnProvider(conn))
+	return mgr, func() {}
 }
 
 // Valid 64-char hex tx ID for tests
 const testTxID = "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
-
-func TestNewManager(t *testing.T) {
-	mgr := NewManager(&mockConnProvider{})
-	if mgr == nil {
-		t.Fatal("expected non-nil manager")
-	}
-}
 
 func TestGetNodeInfo(t *testing.T) {
 	mgr, cleanup := setupTestServer(t, &fakeWalletServer{})

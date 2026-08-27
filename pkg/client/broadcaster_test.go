@@ -115,9 +115,9 @@ func TestSignAndBroadcast_WaitForReceipt_Success(t *testing.T) {
 			return &api.Return{Result: true, Code: api.Return_SUCCESS}, nil
 		},
 		GetTxInfoByIdHandler: func(ctx context.Context, in *api.BytesMessage) (*core.TransactionInfo, error) {
-			// Return nil a couple times, then a real receipt
+			// Empty info (unconfirmed) a couple of times, then a real receipt.
 			if atomic.AddInt32(&polls, 1) <= 2 {
-				return nil, nil
+				return &core.TransactionInfo{}, nil
 			}
 			return &core.TransactionInfo{
 				Id:             in.GetValue(),
@@ -159,8 +159,8 @@ func TestSignAndBroadcast_WaitForReceipt_Timeout(t *testing.T) {
 			return &api.Return{Result: true, Code: api.Return_SUCCESS}, nil
 		},
 		GetTxInfoByIdHandler: func(ctx context.Context, in *api.BytesMessage) (*core.TransactionInfo, error) {
-			// Always nil to force timeout
-			return nil, nil
+			// Empty info forces the timeout path.
+			return &core.TransactionInfo{}, nil
 		},
 	}
 	lis, _, cleanupSrv := newBufconnServer(t, srv)

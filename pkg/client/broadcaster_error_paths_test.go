@@ -3,7 +3,8 @@ package client
 import (
 	"context"
 	"encoding/hex"
-	"fmt"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -36,7 +37,7 @@ func TestSimulate_NilCoreTxInExtension(t *testing.T) {
 func TestSimulate_ServerError(t *testing.T) {
 	srv := &testWalletServer{
 		TriggerConstantContractFunc: func(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error) {
-			return nil, fmt.Errorf("server unavailable")
+			return nil, status.Error(codes.Unavailable, "node unavailable")
 		},
 	}
 	lis, _, cleanupSrv := newBufconnServer(t, srv)
@@ -103,7 +104,7 @@ func TestSignAndBroadcast_UnsupportedType(t *testing.T) {
 func TestSignAndBroadcast_BroadcastRPCError(t *testing.T) {
 	srv := &testWalletServer{
 		BroadcastHandler: func(ctx context.Context, in *core.Transaction) (*api.Return, error) {
-			return nil, fmt.Errorf("rpc: connection refused")
+			return nil, status.Error(codes.Unavailable, "connection refused")
 		},
 	}
 	lis, _, cleanupSrv := newBufconnServer(t, srv)
@@ -218,7 +219,7 @@ func TestSignAndBroadcast_WithSignerPermissionZero(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	// PermissionID=0 means it should NOT be set on the contract (line 244: if opt.PermissionID != 0)
+	// PermissionID=0 means the option must not be set on the contract
 	if got := tx.GetRawData().GetContract()[0].GetPermissionId(); got != 0 {
 		t.Fatalf("permission id should be 0 (not set), got %d", got)
 	}
@@ -262,8 +263,8 @@ func TestWaitForTransactionInfo_ContextCancel(t *testing.T) {
 			return &api.Return{Result: true, Code: api.Return_SUCCESS}, nil
 		},
 		GetTxInfoByIdHandler: func(ctx context.Context, in *api.BytesMessage) (*core.TransactionInfo, error) {
-			// Always nil to force timeout
-			return nil, nil
+			// Empty info (no txid, no receipt) forces the timeout path.
+			return &core.TransactionInfo{}, nil
 		},
 	}
 	lis, _, cleanupSrv := newBufconnServer(t, srv)
@@ -298,7 +299,7 @@ func TestWaitForTransactionInfo_RPCError(t *testing.T) {
 			return &api.Return{Result: true, Code: api.Return_SUCCESS}, nil
 		},
 		GetTxInfoByIdHandler: func(ctx context.Context, in *api.BytesMessage) (*core.TransactionInfo, error) {
-			return nil, fmt.Errorf("rpc error")
+			return nil, status.Error(codes.Internal, "rpc error")
 		},
 	}
 	lis, _, cleanupSrv := newBufconnServer(t, srv)
@@ -363,7 +364,8 @@ func TestWaitForTransactionInfo_NilInfo(t *testing.T) {
 			return &api.Return{Result: true, Code: api.Return_SUCCESS}, nil
 		},
 		GetTxInfoByIdHandler: func(ctx context.Context, in *api.BytesMessage) (*core.TransactionInfo, error) {
-			return nil, nil // nil info, nil error
+			// Empty info — what an unconfirmed tx looks like on the wire.
+			return &core.TransactionInfo{}, nil
 		},
 	}
 	lis, _, cleanupSrv := newBufconnServer(t, srv)
@@ -396,7 +398,7 @@ func TestWaitForTransactionInfo_DirectCancel(t *testing.T) {
 			case <-ctx.Done():
 				return nil, ctx.Err()
 			case <-time.After(5 * time.Second):
-				return nil, fmt.Errorf("should not reach here")
+				return nil, status.Error(codes.FailedPrecondition, "should not reach here")
 			}
 		},
 	}
@@ -426,7 +428,7 @@ func TestWaitForTransactionInfo_ZeroPollInterval(t *testing.T) {
 					Receipt:        &core.ResourceReceipt{},
 				}, nil
 			}
-			return nil, nil
+			return &core.TransactionInfo{}, nil
 		},
 	}
 	lis, _, cleanupSrv := newBufconnServer(t, srv)

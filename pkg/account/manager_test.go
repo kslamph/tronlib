@@ -4,49 +4,13 @@ import (
 	"context"
 	"testing"
 
+	"github.com/kslamph/tronlib/internal/testutil"
 	"github.com/kslamph/tronlib/pkg/account"
-	"github.com/kslamph/tronlib/pkg/client"
 	"github.com/kslamph/tronlib/pkg/types"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/test/bufconn"
 )
 
-const bufSize = 1024 * 1024
-
-var lis *bufconn.Listener
-
-func init() {
-	lis = bufconn.Listen(bufSize)
-	s := grpc.NewServer()
-	go func() {
-		_ = s.Serve(lis)
-	}()
-}
-
-func createTestClient(t *testing.T) *client.Client {
-	t.Helper()
-	c, err := client.NewClient("bufnet")
-	if err != nil {
-		// bufnet requires a real connection, so we just create a client that will fail gracefully
-		c, _ = client.NewClient("grpc://127.0.0.1:1")
-	}
-	return c
-}
-
-func TestNewManager(t *testing.T) {
-	client, _ := client.NewClient("grpc://127.0.0.1:1")
-	manager := account.NewManager(client)
-
-	if manager == nil {
-		t.Fatal("Manager should not be nil")
-	}
-
-	t.Log("Account manager created successfully")
-}
-
 func TestTransferValidation(t *testing.T) {
-	client, _ := client.NewClient("grpc://127.0.0.1:1")
-	manager := account.NewManager(client)
+	manager := account.NewManager(&testutil.MockConnProvider{})
 	ctx := context.Background()
 
 	testCases := []struct {
@@ -131,8 +95,7 @@ func TestTransferValidation(t *testing.T) {
 }
 
 func TestGetAccount(t *testing.T) {
-	client, _ := client.NewClient("grpc://127.0.0.1:1")
-	manager := account.NewManager(client)
+	manager := account.NewManager(&testutil.MockConnProvider{})
 	ctx := context.Background()
 
 	// Test invalid address (empty Address struct)
@@ -151,8 +114,7 @@ func TestGetAccount(t *testing.T) {
 }
 
 func TestGetAccountNet(t *testing.T) {
-	client, _ := client.NewClient("grpc://127.0.0.1:1")
-	manager := account.NewManager(client)
+	manager := account.NewManager(&testutil.MockConnProvider{})
 	ctx := context.Background()
 
 	// Test nil address
@@ -164,8 +126,7 @@ func TestGetAccountNet(t *testing.T) {
 }
 
 func TestGetAccountResource(t *testing.T) {
-	client, _ := client.NewClient("grpc://127.0.0.1:1")
-	manager := account.NewManager(client)
+	manager := account.NewManager(&testutil.MockConnProvider{})
 	ctx := context.Background()
 
 	// Test nil address
@@ -177,8 +138,7 @@ func TestGetAccountResource(t *testing.T) {
 }
 
 func TestGetBalance(t *testing.T) {
-	client, _ := client.NewClient("grpc://127.0.0.1:1")
-	manager := account.NewManager(client)
+	manager := account.NewManager(&testutil.MockConnProvider{})
 	ctx := context.Background()
 
 	// Test nil address

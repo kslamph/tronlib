@@ -14,97 +14,88 @@ import (
 
 // ---------- Additional error-path coverage ----------
 
-func TestVoteWitnessAccount2_NilWitnessAddress(t *testing.T) {
-	// Covers the VoteCount > 0 but WitnessAddress == nil path inside the loop
-	m := voting.NewManager(&client.Client{})
-	owner := types.MustNewAddressFromBase58("TBXeeuh3jHM7oE889Ys2DqvRS1YuEPoa2o")
+// TestManager_NilAddress verifies that every manager method that takes an owner
+// or address rejects nil/empty addresses before any RPC is attempted.
+func TestManager_NilAddress(t *testing.T) {
 	ctx := context.Background()
+	validAddr := types.MustNewAddressFromBase58("TKCTfkQ8L9beavNu9iaGtCHFxrwNHUxfr2")
 
-	_, err := m.VoteWitnessAccount2(ctx, owner, []voting.Vote{
-		{WitnessAddress: nil, VoteCount: 1},
-	})
-	require.Error(t, err)
-	assert.ErrorIs(t, err, types.ErrInvalidAddress)
-	assert.Contains(t, err.Error(), "invalid witness address")
+	tests := []struct {
+		name    string
+		call    func(m *voting.Manager) error
+		wantErr error
+	}{
+		{
+			name: "VoteWitnessAccount2_NilWitnessAddress",
+			call: func(m *voting.Manager) error {
+				_, err := m.VoteWitnessAccount2(ctx, validAddr, []voting.Vote{
+					{WitnessAddress: nil, VoteCount: 1},
+				})
+				return err
+			},
+			wantErr: types.ErrInvalidAddress,
+		},
+		{
+			name: "VoteWitnessAccount2_NilOwner",
+			call: func(m *voting.Manager) error {
+				_, err := m.VoteWitnessAccount2(ctx, nil, []voting.Vote{
+					{WitnessAddress: validAddr, VoteCount: 1},
+				})
+				return err
+			},
+			wantErr: types.ErrInvalidAddress,
+		},
+		{
+			name:    "CreateWitness2_NilOwner",
+			call:    func(m *voting.Manager) error { _, err := m.CreateWitness2(ctx, nil, "https://example.com"); return err },
+			wantErr: types.ErrInvalidAddress,
+		},
+		{
+			name:    "UpdateWitness2_NilOwner",
+			call:    func(m *voting.Manager) error { _, err := m.UpdateWitness2(ctx, nil, "https://example.com"); return err },
+			wantErr: types.ErrInvalidAddress,
+		},
+		{
+			name:    "WithdrawBalance2_NilOwner",
+			call:    func(m *voting.Manager) error { _, err := m.WithdrawBalance2(ctx, nil); return err },
+			wantErr: types.ErrInvalidAddress,
+		},
+		{
+			name:    "UpdateBrokerage_NilOwner",
+			call:    func(m *voting.Manager) error { _, err := m.UpdateBrokerage(ctx, nil, 50); return err },
+			wantErr: types.ErrInvalidAddress,
+		},
+		{
+			name:    "GetRewardInfo_NilAddress",
+			call:    func(m *voting.Manager) error { _, err := m.GetRewardInfo(ctx, nil); return err },
+			wantErr: types.ErrInvalidAddress,
+		},
+		{
+			name:    "GetBrokerageInfo_NilAddress",
+			call:    func(m *voting.Manager) error { _, err := m.GetBrokerageInfo(ctx, nil); return err },
+			wantErr: types.ErrInvalidAddress,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := voting.NewManager(&client.Client{})
+			err := tt.call(m)
+			require.Error(t, err)
+			assert.ErrorIs(t, err, tt.wantErr)
+		})
+	}
 }
 
-func TestVoteWitnessAccount2_NilOwner(t *testing.T) {
-	m := voting.NewManager(&client.Client{})
-	ctx := context.Background()
-
-	_, err := m.VoteWitnessAccount2(ctx, nil, []voting.Vote{
-		{WitnessAddress: types.MustNewAddressFromBase58("TKCTfkQ8L9beavNu9iaGtCHFxrwNHUxfr2"), VoteCount: 1},
-	})
-	require.Error(t, err)
-	assert.ErrorIs(t, err, types.ErrInvalidAddress)
-}
-
-func TestCreateWitness2_NilOwner(t *testing.T) {
-	m := voting.NewManager(&client.Client{})
-	ctx := context.Background()
-
-	_, err := m.CreateWitness2(ctx, nil, "https://example.com")
-	require.Error(t, err)
-	assert.ErrorIs(t, err, types.ErrInvalidAddress)
-}
-
-func TestUpdateWitness2_NilOwner(t *testing.T) {
-	m := voting.NewManager(&client.Client{})
-	ctx := context.Background()
-
-	_, err := m.UpdateWitness2(ctx, nil, "https://example.com")
-	require.Error(t, err)
-	assert.ErrorIs(t, err, types.ErrInvalidAddress)
-}
-
-func TestWithdrawBalance2_NilOwner(t *testing.T) {
-	m := voting.NewManager(&client.Client{})
-	ctx := context.Background()
-
-	_, err := m.WithdrawBalance2(ctx, nil)
-	require.Error(t, err)
-	assert.ErrorIs(t, err, types.ErrInvalidAddress)
-}
-
-func TestUpdateBrokerage_NilOwner(t *testing.T) {
-	m := voting.NewManager(&client.Client{})
-	ctx := context.Background()
-
-	_, err := m.UpdateBrokerage(ctx, nil, 50)
-	require.Error(t, err)
-	assert.ErrorIs(t, err, types.ErrInvalidAddress)
-}
-
+// TestUpdateBrokerage_OutOfRange verifies the brokerage percentage bounds.
 func TestUpdateBrokerage_OutOfRange(t *testing.T) {
 	m := voting.NewManager(&client.Client{})
+	ctx := context.Background()
 	owner := types.MustNewAddressFromBase58("TBXeeuh3jHM7oE889Ys2DqvRS1YuEPoa2o")
-	ctx := context.Background()
 
-	// Negative brokerage
-	_, err := m.UpdateBrokerage(ctx, owner, -1)
-	require.Error(t, err)
-	assert.ErrorIs(t, err, types.ErrInvalidParameter)
-
-	// Over 100
-	_, err = m.UpdateBrokerage(ctx, owner, 101)
-	require.Error(t, err)
-	assert.ErrorIs(t, err, types.ErrInvalidParameter)
-}
-
-func TestGetRewardInfo_NilAddress(t *testing.T) {
-	m := voting.NewManager(&client.Client{})
-	ctx := context.Background()
-
-	_, err := m.GetRewardInfo(ctx, nil)
-	require.Error(t, err)
-	assert.ErrorIs(t, err, types.ErrInvalidAddress)
-}
-
-func TestGetBrokerageInfo_NilAddress(t *testing.T) {
-	m := voting.NewManager(&client.Client{})
-	ctx := context.Background()
-
-	_, err := m.GetBrokerageInfo(ctx, nil)
-	require.Error(t, err)
-	assert.ErrorIs(t, err, types.ErrInvalidAddress)
+	for _, brokerage := range []int32{-1, 101} {
+		_, err := m.UpdateBrokerage(ctx, owner, brokerage)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, types.ErrInvalidParameter)
+	}
 }

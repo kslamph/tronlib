@@ -2,69 +2,79 @@ package voting_test
 
 import (
 	"context"
-	"net"
 	"testing"
 	"time"
 
+	"github.com/kslamph/tronlib/internal/testutil"
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
-	"github.com/kslamph/tronlib/pkg/client"
 	"github.com/kslamph/tronlib/pkg/types"
 	"github.com/kslamph/tronlib/pkg/voting"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 )
 
-const voteBufSize = 1024 * 1024
+// voteServer is the voting fake: every RPC returns a minimal valid response
+// unless the corresponding error field is set (for failure-path tests).
+type voteServer struct {
+	api.UnimplementedWalletServer
 
-type voteServer struct{ api.UnimplementedWalletServer }
+	voteErr            error
+	withdrawErr        error
+	createWitnessErr   error
+	updateWitnessErr   error
+	listWitnessesErr   error
+	rewardInfoErr      error
+	brokerageInfoErr   error
+	updateBrokerageErr error
+}
+
+func okExt() *api.TransactionExtention {
+	return &api.TransactionExtention{Result: &api.Return{Result: true, Code: api.Return_SUCCESS}}
+}
 
 func (s *voteServer) VoteWitnessAccount2(ctx context.Context, in *core.VoteWitnessContract) (*api.TransactionExtention, error) {
-	return &api.TransactionExtention{Result: &api.Return{Result: true, Code: api.Return_SUCCESS}}, nil
+	return okExt(), s.voteErr
 }
 func (s *voteServer) WithdrawBalance2(ctx context.Context, in *core.WithdrawBalanceContract) (*api.TransactionExtention, error) {
-	return &api.TransactionExtention{Result: &api.Return{Result: true, Code: api.Return_SUCCESS}}, nil
+	return okExt(), s.withdrawErr
 }
 func (s *voteServer) CreateWitness2(ctx context.Context, in *core.WitnessCreateContract) (*api.TransactionExtention, error) {
-	return &api.TransactionExtention{Result: &api.Return{Result: true, Code: api.Return_SUCCESS}}, nil
+	return okExt(), s.createWitnessErr
 }
 func (s *voteServer) UpdateWitness2(ctx context.Context, in *core.WitnessUpdateContract) (*api.TransactionExtention, error) {
-	return &api.TransactionExtention{Result: &api.Return{Result: true, Code: api.Return_SUCCESS}}, nil
+	return okExt(), s.updateWitnessErr
 }
 func (s *voteServer) ListWitnesses(ctx context.Context, in *api.EmptyMessage) (*api.WitnessList, error) {
+	if s.listWitnessesErr != nil {
+		return nil, s.listWitnessesErr
+	}
 	return &api.WitnessList{}, nil
 }
 func (s *voteServer) GetRewardInfo(ctx context.Context, in *api.BytesMessage) (*api.NumberMessage, error) {
+	if s.rewardInfoErr != nil {
+		return nil, s.rewardInfoErr
+	}
 	return &api.NumberMessage{Num: 42}, nil
 }
 func (s *voteServer) GetBrokerageInfo(ctx context.Context, in *api.BytesMessage) (*api.NumberMessage, error) {
+	if s.brokerageInfoErr != nil {
+		return nil, s.brokerageInfoErr
+	}
 	return &api.NumberMessage{Num: 12}, nil
 }
 func (s *voteServer) UpdateBrokerage(ctx context.Context, in *core.UpdateBrokerageContract) (*api.TransactionExtention, error) {
-	return &api.TransactionExtention{Result: &api.Return{Result: true, Code: api.Return_SUCCESS}}, nil
+	return okExt(), s.updateBrokerageErr
 }
 
-func newVoteBufServer(t *testing.T, impl api.WalletServer) (*bufconn.Listener, *grpc.Server, func()) {
+func newVoteBufServer(t *testing.T, impl api.WalletServer) *bufconn.Listener {
 	t.Helper()
-	lis := bufconn.Listen(voteBufSize)
-	srv := grpc.NewServer()
-	api.RegisterWalletServer(srv, impl)
-	go func() { _ = srv.Serve(lis) }()
-	cleanup := func() { _ = lis.Close(); srv.Stop() }
-	return lis, srv, cleanup
+	return testutil.NewBufconnServer(t, impl)
 }
 
 func TestVotingManager_ValidationsAndCalls(t *testing.T) {
-	lis, _, cleanup := newVoteBufServer(t, &voteServer{})
-	t.Cleanup(cleanup)
+	lis := newVoteBufServer(t, &voteServer{})
 
-	c, err := client.NewClientWithDialer("passthrough:///bufnet", func(ctx context.Context, s string) (net.Conn, error) { return lis.DialContext(ctx) }, client.WithTimeout(500*time.Millisecond), client.WithPool(1, 1))
-	if err != nil {
-		t.Fatalf("new client: %v", err)
-	}
-	defer c.Close()
-
-	m := voting.NewManager(c)
+	m := voting.NewManager(testutil.NewMockConnProvider(testutil.DialBufconn(t, lis)))
 	owner := types.MustNewAddressFromBase58("TBXeeuh3jHM7oE889Ys2DqvRS1YuEPoa2o")
 	witness := types.MustNewAddressFromBase58("TKCTfkQ8L9beavNu9iaGtCHFxrwNHUxfr2")
 
@@ -103,7 +113,7 @@ func TestVotingManager_ValidationsAndCalls(t *testing.T) {
 }
 
 func TestVotingManager_InputValidationErrors(t *testing.T) {
-	m := voting.NewManager(&client.Client{})
+	m := voting.NewManager(&testutil.MockConnProvider{})
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 

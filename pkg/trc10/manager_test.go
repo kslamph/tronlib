@@ -18,12 +18,6 @@ func mustAddr(t *testing.T, s string) *types.Address {
 	return a
 }
 
-func TestNewManager(t *testing.T) {
-	cli := &client.Client{}
-	manager := trc10.NewManager(cli)
-	assert.NotNil(t, manager)
-}
-
 func TestManager_CreateAssetIssue2_Validation(t *testing.T) {
 	manager := trc10.NewManager(&client.Client{})
 	ctx := context.Background()

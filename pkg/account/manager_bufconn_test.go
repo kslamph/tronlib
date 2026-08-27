@@ -3,25 +3,19 @@ package account_test
 import (
 	"context"
 	"fmt"
-	"net"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kslamph/tronlib/internal/testutil"
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/account"
-	"github.com/kslamph/tronlib/pkg/client"
 	"github.com/kslamph/tronlib/pkg/types"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/test/bufconn"
 )
 
 // ---------- bufconn infrastructure ----------
-
-const acctBufSize = 1024 * 1024
 
 // fakeAccountServer implements only the RPCs exercised in these tests.
 type fakeAccountServer struct {
@@ -88,35 +82,20 @@ func (s *fakeAccountServer) CreateTransaction2(ctx context.Context, in *core.Tra
 	}, nil
 }
 
-func newAccountBufConn(t *testing.T, impl api.WalletServer) *bufconn.Listener {
+// newAccountManager wires an AccountManager to an in-process fake wallet
+// server. No real client or network is involved: the manager only needs a
+// connection provider, which testutil.MockConnProvider supplies.
+func newAccountManager(t *testing.T, impl api.WalletServer) *account.AccountManager {
 	t.Helper()
-	lis := bufconn.Listen(acctBufSize)
-	srv := grpc.NewServer()
-	api.RegisterWalletServer(srv, impl)
-	go func() { _ = srv.Serve(lis) }()
-	t.Cleanup(func() { _ = lis.Close(); srv.Stop() })
-	return lis
-}
-
-func newAccountClient(t *testing.T, lis *bufconn.Listener) *client.Client {
-	t.Helper()
-	c, err := client.NewClientWithDialer(
-		"passthrough:///bufnet",
-		func(ctx context.Context, s string) (net.Conn, error) { return lis.DialContext(ctx) },
-		client.WithTimeout(2*time.Second),
-		client.WithPool(1, 1),
-	)
-	require.NoError(t, err)
-	t.Cleanup(func() { c.Close() })
-	return c
+	lis := testutil.NewBufconnServer(t, impl)
+	conn := testutil.DialBufconn(t, lis)
+	return account.NewManager(testutil.NewMockConnProvider(conn))
 }
 
 // ---------- Tests: happy paths ----------
 
 func TestGetAccount_HappyPath(t *testing.T) {
-	lis := newAccountBufConn(t, &fakeAccountServer{})
-	c := newAccountClient(t, lis)
-	m := account.NewManager(c)
+	m := newAccountManager(t, &fakeAccountServer{})
 
 	addr := types.MustNewAddressFromBase58("TBXeeuh3jHM7oE889Ys2DqvRS1YuEPoa2o")
 	acct, err := m.GetAccount(context.Background(), addr)
@@ -126,9 +105,7 @@ func TestGetAccount_HappyPath(t *testing.T) {
 }
 
 func TestGetAccountNet_HappyPath(t *testing.T) {
-	lis := newAccountBufConn(t, &fakeAccountServer{})
-	c := newAccountClient(t, lis)
-	m := account.NewManager(c)
+	m := newAccountManager(t, &fakeAccountServer{})
 
 	addr := types.MustNewAddressFromBase58("TBXeeuh3jHM7oE889Ys2DqvRS1YuEPoa2o")
 	net, err := m.GetAccountNet(context.Background(), addr)
@@ -138,9 +115,7 @@ func TestGetAccountNet_HappyPath(t *testing.T) {
 }
 
 func TestGetAccountResource_HappyPath(t *testing.T) {
-	lis := newAccountBufConn(t, &fakeAccountServer{})
-	c := newAccountClient(t, lis)
-	m := account.NewManager(c)
+	m := newAccountManager(t, &fakeAccountServer{})
 
 	addr := types.MustNewAddressFromBase58("TBXeeuh3jHM7oE889Ys2DqvRS1YuEPoa2o")
 	res, err := m.GetAccountResource(context.Background(), addr)
@@ -150,9 +125,7 @@ func TestGetAccountResource_HappyPath(t *testing.T) {
 }
 
 func TestGetBalance_HappyPath(t *testing.T) {
-	lis := newAccountBufConn(t, &fakeAccountServer{})
-	c := newAccountClient(t, lis)
-	m := account.NewManager(c)
+	m := newAccountManager(t, &fakeAccountServer{})
 
 	addr := types.MustNewAddressFromBase58("TBXeeuh3jHM7oE889Ys2DqvRS1YuEPoa2o")
 	bal, err := m.GetBalance(context.Background(), addr)
@@ -161,9 +134,7 @@ func TestGetBalance_HappyPath(t *testing.T) {
 }
 
 func TestTransferTRX_HappyPath(t *testing.T) {
-	lis := newAccountBufConn(t, &fakeAccountServer{})
-	c := newAccountClient(t, lis)
-	m := account.NewManager(c)
+	m := newAccountManager(t, &fakeAccountServer{})
 
 	from := types.MustNewAddressFromBase58("TBXeeuh3jHM7oE889Ys2DqvRS1YuEPoa2o")
 	to := types.MustNewAddressFromBase58("TKCTfkQ8L9beavNu9iaGtCHFxrwNHUxfr2")
@@ -175,93 +146,97 @@ func TestTransferTRX_HappyPath(t *testing.T) {
 
 // ---------- Tests: error paths ----------
 
-func TestGetAccount_NilAddress(t *testing.T) {
-	m := account.NewManager(&client.Client{})
-	_, err := m.GetAccount(context.Background(), nil)
-	require.Error(t, err)
-	assert.ErrorIs(t, err, types.ErrInvalidAddress)
-}
+// ---------- Tests: nil/empty address validation (no server needed) ----------
 
-func TestGetAccount_EmptyAddress(t *testing.T) {
-	m := account.NewManager(&client.Client{})
-	_, err := m.GetAccount(context.Background(), &types.Address{})
-	require.Error(t, err)
-	assert.ErrorIs(t, err, types.ErrInvalidAddress)
-}
+func TestManager_InvalidAddresses(t *testing.T) {
+	ctx := context.Background()
+	validAddr := types.MustNewAddressFromBase58("TKCTfkQ8L9beavNu9iaGtCHFxrwNHUxfr2")
+	validFrom := types.MustNewAddressFromBase58("TBXeeuh3jHM7oE889Ys2DqvRS1YuEPoa2o")
 
-func TestGetAccountNet_NilAddress(t *testing.T) {
-	m := account.NewManager(&client.Client{})
-	_, err := m.GetAccountNet(context.Background(), nil)
-	require.Error(t, err)
-	assert.ErrorIs(t, err, types.ErrInvalidAddress)
-}
+	tests := []struct {
+		name    string
+		call    func(m *account.AccountManager) error
+		wantErr error
+	}{
+		{
+			name:    "GetAccount_NilAddress",
+			call:    func(m *account.AccountManager) error { _, err := m.GetAccount(ctx, nil); return err },
+			wantErr: types.ErrInvalidAddress,
+		},
+		{
+			name:    "GetAccount_EmptyAddress",
+			call:    func(m *account.AccountManager) error { _, err := m.GetAccount(ctx, &types.Address{}); return err },
+			wantErr: types.ErrInvalidAddress,
+		},
+		{
+			name:    "GetAccountNet_NilAddress",
+			call:    func(m *account.AccountManager) error { _, err := m.GetAccountNet(ctx, nil); return err },
+			wantErr: types.ErrInvalidAddress,
+		},
+		{
+			name:    "GetAccountResource_NilAddress",
+			call:    func(m *account.AccountManager) error { _, err := m.GetAccountResource(ctx, nil); return err },
+			wantErr: types.ErrInvalidAddress,
+		},
+		{
+			name:    "GetBalance_NilAddress",
+			call:    func(m *account.AccountManager) error { _, err := m.GetBalance(ctx, nil); return err },
+			wantErr: types.ErrInvalidAddress,
+		},
+		{
+			name:    "TransferTRX_NilFrom",
+			call:    func(m *account.AccountManager) error { _, err := m.TransferTRX(ctx, nil, validAddr, 1); return err },
+			wantErr: types.ErrInvalidAddress,
+		},
+		{
+			name:    "TransferTRX_NilTo",
+			call:    func(m *account.AccountManager) error { _, err := m.TransferTRX(ctx, validFrom, nil, 1); return err },
+			wantErr: types.ErrInvalidAddress,
+		},
+		{
+			name: "TransferTRX_ZeroAmount",
+			call: func(m *account.AccountManager) error {
+				_, err := m.TransferTRX(ctx, validFrom, validAddr, 0)
+				return err
+			},
+			wantErr: types.ErrInvalidAmount,
+		},
+		{
+			name: "TransferTRX_NegativeAmount",
+			call: func(m *account.AccountManager) error {
+				_, err := m.TransferTRX(ctx, validFrom, validAddr, -100)
+				return err
+			},
+			wantErr: types.ErrInvalidAmount,
+		},
+		{
+			name: "TransferTRX_SameAddress",
+			call: func(m *account.AccountManager) error {
+				_, err := m.TransferTRX(ctx, validFrom, validFrom, 1)
+				return err
+			},
+			wantErr: types.ErrInvalidParameter,
+		},
+	}
 
-func TestGetAccountResource_NilAddress(t *testing.T) {
-	m := account.NewManager(&client.Client{})
-	_, err := m.GetAccountResource(context.Background(), nil)
-	require.Error(t, err)
-	assert.ErrorIs(t, err, types.ErrInvalidAddress)
-}
-
-func TestGetBalance_NilAddress(t *testing.T) {
-	m := account.NewManager(&client.Client{})
-	_, err := m.GetBalance(context.Background(), nil)
-	require.Error(t, err)
-	assert.ErrorIs(t, err, types.ErrInvalidAddress)
-}
-
-func TestTransferTRX_NilFrom(t *testing.T) {
-	m := account.NewManager(&client.Client{})
-	to := types.MustNewAddressFromBase58("TKCTfkQ8L9beavNu9iaGtCHFxrwNHUxfr2")
-	_, err := m.TransferTRX(context.Background(), nil, to, 1)
-	require.Error(t, err)
-	assert.ErrorIs(t, err, types.ErrInvalidAddress)
-}
-
-func TestTransferTRX_NilTo(t *testing.T) {
-	m := account.NewManager(&client.Client{})
-	from := types.MustNewAddressFromBase58("TBXeeuh3jHM7oE889Ys2DqvRS1YuEPoa2o")
-	_, err := m.TransferTRX(context.Background(), from, nil, 1)
-	require.Error(t, err)
-	assert.ErrorIs(t, err, types.ErrInvalidAddress)
-}
-
-func TestTransferTRX_ZeroAmount(t *testing.T) {
-	m := account.NewManager(&client.Client{})
-	from := types.MustNewAddressFromBase58("TBXeeuh3jHM7oE889Ys2DqvRS1YuEPoa2o")
-	to := types.MustNewAddressFromBase58("TKCTfkQ8L9beavNu9iaGtCHFxrwNHUxfr2")
-	_, err := m.TransferTRX(context.Background(), from, to, 0)
-	require.Error(t, err)
-	assert.ErrorIs(t, err, types.ErrInvalidAmount)
-}
-
-func TestTransferTRX_NegativeAmount(t *testing.T) {
-	m := account.NewManager(&client.Client{})
-	from := types.MustNewAddressFromBase58("TBXeeuh3jHM7oE889Ys2DqvRS1YuEPoa2o")
-	to := types.MustNewAddressFromBase58("TKCTfkQ8L9beavNu9iaGtCHFxrwNHUxfr2")
-	_, err := m.TransferTRX(context.Background(), from, to, -100)
-	require.Error(t, err)
-	assert.ErrorIs(t, err, types.ErrInvalidAmount)
-}
-
-func TestTransferTRX_SameAddress(t *testing.T) {
-	m := account.NewManager(&client.Client{})
-	addr := types.MustNewAddressFromBase58("TBXeeuh3jHM7oE889Ys2DqvRS1YuEPoa2o")
-	_, err := m.TransferTRX(context.Background(), addr, addr, 1)
-	require.Error(t, err)
-	assert.ErrorIs(t, err, types.ErrInvalidParameter)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := account.NewManager(&testutil.MockConnProvider{})
+			err := tt.call(m)
+			require.Error(t, err)
+			assert.ErrorIs(t, err, tt.wantErr)
+		})
+	}
 }
 
 // ---------- Tests: RPC errors propagate ----------
 
 func TestGetAccount_RPCError(t *testing.T) {
-	lis := newAccountBufConn(t, &fakeAccountServer{
+	m := newAccountManager(t, &fakeAccountServer{
 		GetAccountFunc: func(ctx context.Context, in *core.Account) (*core.Account, error) {
 			return nil, fmt.Errorf("node unavailable")
 		},
 	})
-	c := newAccountClient(t, lis)
-	m := account.NewManager(c)
 
 	addr := types.MustNewAddressFromBase58("TBXeeuh3jHM7oE889Ys2DqvRS1YuEPoa2o")
 	_, err := m.GetAccount(context.Background(), addr)
@@ -270,13 +245,11 @@ func TestGetAccount_RPCError(t *testing.T) {
 }
 
 func TestGetAccountNet_RPCError(t *testing.T) {
-	lis := newAccountBufConn(t, &fakeAccountServer{
+	m := newAccountManager(t, &fakeAccountServer{
 		GetAccountNetFunc: func(ctx context.Context, in *core.Account) (*api.AccountNetMessage, error) {
 			return nil, fmt.Errorf("unavailable")
 		},
 	})
-	c := newAccountClient(t, lis)
-	m := account.NewManager(c)
 
 	addr := types.MustNewAddressFromBase58("TBXeeuh3jHM7oE889Ys2DqvRS1YuEPoa2o")
 	_, err := m.GetAccountNet(context.Background(), addr)
@@ -285,13 +258,11 @@ func TestGetAccountNet_RPCError(t *testing.T) {
 }
 
 func TestGetAccountResource_RPCError(t *testing.T) {
-	lis := newAccountBufConn(t, &fakeAccountServer{
+	m := newAccountManager(t, &fakeAccountServer{
 		GetAccountResourceFunc: func(ctx context.Context, in *core.Account) (*api.AccountResourceMessage, error) {
 			return nil, fmt.Errorf("unavailable")
 		},
 	})
-	c := newAccountClient(t, lis)
-	m := account.NewManager(c)
 
 	addr := types.MustNewAddressFromBase58("TBXeeuh3jHM7oE889Ys2DqvRS1YuEPoa2o")
 	_, err := m.GetAccountResource(context.Background(), addr)
@@ -300,13 +271,11 @@ func TestGetAccountResource_RPCError(t *testing.T) {
 }
 
 func TestGetBalance_RPCError(t *testing.T) {
-	lis := newAccountBufConn(t, &fakeAccountServer{
+	m := newAccountManager(t, &fakeAccountServer{
 		GetAccountFunc: func(ctx context.Context, in *core.Account) (*core.Account, error) {
 			return nil, fmt.Errorf("unavailable")
 		},
 	})
-	c := newAccountClient(t, lis)
-	m := account.NewManager(c)
 
 	addr := types.MustNewAddressFromBase58("TBXeeuh3jHM7oE889Ys2DqvRS1YuEPoa2o")
 	_, err := m.GetBalance(context.Background(), addr)
@@ -315,13 +284,11 @@ func TestGetBalance_RPCError(t *testing.T) {
 }
 
 func TestTransferTRX_RPCError(t *testing.T) {
-	lis := newAccountBufConn(t, &fakeAccountServer{
+	m := newAccountManager(t, &fakeAccountServer{
 		CreateTransaction2Func: func(ctx context.Context, in *core.TransferContract) (*api.TransactionExtention, error) {
 			return nil, fmt.Errorf("unavailable")
 		},
 	})
-	c := newAccountClient(t, lis)
-	m := account.NewManager(c)
 
 	from := types.MustNewAddressFromBase58("TBXeeuh3jHM7oE889Ys2DqvRS1YuEPoa2o")
 	to := types.MustNewAddressFromBase58("TKCTfkQ8L9beavNu9iaGtCHFxrwNHUxfr2")

@@ -3,50 +3,26 @@ package trc20_test
 import (
 	"context"
 	"math/big"
-	"net"
 	"testing"
-	"time"
 
 	eabi "github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/shopspring/decimal"
 
+	"github.com/kslamph/tronlib/internal/testutil"
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
-	"github.com/kslamph/tronlib/pkg/client"
 	"github.com/kslamph/tronlib/pkg/trc20"
 	"github.com/kslamph/tronlib/pkg/types"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 )
-
-const trc20BufSize = 1024 * 1024
 
 type trc20Server struct {
 	api.UnimplementedWalletServer
 }
 
 func (s *trc20Server) TriggerConstantContract(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error) {
-	// name(), symbol(), decimals(), balanceOf(), allowance() depending on signature
-	selector := in.Data[:4]
-	var result [][]byte
-	switch {
-	case selector[0] == 0x06 && selector[1] == 0xfd: // name()
-		// pack string "TK"
-		out, _ := packStr("TRONUSD")
-		result = [][]byte{out}
-	case selector[0] == 0x95 && selector[1] == 0xd8: // symbol()
-		out, _ := packStr("USDT")
-		result = [][]byte{out}
-	case selector[0] == 0x31 && selector[1] == 0x3c: // decimals()
-		out, _ := packUint8(6)
-		result = [][]byte{out}
-	default:
-		// balanceOf or allowance -> return 1000 * 10^6
-		val := new(big.Int)
-		val.SetString("1000000000", 10)
-		out, _ := packUint256(val)
-		result = [][]byte{out}
-	}
+	out, _ := handleTRC20ConstantResult(in.Data[:4], "TRONUSD", "USDT", 6)
+	result := [][]byte{out}
 	return &api.TransactionExtention{Result: &api.Return{Result: true, Code: api.Return_SUCCESS}, ConstantResult: result}, nil
 }
 
@@ -54,14 +30,9 @@ func (s *trc20Server) TriggerContract(ctx context.Context, in *core.TriggerSmart
 	return &api.TransactionExtention{Result: &api.Return{Result: true, Code: api.Return_SUCCESS}, Txid: []byte{0x01, 0x02}}, nil
 }
 
-func newTRC20BufServer(t *testing.T, impl api.WalletServer) (*bufconn.Listener, *grpc.Server, func()) {
+func newTRC20BufServer(t *testing.T, impl api.WalletServer) *bufconn.Listener {
 	t.Helper()
-	lis := bufconn.Listen(trc20BufSize)
-	srv := grpc.NewServer()
-	api.RegisterWalletServer(srv, impl)
-	go func() { _ = srv.Serve(lis) }()
-	cleanup := func() { _ = lis.Close(); srv.Stop() }
-	return lis, srv, cleanup
+	return testutil.NewBufconnServer(t, impl)
 }
 
 func packStr(s string) ([]byte, error) {
@@ -70,6 +41,24 @@ func packStr(s string) ([]byte, error) {
 		return nil, err
 	}
 	return eabi.Arguments{{Type: typ}}.Pack(s)
+}
+
+// handleTRC20ConstantResult dispatches the common ERC20 read-method selectors
+// (name, symbol, decimals, balanceOf/allowance) and returns the packed result.
+// Shared by the standard trc20Server and the edge-case server so the selector
+// patterns are defined in exactly one place.
+func handleTRC20ConstantResult(selector []byte, name, symbol string, decimals uint64) ([]byte, error) {
+	switch {
+	case selector[0] == 0x06 && selector[1] == 0xfd: // name()
+		return packStr(name)
+	case selector[0] == 0x95 && selector[1] == 0xd8: // symbol()
+		return packStr(symbol)
+	case selector[0] == 0x31 && selector[1] == 0x3c: // decimals()
+		return packUint8(uint8(decimals))
+	default:
+		// balanceOf or allowance → return 1000 * 10^6
+		return packUint256(new(big.Int).SetUint64(1000000000))
+	}
 }
 
 func packUint8(u uint8) ([]byte, error) {
@@ -91,14 +80,9 @@ func packUint256(v *big.Int) ([]byte, error) {
 // small helpers removed; using go-ethereum abi directly
 
 func TestTRC20Manager_ReadMethodsAndCaching(t *testing.T) {
-	lis, _, cleanup := newTRC20BufServer(t, &trc20Server{})
-	t.Cleanup(cleanup)
+	lis := newTRC20BufServer(t, &trc20Server{})
 
-	c, err := client.NewClientWithDialer("passthrough:///bufnet", func(ctx context.Context, s string) (net.Conn, error) { return lis.DialContext(ctx) }, client.WithTimeout(500*time.Millisecond), client.WithPool(1, 1))
-	if err != nil {
-		t.Fatalf("new client: %v", err)
-	}
-	defer c.Close()
+	c := testutil.NewMockConnProvider(testutil.DialBufconn(t, lis))
 
 	addr := types.MustNewAddressFromBase58("TKCTfkQ8L9beavNu9iaGtCHFxrwNHUxfr2")
 	m, err := trc20.NewManager(c, addr)
@@ -128,14 +112,9 @@ func TestTRC20Manager_ReadMethodsAndCaching(t *testing.T) {
 }
 
 func TestTRC20Manager_BalanceAllowanceTransferApprove(t *testing.T) {
-	lis, _, cleanup := newTRC20BufServer(t, &trc20Server{})
-	t.Cleanup(cleanup)
+	lis := newTRC20BufServer(t, &trc20Server{})
 
-	c, err := client.NewClientWithDialer("passthrough:///bufnet", func(ctx context.Context, s string) (net.Conn, error) { return lis.DialContext(ctx) }, client.WithTimeout(500*time.Millisecond), client.WithPool(1, 1))
-	if err != nil {
-		t.Fatalf("new client: %v", err)
-	}
-	defer c.Close()
+	c := testutil.NewMockConnProvider(testutil.DialBufconn(t, lis))
 
 	token := types.MustNewAddressFromBase58("TKCTfkQ8L9beavNu9iaGtCHFxrwNHUxfr2")
 	owner := types.MustNewAddressFromBase58("TBXeeuh3jHM7oE889Ys2DqvRS1YuEPoa2o")

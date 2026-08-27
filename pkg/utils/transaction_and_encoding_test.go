@@ -11,9 +11,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// ── transaction.go: SetPermissionID ──────────────────────────────────────────
+// ── transaction.go: SetPermissionID / SetFeeLimit / SetTimestamp / SetExpiration ──
+//
+// The four setters share an identical structure (nil tx, nil RawData, wrong
+// type, plus a success path for both *core.Transaction and
+// *api.TransactionExtention). They differ only in the field they set, so they
+// are exercised by one table-driven test. SetPermissionID additionally
+// validates that a contract is present.
 
-func TestSetPermissionID(t *testing.T) {
+func TestTransactionSetters(t *testing.T) {
 	minimalTx := func() *core.Transaction {
 		return &core.Transaction{
 			RawData: &core.TransactionRaw{
@@ -22,153 +28,94 @@ func TestSetPermissionID(t *testing.T) {
 		}
 	}
 	minimalExt := func() *api.TransactionExtention {
-		return &api.TransactionExtention{
-			Transaction: minimalTx(),
-		}
-	}
-
-	t.Run("nil", func(t *testing.T) {
-		assert.Error(t, SetPermissionID(nil, 1))
-	})
-	t.Run("core.NilRawData", func(t *testing.T) {
-		assert.Error(t, SetPermissionID(&core.Transaction{}, 1))
-	})
-	t.Run("core.EmptyContract", func(t *testing.T) {
-		assert.Error(t, SetPermissionID(&core.Transaction{RawData: &core.TransactionRaw{}}, 1))
-	})
-	t.Run("core.Success", func(t *testing.T) {
-		tx := minimalTx()
-		require.NoError(t, SetPermissionID(tx, 3))
-		assert.Equal(t, int32(3), tx.RawData.Contract[0].PermissionId)
-	})
-	t.Run("ext.NilTransaction", func(t *testing.T) {
-		assert.Error(t, SetPermissionID(&api.TransactionExtention{}, 1))
-	})
-	t.Run("ext.NilRawData", func(t *testing.T) {
-		assert.Error(t, SetPermissionID(&api.TransactionExtention{Transaction: &core.Transaction{}}, 1))
-	})
-	t.Run("ext.EmptyContract", func(t *testing.T) {
-		assert.Error(t, SetPermissionID(&api.TransactionExtention{Transaction: &core.Transaction{RawData: &core.TransactionRaw{}}}, 1))
-	})
-	t.Run("ext.Success", func(t *testing.T) {
-		ext := minimalExt()
-		require.NoError(t, SetPermissionID(ext, 5))
-		assert.Equal(t, int32(5), ext.Transaction.RawData.Contract[0].PermissionId)
-	})
-	t.Run("WrongType", func(t *testing.T) {
-		assert.Error(t, SetPermissionID("bad", 1))
-	})
-}
-
-// ── transaction.go: SetFeeLimit ──────────────────────────────────────────────
-
-func TestSetFeeLimit(t *testing.T) {
-	minimalTx := func() *core.Transaction {
-		return &core.Transaction{RawData: &core.TransactionRaw{}}
-	}
-	minimalExt := func() *api.TransactionExtention {
 		return &api.TransactionExtention{Transaction: minimalTx()}
 	}
 
-	t.Run("nil", func(t *testing.T) {
-		assert.Error(t, SetFeeLimit(nil, 100))
-	})
-	t.Run("core.NilRawData", func(t *testing.T) {
-		assert.Error(t, SetFeeLimit(&core.Transaction{}, 100))
-	})
-	t.Run("core.Success", func(t *testing.T) {
-		tx := minimalTx()
-		require.NoError(t, SetFeeLimit(tx, 150_000_000))
-		assert.Equal(t, int64(150_000_000), tx.RawData.FeeLimit)
-	})
-	t.Run("ext.NilTransaction", func(t *testing.T) {
-		assert.Error(t, SetFeeLimit(&api.TransactionExtention{}, 100))
-	})
-	t.Run("ext.NilRawData", func(t *testing.T) {
-		assert.Error(t, SetFeeLimit(&api.TransactionExtention{Transaction: &core.Transaction{}}, 100))
-	})
-	t.Run("ext.Success", func(t *testing.T) {
-		ext := minimalExt()
-		require.NoError(t, SetFeeLimit(ext, 200_000_000))
-		assert.Equal(t, int64(200_000_000), ext.Transaction.RawData.FeeLimit)
-	})
-	t.Run("WrongType", func(t *testing.T) {
-		assert.Error(t, SetFeeLimit(12345, 100))
-	})
+	tests := []struct {
+		name       string
+		set        func(tx any) error
+		assertCore func(t *testing.T, tx *core.Transaction)
+		assertExt  func(t *testing.T, ext *api.TransactionExtention)
+	}{
+		{
+			name: "SetFeeLimit",
+			set:  func(tx any) error { return SetFeeLimit(tx, 150_000_000) },
+			assertCore: func(t *testing.T, tx *core.Transaction) {
+				assert.Equal(t, int64(150_000_000), tx.RawData.FeeLimit)
+			},
+			assertExt: func(t *testing.T, ext *api.TransactionExtention) {
+				assert.Equal(t, int64(150_000_000), ext.Transaction.RawData.FeeLimit)
+			},
+		},
+		{
+			name: "SetTimestamp",
+			set:  func(tx any) error { return SetTimestamp(tx, 1700000000000) },
+			assertCore: func(t *testing.T, tx *core.Transaction) {
+				assert.Equal(t, int64(1700000000000), tx.RawData.Timestamp)
+			},
+			assertExt: func(t *testing.T, ext *api.TransactionExtention) {
+				assert.Equal(t, int64(1700000000000), ext.Transaction.RawData.Timestamp)
+			},
+		},
+		{
+			name: "SetExpiration",
+			set:  func(tx any) error { return SetExpiration(tx, 1700000060000) },
+			assertCore: func(t *testing.T, tx *core.Transaction) {
+				assert.Equal(t, int64(1700000060000), tx.RawData.Expiration)
+			},
+			assertExt: func(t *testing.T, ext *api.TransactionExtention) {
+				assert.Equal(t, int64(1700000060000), ext.Transaction.RawData.Expiration)
+			},
+		},
+		{
+			name: "SetPermissionID",
+			set: func(tx any) error {
+				return SetPermissionID(tx, 3)
+			},
+			assertCore: func(t *testing.T, tx *core.Transaction) {
+				assert.Equal(t, int32(3), tx.RawData.Contract[0].PermissionId)
+			},
+			assertExt: func(t *testing.T, ext *api.TransactionExtention) {
+				assert.Equal(t, int32(3), ext.Transaction.RawData.Contract[0].PermissionId)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// nil input
+			assert.Error(t, tt.set(nil), "nil input should error")
+			// *core.Transaction with nil RawData
+			assert.Error(t, tt.set(&core.Transaction{}), "nil RawData should error")
+			// *api.TransactionExtention with nil Transaction
+			assert.Error(t, tt.set(&api.TransactionExtention{}), "nil Transaction should error")
+			// *api.TransactionExtention with nil RawData
+			assert.Error(t, tt.set(&api.TransactionExtention{Transaction: &core.Transaction{}}), "nil RawData should error")
+			// wrong type
+			assert.Error(t, tt.set("bad"), "wrong type should error")
+
+			// success on *core.Transaction
+			tx := minimalTx()
+			require.NoError(t, tt.set(tx))
+			tt.assertCore(t, tx)
+
+			// success on *api.TransactionExtention
+			ext := minimalExt()
+			require.NoError(t, tt.set(ext))
+			tt.assertExt(t, ext)
+		})
+	}
 }
 
-// ── transaction.go: SetTimestamp ─────────────────────────────────────────────
-
-func TestSetTimestamp(t *testing.T) {
-	minimalTx := func() *core.Transaction {
-		return &core.Transaction{RawData: &core.TransactionRaw{}}
-	}
-	minimalExt := func() *api.TransactionExtention {
-		return &api.TransactionExtention{Transaction: minimalTx()}
-	}
-
-	t.Run("nil", func(t *testing.T) {
-		assert.Error(t, SetTimestamp(nil, 100))
-	})
-	t.Run("core.NilRawData", func(t *testing.T) {
-		assert.Error(t, SetTimestamp(&core.Transaction{}, 100))
-	})
-	t.Run("core.Success", func(t *testing.T) {
-		tx := minimalTx()
-		require.NoError(t, SetTimestamp(tx, 1700000000000))
-		assert.Equal(t, int64(1700000000000), tx.RawData.Timestamp)
-	})
-	t.Run("ext.NilTransaction", func(t *testing.T) {
-		assert.Error(t, SetTimestamp(&api.TransactionExtention{}, 100))
-	})
-	t.Run("ext.NilRawData", func(t *testing.T) {
-		assert.Error(t, SetTimestamp(&api.TransactionExtention{Transaction: &core.Transaction{}}, 100))
-	})
-	t.Run("ext.Success", func(t *testing.T) {
-		ext := minimalExt()
-		require.NoError(t, SetTimestamp(ext, 1700000000001))
-		assert.Equal(t, int64(1700000000001), ext.Transaction.RawData.Timestamp)
-	})
-	t.Run("WrongType", func(t *testing.T) {
-		assert.Error(t, SetTimestamp([]byte{1, 2}, 100))
-	})
-}
-
-// ── transaction.go: SetExpiration ────────────────────────────────────────────
-
-func TestSetExpiration(t *testing.T) {
-	minimalTx := func() *core.Transaction {
-		return &core.Transaction{RawData: &core.TransactionRaw{}}
-	}
-	minimalExt := func() *api.TransactionExtention {
-		return &api.TransactionExtention{Transaction: minimalTx()}
-	}
-
-	t.Run("nil", func(t *testing.T) {
-		assert.Error(t, SetExpiration(nil, 100))
-	})
-	t.Run("core.NilRawData", func(t *testing.T) {
-		assert.Error(t, SetExpiration(&core.Transaction{}, 100))
-	})
-	t.Run("core.Success", func(t *testing.T) {
-		tx := minimalTx()
-		require.NoError(t, SetExpiration(tx, 1700000060000))
-		assert.Equal(t, int64(1700000060000), tx.RawData.Expiration)
-	})
-	t.Run("ext.NilTransaction", func(t *testing.T) {
-		assert.Error(t, SetExpiration(&api.TransactionExtention{}, 100))
-	})
-	t.Run("ext.NilRawData", func(t *testing.T) {
-		assert.Error(t, SetExpiration(&api.TransactionExtention{Transaction: &core.Transaction{}}, 100))
-	})
-	t.Run("ext.Success", func(t *testing.T) {
-		ext := minimalExt()
-		require.NoError(t, SetExpiration(ext, 1700000060001))
-		assert.Equal(t, int64(1700000060001), ext.Transaction.RawData.Expiration)
-	})
-	t.Run("WrongType", func(t *testing.T) {
-		assert.Error(t, SetExpiration(42.0, 100))
-	})
+// TestSetPermissionID_EmptyContract covers the extra validation branch that
+// SetPermissionID has (unlike the other setters): a contract must be present.
+func TestSetPermissionID_EmptyContract(t *testing.T) {
+	// *core.Transaction without any contract
+	assert.Error(t, SetPermissionID(&core.Transaction{RawData: &core.TransactionRaw{}}, 1))
+	// *api.TransactionExtention without any contract
+	assert.Error(t, SetPermissionID(&api.TransactionExtention{
+		Transaction: &core.Transaction{RawData: &core.TransactionRaw{}},
+	}, 1))
 }
 
 // ── transaction.go: ExtractSigners ───────────────────────────────────────────
@@ -285,7 +232,7 @@ func TestDecodeString_EdgeCases(t *testing.T) {
 		_, err := DecodeString(data)
 		assert.Error(t, err)
 	})
-	t.Run("NegativeLength", func(t *testing.T) {
+	t.Run("LengthZero", func(t *testing.T) {
 		data := make([]byte, 96)
 		copy(data[:32], padUint256(32))
 		s, err := DecodeString(data)

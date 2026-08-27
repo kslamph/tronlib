@@ -2,18 +2,14 @@ package resources
 
 import (
 	"context"
-	"net"
 	"testing"
 	"time"
 
+	"github.com/kslamph/tronlib/internal/testutil"
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/pkg/types"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/test/bufconn"
 )
-
-const bufSize = 1024 * 1024
 
 // fakeWalletServer implements api.WalletServer for resource tests
 type fakeWalletServer struct {
@@ -112,45 +108,11 @@ func (s *fakeWalletServer) GetCanWithdrawUnfreezeAmount(ctx context.Context, in 
 // setupTestServer creates a bufconn gRPC server and returns a ResourcesManager connected to it.
 func setupTestServer(t *testing.T, fake *fakeWalletServer) (*ResourcesManager, func()) {
 	t.Helper()
-	lis := bufconn.Listen(bufSize)
-	srv := grpc.NewServer()
-	api.RegisterWalletServer(srv, fake)
-
-	go func() { _ = srv.Serve(lis) }()
-
-	conn, err := grpc.Dial("passthrough:///bufnet",
-		grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
-			return lis.DialContext(ctx)
-		}),
-		grpc.WithInsecure(),
-	)
-	if err != nil {
-		t.Fatalf("failed to dial bufnet: %v", err)
-	}
-
-	cp := &mockConnProvider{conn: conn}
+	lis := testutil.NewBufconnServer(t, fake)
+	conn := testutil.DialBufconn(t, lis)
+	cp := testutil.NewMockConnProvider(conn)
 	mgr := NewManager(cp)
-
-	cleanup := func() {
-		conn.Close()
-		srv.Stop()
-		lis.Close()
-	}
-	return mgr, cleanup
-}
-
-type mockConnProvider struct {
-	conn *grpc.ClientConn
-}
-
-func (m *mockConnProvider) GetConnection(_ context.Context) (*grpc.ClientConn, error) {
-	return m.conn, nil
-}
-
-func (m *mockConnProvider) ReturnConnection(_ *grpc.ClientConn) {}
-
-func (m *mockConnProvider) GetTimeout() time.Duration {
-	return 30 * time.Second
+	return mgr, func() {}
 }
 
 func mustAddr(s string) *types.Address {
@@ -165,13 +127,6 @@ var (
 	testAddr  = mustAddr("TZ1EafTG8FRtE6ef3H2dhaucDdjv36fzPY")
 	testAddr2 = mustAddr("TLyqzVGLV1srkB7dToTAEqgDSfPtXRJZYH")
 )
-
-func TestNewManager(t *testing.T) {
-	mgr := NewManager(&mockConnProvider{})
-	if mgr == nil {
-		t.Fatal("expected non-nil manager")
-	}
-}
 
 func TestFreezeBalanceV2(t *testing.T) {
 	fake := &fakeWalletServer{}
