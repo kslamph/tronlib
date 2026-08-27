@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: ❓ Questions & support
+    url: https://github.com/kslamph/tronlib/discussions
+    about: Usage questions, design discussion, and "how do I..." — answered in Discussions, not issues.
+  - name: 📖 Documentation
+    url: https://github.com/kslamph/tronlib/tree/main/docs
+    about: Package guides (quickstart, TRC20, smart contracts, event decoder, types, utils) before opening a docs issue.
+  - name: 🔒 Security vulnerabilities
+    url: https://github.com/kslamph/tronlib/security/advisories/new
+    about: Suspected security issue? Report privately via a security advisory — never a public issue.

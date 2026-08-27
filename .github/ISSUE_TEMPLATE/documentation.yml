@@ -1,0 +1,42 @@
+name: 📚 Documentation issue
+description: Docs are wrong, unclear, or missing.
+labels: ["documentation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Docs issues are a great first contribution — and fixing one is too:
+        most fixes are a one-file PR, see [CONTRIBUTING.md](../CONTRIBUTING.md).
+  - type: dropdown
+    id: location
+    attributes:
+      label: Where?
+      options:
+        - README.md
+        - docs/quickstart.md
+        - docs/trc20.md
+        - docs/smartcontract.md
+        - docs/eventdecoder.md
+        - docs/types.md
+        - docs/utils.md
+        - docs/API_REFERENCE.md
+        - docs/architecture.md
+        - pkg/ doc comments (pkg.go.dev)
+        - example/ programs
+        - other
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What's wrong?
+      description: Wrong, outdated, missing, or confusing? Quote the offending line/section if it exists.
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested fix
+      description: What should it say instead? A rough draft is fine — we'll polish.
+    validations:
+      required: false

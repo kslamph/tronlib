@@ -1,0 +1,78 @@
+name: ✨ Feature request
+description: Propose new capability or an API change.
+labels: ["feature", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Feature requests are discussed before implementation. A maintainer must
+        add the `accepted` label before you start coding the PR — this keeps
+        effort from going to proposals that don't fit the roadmap.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: The user story — what are you trying to do that tronlib makes hard or impossible today? "X would be nice" is not a problem statement.
+      placeholder: As a wallet developer, I need to fetch an account's TRC20 balances in one call, because per-token queries take N round trips.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: What the API should look like, concretely. A code sketch of the call site helps most.
+      render: go
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds, doing it at a lower layer (raw client / gRPC), or other libraries' approach to the same problem.
+    validations:
+      required: false
+  - type: dropdown
+    id: package
+    attributes:
+      label: Which package would this land in?
+      options:
+        - pkg/client (connections, broadcaster)
+        - pkg/trc20
+        - pkg/trc10
+        - pkg/smartcontract
+        - pkg/eventdecoder
+        - pkg/account
+        - pkg/signer
+        - pkg/voting
+        - pkg/network
+        - pkg/resources
+        - pkg/types
+        - pkg/utils
+        - new package
+        - not sure
+    validations:
+      required: false
+  - type: dropdown
+    id: size
+    attributes:
+      label: How invasive is it?
+      options:
+        - Additive — new function/method only, no existing API touched
+        - Extends existing API (new params, options, behaviour)
+        - Breaking — changes or removes existing API
+    validations:
+      required: true
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      options:
+        - label: I am willing to submit a PR for this once accepted.
+          required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues (open and closed) and found no duplicate.
+          required: true

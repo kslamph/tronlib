@@ -1,0 +1,95 @@
+name: 🐛 Bug report
+description: Something in tronlib behaves incorrectly or crashes.
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug!
+        **Never include private keys, mnemonics, or funded-account addresses.**
+        If reproduction needs a key, create a fresh throwaway account on Nile testnet.
+        Search open issues first: https://github.com/kslamph/tronlib/issues
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear, concise description of the bug. What did you expect instead?
+      placeholder: |
+        Calling trc20.Transfer(...) returns "failed to pre-fetch decimals" against
+        contract <address> on Nile. Expected: the transfer builds and broadcasts.
+    validations:
+      required: true
+  - type: dropdown
+    id: package
+    attributes:
+      label: Which package?
+      options:
+        - pkg/client (connections, broadcaster)
+        - pkg/trc20
+        - pkg/trc10
+        - pkg/smartcontract
+        - pkg/eventdecoder
+        - pkg/account
+        - pkg/signer
+        - pkg/voting
+        - pkg/network
+        - pkg/resources
+        - pkg/types
+        - pkg/utils
+        - example/ programs
+        - cmd/ tools
+        - docs / README
+        - other / not sure
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: tronlib version
+      description: Output of `go list -m github.com/kslamph/tronlib` (or the commit if building from source).
+      placeholder: v1.x.y or commit SHA
+    validations:
+      required: true
+  - type: input
+    id: go-version
+    attributes:
+      label: Go version
+      description: Output of `go version`.
+      placeholder: go version go1.25.0 darwin/arm64
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Minimal reproduction
+      description: A standalone snippet or test we can run. Link a repo if it's long. Issues without reproduction steps may be closed as needs-info.
+      render: go
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Output / logs
+      description: Exact error text or logs. Redact anything sensitive.
+      render: shell
+    validations:
+      required: false
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Node endpoint type (Nile / Shasta / mainnet / private), OS, anything else that might matter.
+      placeholder: grpc.nile.trongrid.io:50051, macOS 15, arm64
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues (open and closed) and found no duplicate.
+          required: true
+        - label: The reproduction contains no private keys, mnemonics, or funded addresses.
+          required: true
+        - label: I am using a released version, not an old fork.
+          required: false
