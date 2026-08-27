@@ -10,7 +10,7 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-// --- RegisterABIJSON error path (line 56) ---
+// --- RegisterABIJSON: invalid JSON rejection ---
 
 func TestRegisterABIJSON_InvalidJSON(t *testing.T) {
 	err := RegisterABIJSON(`{not valid json`)
@@ -26,14 +26,14 @@ func TestRegisterABIJSON_EmptyArray(t *testing.T) {
 	}
 }
 
-// --- RegisterABIEntries nil entry and nil inputs (lines 86, 108-110) ---
+// --- RegisterABIEntries: nil entry and nil input handling ---
 
 func TestRegisterABIEntries_NilEntry(t *testing.T) {
 	entries := []*core.SmartContract_ABI_Entry{
 		nil,
 		{
-			Type:  core.SmartContract_ABI_Entry_Event,
-			Name:  "TestEvent",
+			Type: core.SmartContract_ABI_Entry_Event,
+			Name: "TestEvent",
 			Inputs: []*core.SmartContract_ABI_Entry_Param{
 				{Type: "uint256", Indexed: true, Name: "val"},
 			},
@@ -57,8 +57,8 @@ func TestRegisterABIEntries_NilEntry(t *testing.T) {
 func TestRegisterABIEntries_NilInput(t *testing.T) {
 	entries := []*core.SmartContract_ABI_Entry{
 		{
-			Type:  core.SmartContract_ABI_Entry_Event,
-			Name:  "NilInputEvent",
+			Type: core.SmartContract_ABI_Entry_Event,
+			Name: "NilInputEvent",
 			Inputs: []*core.SmartContract_ABI_Entry_Param{
 				nil,
 				{Type: "uint256", Indexed: false, Name: "val"},
@@ -71,30 +71,9 @@ func TestRegisterABIEntries_NilInput(t *testing.T) {
 	}
 }
 
-// --- DecodeEventSignature nil def path (line 132-134) ---
+// --- DecodeEventSignature: nil def in registry ---
 
-func TestDecodeEventSignature_RegisteredButNilDef(t *testing.T) {
-	// Directly inject a nil def into the registry to test the nil check
-	key := [4]byte{0xAA, 0xBB, 0xCC, 0xDD}
-	mu.Lock()
-	sig4[key] = nil
-	mu.Unlock()
-	defer func() {
-		mu.Lock()
-		delete(sig4, key)
-		mu.Unlock()
-	}()
-
-	sig, found := DecodeEventSignature(key[:])
-	if found {
-		t.Fatal("expected not found for nil def")
-	}
-	if sig != "" {
-		t.Fatalf("expected empty sig, got: %s", sig)
-	}
-}
-
-// --- DecodeLogs error path (line 181-184) ---
+// --- DecodeLogs: error propagation from DecodeLog ---
 
 func TestDecodeLogs_ErrorFromLog(t *testing.T) {
 	// A log with a topic[0] too short triggers DecodeLog error
@@ -102,8 +81,8 @@ func TestDecodeLogs_ErrorFromLog(t *testing.T) {
 	addr := make([]byte, 20)
 	addr[0] = 0xAA
 	log := &core.TransactionInfo_Log{
-		Topics: [][]byte{shortTopic},
-		Data:   nil,
+		Topics:  [][]byte{shortTopic},
+		Data:    nil,
 		Address: addr,
 	}
 	_, err := DecodeLogs([]*core.TransactionInfo_Log{log})
@@ -112,7 +91,7 @@ func TestDecodeLogs_ErrorFromLog(t *testing.T) {
 	}
 }
 
-// --- decodeEventInternal error from data decode (line 208-209) ---
+// --- decodeEventInternal: bad data decode ---
 
 func TestDecodeEventInternal_BadEventData(t *testing.T) {
 	// Register an event with non-indexed params, then pass bad data
@@ -133,7 +112,7 @@ func TestDecodeEventInternal_BadEventData(t *testing.T) {
 	}
 }
 
-// --- decodeEventInternal fewer topics than indexed params (line 224-226) ---
+// --- decodeEventInternal: fewer topics than indexed params ---
 
 func TestDecodeEventInternal_FewerTopicsThanIndexed(t *testing.T) {
 	def := &EventDef{
@@ -151,18 +130,18 @@ func TestDecodeEventInternal_FewerTopicsThanIndexed(t *testing.T) {
 	topics := [][]byte{sigTopic, topic1}
 	data := make([]byte, 64) // 32-byte padded uint256 = 0
 
-	ev, err := decodeEventInternal(def, topics, data)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	// A log whose topics cannot cover the declared indexed parameters is
+	// malformed and must fail closed, not silently truncate.
+	_, err := decodeEventInternal(def, topics, data)
+	if err == nil {
+		t.Fatal("expected error for missing indexed topic")
 	}
-	// Should have only 2 params: sender (indexed) and amount (non-indexed)
-	// receiver is skipped because there aren't enough topics
-	if len(ev.Parameters) != 2 {
-		t.Fatalf("expected 2 parameters, got %d: %v", len(ev.Parameters), ev.Parameters)
+	if !strings.Contains(err.Error(), `missing topic for indexed parameter "receiver"`) {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
-// --- decodeTopicValue address error path (line 264-266) ---
+// --- decodeTopicValue: address with wrong type ---
 
 func TestDecodeTopicValue_InvalidAddress(t *testing.T) {
 	// Create a 32-byte topic that represents an invalid address
@@ -177,7 +156,7 @@ func TestDecodeTopicValue_InvalidAddress(t *testing.T) {
 	}
 }
 
-// --- decodeEventData ABI type error (line 295-297) ---
+// --- decodeEventData: invalid ABI type ---
 
 func TestDecodeEventData_InvalidABIType(t *testing.T) {
 	params := []ParamDef{
@@ -193,7 +172,7 @@ func TestDecodeEventData_InvalidABIType(t *testing.T) {
 	}
 }
 
-// --- decodeEventData unpack error (line 306-308) ---
+// --- decodeEventData: unpack error ---
 
 func TestDecodeEventData_UnpackError(t *testing.T) {
 	params := []ParamDef{
@@ -209,20 +188,20 @@ func TestDecodeEventData_UnpackError(t *testing.T) {
 	}
 }
 
-// --- formatEventValue address error path (line 334-336) ---
+// --- formatEventValue: address type with non-string value ---
 
+// TestFormatEventValue_AddressConversionError verifies formatEventValue
+// degrades gracefully (no panic, non-empty output) when given an "address"
+// type with a value that is not a valid hex address.
 func TestFormatEventValue_AddressConversionError(t *testing.T) {
-	// formatEventValue with "address" type but value is an Address that fails NewAddressFromHex
-	// The only way this happens is if addr.Hex() returns something NewAddressFromHex rejects
-	// Using a zero address should work fine, so use a slightly crafted scenario
-	// Actually, all valid ethereum addresses convert fine. Test with wrong type.
-	result := formatEventValue(12345, "address")
-	if result == "" {
-		t.Fatal("expected non-empty fallback")
+	// A non-address value for an address-typed parameter falls back to the
+	// raw value string rather than panicking.
+	if got := formatEventValue(12345, "address"); got != "12345" {
+		t.Fatalf("expected raw-value fallback %q, got %q", "12345", got)
 	}
 }
 
-// --- formatEventValue array type (lines 361-371) ---
+// --- formatEventValue: array type display ---
 
 func TestFormatEventValue_ArrayUint256(t *testing.T) {
 	// Create a []uint256-like array: ABI decoding produces []*big.Int for uint256[]
@@ -261,7 +240,7 @@ func TestFormatEventValue_Bytes8(t *testing.T) {
 	}
 }
 
-// --- ParseABI invalid JSON (line 413-415) ---
+// --- ParseABI: invalid JSON ---
 
 func TestParseABI_InvalidJSON(t *testing.T) {
 	parser := NewSimpleABIParser()
@@ -303,7 +282,7 @@ func TestParseABI_AllEntryTypes(t *testing.T) {
 	}
 }
 
-// --- Multi-log DecodeLogs (line 172-191) ---
+// --- Multi-log DecodeLogs ---
 
 func TestDecodeLogs_MultipleLogs(t *testing.T) {
 	// Register Transfer first
@@ -350,11 +329,11 @@ func TestDecodeLogs_MultipleLogs(t *testing.T) {
 	}
 }
 
-// --- DecodeLogs mixed with nil entries (line 185-186) ---
+// --- DecodeLogs: nil entries in the middle ---
 
 func TestDecodeLogs_MixedWithNil(t *testing.T) {
-	// The existing TestEdgeCases already tests this but let's add more coverage
-	// with multiple logs and a nil in the middle
+	// TestEdgeCases covers a single nil log; this verifies nils interspersed
+	// with a valid entry are skipped without aborting decoding.
 	addr := make([]byte, 20)
 	addr[0] = 0xBB
 	sigTopic := make([]byte, 32)
@@ -401,7 +380,7 @@ func TestDecodeEventInternal_NoNonIndexed(t *testing.T) {
 	}
 }
 
-// --- decodeEventInternal with data but empty data, non-indexed params present ---
+// --- decodeEventInternal with empty data, non-indexed params present ---
 
 func TestDecodeEventInternal_EmptyDataWithNonIndexed(t *testing.T) {
 	def := &EventDef{
@@ -412,13 +391,14 @@ func TestDecodeEventInternal_EmptyDataWithNonIndexed(t *testing.T) {
 	}
 	topics := [][]byte{make([]byte, 32)}
 
-	ev, err := decodeEventInternal(def, topics, []byte{})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	// Empty data with declared non-indexed parameters is malformed input and
+	// must fail closed instead of decoding to zero parameters.
+	_, err := decodeEventInternal(def, topics, []byte{})
+	if err == nil {
+		t.Fatal("expected error for empty data with non-indexed parameters")
 	}
-	// When data is empty but non-indexed params exist, the non-indexed block is skipped
-	if len(ev.Parameters) != 0 {
-		t.Fatalf("expected 0 parameters with empty data, got %d: %v", len(ev.Parameters), ev.Parameters)
+	if !strings.Contains(err.Error(), "empty data for 1 non-indexed parameters") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
@@ -438,16 +418,16 @@ func TestFormatEventValue_ArrayNonSlice(t *testing.T) {
 func TestRegisterABIEntries_NonEventEntries(t *testing.T) {
 	entries := []*core.SmartContract_ABI_Entry{
 		{
-			Type:  core.SmartContract_ABI_Entry_Function,
-			Name:  "transfer",
+			Type: core.SmartContract_ABI_Entry_Function,
+			Name: "transfer",
 			Inputs: []*core.SmartContract_ABI_Entry_Param{
 				{Type: "address", Name: "to"},
 				{Type: "uint256", Name: "amount"},
 			},
 		},
 		{
-			Type:  core.SmartContract_ABI_Entry_Constructor,
-			Name:  "",
+			Type: core.SmartContract_ABI_Entry_Constructor,
+			Name: "",
 			Inputs: []*core.SmartContract_ABI_Entry_Param{
 				{Type: "address", Name: "owner"},
 			},

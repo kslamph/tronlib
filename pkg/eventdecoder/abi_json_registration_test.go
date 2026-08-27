@@ -7,9 +7,9 @@ import (
 	"github.com/kslamph/tronlib/pkg/trc20"
 )
 
-// TestBug2_ParseABINoLongerStub verifies that ParseABI now correctly parses
+// TestParseABI_ProducesEntries verifies that ParseABI now correctly parses
 // JSON ABI strings and returns the expected entries (was previously a no-op stub).
-func TestBug2_ParseABINoLongerStub(t *testing.T) {
+func TestParseABI_ProducesEntries(t *testing.T) {
 	parser := NewSimpleABIParser()
 
 	result, err := parser.ParseABI(trc20.ERC20ABI)
@@ -42,9 +42,9 @@ func TestBug2_ParseABINoLongerStub(t *testing.T) {
 	}
 }
 
-// TestBug2_RegisterABIJSONNowWorksForCustomEvents verifies that RegisterABIJSON
+// TestRegisterABIJSON_CustomEvents verifies that RegisterABIJSON
 // now correctly registers custom (non-builtin) events.
-func TestBug2_RegisterABIJSONNowWorksForCustomEvents(t *testing.T) {
+func TestRegisterABIJSON_CustomEvents(t *testing.T) {
 	customABI := `[
 	  {
 	    "anonymous": false,
@@ -76,8 +76,8 @@ func TestBug2_RegisterABIJSONNowWorksForCustomEvents(t *testing.T) {
 	t.Logf("FIX VERIFIED: Custom event registered: %s", sig)
 }
 
-// TestBug2_BuiltinEventsStillWork shows that builtin events remain functional.
-func TestBug2_BuiltinEventsStillWork(t *testing.T) {
+// TestBuiltinEvents_AfterCustomRegistration shows that builtin events remain functional.
+func TestBuiltinEvents_AfterCustomRegistration(t *testing.T) {
 	transferSig, _ := hex.DecodeString("ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef")
 
 	sig, found := DecodeEventSignature(transferSig)

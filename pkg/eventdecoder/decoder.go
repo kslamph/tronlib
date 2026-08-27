@@ -182,7 +182,11 @@ func DecodeLogs(logs []*core.TransactionInfo_Log) ([]*DecodedEvent, error) {
 		if err != nil {
 			return nil, err
 		}
-		ev.Contract = types.MustNewAddressFromBytes(lg.GetAddress()).String()
+		contract, err := types.NewAddressFromBytes(lg.GetAddress())
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode contract address from log: %w", err)
+		}
+		ev.Contract = contract.String()
 		result = append(result, ev)
 	}
 	return result, nil
@@ -206,7 +210,7 @@ func decodeEventInternal(def *EventDef, topics [][]byte, data []byte) (*DecodedE
 	indexedValues := make([]DecodedEventParameter, 0)
 	for i, param := range indexedParams {
 		if i+1 >= len(topics) {
-			break
+			return nil, fmt.Errorf("event %s: missing topic for indexed parameter %q", def.Name, param.Name)
 		}
 		value := decodeTopicValue(topics[i+1], param.Type)
 		indexedValues = append(indexedValues, DecodedEventParameter{
@@ -217,12 +221,16 @@ func decodeEventInternal(def *EventDef, topics [][]byte, data []byte) (*DecodedE
 		})
 	}
 
-	// Decode non-indexed parameters (from data)
+	// Decode non-indexed parameters (from data). Empty data with declared
+	// non-indexed parameters is malformed, not decodable-to-nothing.
+	if len(nonIndexedParams) > 0 && len(data) == 0 {
+		return nil, fmt.Errorf("event %s: empty data for %d non-indexed parameters", def.Name, len(nonIndexedParams))
+	}
 	var nonIndexedValues []DecodedEventParameter
-	if len(nonIndexedParams) > 0 && len(data) > 0 {
+	if len(nonIndexedParams) > 0 {
 		decoded, err := decodeEventData(data, nonIndexedParams)
 		if err != nil {
-			return nil, fmt.Errorf("failed to decode event data: %v", err)
+			return nil, fmt.Errorf("failed to decode event data: %w", err)
 		}
 		nonIndexedValues = decoded
 	}
@@ -293,7 +301,7 @@ func decodeEventData(data []byte, params []ParamDef) ([]DecodedEventParameter, e
 	for i, param := range params {
 		abiType, err := eABI.NewType(param.Type, "", nil)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create ABI type for %s: %v", param.Type, err)
+			return nil, fmt.Errorf("failed to create ABI type for %s: %w", param.Type, err)
 		}
 		args[i] = eABI.Argument{
 			Name: param.Name,
@@ -304,7 +312,7 @@ func decodeEventData(data []byte, params []ParamDef) ([]DecodedEventParameter, e
 	// Unpack the data
 	values, err := eABI.Arguments(args).Unpack(data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unpack event data: %v", err)
+		return nil, fmt.Errorf("failed to unpack event data: %w", err)
 	}
 
 	result := make([]DecodedEventParameter, len(params))
