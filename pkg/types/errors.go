@@ -55,6 +55,9 @@ var (
 
 	// ErrInvalidParameter indicates invalid parameter value
 	ErrInvalidParameter = errors.New("invalid parameter: check parameter value and format")
+
+	// ErrInvalidPrivateKey indicates an invalid, malformed, or missing private key
+	ErrInvalidPrivateKey = errors.New("invalid private key: check key format and value")
 )
 
 // TronError wraps TRON-specific errors with additional context.

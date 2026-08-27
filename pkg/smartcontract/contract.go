@@ -88,7 +88,7 @@ func NewInstance(tronClient contractClient, contractAddress *types.Address, abi 
 		defer cancel()
 		contractInfo, err := getContractFromNetwork(ctx, tronClient, contractAddress)
 		if err != nil {
-			return nil, fmt.Errorf("%w: failed to retrieve contract from network: %v", types.ErrNetworkError, err)
+			return nil, fmt.Errorf("%w: failed to retrieve contract from network: %w", types.ErrNetworkError, err)
 		}
 		if contractInfo.GetAbi() == nil {
 			return nil, fmt.Errorf("%w: contract has no ABI available on network", types.ErrNotFound)
@@ -105,7 +105,7 @@ func NewInstance(tronClient contractClient, contractAddress *types.Address, abi 
 			processor := utils.NewABIProcessor(nil)
 			contractABI, err = processor.ParseABI(v)
 			if err != nil {
-				return nil, fmt.Errorf("%w: failed to parse ABI string: %v", types.ErrInvalidContract, err)
+				return nil, fmt.Errorf("%w: failed to parse ABI string: %w", types.ErrInvalidContract, err)
 			}
 
 		case *core.SmartContract_ABI:
@@ -179,7 +179,7 @@ func (i *Instance) Invoke(ctx context.Context, owner *types.Address, callValue i
 	// Encode method call data
 	data, err := i.Encode(method, params...)
 	if err != nil {
-		return nil, fmt.Errorf("%w: failed to encode input for method %s: %v", types.ErrInvalidContract, method, err)
+		return nil, fmt.Errorf("%w: failed to encode input for method %s: %w", types.ErrInvalidContract, method, err)
 	}
 
 	// Create trigger smart contract request
@@ -232,7 +232,7 @@ func (i *Instance) Call(ctx context.Context, owner *types.Address, method string
 	// Encode method call data
 	data, err := i.Encode(method, params...)
 	if err != nil {
-		return nil, fmt.Errorf("%w: failed to encode input for method %s: %v", types.ErrInvalidContract, method, err)
+		return nil, fmt.Errorf("%w: failed to encode input for method %s: %w", types.ErrInvalidContract, method, err)
 	}
 
 	// Create trigger smart contract request
@@ -248,7 +248,7 @@ func (i *Instance) Call(ctx context.Context, owner *types.Address, method string
 		return cl.TriggerConstantContract(ctx, req)
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to trigger constant contract: %v", err)
+		return nil, fmt.Errorf("failed to trigger constant contract: %w", err)
 	}
 
 	if result == nil {
@@ -272,7 +272,7 @@ func (i *Instance) Call(ctx context.Context, owner *types.Address, method string
 
 	decoded, err := i.DecodeResult(method, concatenatedResult)
 	if err != nil {
-		return nil, fmt.Errorf("%w: failed to decode result for method %s: %v", types.ErrInvalidContract, method, err)
+		return nil, fmt.Errorf("%w: failed to decode result for method %s: %w", types.ErrInvalidContract, method, err)
 	}
 
 	return decoded, nil
@@ -296,7 +296,7 @@ func (i *Instance) Simulate(ctx context.Context, owner *types.Address, callValue
 	// Encode method call data
 	data, err := i.Encode(method, params...)
 	if err != nil {
-		return nil, fmt.Errorf("%w: failed to encode input for method %s: %v", types.ErrInvalidContract, method, err)
+		return nil, fmt.Errorf("%w: failed to encode input for method %s: %w", types.ErrInvalidContract, method, err)
 	}
 
 	// Create trigger smart contract request
@@ -312,7 +312,7 @@ func (i *Instance) Simulate(ctx context.Context, owner *types.Address, callValue
 		return cl.TriggerConstantContract(ctx, req)
 	})
 	if err != nil {
-		return nil, fmt.Errorf("%w: failed to trigger constant contract: %v", types.ErrNetworkError, err)
+		return nil, fmt.Errorf("%w: failed to trigger constant contract: %w", types.ErrNetworkError, err)
 	}
 
 	if result == nil {
@@ -389,7 +389,7 @@ func (i *Instance) Encode(method string, params ...interface{}) ([]byte, error) 
 	if method == "" {
 		paramTypes, err := i.getConstructorTypes()
 		if err != nil {
-			return nil, fmt.Errorf("failed to get constructor types: %v", err)
+			return nil, fmt.Errorf("failed to get constructor types: %w", err)
 		}
 		// We need to create a temporary ABIProcessor to encode parameters
 		// since the GetConstructorTypes doesn't return the ABI
@@ -401,7 +401,7 @@ func (i *Instance) Encode(method string, params ...interface{}) ([]byte, error) 
 	// Get method parameter types from cache
 	inputTypes, _, err := i.getMethodTypes(method)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get method types: %v", err)
+		return nil, fmt.Errorf("failed to get method types: %w", err)
 	}
 
 	return i.abiProcessor.EncodeMethod(method, inputTypes, params)
@@ -413,7 +413,7 @@ func (i *Instance) DecodeResult(method string, data []byte) (interface{}, error)
 	// Get method output types from cache
 	_, outputTypes, err := i.getMethodTypes(method)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get method types: %v", err)
+		return nil, fmt.Errorf("failed to get method types: %w", err)
 	}
 
 	// Convert output types to ABI entry params
@@ -428,7 +428,7 @@ func (i *Instance) DecodeResult(method string, data []byte) (interface{}, error)
 	// Decode the result using the abiProcessor's DecodeResult method
 	decoded, err := i.abiProcessor.DecodeResult(data, outputs)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode result: %v", err)
+		return nil, fmt.Errorf("failed to decode result: %w", err)
 	}
 
 	return decoded, nil

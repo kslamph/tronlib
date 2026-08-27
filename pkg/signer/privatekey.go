@@ -42,12 +42,12 @@ func NewPrivateKeySigner(hexPrivKey string) (*PrivateKeySigner, error) {
 	// Decode and validate private key
 	key, err := hex.DecodeString(hexPrivKey)
 	if err != nil {
-		return nil, fmt.Errorf("invalid hex private key: %w", err)
+		return nil, fmt.Errorf("%w: invalid hex: %w", types.ErrInvalidPrivateKey, err)
 	}
 
 	privKey, err := crypto.ToECDSA(key)
 	if err != nil {
-		return nil, fmt.Errorf("invalid private key: %w", err)
+		return nil, fmt.Errorf("%w: %w", types.ErrInvalidPrivateKey, err)
 	}
 
 	return newPrivateKeySigner(privKey)
@@ -55,6 +55,9 @@ func NewPrivateKeySigner(hexPrivKey string) (*PrivateKeySigner, error) {
 
 // NewPrivateKeySignerFromECDSA creates a new PrivateKeySigner from an ECDSA private key
 func NewPrivateKeySignerFromECDSA(privKey *ecdsa.PrivateKey) (*PrivateKeySigner, error) {
+	if privKey == nil {
+		return nil, fmt.Errorf("%w: nil ECDSA private key", types.ErrInvalidPrivateKey)
+	}
 	return newPrivateKeySigner(privKey)
 }
 

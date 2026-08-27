@@ -67,7 +67,7 @@ func EncodeParameters(abiJSON string, method string, params ...interface{}) ([]b
 	// Parse ABI
 	contractABI, err := abi.JSON(strings.NewReader(abiJSON))
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse ABI: %v", err)
+		return nil, fmt.Errorf("failed to parse ABI: %w", err)
 	}
 
 	// Find method
@@ -79,7 +79,7 @@ func EncodeParameters(abiJSON string, method string, params ...interface{}) ([]b
 	// Encode parameters
 	data, err := methodABI.Inputs.Pack(params...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode parameters: %v", err)
+		return nil, fmt.Errorf("failed to encode parameters: %w", err)
 	}
 
 	// Prepend method signature
@@ -96,7 +96,7 @@ func DecodeParameters(abiJSON string, method string, data []byte) ([]interface{}
 	// Parse ABI
 	contractABI, err := abi.JSON(strings.NewReader(abiJSON))
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse ABI: %v", err)
+		return nil, fmt.Errorf("failed to parse ABI: %w", err)
 	}
 
 	// Find method
@@ -108,7 +108,7 @@ func DecodeParameters(abiJSON string, method string, data []byte) ([]interface{}
 	// Decode parameters
 	results, err := methodABI.Outputs.Unpack(data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode parameters: %v", err)
+		return nil, fmt.Errorf("failed to decode parameters: %w", err)
 	}
 
 	return results, nil
@@ -119,13 +119,13 @@ func EncodeTRC20Transfer(to string, amount *big.Int) ([]byte, error) {
 	// Method signature for transfer(address,uint256)
 	methodSig, err := HexToBytes(types.TRC20TransferMethodID)
 	if err != nil {
-		return nil, fmt.Errorf("invalid transfer method ID: %v", err)
+		return nil, fmt.Errorf("invalid transfer method ID: %w", err)
 	}
 
 	// Encode address (32 bytes, left-padded)
 	toAddr, err := HexToBytes(to)
 	if err != nil {
-		return nil, fmt.Errorf("invalid to address: %v", err)
+		return nil, fmt.Errorf("invalid to address: %w", err)
 	}
 	encodedTo := PadLeft(toAddr, 32)
 
@@ -147,13 +147,13 @@ func EncodeTRC20BalanceOf(address string) ([]byte, error) {
 	// Method signature for balanceOf(address)
 	methodSig, err := HexToBytes(types.TRC20BalanceOfMethodID)
 	if err != nil {
-		return nil, fmt.Errorf("invalid balanceOf method ID: %v", err)
+		return nil, fmt.Errorf("invalid balanceOf method ID: %w", err)
 	}
 
 	// Encode address (32 bytes, left-padded)
 	addr, err := HexToBytes(address)
 	if err != nil {
-		return nil, fmt.Errorf("invalid address: %v", err)
+		return nil, fmt.Errorf("invalid address: %w", err)
 	}
 	encodedAddr := PadLeft(addr, 32)
 

@@ -127,7 +127,7 @@ func (c *Client) Simulate(ctx context.Context, anytx any) (*BroadcastResult, err
 	decodedTx := &core.TriggerSmartContract{}
 
 	if err := proto.Unmarshal(coretx.GetRawData().GetContract()[0].GetParameter().GetValue(), decodedTx); err != nil {
-		return nil, fmt.Errorf("failed to decode transaction: %v", err)
+		return nil, fmt.Errorf("failed to decode transaction: %w", err)
 	}
 
 	// Perform constant call (simulation)

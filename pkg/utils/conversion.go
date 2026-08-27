@@ -34,7 +34,7 @@ func HumanReadableNumber(number any, decimal int64) (string, error) {
 	// Convert input to *big.Int for precise arithmetic
 	bigInt, err := toBigInt(number)
 	if err != nil {
-		return "", fmt.Errorf("failed to convert number: %v", err)
+		return "", fmt.Errorf("failed to convert number: %w", err)
 	}
 
 	// Handle zero case

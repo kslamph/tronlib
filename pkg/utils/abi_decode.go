@@ -70,7 +70,7 @@ func (p *ABIProcessor) DecodeInputData(data []byte, abi *core.SmartContract_ABI)
 	paramData := data[4:]
 	parameters, err := p.decodeParameters(paramData, matchedEntry.Inputs)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode parameters: %v", err)
+		return nil, fmt.Errorf("failed to decode parameters: %w", err)
 	}
 
 	return &DecodedInput{
@@ -90,7 +90,7 @@ func (p *ABIProcessor) decodeParameters(data []byte, inputs []*core.SmartContrac
 	for i, input := range inputs {
 		abiType, err := eABI.NewType(input.Type, "", nil)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create ABI type for %s: %v", input.Type, err)
+			return nil, fmt.Errorf("failed to create ABI type for %s: %w", input.Type, err)
 		}
 		args[i] = eABI.Argument{
 			Name: input.Name,
@@ -101,7 +101,7 @@ func (p *ABIProcessor) decodeParameters(data []byte, inputs []*core.SmartContrac
 	// Unpack the parameters
 	values, err := eABI.Arguments(args).Unpack(data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unpack parameters: %v", err)
+		return nil, fmt.Errorf("failed to unpack parameters: %w", err)
 	}
 
 	// Build decoded parameters
@@ -136,7 +136,7 @@ func (p *ABIProcessor) DecodeResult(data []byte, outputs []*core.SmartContract_A
 	for i, output := range outputs {
 		abiType, err := eABI.NewType(output.Type, "", nil)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create ABI type for %s: %v", output.Type, err)
+			return nil, fmt.Errorf("failed to create ABI type for %s: %w", output.Type, err)
 		}
 		args[i] = eABI.Argument{
 			Name: output.Name,
@@ -147,7 +147,7 @@ func (p *ABIProcessor) DecodeResult(data []byte, outputs []*core.SmartContract_A
 	// Unpack the values
 	values, err := eABI.Arguments(args).Unpack(data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unpack result: %v", err)
+		return nil, fmt.Errorf("failed to unpack result: %w", err)
 	}
 
 	// Single output: return the single decoded value directly

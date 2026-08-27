@@ -56,7 +56,7 @@ func (p *connPool) get(ctx context.Context) (*grpc.ClientConn, error) {
 			_ = conn.Close()
 			conn, err := p.factory(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("connection failed: %v", err)
+				return nil, fmt.Errorf("connection failed: %w", err)
 			}
 			return conn, nil
 		}
@@ -70,7 +70,7 @@ func (p *connPool) get(ctx context.Context) (*grpc.ClientConn, error) {
 		if len(p.conns) < cap(p.conns) {
 			conn, err := p.factory(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("connection failed: %v", err)
+				return nil, fmt.Errorf("connection failed: %w", err)
 			}
 			return conn, nil
 		}
@@ -83,7 +83,7 @@ func (p *connPool) get(ctx context.Context) (*grpc.ClientConn, error) {
 				_ = conn.Close()
 				conn, err := p.factory(ctx)
 				if err != nil {
-					return nil, fmt.Errorf("connection failed: %v", err)
+					return nil, fmt.Errorf("connection failed: %w", err)
 				}
 				return conn, nil
 			}

@@ -24,7 +24,7 @@ func (p *ABIProcessor) ParseABI(abi string) (*core.SmartContract_ABI, error) {
 
 	var abiData []map[string]interface{}
 	if err := json.Unmarshal([]byte(abi), &abiData); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal ABI: %v", err)
+		return nil, fmt.Errorf("failed to unmarshal ABI: %w", err)
 	}
 
 	contractABI := &core.SmartContract_ABI{
@@ -34,7 +34,7 @@ func (p *ABIProcessor) ParseABI(abi string) (*core.SmartContract_ABI, error) {
 	for _, entry := range abiData {
 		abiEntry, err := p.parseABIEntry(entry)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse ABI entry: %v", err)
+			return nil, fmt.Errorf("failed to parse ABI entry: %w", err)
 		}
 		contractABI.Entrys = append(contractABI.Entrys, abiEntry)
 	}
@@ -71,7 +71,7 @@ func (p *ABIProcessor) parseABIEntry(entry map[string]interface{}) (*core.SmartC
 	if inputs, ok := entry["inputs"].([]interface{}); ok {
 		parsedInputs, err := p.parseParameters(inputs)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse inputs: %v", err)
+			return nil, fmt.Errorf("failed to parse inputs: %w", err)
 		}
 		abiEntry.Inputs = parsedInputs
 	}
@@ -80,7 +80,7 @@ func (p *ABIProcessor) parseABIEntry(entry map[string]interface{}) (*core.SmartC
 	if outputs, ok := entry["outputs"].([]interface{}); ok {
 		parsedOutputs, err := p.parseParameters(outputs)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse outputs: %v", err)
+			return nil, fmt.Errorf("failed to parse outputs: %w", err)
 		}
 		abiEntry.Outputs = parsedOutputs
 	}

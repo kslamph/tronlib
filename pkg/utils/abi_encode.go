@@ -77,7 +77,7 @@ func (p *ABIProcessor) EncodeMethod(method string, paramTypes []string, params [
 	// Encode parameters
 	encoded, err := p.encodeParameters(paramTypes, params)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode parameters: %v", err)
+		return nil, fmt.Errorf("failed to encode parameters: %w", err)
 	}
 
 	return append(methodID, encoded...), nil
@@ -96,14 +96,14 @@ func (p *ABIProcessor) encodeParameters(paramTypes []string, params []interface{
 	for i, paramType := range paramTypes {
 		abiType, err := eABI.NewType(paramType, "", nil)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create ABI type for %s: %v", paramType, err)
+			return nil, fmt.Errorf("failed to create ABI type for %s: %w", paramType, err)
 		}
 		args[i] = eABI.Argument{Type: abiType}
 
 		// Convert parameter to appropriate type
 		convertedValue, err := p.convertParameter(params[i], paramType)
 		if err != nil {
-			return nil, fmt.Errorf("failed to convert parameter %d: %v", i, err)
+			return nil, fmt.Errorf("failed to convert parameter %d: %w", i, err)
 		}
 		values[i] = convertedValue
 	}
@@ -111,7 +111,7 @@ func (p *ABIProcessor) encodeParameters(paramTypes []string, params []interface{
 	// Pack the arguments
 	packed, err := eABI.Arguments(args).Pack(values...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to pack parameters: %v", err)
+		return nil, fmt.Errorf("failed to pack parameters: %w", err)
 	}
 
 	return packed, nil
@@ -163,13 +163,13 @@ func (p *ABIProcessor) convertAddress(param interface{}) (eCommon.Address, error
 	case string:
 		addr, err := types.NewAddress(v)
 		if err != nil {
-			return eCommon.Address{}, fmt.Errorf("invalid address string: %v", err)
+			return eCommon.Address{}, fmt.Errorf("invalid address string: %w", err)
 		}
 		decoded = addr.BytesEVM()
 	case []byte:
 		addr, err := types.NewAddressFromBytes(v)
 		if err != nil {
-			return eCommon.Address{}, fmt.Errorf("invalid address bytes: %v", err)
+			return eCommon.Address{}, fmt.Errorf("invalid address bytes: %w", err)
 		}
 		decoded = addr.BytesEVM()
 	case eCommon.Address:
@@ -297,7 +297,7 @@ func (p *ABIProcessor) convertArrayParameter(param interface{}, baseType string)
 	if jsonStr, ok := param.(string); ok {
 		var jsonArray []interface{}
 		if err := json.Unmarshal([]byte(jsonStr), &jsonArray); err != nil {
-			return nil, fmt.Errorf("failed to parse array JSON: %v", err)
+			return nil, fmt.Errorf("failed to parse array JSON: %w", err)
 		}
 		return p.convertArrayElements(jsonArray, baseType)
 	}
@@ -332,7 +332,7 @@ func (p *ABIProcessor) convertArrayElements(elements []interface{}, baseType str
 		for i, elem := range elements {
 			addr, err := p.convertAddress(elem)
 			if err != nil {
-				return nil, fmt.Errorf("invalid address at index %d: %v", i, err)
+				return nil, fmt.Errorf("invalid address at index %d: %w", i, err)
 			}
 			addresses[i] = addr
 		}
@@ -353,7 +353,7 @@ func (p *ABIProcessor) convertArrayElements(elements []interface{}, baseType str
 		for i, elem := range elements {
 			b, err := p.convertBool(elem)
 			if err != nil {
-				return nil, fmt.Errorf("invalid bool at index %d: %v", i, err)
+				return nil, fmt.Errorf("invalid bool at index %d: %w", i, err)
 			}
 			bools[i] = b
 		}
@@ -364,7 +364,7 @@ func (p *ABIProcessor) convertArrayElements(elements []interface{}, baseType str
 		for i, elem := range elements {
 			s, err := p.convertString(elem)
 			if err != nil {
-				return nil, fmt.Errorf("invalid string at index %d: %v", i, err)
+				return nil, fmt.Errorf("invalid string at index %d: %w", i, err)
 			}
 			strings[i] = s
 		}
