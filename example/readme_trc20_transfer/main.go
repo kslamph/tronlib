@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"log"
+	"os"
 
 	"github.com/kslamph/tronlib/pkg/client"
 	"github.com/kslamph/tronlib/pkg/signer"
@@ -13,19 +14,39 @@ import (
 )
 
 func main() {
-	cli, _ := client.NewClient("grpc://grpc.nile.trongrid.io:50051")
+	cli, err := client.NewClient("grpc://grpc.nile.trongrid.io:50051")
+	if err != nil {
+		log.Fatal(err)
+	}
 	defer cli.Close()
 
-	signer, _ := signer.NewPrivateKeySigner("69004ce41c53bcddab3f74d5d358d0b5099e0d536e72c9b551b1420080296f21")
+	keyStr := os.Getenv("NILE_TEST_KEY1")
+	if keyStr == "" {
+		log.Fatal("set NILE_TEST_KEY1 (see integration_test/test.env)")
+	}
+	signer, err := signer.NewPrivateKeySigner(keyStr)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// USDT contract address on mainnet
-	token, _ := types.NewAddress("TWRvzd6FQcsyp7hwCtttjZGpU1kfvVEtNK")
-	to, _ := types.NewAddress("TBkfmcE7pM8cwxEhATtkMFwAf1FeQcwY9x")
+	token, err := types.NewAddress("TWRvzd6FQcsyp7hwCtttjZGpU1kfvVEtNK")
+	if err != nil {
+		log.Fatal(err)
+	}
+	to, err := types.NewAddress("TBkfmcE7pM8cwxEhATtkMFwAf1FeQcwY9x")
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// Transfer 10 USDT
 	amount := decimal.NewFromInt(10)
 
-	tx, err := cli.TRC20(token).Transfer(context.Background(), signer.Address(), to, amount)
+	trc20Mgr, err := cli.TRC20Manager(token)
+	if err != nil {
+		log.Fatal(err)
+	}
+	tx, err := trc20Mgr.Transfer(context.Background(), signer.Address(), to, amount)
 	if err != nil {
 		log.Fatal(err)
 	}

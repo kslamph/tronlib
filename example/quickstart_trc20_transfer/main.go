@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/kslamph/tronlib/pkg/client"
 	"github.com/kslamph/tronlib/pkg/signer"
@@ -21,7 +22,11 @@ func main() {
 	}
 	defer cli.Close()
 
-	signer, err := signer.NewPrivateKeySigner("69004ce41c53bcddab3f74d5d358d0b5099e0d536e72c9b551b1420080296f21")
+	keyStr := os.Getenv("NILE_TEST_KEY1")
+	if keyStr == "" {
+		log.Fatal("set NILE_TEST_KEY1 (see integration_test/test.env)")
+	}
+	signer, err := signer.NewPrivateKeySigner(keyStr)
 	if err != nil {
 		log.Fatalf("Invalid private key: %v", err)
 	}
@@ -31,9 +36,9 @@ func main() {
 
 	// Create TRC20 manager for test TRC20 token
 	usdtAddr, _ := types.NewAddress("TWRvzd6FQcsyp7hwCtttjZGpU1kfvVEtNK")
-	trc20Mgr := cli.TRC20(usdtAddr)
-	if trc20Mgr == nil {
-		log.Fatal("Failed to create TRC20 manager")
+	trc20Mgr, err := cli.TRC20Manager(usdtAddr)
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	// Check balance
@@ -45,7 +50,10 @@ func main() {
 	fmt.Printf("USDT Balance: %s\n", balance.String())
 
 	// Transfer
-	recipient, _ := types.NewAddress("TBkfmcE7pM8cwxEhATtkMFwAf1FeQcwY9x")
+	recipient, err := types.NewAddress("TBkfmcE7pM8cwxEhATtkMFwAf1FeQcwY9x")
+	if err != nil {
+		log.Fatalf("Invalid recipient address: %v", err)
+	}
 	amount := decimal.NewFromFloat(10.5)
 
 	tx, err := trc20Mgr.Transfer(ctx, from, recipient, amount)

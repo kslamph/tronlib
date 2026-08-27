@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/kslamph/tronlib/pkg/client"
 	"github.com/kslamph/tronlib/pkg/signer"
@@ -22,13 +23,20 @@ func main() {
 	}
 	defer cli.Close()
 
-	// Create two private key signers for multi-signature
-	key1, err := signer.NewPrivateKeySigner("dbd76c6e1f8488b6298b4a89699c63109e609e815b5c05575e4a09470a07f374") // Example private key 1
+	key1Str := os.Getenv("NILE_TEST_KEY1")
+	if key1Str == "" {
+		log.Fatal("set NILE_TEST_KEY1 (see integration_test/test.env)")
+	}
+	key1, err := signer.NewPrivateKeySigner(key1Str)
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	key2, err := signer.NewPrivateKeySigner("a392604efc3a29f1d2e5f5a6c4c1c2b3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9") // Example private key 2
+	// Use NILE_TEST_KEY2 for second signer if available, otherwise use same key
+	key2Str := os.Getenv("NILE_TEST_KEY2")
+	if key2Str == "" {
+		key2Str = key1Str
+	}
+	key2, err := signer.NewPrivateKeySigner(key2Str)
 	if err != nil {
 		log.Fatal(err)
 	}

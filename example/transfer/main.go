@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/kslamph/tronlib/pkg/client"
 	"github.com/kslamph/tronlib/pkg/signer"
@@ -11,11 +12,24 @@ import (
 )
 
 func main() {
-	cli, _ := client.NewClient("grpc://grpc.nile.trongrid.io:50051")
+	cli, err := client.NewClient("grpc://grpc.nile.trongrid.io:50051")
+	if err != nil {
+		log.Fatal(err)
+	}
 	defer cli.Close()
-	key1, _ := signer.NewPrivateKeySigner("69004ce41c53bcddab3f74d5d358d0b5099e0d536e72c9b551b1420080296f21")
+	key1Str := os.Getenv("NILE_TEST_KEY1")
+	if key1Str == "" {
+		log.Fatal("set NILE_TEST_KEY1 (see integration_test/test.env)")
+	}
+	key1, err := signer.NewPrivateKeySigner(key1Str)
+	if err != nil {
+		log.Fatal(err)
+	}
 	from := key1.Address()
-	to := types.MustNewAddressFromBase58("TBkfmcE7pM8cwxEhATtkMFwAf1FeQcwY9x")
+	to, err := types.NewAddressFromBase58("TBkfmcE7pM8cwxEhATtkMFwAf1FeQcwY9x")
+	if err != nil {
+		log.Fatal(err)
+	}
 	tx, err := cli.Account().TransferTRX(context.Background(), from, to, 1000000)
 	if err != nil {
 		log.Fatal(err)

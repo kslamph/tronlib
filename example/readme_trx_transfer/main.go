@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/kslamph/tronlib/pkg/client"
 	"github.com/kslamph/tronlib/pkg/signer"
@@ -21,14 +22,21 @@ func main() {
 	defer cli.Close()
 
 	// Create signer from private key
-	signer, err := signer.NewPrivateKeySigner("69004ce41c53bcddab3f74d5d358d0b5099e0d536e72c9b551b1420080296f21")
+	keyStr := os.Getenv("NILE_TEST_KEY1")
+	if keyStr == "" {
+		log.Fatal("set NILE_TEST_KEY1 (see integration_test/test.env)")
+	}
+	signer, err := signer.NewPrivateKeySigner(keyStr)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// Define addresses
 	from := signer.Address()
-	to, _ := types.NewAddress("TBkfmcE7pM8cwxEhATtkMFwAf1FeQcwY9x")
+	to, err := types.NewAddress("TBkfmcE7pM8cwxEhATtkMFwAf1FeQcwY9x")
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// Transfer 1 TRX (1,000,000 SUN)
 	tx, err := cli.Account().TransferTRX(context.Background(), from, to, 1_000_000)

@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/kslamph/tronlib/pkg/client"
@@ -22,9 +23,11 @@ func main() {
 	}
 	defer cli.Close()
 
-	// Create signer
-	privateKey := "69004ce41c53bcddab3f74d5d358d0b5099e0d536e72c9b551b1420080296f21"
-	signer, err := signer.NewPrivateKeySigner(privateKey)
+	keyStr := os.Getenv("NILE_TEST_KEY1")
+	if keyStr == "" {
+		log.Fatal("set NILE_TEST_KEY1 (see integration_test/test.env)")
+	}
+	signer, err := signer.NewPrivateKeySigner(keyStr)
 	if err != nil {
 		log.Fatalf("Invalid private key: %v", err)
 	}
@@ -48,7 +51,10 @@ func main() {
 	}
 
 	// Transfer setup
-	to, _ := types.NewAddress("TBkfmcE7pM8cwxEhATtkMFwAf1FeQcwY9x")
+	to, err := types.NewAddress("TBkfmcE7pM8cwxEhATtkMFwAf1FeQcwY9x")
+	if err != nil {
+		log.Fatal(err)
+	}
 	transferAmount := int64(1_000_000) // 1 TRX
 
 	// Build and send transaction

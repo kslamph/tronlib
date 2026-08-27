@@ -1,9 +1,11 @@
 package main
 
+import "os"
+
 // Configuration and constants for shielded TRC20 operations
 var (
 	Node             = "grpc://grpc.nile.trongrid.io:50051"
-	PrivateKey       = "69004ce41c53bcddab3f74d5d358d0b5099e0d536e72c9b551b1420080296f21"
+	PrivateKey       = os.Getenv("NILE_TEST_KEY1")
 	TokenAddress     = "TWRvzd6FQcsyp7hwCtttjZGpU1kfvVEtNK" // SHL token on Nile
 	ShieldedContract = "TV5mhPAhsK2rXKx1FAAgz58reKwW6zSTp2" // Nile Testnet shielded TRC20 contract
 	ScalingFactor    = int64(1)                             // Scaling factor for this contract

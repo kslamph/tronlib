@@ -26,9 +26,9 @@ func main() {
 	}
 
 	// Create TRC20 manager
-	trc20Mgr := cli.TRC20(token)
-	if trc20Mgr == nil {
-		log.Fatal("Failed to create TRC20 manager")
+	trc20Mgr, err := cli.TRC20Manager(token)
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	ctx := context.Background()

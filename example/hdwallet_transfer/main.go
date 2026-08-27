@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/kslamph/tronlib/pkg/client"
@@ -20,8 +21,10 @@ func main() {
 	}
 	defer cli.Close()
 
-	// Create HD wallet signer from mnemonic
-	mnemonic := "real payment expose media seed token frequent initial winter alpha glad change hen wheel cancel domain trigger upset reform equal aware mixture drill give"
+	mnemonic := os.Getenv("TRONLIB_MNEMONIC")
+	if mnemonic == "" {
+		log.Fatal("set TRONLIB_MNEMONIC (see integration_test/test.env)")
+	}
 	// Using standard BIP-44 path for TRON: m/44'/195'/0'/0/0
 	path := "m/44'/195'/0'/0/0"
 	signer, err := signer.NewHDWalletSigner(mnemonic, "", path)

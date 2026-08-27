@@ -7,6 +7,8 @@ import (
 	"log"
 	"math/big"
 	"os"
+	"path/filepath"
+	"runtime"
 	"sort"
 	"time"
 
@@ -20,6 +22,23 @@ import (
 	"github.com/shopspring/decimal"
 )
 
+// shieldedABI reads the ShieldedTRC20 ABI from the canonical build output
+// under cmd/setup_nile_testnet, resolved relative to this source file so it
+// works regardless of the working directory (go run, go build, tests).
+func shieldedABI() (string, error) {
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		return "", fmt.Errorf("cannot locate source path for shielded ABI")
+	}
+	abiPath := filepath.Join(filepath.Dir(thisFile), "..", "..",
+		"cmd", "setup_nile_testnet", "test_contract", "build", "ShieldedTRC20.abi")
+	abiBytes, err := os.ReadFile(abiPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read shielded contract ABI: %w", err)
+	}
+	return string(abiBytes), nil
+}
+
 // handleApprovalIfNeeded handles the TRC20 approval process if needed
 func handleApprovalIfNeeded(cli *client.Client, ctx context.Context, key *signer.PrivateKeySigner, tokenAddr, shieldedAddr *types.Address) error {
 	if CurrentMode == ModeBurnOnly {
@@ -28,9 +47,9 @@ func handleApprovalIfNeeded(cli *client.Client, ctx context.Context, key *signer
 	}
 
 	// Create TRC20 manager
-	trc20Mgr := cli.TRC20(tokenAddr)
-	if trc20Mgr == nil {
-		return fmt.Errorf("failed to create TRC20 manager")
+	trc20Mgr, err := cli.TRC20Manager(tokenAddr)
+	if err != nil {
+		return fmt.Errorf("failed to create TRC20 manager: %w", err)
 	}
 
 	from := key.Address()
@@ -275,11 +294,10 @@ func selectNoteForBurning(cli *client.Client, ctx context.Context, key *signer.P
 
 	// Try each suitable note until we find one with a valid merkle path
 	// Load the ABI for the shielded contract
-	abiBytes, err := os.ReadFile("/home/kslam/goproj/tronlib/cmd/setup_nile_testnet/test_contract/build/ShieldedTRC20.abi")
+	abiString, err := shieldedABI()
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to read shielded contract ABI: %v", err)
+		return nil, nil, nil, err
 	}
-	abiString := string(abiBytes)
 
 	// Create a smart contract instance
 	contractInstance, err := smartcontract.NewInstance(cli, shieldedAddr, abiString)
@@ -603,11 +621,10 @@ func handleBurnTransaction(cli *client.Client, ctx context.Context, key *signer.
 	fmt.Println("\nExecuting burn transaction using smartcontract package...")
 
 	// Load the ABI for the shielded contract
-	abiBytes, err := os.ReadFile("/home/kslam/goproj/tronlib/cmd/setup_nile_testnet/test_contract/build/ShieldedTRC20.abi")
+	abiString, err := shieldedABI()
 	if err != nil {
-		return nil, fmt.Errorf("failed to read shielded contract ABI: %v", err)
+		return nil, err
 	}
-	abiString := string(abiBytes)
 
 	// Create a smart contract instance
 	contractInstance, err := smartcontract.NewInstance(cli, shieldedAddr, abiString)
@@ -688,9 +705,9 @@ func handleBurnTransaction(cli *client.Client, ctx context.Context, key *signer.
 // verifyBurnResult checks if the burn was successful by checking balance changes
 func verifyBurnResult(cli *client.Client, ctx context.Context, key *signer.PrivateKeySigner, tokenAddr *types.Address, initialBalance decimal.Decimal) error {
 	// Create TRC20 manager to check balance
-	trc20Mgr := cli.TRC20(tokenAddr)
-	if trc20Mgr == nil {
-		return fmt.Errorf("failed to create TRC20 manager")
+	trc20Mgr, err := cli.TRC20Manager(tokenAddr)
+	if err != nil {
+		return fmt.Errorf("failed to create TRC20 manager: %w", err)
 	}
 
 	from := key.Address()

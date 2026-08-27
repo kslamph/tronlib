@@ -49,9 +49,9 @@ func main() {
 	}
 
 	// Get initial balance for verification
-	trc20Mgr := cli.TRC20(tokenAddr)
-	if trc20Mgr == nil {
-		log.Fatal("Failed to create TRC20 manager")
+	trc20Mgr, err := cli.TRC20Manager(tokenAddr)
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	initialBalance, err := trc20Mgr.BalanceOf(ctx, from)
