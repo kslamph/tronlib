@@ -23,6 +23,15 @@ jobs:
     - name: Run unit tests with coverage (parallel)
       run: go test -short -coverprofile=unit_coverage.txt -coverpkg=./pkg/... -covermode=atomic ./pkg/...
 
+    - name: Enforce coverage floor (80%)
+      run: |
+        total=$(go tool cover -func=unit_coverage.txt | grep '^total:' | awk '{print substr($NF, 1, length($NF)-1)}')
+        echo "Total statement coverage: ${total}%"
+        awk -v c="$total" 'BEGIN { exit !(c >= 80) }' || {
+          echo "::error::Total coverage ${total}% is below the 80% floor (CODING_STANDARDS.md §6.5)"
+          exit 1
+        }
+
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v5
       with:
