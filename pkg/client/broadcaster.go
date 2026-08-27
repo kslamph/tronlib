@@ -72,7 +72,6 @@ type BroadcastResult struct {
 	EnergyUsage int64                       `json:"energyUsed,omitempty"`
 	NetUsage    int64                       `json:"netUsage,omitempty"`
 	Logs        []*core.TransactionInfo_Log `json:"logs,omitempty"`
-	// DebugExt   *api.TransactionExtention   `json:"debugExt,omitempty"`
 }
 
 // Simulate performs a read-only execution of a single-contract transaction and

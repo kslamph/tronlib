@@ -30,6 +30,9 @@ func GetTransactionID(tx *core.Transaction) []byte {
 	return hasher.Sum(nil)
 }
 
+// ExtractSigners returns the addresses whose signatures are attached to the
+// transaction, or nil for a nil transaction. It queries the network for
+// permission details when the transaction uses multi-signature permissions.
 func ExtractSigners(tx *core.Transaction) ([]*types.Address, error) {
 	if tx == nil {
 		return nil, nil

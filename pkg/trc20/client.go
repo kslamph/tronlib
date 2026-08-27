@@ -232,6 +232,8 @@ func (t *TRC20Manager) Decimals(ctx context.Context) (uint8, error) {
 	return decimalsResult, nil
 }
 
+// TotalSupply queries the network for the token's total supply, returned as
+// a decimal with the token's precision applied.
 func (t *TRC20Manager) TotalSupply(ctx context.Context) (decimal.Decimal, error) {
 	decimals, err := t.Decimals(ctx)
 	if err != nil {

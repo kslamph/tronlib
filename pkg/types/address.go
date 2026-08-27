@@ -13,7 +13,9 @@ import (
 )
 
 const (
-	BlackHoleAddress = "T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb" // Black hole address prefix
+	// BlackHoleAddress is the TRON black hole (burn) address; funds sent
+	// here are permanently destroyed.
+	BlackHoleAddress = "T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb"
 )
 
 // Address represents a TRON address that can be stored in different formats.
@@ -341,9 +343,8 @@ func (a *Address) EVMAddress() eCommon.Address {
 	return eCommon.BytesToAddress(a.BytesEVM())
 }
 
+// NewAddressFromEVM converts a 20-byte Ethereum address into a TRON address
+// by prepending the 0x41 TRON prefix.
 func NewAddressFromEVM(evmAddr eCommon.Address) (*Address, error) {
-
 	return NewAddressFromBytes(evmAddr.Bytes())
-	// Convert EVM address to TRON address format
-
 }

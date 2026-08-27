@@ -439,39 +439,5 @@ func (i *Instance) DecodeInput(data []byte) (*utils.DecodedInput, error) {
 	return i.abiProcessor.DecodeInputData(data, i.ABI)
 }
 
-// DecodeEventLog decodes a single event log using the contract ABI.
-// func (i *Instance) DecodeEventLog(topics [][]byte, data []byte) (*utils.DecodedEvent, error) {
-// 	// Convert ABI entries to eventdecoder format
-// 	if err := eventdecoder.RegisterABIEntries(i.ABI.Entrys); err != nil {
-// 		return nil, fmt.Errorf("failed to register ABI entries: %v", err)
-// 	}
-
-// 	// Use eventdecoder for decoding
-// 	event, err := eventdecoder.DecodeLog(topics, data)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	// Convert eventdecoder.DecodedEvent to utils.DecodedEvent for backward compatibility
-// 	parameters := make([]utils.DecodedEventParameter, len(event.Parameters))
-// 	for i, param := range event.Parameters {
-// 		parameters[i] = utils.DecodedEventParameter{
-// 			Name:    param.Name,
-// 			Type:    param.Type,
-// 			Value:   param.Value,
-// 			Indexed: param.Indexed,
-// 		}
-// 	}
-
-// 	return &utils.DecodedEvent{
-// 		EventName:  event.EventName,
-// 		Parameters: parameters,
-// 		Contract:   event.Contract,
-// 	}, nil
-// }
-
-// // DecodeEventSignature decodes 4- or 32-byte event signature to the canonical
-// // signature string if known.
-// func (i *Instance) DecodeEventSignature(signature []byte) (string, error) {
-// 	return i.abiProcessor.DecodeEventSignature(signature)
-// }
+// DecodeEventLog and DecodeEventSignature were removed:
+// use pkg/eventdecoder (DecodeLog / DecodeLogs) for event decoding.

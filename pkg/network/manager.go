@@ -59,6 +59,8 @@ func (m *NetworkManager) GetBlockByNumber(ctx context.Context, blockNumber int64
 	})
 }
 
+// GetTransactionInfoByBlockNum queries the network for all transaction info
+// records in the given block. It queries the network.
 func (m *NetworkManager) GetTransactionInfoByBlockNum(ctx context.Context, blockNumber int64) (*api.TransactionInfoList, error) {
 	if blockNumber < 0 {
 		return nil, fmt.Errorf("%w: block number must be non-negative", types.ErrInvalidParameter)
