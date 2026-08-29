@@ -4,3 +4,6 @@ reports/
 coverage.out
 coverage.txt
 cmd/setup_nile_testnet/test.env
+
+# Shielded example key material: secrets, never tracked (see CODING_STANDARDS.md §8).
+example/shielded/shielded_keys.json

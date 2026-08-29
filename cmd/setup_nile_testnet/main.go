@@ -38,14 +38,14 @@ const (
 
 // SetupConfig holds the configuration for the setup process
 type SetupConfig struct {
-	NodeURL                      string
-	Key1PrivateKey               string
-	Key1Address                  *types.Address
-	ProjectRoot                  string
-	ContractBuildDir             string
-	TestEnvFiles                 []string
-	DryRun                       bool
-	ShieldedTRC20ContractAddress *types.Address
+	NodeURL                  string
+	Key1PrivateKey           string
+	Key1Address              *types.Address
+	ProjectRoot              string
+	ContractBuildDir         string
+	TestEnvFiles             []string
+	DryRun                   bool
+	ShieldedBindTokenAddress *types.Address
 }
 
 // ContractInfo holds information about a contract to be deployed
@@ -287,8 +287,8 @@ func (s *NileTestnetSetup) prepareContractParameters() ([]ContractInfo, error) {
 			ABIFile: "ShieldedTRC20.abi",
 			BinFile: "ShieldedTRC20.bin",
 			ConstructorParams: []interface{}{
-				s.config.ShieldedTRC20ContractAddress, // trc20ContractAddress
-				big.NewInt(0),                         // scalingFactorExponent
+				s.config.ShieldedBindTokenAddress, // trc20ContractAddress: the TRC-20 token to bind, NOT a shielded contract
+				big.NewInt(0),                     // scalingFactorExponent -> scalingFactor == 10**0 == 1
 			},
 			EnvVarName: "SHIELDEDTRC20_CONTRACT_ADDRESS",
 		},
@@ -512,24 +512,27 @@ func loadSetupConfig() (SetupConfig, error) {
 		return SetupConfig{}, fmt.Errorf("failed to create signer: %w", err)
 	}
 
-	// SHIELDEDTRC20_CONTRACT_ADDRESS overrides the default deployed address.
-	shieldedAddrStr := os.Getenv("SHIELDEDTRC20_CONTRACT_ADDRESS")
-	if shieldedAddrStr == "" {
-		shieldedAddrStr = "TWRvzd6FQcsyp7hwCtttjZGpU1kfvVEtNK" // known deployment on Nile
+	// The TRC-20 token the ShieldedTRC20 contract binds to in its constructor.
+	// This is deliberately *not* SHIELDEDTRC20_CONTRACT_ADDRESS: the deploy loop
+	// writes that key with the newly deployed shielded contract, so reading the
+	// bind target from it would make a second run bind the contract to itself.
+	bindAddrStr := envOrFirst("SHIELDED_BIND_TOKEN_ADDRESS", "TRC20_CONTRACT_ADDRESS")
+	if bindAddrStr == "" {
+		bindAddrStr = "TWRvzd6FQcsyp7hwCtttjZGpU1kfvVEtNK" // known TRC-20 deployment on Nile
 	}
-	shieldedTRC20ContractAddress, err := types.NewAddress(shieldedAddrStr)
+	shieldedBindTokenAddress, err := types.NewAddress(bindAddrStr)
 	if err != nil {
-		return SetupConfig{}, fmt.Errorf("invalid SHIELDEDTRC20_CONTRACT_ADDRESS %q: %w", shieldedAddrStr, err)
+		return SetupConfig{}, fmt.Errorf("invalid shielded bind token address %q: %w", bindAddrStr, err)
 	}
 
 	config := SetupConfig{
 		NodeURL:        "grpc://grpc.nile.trongrid.io:50051",
 		Key1PrivateKey: key1PrivateKey,
 		// Convert string key1Address from env to *types.Address
-		Key1Address:                  signer.Address(),
-		ProjectRoot:                  currentFolder,
-		ContractBuildDir:             filepath.Join(currentFolder, "test_contract", "build"),
-		ShieldedTRC20ContractAddress: shieldedTRC20ContractAddress,
+		Key1Address:              signer.Address(),
+		ProjectRoot:              currentFolder,
+		ContractBuildDir:         filepath.Join(currentFolder, "test_contract", "build"),
+		ShieldedBindTokenAddress: shieldedBindTokenAddress,
 		TestEnvFiles: []string{
 			filepath.Join(currentFolder, "test.env"),
 		},
@@ -537,6 +540,17 @@ func loadSetupConfig() (SetupConfig, error) {
 	}
 
 	return config, nil
+}
+
+// envOrFirst returns the value of the first environment variable that is set and
+// non-empty, or "" when none of them are.
+func envOrFirst(keys ...string) string {
+	for _, key := range keys {
+		if v := os.Getenv(key); v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 // loadKey1FromEnv loads the Key1 private key from the test.env file

@@ -17,6 +17,7 @@ A comprehensive, production-ready Go SDK for interacting with the TRON blockchai
 - ⚡ **Performance** - Connection pooling and efficient gRPC communication
 - 🔍 **Simulation** - Test transactions before broadcasting to the network
 - 📊 **Resource Management** - Handle bandwidth and energy efficiently
+- 🛡️ **Shielded TRC-20** - Low-level wrappers plus a documented walkthrough of mint / scan / transfer / burn ([docs](docs/shielded.md))
 
 ## 🏁 Quick Start
 
@@ -142,9 +143,11 @@ Detailed documentation for each package:
 - **[Smart Contracts](docs/smartcontract.md)** - Contract deployment and interaction
 - **[Event Decoder](docs/eventdecoder.md)** - Transaction log decoding
 - **[Utils](docs/utils.md)** - ABI encoding/decoding utilities
+- **[Shielded TRC-20](docs/shielded.md)** - Sapling key hierarchy, note scanning, mint / transfer / burn, and the trust model they require
 
 ### 💡 Advanced Topics
 - **[API Reference](docs/API_REFERENCE.md)** - Complete API documentation
+- **[Shielded TRC-20 Walkthrough](example/shielded)** - Runnable five-mode tour of the shielded flow
 - **[Complete Examples](example/)** - Real-world usage examples
 - **[Integration Tests](integration_test/)** - Comprehensive test suite
 

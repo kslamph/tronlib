@@ -9,6 +9,16 @@ import (
 )
 
 // Shielded transaction related gRPC calls
+//
+// These are 1:1 wrappers with no client-side cryptography: key derivation, note
+// commitments, nullifiers and zk-proof generation all happen on the node. Get
+// the full picture, including why java-tron disables this whole group by default
+// (allowShieldedTransactionApi), in docs/shielded.md.
+//
+// Several of these calls transmit secret key material to the node inside the
+// request: anything carrying sk, ask, nsk, ovk, ivk, or the ak+nk pair that
+// derives ivk. docs/shielded.md keeps the per-RPC table and the trust model it
+// implies. Check it before pointing any of these at a node you do not run.
 
 // CreateShieldedTransaction creates a shielded transaction
 func CreateShieldedTransaction(cp ConnProvider, ctx context.Context, req *api.PrivateParameters) (*api.TransactionExtention, error) {

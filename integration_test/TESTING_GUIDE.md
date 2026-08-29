@@ -25,7 +25,14 @@ Variables:
 - `MAINNET_NODE_URL` (default `grpc://grpc.trongrid.io:50051`)
 - `NILE_NODE_URL` (default `grpc://grpc.nile.trongrid.io:50051`)
 - `NILE_TEST_KEY1`, `NILE_TEST_KEY2` (funded throwaway accounts for Nile write tests)
-- `SHIELDEDTRC20_CONTRACT_ADDRESS` (optional override of the known shielded-contract deployment)
+- `SHIELDEDTRC20_CONTRACT_ADDRESS` — written by the setup tool with the address
+  of the newly deployed ShieldedTRC20 contract.
+- `SHIELDED_BIND_TOKEN_ADDRESS` (optional) — the TRC-20 token a new
+  ShieldedTRC20 deployment binds to in its constructor. Falls back to
+  `TRC20_CONTRACT_ADDRESS`, then to the known Nile TRC-20 deployment. Kept
+  separate from the variable above on purpose: the shielded contract's
+  constructor wants a *token* address, so reusing the shielded-contract key
+  would make a second run bind the contract to itself.
 - Contract addresses populated by the setup tool (already deployed):
   - `TRC20_CONTRACT_ADDRESS`
   - `TESTCOMPREHENSIVETYPES_CONTRACT_ADDRESS`

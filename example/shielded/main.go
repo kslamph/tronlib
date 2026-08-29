@@ -1,239 +1,248 @@
+// Command shielded is a minimal, end-to-end walkthrough of TRON Shielded
+// TRC-20 using only the low-level gRPC wrappers in pkg/client/lowlevel.
+//
+// It implements exactly five operations, one per -mode:
+//
+//	walletgen  derive the full sapling key hierarchy and the ztron payment address
+//	mint       transparent TRC-20 -> shielded note      (t -> s)
+//	scan       find owned notes by IVK or OVK
+//	transfer   shielded note -> another ztron address   (s -> s)
+//	burn       shielded note -> transparent TRC-20      (s -> t)
+//
+// Read docs/shielded.md first: it explains why every step exists, how the
+// transaction is assembled, and what the trust model costs you.
+//
+// Usage:
+//
+//	go run ./example/shielded -mode=walletgen
+//	go run ./example/shielded -mode=mint     -amount=10000000
+//	go run ./example/shielded -mode=scan     -by=ivk -begin=70501000
+//	go run ./example/shielded -mode=transfer -amount=4000000 -to=ztron1...
+//	go run ./example/shielded -mode=burn     -amount=4000000
 package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
-	"log"
+	"math/big"
+	"os"
+	"sort"
 	"strings"
+	"time"
 
 	"github.com/kslamph/tronlib/pkg/client"
 	"github.com/kslamph/tronlib/pkg/signer"
 	"github.com/kslamph/tronlib/pkg/types"
-	"github.com/shopspring/decimal"
 )
 
-func main() {
-	fmt.Printf("=== Modular Shielded TRC20 Transaction Implementation (%s mode) ===\n", CurrentMode)
+// config holds every knob the example needs, populated from flags.
+type config struct {
+	mode       string
+	node       string
+	privateKey string
 
-	// Connect and setup
-	cli, err := client.NewClient(Node)
+	// token is the TRC-20 contract being shielded; shieldedContract is the
+	// ShieldedTRC20 contract bound to it at deployment time.
+	token            string
+	shieldedContract string
+
+	keyFile    string
+	showKeys   bool
+	amount     string
+	to         string
+	force      bool
+	begin      int64
+	end        int64
+	scanBy     string
+	checkSpent bool
+
+	feeLimit int64
+	timeout  time.Duration
+}
+
+func main() {
+	cfg := parseFlags()
+
+	if err := run(cfg); err != nil {
+		fmt.Fprintf(os.Stderr, "\nerror: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func parseFlags() *config {
+	c := &config{}
+
+	flag.StringVar(&c.mode, "mode", "", "operation to run: walletgen | mint | scan | transfer | burn")
+	flag.StringVar(&c.node, "node", envOr("TRON_NODE", "grpc://grpc.nile.trongrid.io:50051"),
+		"full node endpoint (grpc:// or grpcs://)")
+	flag.StringVar(&c.privateKey, "private-key", os.Getenv("NILE_TEST_KEY1"),
+		"transparent account key; pays fees and owns the TRC-20 balance")
+	flag.StringVar(&c.token, "token", envOr("SHIELDED_TOKEN", "TWRvzd6FQcsyp7hwCtttjZGpU1kfvVEtNK"),
+		"TRC-20 contract address")
+	flag.StringVar(&c.shieldedContract, "contract", envOr("SHIELDED_CONTRACT", "TV5mhPAhsK2rXKx1FAAgz58reKwW6zSTp2"),
+		"ShieldedTRC20 contract address")
+	// The default lives under tmp/ (gitignored) on purpose: a key file must
+	// never land on a path the repository tracks, or the next walletgen writes
+	// somebody's secrets straight into a commit.
+	flag.StringVar(&c.keyFile, "keyfile", envOr("SHIELDED_KEYFILE", "tmp/shielded_keys.json"),
+		"where shielded keys are persisted, relative to the directory you run from")
+	flag.BoolVar(&c.showKeys, "show-keys", false,
+		"walletgen only: print full key material instead of 4-byte fingerprints")
+
+	flag.StringVar(&c.amount, "amount", "",
+		"raw token amount in base units, i.e. exactly from_amount / to_amount (no decimal conversion)")
+	flag.StringVar(&c.to, "to", "",
+		"destination ztron payment address (transfer only)")
+
+	flag.Int64Var(&c.begin, "begin", 0, "first block to scan (default: value stored in the key file)")
+	flag.Int64Var(&c.end, "end", 0, "last block to scan (default: current head)")
+	flag.StringVar(&c.scanBy, "by", "ivk", "scan with ivk (notes you received) or ovk (notes you sent)")
+	flag.BoolVar(&c.force, "force", false, "walletgen only: replace an existing key file")
+	flag.BoolVar(&c.checkSpent, "check-spent", false,
+		"scan only: re-derive each note's nullifier and confirm its spend status on chain")
+
+	flag.Int64Var(&c.feeLimit, "fee-limit", 350_000_000, "energy fee limit in sun (350 TRX)")
+	flag.DurationVar(&c.timeout, "timeout", 5*time.Minute,
+		"overall deadline; also the receipt-wait window, so a slow block means a false negative")
+	flag.Parse()
+
+	if c.mode == "" {
+		flag.Usage()
+		fmt.Fprintln(os.Stderr, "\nerror: -mode is required (walletgen | mint | scan | transfer | burn)")
+		os.Exit(2)
+	}
+	return c
+}
+
+func envOr(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
+
+// session is the state every flow shares: the connection, the transparent
+// account that pays fees, and the parsed shielded contract address.
+//
+// The context is deliberately not part of it (CODING_STANDARDS.md §2): it is
+// passed to each call so cancellation stays visible at the call site.
+type session struct {
+	cli      *client.Client
+	cfg      *config
+	acct     *signer.PrivateKeySigner // nil for walletgen and scan
+	contract *types.Address
+}
+
+// flows maps -mode to its handler. A map keeps main.go's dispatch flat; the
+// alternative was a switch with five near-identical argument-parsing arms.
+var flows = map[string]func(context.Context, *session) error{
+	"walletgen": func(ctx context.Context, s *session) error { return runWalletGen(ctx, s) },
+	"mint":      func(ctx context.Context, s *session) error { return runMint(ctx, s) },
+	"scan":      func(ctx context.Context, s *session) error { return runScan(ctx, s) },
+	"transfer":  func(ctx context.Context, s *session) error { return runTransfer(ctx, s) },
+	"burn":      func(ctx context.Context, s *session) error { return runBurn(ctx, s) },
+}
+
+// modeNames returns the accepted -mode values in a stable order.
+func modeNames() []string {
+	names := make([]string, 0, len(flows))
+	for name := range flows {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// run opens the shared state, then dispatches to the handler for -mode.
+//
+// Note there is no client-side cryptography here on purpose: key derivation,
+// note commitments, nullifiers and zk-proofs are all produced by the node.
+// See the trust warning in docs/shielded.md.
+func run(c *config) error {
+	handler, ok := flows[c.mode]
+	if !ok {
+		return fmt.Errorf("unknown -mode %q: want one of %s", c.mode, strings.Join(modeNames(), ", "))
+	}
+
+	cli, err := client.NewClient(c.node)
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("connect to %s: %w", c.node, err)
 	}
 	defer cli.Close()
 
-	key, err := signer.NewPrivateKeySigner(PrivateKey)
+	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
+	defer cancel()
+
+	s, err := newSession(cli, c)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
-	from := key.Address()
-	ctx := context.Background()
+	fmt.Printf("node:              %s\n", c.node)
+	fmt.Printf("shielded contract: %s\n", s.contract.Base58())
 
-	// Get account information
-	myAccount, err := cli.Account().GetAccount(ctx, from)
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Printf("Account: %+v\n", myAccount)
-
-	// Convert addresses
-	tokenAddr, err := types.NewAddressFromBase58(TokenAddress)
-	if err != nil {
-		log.Fatal("Failed to parse token address:", err)
-	}
-
-	shieldedAddr, err := types.NewAddressFromBase58(ShieldedContract)
-	if err != nil {
-		log.Fatal("Failed to parse shielded contract address:", err)
-	}
-
-	// Get initial balance for verification
-	trc20Mgr, err := cli.TRC20Manager(tokenAddr)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	initialBalance, err := trc20Mgr.BalanceOf(ctx, from)
-	if err != nil {
-		log.Fatal("Failed to check initial balance:", err)
-	}
-	fmt.Printf("Initial transparent balance: %s\n", initialBalance.String())
-
-	// Step 1: Load or generate shielded keys
-	fmt.Println("\n=== Step 1: Key Management ===")
-	keys, sk, ask, nsk, ovk, ak, nk, ivk, d, paymentAddress, err := loadOrGenerateKeys(cli, ctx)
-	if err != nil {
-		log.Fatal("Failed to load/generate keys:", err)
-	}
-
-	// Validate and verify keys
-	err = validateAndVerifyKeys(cli, ctx, ivk, ak, nk)
-	if err != nil {
-		log.Fatal("Key validation failed:", err)
-	}
-
-	// Use variables to avoid "declared and not used" errors
-	_ = sk
-	_ = d
-	_ = keys
-
-	fmt.Printf("Using shielded keys:\n")
-	fmt.Printf("  Payment Address: %s\n", paymentAddress)
-	fmt.Printf("  Keys validated and ready for use\n")
-
-	// Step 2: Handle TRC20 approval if needed
-	fmt.Println("\n=== Step 2: TRC20 Approval ===")
-	err = handleApprovalIfNeeded(cli, ctx, key, tokenAddr, shieldedAddr)
-	if err != nil {
-		log.Fatal("Failed to handle approval:", err)
-	}
-
-	// Step 3: Handle mint transaction
-	fmt.Println("\n=== Step 3: Mint Transaction ===")
-	mintResult, err := handleMintTransaction(cli, ctx, key, shieldedAddr, ovk, paymentAddress)
-	if err != nil {
-		log.Fatal("Failed to handle mint transaction:", err)
-	}
-
-	if mintResult != nil {
-		fmt.Printf("Mint transaction successful: %s\n", mintResult.TxID)
-	}
-
-	// Step 4: Scan for shielded notes
-	fmt.Println("\n=== Step 4: Note Scanning ===")
-	notes, err := scanShieldedNotes(cli, ctx, shieldedAddr, ivk, ak, nk, ovk)
-	if err != nil {
-		log.Fatal("Failed to scan for notes:", err)
-	}
-
-	if notes == nil || len(notes.GetNoteTxs()) == 0 {
-		fmt.Println("⚠️  No shielded notes found")
-		if CurrentMode == ModeBurnOnly {
-			fmt.Println("Running in burn-only mode but no notes available to burn")
-			fmt.Println("Consider running in full flow mode first to create notes")
-		}
-		printSummary(mintResult, nil, initialBalance, decimal.Zero)
-		return
-	}
-
-	fmt.Printf("✅ Found %d shielded notes for operations\n", len(notes.GetNoteTxs()))
-
-	// Step 5: Handle burn transaction
-	fmt.Println("\n=== Step 5: Burn Transaction ===")
-	burnResult, err := handleBurnTransaction(cli, ctx, key, shieldedAddr, notes, ask, nsk, ovk)
-	if err != nil {
-		log.Printf("Failed to execute burn transaction: %v", err)
-		fmt.Println("\n💡 TIP: If you see 'note not yet processed in merkle tree' errors, try running the burn operation again in a few minutes.")
-		fmt.Println("   Notes need time to be fully confirmed and incorporated into the merkle tree before they can be spent.")
-		printSummary(mintResult, nil, initialBalance, decimal.Zero)
-		return
-	}
-
-	if burnResult != nil {
-		fmt.Printf("✅ Burn Transaction:\n")
-		fmt.Printf("   TX ID: %s\n", burnResult.TxID)
-		fmt.Printf("   Energy Used: %d\n", burnResult.EnergyUsage)
-		fmt.Printf("   Net Usage: %d\n", burnResult.NetUsage)
-		fmt.Printf("   Amount: %s (scaled: %s)\n", BurnAmount, "calculated")
-	} else if CurrentMode == ModeTestOnly {
-		fmt.Printf("🧪 Burn Transaction: Test mode (not broadcasted)\n")
-	} else {
-		fmt.Printf("❌ Burn Transaction: Failed or not executed\n")
-		fmt.Printf("   🔍 Common causes:\n")
-		fmt.Printf("      • Notes not yet confirmed in merkle tree\n")
-		fmt.Printf("      • Insufficient note value for burn amount\n")
-		fmt.Printf("      • Network connectivity issues\n")
-		fmt.Printf("   💡 Try again in a few minutes for confirmation issues\n")
-	}
-
-	// Step 6: Verify burn result
-	fmt.Println("\n=== Step 6: Result Verification ===")
-	err = verifyBurnResult(cli, ctx, key, tokenAddr, initialBalance)
-	if err != nil {
-		log.Printf("Failed to verify burn result: %v", err)
-	}
-
-	// Final summary
-	printSummary(mintResult, burnResult, initialBalance, decimal.Zero)
+	return handler(ctx, s)
 }
 
-// printSummary prints a comprehensive summary of the transaction flow
-func printSummary(mintResult, burnResult *client.BroadcastResult, initialBalance, finalBalance decimal.Decimal) {
-	fmt.Println("\n" + strings.Repeat("=", 60))
-	fmt.Println("                    TRANSACTION SUMMARY")
-	fmt.Println(strings.Repeat("=", 60))
+// newSession resolves the state every flow needs. The transparent account is
+// only used to pay for transactions and to own the TRC-20 balance; it is not
+// part of the shielded key hierarchy, so modes that never broadcast (walletgen,
+// scan) run without one.
+func newSession(cli *client.Client, c *config) (*session, error) {
+	s := &session{cli: cli, cfg: c}
 
-	fmt.Printf("Operation Mode: %s\n", CurrentMode)
-	fmt.Printf("Network: %s\n", Node)
-	fmt.Printf("Token Address: %s\n", TokenAddress)
-	fmt.Printf("Shielded Contract: %s\n", ShieldedContract)
-
-	fmt.Println("\n--- Transaction Results ---")
-	if mintResult != nil {
-		fmt.Printf("✅ Mint Transaction:\n")
-		fmt.Printf("   TX ID: %s\n", mintResult.TxID)
-		fmt.Printf("   Energy Used: %d\n", mintResult.EnergyUsage)
-		fmt.Printf("   Net Usage: %d\n", mintResult.NetUsage)
-		fmt.Printf("   Amount: %s (scaled: %s)\n", MintAmount, "calculated")
-	} else if CurrentMode == ModeBurnOnly {
-		fmt.Printf("⏭️  Mint Transaction: Skipped (burn-only mode)\n")
-	} else if CurrentMode == ModeTestOnly {
-		fmt.Printf("🧪 Mint Transaction: Test mode (not broadcasted)\n")
-	} else {
-		fmt.Printf("❌ Mint Transaction: Failed or not executed\n")
+	if c.privateKey != "" {
+		acct, err := signer.NewPrivateKeySigner(c.privateKey)
+		if err != nil {
+			return nil, fmt.Errorf("parse transparent private key: %w", err)
+		}
+		s.acct = acct
+		fmt.Printf("transparent account: %s\n", acct.Address().Base58())
 	}
 
-	if burnResult != nil {
-		fmt.Printf("✅ Burn Transaction:\n")
-		fmt.Printf("   TX ID: %s\n", burnResult.TxID)
-		fmt.Printf("   Energy Used: %d\n", burnResult.EnergyUsage)
-		fmt.Printf("   Net Usage: %d\n", burnResult.NetUsage)
-		fmt.Printf("   Amount: %s (scaled: %s)\n", BurnAmount, "calculated")
-	} else if CurrentMode == ModeTestOnly {
-		fmt.Printf("🧪 Burn Transaction: Test mode (not broadcasted)\n")
-	} else {
-		fmt.Printf("❌ Burn Transaction: Failed or not executed\n")
+	contract, err := types.NewAddressFromBase58(c.shieldedContract)
+	if err != nil {
+		return nil, fmt.Errorf("parse shielded contract address %q: %w", c.shieldedContract, err)
 	}
-
-	fmt.Println("\n--- Balance Changes ---")
-	fmt.Printf("Initial Balance: %s\n", initialBalance.String())
-	if !finalBalance.IsZero() {
-		fmt.Printf("Final Balance: %s\n", finalBalance.String())
-		fmt.Printf("Change: %s\n", finalBalance.Sub(initialBalance).String())
-	} else {
-		fmt.Printf("Final Balance: Not checked\n")
+	if len(contract.Bytes()) != 21 {
+		return nil, fmt.Errorf("shielded contract address %q decodes to %d bytes, want 21",
+			c.shieldedContract, len(contract.Bytes()))
 	}
+	s.contract = contract
+	return s, nil
+}
 
-	fmt.Println("\n--- Technical Details ---")
-	fmt.Printf("Scaling Factor: %d\n", ScalingFactor)
-	fmt.Printf("Begin Block: %d\n", BeginBlock)
-	fmt.Printf("Key File: %s\n", KeyFile)
+// owner is the transparent account address. Callers must have gone through
+// needAccount first, which is what makes the nil check there load-bearing.
+func (s *session) owner() *types.Address { return s.acct.Address() }
 
-	fmt.Println("\n--- Key Features Demonstrated ---")
-	fmt.Println("✅ Modular architecture with separate concerns")
-	fmt.Println("✅ Persistent key management")
-	fmt.Println("✅ Historical block scanning")
-	fmt.Println("✅ IVK scanning with fallback to OVK")
-	fmt.Println("✅ Merkle path validation for note spending")
-	fmt.Println("✅ Multiple operation modes (full/burn-only/test)")
-	fmt.Println("✅ Comprehensive error handling")
-	fmt.Println("✅ Balance verification")
-	fmt.Println("✅ Note confirmation handling")
-
-	if CurrentMode == ModeTestOnly {
-		fmt.Println("\n🧪 TEST MODE ACTIVE - No actual transactions were broadcast")
-		fmt.Println("   All transaction creation and validation completed successfully")
-		fmt.Println("   Ready for production execution")
+// needAccount fails with an actionable message when a mode that broadcasts
+// was started without a transparent key to pay fees with.
+func (s *session) needAccount(why string) error {
+	if s.acct == nil {
+		return fmt.Errorf("-private-key (or NILE_TEST_KEY1) is required for %s", why)
 	}
+	return nil
+}
 
-	if CurrentMode == ModeBurnOnly {
-		fmt.Println("\n🔥 BURN-ONLY MODE ACTIVE")
-		fmt.Println("   Skipped minting new notes, attempting to burn existing ones")
-		fmt.Println("   If burn fails, notes may still be processing in merkle tree")
+// parseAmount reads -amount as a raw base-unit integer.
+//
+// Amounts are deliberately kept in the same representation the node API uses
+// (from_amount / to_amount strings) rather than converted through the token's
+// decimals. The only conversion in this example is the scaling factor, which is
+// read from the contract itself.
+func (c *config) parseAmount() (*big.Int, error) {
+	raw := strings.TrimSpace(c.amount)
+	if raw == "" {
+		return nil, fmt.Errorf("-amount is required (raw token units, e.g. 10000000 for 10 tokens with 6 decimals)")
 	}
-
-	fmt.Println("\n" + strings.Repeat("=", 60))
-	fmt.Println("🎉 Shielded TRC20 Transaction Flow Complete!")
-	fmt.Println(strings.Repeat("=", 60))
+	amount, ok := new(big.Int).SetString(raw, 10)
+	if !ok {
+		return nil, fmt.Errorf("-amount %q is not a base-10 integer", c.amount)
+	}
+	if amount.Sign() <= 0 {
+		return nil, fmt.Errorf("-amount must be positive, got %s", amount)
+	}
+	return amount, nil
 }

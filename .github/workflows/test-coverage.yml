@@ -19,7 +19,13 @@ jobs:
     
     - name: Install dependencies
       run: go mod download
-    
+
+    - name: Build everything (examples and cmd included)
+      run: go build ./...
+
+    - name: Run example tests (hermetic)
+      run: go test -short ./example/...
+
     - name: Run unit tests with coverage (parallel)
       run: go test -short -coverprofile=unit_coverage.txt -coverpkg=./pkg/... -covermode=atomic ./pkg/...
 

@@ -230,6 +230,11 @@ Rules:
 - Anything needing a real node lives in `integration_test/` behind the
   `integration` build tag, configured via `integration_test/test.env`
   (Nile testnet only). See `integration_test/TESTING_GUIDE.md`.
+- `example/` programs are `package main`, so they are invisible to
+  `go test ./pkg/...`. CI therefore also runs `go build ./...` and
+  `go test -short ./example/...`: an example that stops compiling fails the
+  build, and pure logic inside an example (amount scaling, note selection,
+  ABI encoding) is expected to carry hermetic tests where it exists.
 - Example functions (`example_test.go`) that dial a live node must early-return
   under `testing.Short()`:
   ```go
@@ -251,7 +256,11 @@ Rules:
   described as "increase coverage" must still state which behaviours it
   verifies.
 - Error paths count. A package whose error branches are untested is not done.
-- `pkg/client/lowlevel/**` is excluded (codecov.yml), as is generated code.
+- `pkg/client/lowlevel/**` is ignored by Codecov (`codecov.yml`), as is generated
+  code. The **CI floor is not**: it is `go tool cover -func` over
+  `-coverpkg=./pkg/...`, so lowlevel's statements count toward the 80% and the
+  two numbers will not agree. Treat the CI number as the gate and the Codecov
+  flags as colour.
 
 ## 7. Documentation
 

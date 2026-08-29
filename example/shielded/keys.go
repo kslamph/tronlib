@@ -1,12 +1,10 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"time"
 
@@ -15,242 +13,307 @@ import (
 	"github.com/kslamph/tronlib/pkg/client/lowlevel"
 )
 
-// ShieldedKeys holds all the necessary keys for shielded operations
-type ShieldedKeys struct {
-	SK             string `json:"sk"`             // spending key
-	ASK            string `json:"ask"`            // ask key
-	NSK            string `json:"nsk"`            // nsk key
-	OVK            string `json:"ovk"`            // outgoing viewing key
-	AK             string `json:"ak"`             // ak key
-	NK             string `json:"nk"`             // nk key
-	IVK            string `json:"ivk"`            // incoming viewing key
-	Diversifier    string `json:"diversifier"`    // diversifier
-	PaymentAddress string `json:"paymentAddress"` // shielded payment address
-	CreatedAt      string `json:"createdAt"`      // timestamp when keys were created
+// shieldedKeys is the whole sapling key hierarchy for one shielded TRC-20
+// address, stored as hex. The JSON shape matches the file the node-facing
+// workflow produces, so an existing file can be reused as-is.
+//
+// Field roles (each is 32 bytes unless noted):
+//
+//	sk   spending key      the root secret; everything below derives from it
+//	ask  authorizing key   signs spend authorizations
+//	nsk  nullifier secret  derives nk, which blinds nullifiers
+//	ovk  outgoing viewing  decrypts notes you sent
+//	ak   authorizing pub   public half of ask
+//	nk   nullifier key     public half of nsk
+//	ivk  incoming viewing  decrypts notes you received; derived from ak + nk
+//	d    diversifier       11 bytes, makes one ivk map to many addresses
+//
+// sk, ask, nsk, ovk and ivk are secrets: ak+nk derive ivk, and ivk or ovk
+// reveals every balance and history. Treat all five as private and never write
+// them to a shared log.
+type shieldedKeys struct {
+	SK             string `json:"sk"`
+	ASK            string `json:"ask"`
+	NSK            string `json:"nsk"`
+	OVK            string `json:"ovk"`
+	AK             string `json:"ak"`
+	NK             string `json:"nk"`
+	IVK            string `json:"ivk"`
+	Diversifier    string `json:"diversifier"`
+	PaymentAddress string `json:"paymentAddress"`
+	CreatedAt      string `json:"createdAt"`
+	// StartBlock records the chain head when the address was created, so a
+	// later scan knows the earliest block that can contain its notes.
+	StartBlock int64 `json:"startBlock,omitempty"`
+
+	// path is where these keys were loaded from and should be saved back to.
+	// Unexported, so it never lands in the JSON.
+	path string
 }
 
-// saveKeys saves the shielded keys to a JSON file
-func saveKeys(keys *ShieldedKeys) error {
-	keys.CreatedAt = time.Now().Format(time.RFC3339)
-	data, err := json.MarshalIndent(keys, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal keys: %v", err)
-	}
-
-	err = os.WriteFile(KeyFile, data, 0600) // Read/write for owner only
-	if err != nil {
-		return fmt.Errorf("failed to write key file: %v", err)
-	}
-
-	fmt.Printf("✅ Saved shielded keys to %s\n", KeyFile)
-	return nil
+// keyBundle is the decoded form of the key material a flow needs. Passing one of
+// these instead of four adjacent []byte arguments keeps ivk/ak/nk/ovk from being
+// silently transposable at a call site, where only the node would notice.
+type keyBundle struct {
+	ivk []byte
+	ak  []byte
+	nk  []byte
+	ovk []byte
+	ask []byte
+	nsk []byte
 }
 
-// loadKeys loads the shielded keys from a JSON file
-func loadKeys() (*ShieldedKeys, error) {
-	data, err := os.ReadFile(KeyFile)
+// bytes decodes a hex field into raw key material.
+func (k *shieldedKeys) bytes(field, name string) ([]byte, error) {
+	raw, err := hex.DecodeString(field)
+	if err != nil {
+		return nil, fmt.Errorf("%s in %s is not valid hex: %w", name, k.path, err)
+	}
+	return raw, nil
+}
+
+// decode validates the file and returns every key in raw form.
+func (k *shieldedKeys) decode() (*keyBundle, error) {
+	if err := k.validate(); err != nil {
+		return nil, err
+	}
+	kb := &keyBundle{}
+	for _, f := range []struct {
+		name  string
+		hex   string
+		field *[]byte
+	}{
+		{"ivk", k.IVK, &kb.ivk},
+		{"ak", k.AK, &kb.ak},
+		{"nk", k.NK, &kb.nk},
+		{"ovk", k.OVK, &kb.ovk},
+		{"ask", k.ASK, &kb.ask},
+		{"nsk", k.NSK, &kb.nsk},
+	} {
+		raw, err := k.bytes(f.hex, f.name)
+		if err != nil {
+			return nil, err
+		}
+		*f.field = raw
+	}
+	return kb, nil
+}
+
+// loadKeys reads and validates the key file.
+func loadKeys(path string) (*shieldedKeys, error) {
+	raw, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("key file does not exist")
+			return nil, fmt.Errorf("no key file at %s: run -mode=walletgen first", path)
 		}
-		return nil, fmt.Errorf("failed to read key file: %v", err)
+		return nil, fmt.Errorf("read key file %s: %w", path, err)
 	}
 
-	var keys ShieldedKeys
-	err = json.Unmarshal(data, &keys)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal keys: %v", err)
+	var k shieldedKeys
+	if err := json.Unmarshal(raw, &k); err != nil {
+		return nil, fmt.Errorf("parse key file %s: %w", path, err)
 	}
-
-	fmt.Printf("✅ Loaded existing shielded keys from %s (created: %s)\n", KeyFile, keys.CreatedAt)
-	return &keys, nil
+	k.path = path
+	if err := k.validate(); err != nil {
+		return nil, fmt.Errorf("key file %s: %w", path, err)
+	}
+	return &k, nil
 }
 
-// keysExist checks if the key file exists
-func keysExist() bool {
-	_, err := os.Stat(KeyFile)
-	return !os.IsNotExist(err)
-}
-
-// clearKeys removes the saved key file (useful for testing with new keys)
-func clearKeys() error {
-	if !keysExist() {
-		return fmt.Errorf("key file does not exist")
+// validate checks that every field the flows need is present and the right
+// length.
+//
+// Without this, a truncated file hex-decodes an absent field to empty bytes and
+// the node then rejects the request with an opaque error, or worse, a spend is
+// built with a zero-length ask.
+func (k *shieldedKeys) validate() error {
+	if k.PaymentAddress == "" {
+		return fmt.Errorf("missing paymentAddress")
 	}
-
-	err := os.Remove(KeyFile)
-	if err != nil {
-		return fmt.Errorf("failed to remove key file: %v", err)
+	for _, f := range []struct {
+		name string
+		hex  string
+		size int
+	}{
+		{"sk", k.SK, 32},
+		{"ask", k.ASK, 32},
+		{"nsk", k.NSK, 32},
+		{"ovk", k.OVK, 32},
+		{"ak", k.AK, 32},
+		{"nk", k.NK, 32},
+		{"ivk", k.IVK, 32},
+		{"diversifier", k.Diversifier, 11},
+	} {
+		raw, err := hex.DecodeString(f.hex)
+		if err != nil {
+			return fmt.Errorf("%s is not valid hex: %w", f.name, err)
+		}
+		if len(raw) != f.size {
+			return fmt.Errorf("%s is %d bytes, want %d", f.name, len(raw), f.size)
+		}
 	}
-
-	fmt.Printf("🗑️  Cleared shielded keys from %s\n", KeyFile)
 	return nil
 }
 
-// generateShieldedKeys generates new shielded keys using the TRON node
-func generateShieldedKeys(cli *client.Client, ctx context.Context) (*ShieldedKeys, error) {
-	fmt.Println("\n🔑 Generating new shielded keys...")
-
-	// Step 1: Generate spending key (sk)
-	fmt.Println("Step 1: Generating spending key...")
-	spendingKeyResp, err := lowlevel.GetSpendingKey(cli, ctx, &api.EmptyMessage{})
+// saveKeys writes the key file with owner-only permissions.
+func (k *shieldedKeys) saveKeys() error {
+	k.CreatedAt = time.Now().Format(time.RFC3339)
+	data, err := json.MarshalIndent(k, "", "  ")
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate spending key: %v", err)
+		return fmt.Errorf("marshal keys: %w", err)
 	}
-	sk := spendingKeyResp.GetValue()
-	fmt.Printf("Generated spending key (sk): %x\n", sk)
+	if err := os.WriteFile(k.path, data, 0o600); err != nil {
+		return fmt.Errorf("write key file %s: %w", k.path, err)
+	}
+	fmt.Printf("keys written to %s\n", k.path)
+	return nil
+}
 
-	// Step 2: Generate expanded spending key (ask, nsk, ovk)
-	fmt.Println("Step 2: Generating expanded spending key...")
-	expandedKeyResp, err := lowlevel.GetExpandedSpendingKey(cli, ctx, &api.BytesMessage{Value: sk})
+// fingerprint is how key material is reported by default: enough to tell two
+// values apart, never enough to spend or de-anonymise anything. CODING_STANDARDS
+// §8 forbids echoing private keys, and a terminal scrollback is a log.
+func fingerprint(raw []byte) string {
+	if len(raw) < 4 {
+		return hex.EncodeToString(raw)
+	}
+	return hex.EncodeToString(raw[:4]) + "..."
+}
+
+// deriveKeys walks the seven RPC calls that build a shielded address.
+//
+// Each call is a pure key derivation, but they are chained through the node,
+// which means the node sees sk, ask, nsk, ovk, ak, nk and ivk in sequence and
+// can reconstruct the whole hierarchy. That is the cost of not doing sapling
+// locally; see the trust section in docs/shielded.md.
+//
+// GetNewShieldedAddress performs all seven in a single RPC and returns a
+// ShieldedAddressInfo with every field populated. The long form is spelled out
+// here because the hierarchy is what you need to understand to use the rest of
+// the API.
+//
+// Key material is printed as a fingerprint unless showKeys is set; the payment
+// address is the only value here that is safe to paste anywhere.
+func deriveKeys(ctx context.Context, cli *client.Client, showKeys bool) (*shieldedKeys, error) {
+	k := &shieldedKeys{}
+	report := func(step, label, field string) {
+		raw, err := hex.DecodeString(field)
+		if err != nil {
+			fmt.Printf("%s %s  <undecodable>\n", step, label)
+			return
+		}
+		value := fingerprint(raw)
+		if showKeys {
+			value = field
+		}
+		fmt.Printf("%s %s  %s\n", step, label, value)
+	}
+
+	// 1. sk: the root spending key.
+	skResp, err := lowlevel.GetSpendingKey(cli, ctx, &api.EmptyMessage{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate expanded spending key: %v", err)
+		return nil, fmt.Errorf("getspendingkey: %w", err)
 	}
-	ask := expandedKeyResp.GetAsk()
-	nsk := expandedKeyResp.GetNsk()
-	ovk := expandedKeyResp.GetOvk()
-	fmt.Printf("Generated ask: %x\n", ask)
-	fmt.Printf("Generated nsk: %x\n", nsk)
-	fmt.Printf("Generated ovk: %x\n", ovk)
+	k.SK = hex.EncodeToString(skResp.GetValue())
+	report("1. ", "sk   (spending key)     ", k.SK)
 
-	// Step 3: Generate ak from ask
-	fmt.Println("Step 3: Generating ak from ask...")
-	akResp, err := lowlevel.GetAkFromAsk(cli, ctx, &api.BytesMessage{Value: ask})
+	// 2. expand sk into ask + nsk + ovk.
+	expanded, err := lowlevel.GetExpandedSpendingKey(cli, ctx, &api.BytesMessage{Value: skResp.GetValue()})
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate ak: %v", err)
+		return nil, fmt.Errorf("getexpandedspendingkey: %w", err)
 	}
-	ak := akResp.GetValue()
-	fmt.Printf("Generated ak: %x\n", ak)
+	k.ASK = hex.EncodeToString(expanded.GetAsk())
+	k.NSK = hex.EncodeToString(expanded.GetNsk())
+	k.OVK = hex.EncodeToString(expanded.GetOvk())
+	report("2. ", "ask  (authorizing key)  ", k.ASK)
+	report("   ", "nsk  (nullifier secret) ", k.NSK)
+	report("   ", "ovk  (outgoing viewing) ", k.OVK)
 
-	// Step 4: Generate nk from nsk
-	fmt.Println("Step 4: Generating nk from nsk...")
-	nkResp, err := lowlevel.GetNkFromNsk(cli, ctx, &api.BytesMessage{Value: nsk})
+	// 3. ak: public half of ask, needed to verify spend authorizations.
+	akResp, err := lowlevel.GetAkFromAsk(cli, ctx, &api.BytesMessage{Value: expanded.GetAsk()})
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate nk: %v", err)
+		return nil, fmt.Errorf("getakfromask: %w", err)
 	}
-	nk := nkResp.GetValue()
-	fmt.Printf("Generated nk: %x\n", nk)
+	k.AK = hex.EncodeToString(akResp.GetValue())
+	report("3. ", "ak   (authorizing pub)  ", k.AK)
 
-	// Step 5: Generate incoming viewing key (ivk)
-	fmt.Println("Step 5: Generating incoming viewing key...")
+	// 4. nk: public half of nsk, needed to compute nullifiers.
+	nkResp, err := lowlevel.GetNkFromNsk(cli, ctx, &api.BytesMessage{Value: expanded.GetNsk()})
+	if err != nil {
+		return nil, fmt.Errorf("getnkfromnsk: %w", err)
+	}
+	k.NK = hex.EncodeToString(nkResp.GetValue())
+	report("4. ", "nk   (nullifier key)    ", k.NK)
+
+	// 5. ivk: from ak + nk. This is the key you scan the chain with.
 	ivkResp, err := lowlevel.GetIncomingViewingKey(cli, ctx, &api.ViewingKeyMessage{
-		Ak: ak,
-		Nk: nk,
+		Ak: akResp.GetValue(),
+		Nk: nkResp.GetValue(),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate ivk: %v", err)
+		return nil, fmt.Errorf("getincomingviewingkey: %w", err)
 	}
-	ivk := ivkResp.GetIvk()
-	fmt.Printf("Generated ivk: %x\n", ivk)
+	k.IVK = hex.EncodeToString(ivkResp.GetIvk())
+	report("5. ", "ivk  (incoming viewing) ", k.IVK)
 
-	// Step 6: Generate diversifier (d)
-	fmt.Println("Step 6: Generating diversifier...")
-	diversifierResp, err := lowlevel.GetDiversifier(cli, ctx, &api.EmptyMessage{})
+	// 6. d: an 11 byte diversifier, so one ivk can own many distinct addresses.
+	divResp, err := lowlevel.GetDiversifier(cli, ctx, &api.EmptyMessage{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate diversifier: %v", err)
+		return nil, fmt.Errorf("getdiversifier: %w", err)
 	}
-	d := diversifierResp.GetD()
-	fmt.Printf("Generated diversifier (d): %x\n", d)
+	k.Diversifier = hex.EncodeToString(divResp.GetD())
+	report("6. ", "d    (diversifier)      ", k.Diversifier)
 
-	// Step 7: Generate payment address
-	fmt.Println("Step 7: Generating shielded payment address...")
-	paymentAddrResp, err := lowlevel.GetZenPaymentAddress(cli, ctx, &api.IncomingViewingKeyDiversifierMessage{
-		Ivk: &api.IncomingViewingKeyMessage{Ivk: ivk},
-		D:   &api.DiversifierMessage{D: d},
+	// 7. the ztron payment address, what you hand to a sender.
+	payResp, err := lowlevel.GetZenPaymentAddress(cli, ctx, &api.IncomingViewingKeyDiversifierMessage{
+		Ivk: &api.IncomingViewingKeyMessage{Ivk: ivkResp.GetIvk()},
+		D:   &api.DiversifierMessage{D: divResp.GetD()},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate payment address: %v", err)
+		return nil, fmt.Errorf("getzenpaymentaddress: %w", err)
 	}
-	paymentAddress := paymentAddrResp.GetPaymentAddress()
-	fmt.Printf("Generated shielded payment address: %s\n", paymentAddress)
+	k.PaymentAddress = payResp.GetPaymentAddress()
+	fmt.Printf("7. payment address        %s\n", k.PaymentAddress)
 
-	// Create the keys structure
-	keys := &ShieldedKeys{
-		SK:             hex.EncodeToString(sk),
-		ASK:            hex.EncodeToString(ask),
-		NSK:            hex.EncodeToString(nsk),
-		OVK:            hex.EncodeToString(ovk),
-		AK:             hex.EncodeToString(ak),
-		NK:             hex.EncodeToString(nk),
-		IVK:            hex.EncodeToString(ivk),
-		Diversifier:    hex.EncodeToString(d),
-		PaymentAddress: paymentAddress,
+	if k.PaymentAddress == "" {
+		return nil, fmt.Errorf("getzenpaymentaddress returned an empty payment address")
 	}
-
-	return keys, nil
+	return k, nil
 }
 
-// loadOrGenerateKeys loads existing keys or generates new ones if they don't exist
-func loadOrGenerateKeys(cli *client.Client, ctx context.Context) (*ShieldedKeys, []byte, []byte, []byte, []byte, []byte, []byte, []byte, []byte, string, error) {
-	var keys *ShieldedKeys
-	var err error
-
-	if keysExist() {
-		fmt.Println("\n🔑 Loading existing shielded keys...")
-		keys, err = loadKeys()
-		if err != nil {
-			log.Printf("Failed to load existing keys: %v", err)
-			fmt.Println("Generating new keys instead...")
-			keys = nil
+// runWalletGen derives a fresh key hierarchy and stores it.
+//
+// An existing key file is left alone unless -force is passed: replacing it
+// orphans every note owned by the previous address.
+func runWalletGen(ctx context.Context, s *session) error {
+	c := s.cfg
+	if _, err := os.Stat(c.keyFile); err == nil {
+		if !c.force {
+			stored, err := loadKeys(c.keyFile)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("keys already exist at %s\n", c.keyFile)
+			fmt.Printf("payment address: %s\n", stored.PaymentAddress)
+			fmt.Printf("pass -force to derive a new address instead\n")
+			return nil
 		}
+		fmt.Printf("-force: replacing %s; notes owned by the old address become unreachable\n", c.keyFile)
 	}
 
-	// Generate new keys if we don't have existing ones
-	if keys == nil {
-		keys, err = generateShieldedKeys(cli, ctx)
-		if err != nil {
-			return nil, nil, nil, nil, nil, nil, nil, nil, nil, "", fmt.Errorf("failed to generate keys: %v", err)
-		}
-
-		// Save the new keys
-		err = saveKeys(keys)
-		if err != nil {
-			log.Printf("Failed to save keys: %v", err)
-		}
-	}
-
-	// Convert hex strings back to bytes
-	sk, _ := hex.DecodeString(keys.SK)
-	ask, _ := hex.DecodeString(keys.ASK)
-	nsk, _ := hex.DecodeString(keys.NSK)
-	ovk, _ := hex.DecodeString(keys.OVK)
-	ak, _ := hex.DecodeString(keys.AK)
-	nk, _ := hex.DecodeString(keys.NK)
-	ivk, _ := hex.DecodeString(keys.IVK)
-	d, _ := hex.DecodeString(keys.Diversifier)
-
-	return keys, sk, ask, nsk, ovk, ak, nk, ivk, d, keys.PaymentAddress, nil
-}
-
-// validateAndVerifyKeys validates key lengths and verifies IVK derivation
-func validateAndVerifyKeys(cli *client.Client, ctx context.Context, ivk, ak, nk []byte) error {
-	// Validate key lengths
-	if len(ivk) != 32 {
-		return fmt.Errorf("invalid IVK length: expected 32 bytes, got %d", len(ivk))
-	}
-	if len(ak) != 32 {
-		return fmt.Errorf("invalid AK length: expected 32 bytes, got %d", len(ak))
-	}
-	if len(nk) != 32 {
-		return fmt.Errorf("invalid NK length: expected 32 bytes, got %d", len(nk))
-	}
-
-	// Verify IVK is correctly derived from AK and NK
-	fmt.Println("\nVerifying IVK derivation...")
-	verifyIvkResp, err := lowlevel.GetIncomingViewingKey(cli, ctx, &api.ViewingKeyMessage{
-		Ak: ak,
-		Nk: nk,
-	})
+	head, err := currentBlock(ctx, s)
 	if err != nil {
-		log.Printf("Warning: Could not verify IVK derivation: %v", err)
-		return nil
+		return fmt.Errorf("resolve scan start height: %w", err)
 	}
 
-	expectedIvk := verifyIvkResp.GetIvk()
-	if !bytes.Equal(ivk, expectedIvk) {
-		return fmt.Errorf("IVK mismatch! Stored: %x, Expected: %x", ivk, expectedIvk)
+	derived, err := deriveKeys(ctx, s.cli, c.showKeys)
+	if err != nil {
+		return err
 	}
-
-	fmt.Println("✅ IVK derivation verified correctly")
-	return nil
+	if err := derived.validate(); err != nil {
+		return fmt.Errorf("node returned an unusable key set: %w", err)
+	}
+	derived.path = c.keyFile
+	derived.StartBlock = head
+	fmt.Printf("scan start block: %d\n", head)
+	return derived.saveKeys()
 }
