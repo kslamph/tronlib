@@ -565,12 +565,12 @@ type Code string
 type Action int
 
 const (
-    ActionRetry    Action = iota   // identical call may succeed; back off
-    ActionWait                     // the call may have landed; poll, do NOT resend
-    ActionFixCall                  // change an argument; retrying is pointless
-    ActionFixTransaction           // well-formed but rejected; restructure and re-sign
-    ActionFund                     // acquire a resource, then retry the identical call
-    ActionBug                      // library invariant violated; stop and report
+    ActionRetry    Action = iota + 1   // 1: identical call may succeed; back off. 0 is the unset sentinel.
+    ActionWait                         // 2: the call may have landed; poll, do NOT resend
+    ActionFixCall                      // 3: change an argument; retrying is pointless
+    ActionFixTransaction               // 4: well-formed but rejected; restructure and re-sign
+    ActionFund                         // 5: acquire a resource, then retry the identical call
+    ActionBug                          // 6: library invariant violated; stop and report
 )
 
 type Error struct {
@@ -592,7 +592,7 @@ func (c Code) Doc() string
 
 **No `Msg` field.** The message is a table lookup keyed on `Code`, generated from the same source as `Action()` and `Doc()`. v1's sentinels fuse fact and advice into one string (`"invalid address: check format and ensure it's a valid TRON address"`), which means a machine cannot get the fact without the advice and a human cannot change the advice without changing the message.
 
-**No stored `Retryable` bool and no stored `Success`.** Both are derived from `Code`, so they cannot contradict it. `Action` is an `int` enum with a `String()` method: a 6-value set gains nothing from string typing and loses nothing from a lookup.
+**No stored `Retryable` bool and no stored `Success`.** Both are derived from `Code`, so they cannot contradict it. `Action` is an `int` enum with a `String()` method: a 6-value set gains nothing from string typing and loses nothing from a lookup. **Zero is deliberately not an Action value** — it is the unset sentinel, so `Error.Next == 0` means "derive from `Code`" and an explicit `Next: ActionRetry` remains expressible. With `= iota` (no offset), `ActionRetry` would be 0 and the override mechanism could never force a retry; found by Task 6's implementer against the plan's own test code.
 
 `tron.Is` is replaced by `HasCode` — `errors.Is(err, CodeAddressInvalid)` compiles and silently returns `false`, which would disable every retry branch in the prior design.
 
