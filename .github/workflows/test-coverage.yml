@@ -2,7 +2,7 @@ name: Test Coverage
 
 on:
    push:
-     branches: [main, master]
+     branches: [main, master, v2]
    pull_request:
    workflow_dispatch:
 
@@ -19,6 +19,9 @@ jobs:
     
     - name: Install dependencies
       run: go mod download
+
+    - name: Install v2 dependencies
+      run: go -C v2 mod download
 
     - name: Build everything (examples and cmd included)
       run: go build ./...
