@@ -283,3 +283,121 @@ func (g graphImporter) Import(path string) (*types.Package, error) {
 	}
 	return nil, fmt.Errorf("unexpected import %q", path)
 }
+
+// --- contract.Arg sealing fixtures (Task 7, spec §9) ---
+//
+// contract.Arg is sealed with the unexported argABI() method, so no type
+// outside the contract package can implement it — every argument enters
+// through the reviewed constructors (BoolArg/StringArg/BigIntArg/
+// AddressArg/Uint64Arg), and callers cannot smuggle arbitrary values into
+// call data. The positive control is that the real constructors satisfy it.
+
+const contractImportPath = "github.com/kslamph/tronlib/v2/contract"
+
+// contractArgForeignFixture declares a same-shaped method (same name, same
+// signature) in another package. Because the method is unexported, its
+// full method identifier belongs to package p — it is NOT the interface's
+// argABI, so the assignment must not type-check.
+const contractArgForeignFixture = `package p
+
+import "github.com/kslamph/tronlib/v2/contract"
+
+type fakeArg struct{}
+
+func (fakeArg) argABI() string { return "bool" }
+
+var _ contract.Arg = fakeArg{}
+`
+
+// contractArgExportedFixture: even an exported method with the same shape
+// is not the interface's unexported method.
+const contractArgExportedFixture = `package p
+
+import "github.com/kslamph/tronlib/v2/contract"
+
+type fakeArg struct{}
+
+func (fakeArg) ArgABI() string { return "bool" }
+
+var _ contract.Arg = fakeArg{}
+`
+
+// contractArgPositiveFixture: the real constructors satisfy Arg.
+const contractArgPositiveFixture = `package p
+
+import (
+	"math/big"
+
+	"github.com/kslamph/tronlib/v2/contract"
+	"github.com/kslamph/tronlib/v2/tron"
+)
+
+var _ = []contract.Arg{
+	contract.BoolArg(true),
+	contract.StringArg("x"),
+	contract.BigIntArg(big.NewInt(1)),
+	contract.AddressArg(mustAddr7()),
+	contract.Uint64Arg(3),
+}
+
+func mustAddr7() tron.Address {
+	a, _ := tron.ParseAddress("TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwb")
+	return a
+}
+`
+
+func TestForeignTypeCannotSatisfyArg(t *testing.T) {
+	imp := loadGraph(t, contractImportPath)
+	for name, src := range map[string]string{
+		"same-named unexported method": contractArgForeignFixture,
+		"exported method":              contractArgExportedFixture,
+	} {
+		if err := typecheckTx(t, imp, src); err == nil {
+			t.Errorf("%s: compiled as contract.Arg; the seal (unexported argABI) failed", name)
+		} else {
+			t.Logf("%s rejected as expected: %v", name, err)
+		}
+	}
+}
+
+func TestArgConstructorsSatisfyArg(t *testing.T) {
+	imp := loadGraph(t, contractImportPath)
+	if err := typecheckTx(t, imp, contractArgPositiveFixture); err != nil {
+		t.Fatalf("positive control failed: %v", err)
+	}
+}
+
+// loadGraph loads any v2 package with its full dependency graph, an
+// importer serving every reachable package (generalization of loadTxGraph,
+// which remains for the tx-specific assertions above).
+func loadGraph(t *testing.T, importPath string) types.Importer {
+	t.Helper()
+	pkgs, err := packages.Load(&packages.Config{
+		Mode: packages.NeedName | packages.NeedImports | packages.NeedTypes | packages.NeedDeps,
+		Dir:  "../..",
+	}, importPath)
+	if err != nil {
+		t.Fatalf("load %s: %v", importPath, err)
+	}
+	if len(pkgs) == 0 || pkgs[0].Types == nil {
+		t.Fatalf("%s not found or has no types", importPath)
+	}
+	if errs := pkgs[0].Errors; len(errs) > 0 {
+		t.Fatalf("%s has load errors: %v", importPath, errs)
+	}
+	graph := map[string]*types.Package{}
+	var visit func(p *packages.Package)
+	visit = func(p *packages.Package) {
+		if p.Types != nil && graph[p.PkgPath] == nil {
+			graph[p.PkgPath] = p.Types
+			for _, imp := range p.Imports {
+				visit(imp)
+			}
+		}
+	}
+	visit(pkgs[0])
+	if graph[importPath] == nil {
+		t.Fatalf("%s graph incomplete", importPath)
+	}
+	return graphImporter{graph}
+}
