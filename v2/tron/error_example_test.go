@@ -10,7 +10,7 @@ import (
 // detection verb. errors.Is(err, tron.CodeAmountTooManyDecimals) would
 // compile and silently return false, because Code is a string.
 func ExampleHasCode() {
-	inner := &tron.Error{Code: tron.CodeAmountTooManyDecimals, Op: "ParseTRX"}
+	inner := &tron.Error{Code: tron.CodeAmountTooManyDecimals, Op: "example"}
 	wrapped := fmt.Errorf("building transfer: %w", inner)
 
 	if tron.HasCode(wrapped, tron.CodeAmountTooManyDecimals) {
