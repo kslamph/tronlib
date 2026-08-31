@@ -7,12 +7,14 @@
 //     the named example
 //
 // checkFile is the -check side: it reports which blocks no longer match
-// their generated content. AST extraction and codes_gen.go generation land
-// in a later change; this file is only the renderer.
+// their generated content. AST extraction lives in examples.go and
+// codes_gen.go generation lives in codesgen.go/emit.go.
 package main
 
 import (
+	"flag"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 )
@@ -150,4 +152,46 @@ func betweenContent(s, start, end string) (string, error) {
 	return s[i+len(start) : i+j], nil
 }
 
-func main() {}
+func main() {
+	if len(os.Args) < 2 {
+		fmt.Fprint(os.Stderr, usage)
+		os.Exit(2)
+	}
+	switch os.Args[1] {
+	case "generate-codes":
+		fs := flag.NewFlagSet("generate-codes", flag.ExitOnError)
+		pkgDir := fs.String("pkg", "", "package directory containing codes.go")
+		out := fs.String("out", "", "output file for the generated source")
+		if err := fs.Parse(os.Args[2:]); err != nil {
+			fmt.Fprint(os.Stderr, usage)
+			os.Exit(2)
+		}
+		if *pkgDir == "" || *out == "" {
+			fmt.Fprintln(os.Stderr, "generate-codes requires -pkg and -out")
+			os.Exit(2)
+		}
+		src, err := generateCodes(*pkgDir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "docgen: %v\n", err)
+			os.Exit(1)
+		}
+		if err := os.WriteFile(*out, []byte(src), 0o644); err != nil {
+			fmt.Fprintf(os.Stderr, "docgen: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("docgen: wrote %s (%d bytes)\n", *out, len(src))
+	default:
+		fmt.Fprintf(os.Stderr, "docgen: unknown command %q\n%s", os.Args[1], usage)
+		os.Exit(2)
+	}
+}
+
+const usage = `usage: docgen <command> [flags]
+
+commands:
+  generate-codes -pkg <dir> -out <file>
+      regenerate the tron package's codes_gen.go from codes.go
+
+(docs fill and -check are wired in a later change; this dispatch only
+makes the generator invokable.)
+`

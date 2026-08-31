@@ -1,0 +1,3 @@
+package brokenpkg
+
+func Broken( {

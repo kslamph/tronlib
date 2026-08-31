@@ -1,0 +1,3 @@
+package duppkg
+
+func ExampleDup() {}
