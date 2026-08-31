@@ -26,16 +26,21 @@ func TestParseAddressRoundTrip(t *testing.T) {
 }
 
 func TestParseAddressRejects(t *testing.T) {
-	cases := []struct{ name, in string }{
-		{"empty", ""},
-		{"wrong length", "TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jw"},
-		{"not base58", "TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwb0OIl"}, // 0,O,I,l excluded from alphabet
-		{"bad checksum", "TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwc"},
-		{"wrong prefix byte", "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2"}, // bitcoin-style, decodes but no 0x41
+	cases := []struct {
+		name, in string
+		errCode  Code
+	}{
+		{"empty", "", CodeAddressInvalid},
+		{"wrong length", "TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jw", CodeAddressInvalid},
+		{"not base58", "TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwb0OIl", CodeAddressInvalid}, // 0,O,I,l excluded from alphabet
+		{"bad checksum", "TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwc", CodeAddressInvalid},
+		{"wrong prefix byte", "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2", CodeAddressWrongPrefix}, // bitcoin-style, decodes but no 0x41
 	}
 	for _, tc := range cases {
 		_, err := ParseAddress(tc.in)
-		assert.Error(t, err, tc.name)
+		if assert.Error(t, err, tc.name) {
+			assert.True(t, HasCode(err, tc.errCode), "%s: want %v, got %v", tc.name, tc.errCode, err)
+		}
 	}
 }
 

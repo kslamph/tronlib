@@ -64,6 +64,12 @@ func TestHintIsNotInMessage(t *testing.T) {
 	assert.NotContains(t, msg, "34-character", "Hint must not leak into Error(): machine and human needs diverge")
 }
 
+func TestErrorIsMatchesCode(t *testing.T) {
+	err := &Error{Code: CodeAddressInvalid}
+	assert.True(t, errors.Is(err, &Error{Code: CodeAddressInvalid}))
+	assert.False(t, errors.Is(err, &Error{Code: CodeAmountOverflow}))
+}
+
 func TestAllCodesHaveActionAndDoc(t *testing.T) {
 	// Every code exported must have a non-empty Doc and a valid Action.
 	// This is the test that prevents v1's "advertised but never returned" problem.
