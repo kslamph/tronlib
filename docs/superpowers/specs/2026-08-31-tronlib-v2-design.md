@@ -134,6 +134,22 @@ tron  (no internal deps)
 
 `trc20`'s exported free functions `ToWei`, `FromWei`, `ToWeiWithDecimals`, `FromWeiWithDecimals` are dissolved into `token.Amount` / `Handle.Amount` under the same principle. `decimal.Decimal` appears in **no** v2 exported signature.
 
+### Upstream protobuf — what v4.8.2 changes and what it unlocks
+
+`protos/` is a git submodule of `tronprotocol/protocol`. It was found **uninitialized** in the working tree (0 proto files on disk) with the gitlink pinned at `2a678934` = `GreatVoyage-v4.7.4(Bias)`; the generated tree in `pb/` is **exactly in sync** with that pin — 153 RPC names in the proto, 153 generated, the only textual delta being protoc's capitalisation of the lowercase rpc `getBlockReference` to `GetBlockReference`.
+
+Production java-tron is at **`GreatVoyage-v4.8.2(Pyrrho)`** (`8432beca9`, nine commits ahead). Diffing every proto between the two tags produces:
+
+| Change | Detail | Impact on v2 |
+|---|---|---|
+| **All 56 `google.api.http` annotations deleted**, plus the `annotations.proto` import | The entire 407-line deletion from `api/api.proto` | **`google.golang.org/genproto/googleapis/api` becomes removable from `go.mod`** on regeneration — no proto in v4.8.2 imports annotations. Previously judged non-removable without patching upstream; upstream has since done that patching. |
+| **One rpc added, on both services**: `GetPaginatedNowWitnessList (PaginatedMessage) returns (WitnessList)` | `Wallet` and `WalletSolidity` | New `rpc` wrapper + `Client.Witnesses(ctx, page)`. First paginated witness list; exercises §4's `List` verb, which v1 has no case for. Same `PaginatedMessage` shape as the existing proposal/exchange/asset-issue paginators. |
+| **Zero field, type or number changes** across all 25 protos | Verified by diffing every field declaration (name + type + number) between the tags | Fully wire-compatible; regeneration changes no struct semantics. |
+| `core/Discover.proto` gains `bytes addressIpv6 = 4` | P2P peer discovery | Not part of the wallet API; no impact |
+| Comment-only edits elsewhere | `frozen_balance` now "trx or asset balance"; `0X24` → `0x24`; `trx_num`/`num` exchange-rate comment | None |
+
+**Regeneration from v4.8.2 is therefore a required migration step (§14, step 3), not an optional refresh.** It is the cheapest dependency win in the module and it adds one rpc. The submodule is deliberately *not* advanced in this change set — both the gitlink move and the `pb/` regeneration land together in step 3, since doing only the first would leave `pb/` describing a different protocol than the pinned tree.
+
 ---
 
 ## 4. Naming and convention contract
@@ -716,9 +732,11 @@ func KeyFromMnemonic(mnemonic, passphrase, path string) (key.Signer, error)
 func (c *Client) Close() error
 func (c *Client) Raw() *rpc.Client
 func (c *Client) Endpoint() string
-func (c *Client) Network(ctx context.Context) (Network, error)
+func (c *Client) Network() Network                                  // configured value, no I/O — see §10.1
+func (c *Client) VerifyNetwork(ctx context.Context) error           // genesis fingerprint, heuristic
 func (c *Client) ChainTip(ctx context.Context) (uint64, error)
 func (c *Client) TronBalance(ctx context.Context, a Address) (tron.SUN, error)
+func (c *Client) Witnesses(ctx context.Context, page Page) ([]Witness, error)   // paginated, §3
 func (c *Client) TransferTRX(ctx, from, to Address, amt tron.SUN) (*tx.NativeTx, error)
 func (c *Client) Deploy(ctx, owner Address, p tx.DeployParams) (*tx.DeployTx, error)
 func (c *Client) Token(ctx, tokenAddr Address) (*token.Handle, error)
@@ -755,6 +773,29 @@ func WithNetwork(n Network) DialOption
 func (c *Client) Network() Network                    // the configured value, no I/O
 func (c *Client) VerifyNetwork(ctx context.Context) error   // genesis-hash fingerprint
 ```
+
+`VerifyNetwork` compares `GetBlockByNum(0)`'s block id against a table of known genesis hashes and returns `chain.network_mismatch` when it disagrees with the configured value. It is **heuristic and must be documented as such** — a private chain matches no entry, and a future testnet redeploy changes its genesis. `Dial` calls it automatically unless `WithLazyDial()` or `Network == Private`.
+
+#### 10.1 Paginated reads
+
+`Witnesses` is the first facade method whose rpc is genuinely paginated, so it fixes the shape every later paginated read must follow. `List` (N2) is a **paginated** read: it never returns an unbounded slice, and the pagination cursor is explicit rather than hidden in client state.
+
+```go
+type Page struct {
+    Offset  int64
+    Limit   int64   // 0 means the rpc default; never means "all"
+}
+
+func (c *Client) Witnesses(ctx context.Context, page Page) ([]Witness, error)
+type Witness struct {
+    Address     tron.Address
+    VoteCount   int64
+    IsJobs      bool
+}
+```
+
+`Limit == 0` delegating to the rpc default is a deliberate convenience, but it means a caller cannot express "give me everything" — that is the point of the `List` verb contract. Backing rpcs land in `rpc` as `ListWitnesses`, `GetPaginatedNowWitnessList`, and their Solidity counterparts, unchanged from the 1:1 projection.
+
 
 `VerifyNetwork` compares `GetBlockByNum(0)`'s block id against a table of known genesis hashes and returns `chain.network_mismatch` when it disagrees with the configured value. It is **heuristic and must be documented as such** — a private chain matches no entry, and a future testnet redeploy changes its genesis. `Dial` calls it automatically unless `WithLazyDial()` or `Network == Private`.
 
@@ -846,16 +887,17 @@ Build in DAG order (§3). Each step is independently shippable on the v2 branch 
 |---|---|---|
 | 1 | Freeze v1 at `v1.9.0`; bugfixes only | tag exists |
 | 2 | `/v2` module skeleton, `go.mod`, CI wiring | empty build green |
-| 3 | `tron` — Address, SUN, Error, Code, Action, constants | **§5.2 rejection matrix executed as real compile and runtime tests** (negative-compile cases via a `go vet`-style harness or `go/types` check, panic case as a test); `codes_gen.go` generates |
-| 4 | `cmd/docgen` + `docgen -check` in CI **now, not later** | a deliberately stale doc fails the build |
-| 5 | `key`, `event` | sign/verify round-trip in one package |
-| 6 | `rpc` — transport, pool, ~106 wrappers | bufconn fake passes |
-| 7 | `tx` — four kinds, `Sign`, `With*` options, `Broadcast`, `Wait`, `WaitForSolid`, `Receipt`, cost types | F1 is a compile error in a negative test; **fee-limit default asserted non-zero on every contract-shaped builder**; ambiguous-timeout path yields `chain.unconfirmed` + txid against a fake; `Tx` sealing verified by a negative compile test |
-| 8 | `contract`, `token` | `Result` accessors; `Amount` round-trips through `String`/parse; **§9.1 ABI `0x41` strip/re-prepend round-trip test**; `Instance.Call` against the bufconn fake; `Handle` accepts a 255-decimal fixture |
-| 9 | Root facade + happy-path examples | one-import example compiles |
-| 10 | Implementor verification of §7.5 items | recorded against a live Nile transaction |
-| 11 | Generated migration guide, v1 symbol → v2 symbol, by AST diff | no hand-written table |
-| 12 | Tag `v2.0.0` | |
+| 3 | Regenerate `pb/` from **`GreatVoyage-v4.8.2(Pyrrho)`**; advance the submodule gitlink in the same commit | `protos/` gitlink and generated tree describe the same protocol; **`google.golang.org/genproto/googleapis/api` absent from `go.mod`**; `GetPaginatedNowWitnessList` present in `pb/api/api_grpc.pb.go`; full test suite green with the regenerated structs (§3 says this is wire-compatible, and this step is what proves it) |
+| 4 | `tron` — Address, SUN, Error, Code, Action, constants | **§5.2 rejection matrix executed as real compile and runtime tests** (negative-compile cases via a `go vet`-style harness or `go/types` check, panic case as a test); `codes_gen.go` generates |
+| 5 | `cmd/docgen` + `docgen -check` in CI **now, not later** | a deliberately stale doc fails the build |
+| 6 | `key`, `event` | sign/verify round-trip in one package |
+| 7 | `rpc` — transport, pool, ~106 wrappers, `GetPaginatedNowWitnessList` | bufconn fake passes; `Witnesses` facade method paginates without unbounded slices |
+| 8 | `tx` — four kinds, `Sign`, `With*` options, `Broadcast`, `Wait`, `WaitForSolid`, `Receipt`, cost types | F1 is a compile error in a negative test; **fee-limit default asserted non-zero on every contract-shaped builder**; ambiguous-timeout path yields `chain.unconfirmed` + txid against a fake; `Tx` sealing verified by a negative compile test |
+| 9 | `contract`, `token` | `Result` accessors; `Amount` round-trips through `String`/parse; **§9.1 ABI `0x41` strip/re-prepend round-trip test**; `Instance.Call` against the bufconn fake; `Handle` accepts a 255-decimal fixture |
+| 10 | Root facade + happy-path examples | one-import example compiles |
+| 11 | Implementor verification of §7.5 items | recorded against a live Nile transaction |
+| 12 | Generated migration guide, v1 symbol → v2 symbol, by AST diff | no hand-written table |
+| 13 | Tag `v2.0.0` | |
 
 Step 4 precedes all API work deliberately: `docgen` is the mechanism that keeps the design honest, and landing it late reintroduces the drift class it exists to prevent.
 
