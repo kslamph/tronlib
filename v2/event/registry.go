@@ -102,7 +102,9 @@ func registerABIEntries(entries []*core.SmartContract_ABI_Entry) error {
 }
 
 // registerBuiltin inserts defs into the registry without overwriting
-// explicitly registered definitions. Called once from BuiltinTRC20.
+// previously registered definitions. Called from BuiltinTRC20's explicit
+// re-assertion; the generated table in builtin_gen.go performs the same
+// insert-if-absent registration in init().
 func registerBuiltin(defs map[[4]byte]*EventDef) {
 	mu.Lock()
 	for k, v := range defs {

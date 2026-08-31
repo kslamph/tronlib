@@ -4,10 +4,14 @@
 //
 // Decoding works off a signature registry: the first log topic is the
 // keccak-256 of the canonical event signature ("Transfer(address,address,uint256)"),
-// and the first 4 bytes of that topic key into the registry. Register ABI
-// sources with RegisterABIJSON (Solidity JSON ABI) or RegisterABIObject
-// (a *core.SmartContract_ABI), or use the built-in TRC-20 definitions via
-// BuiltinTRC20 (Transfer and Approval).
+// and the first 4 bytes of that topic key into the registry. The registry
+// comes pre-loaded with 747 built-in ecosystem event definitions (including
+// TRC-20's Transfer and Approval), vendored from v1's generated table and
+// auto-registered in init() — decoding is zero-config, as in v1. Register
+// additional ABIs with RegisterABIJSON (Solidity JSON ABI) or
+// RegisterABIObject (a *core.SmartContract_ABI); BuiltinTRC20 explicitly
+// re-asserts the built-in definitions (idempotent, a near no-op after
+// init).
 //
 // The registry is global mutable state, preserving v1's eventdecoder
 // semantics: registrations are process-wide, last write wins per signature,
@@ -21,12 +25,15 @@
 // matches. Decode errors are *tron.Error; malformed log shapes and data
 // that doesn't match the registered ABI types carry
 // tron.CodeContractArgMismatch, so callers can distinguish "unknown event"
-// from "known event, corrupt log".
+// from "known event, corrupt log". DecodeLenient is the tolerant variant:
+// it materializes unknown signatures as a Log with an empty EventName and
+// the raw Topics/Data preserved, so receipt consumers never drop logs they
+// cannot name. Receipt.Logs and Events() use DecodeLenient for exactly
+// that reason.
 //
 // # Quick Start
 //
-//	event.BuiltinTRC20()
-//	log, err := event.Decode(topics, data)
+//	log, err := event.Decode(topics, data) // zero-config: built-ins pre-registered
 //	// log.EventName == "Transfer", log.Parameters[i].Value is the decoded value
 //
 // # Parameters
@@ -35,4 +42,7 @@
 // parameters are decoded from topics[1:], non-indexed from the data blob
 // via standard ABI decoding. Values are typed: address → tron.Address,
 // integers → *big.Int, bool → bool, string → string, bytesN/bytes → []byte.
+// Tuple and array parameters pass through as geth-decoded Go shapes
+// (go-ethereum's representation for tuples and slices for arrays) without
+// further mapping.
 package event

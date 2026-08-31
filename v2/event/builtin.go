@@ -2,15 +2,33 @@ package event
 
 import "sync"
 
-// Builtin TRC-20 event definitions. v1 generated a large ecosystem-wide
-// table; v2 scopes the built-ins to the standard TRC-20 interface (Transfer
-// and Approval) — the two events every TRC-20 contract emits and the ones
-// tx.Receipt decoding and the facade consume. Contracts with custom events
-// register their ABI via RegisterABIJSON/RegisterABIObject.
+// builtin.go keeps the explicit built-in entry point. The full generated
+// ecosystem table (747 definitions) lives in builtin_gen.go and registers
+// itself via init(); this file documents the opt-in trigger.
+
+// builtinOnce guards the one-time explicit re-assertion of the built-ins.
+var builtinOnce sync.Once
+
+// BuiltinTRC20 asserts that the built-in event definitions are registered
+// in the global registry: the full generated ecosystem table (747 defs,
+// builtin_gen.go) is auto-registered by package init(), so after importing
+// this package the built-ins are already present and this function is a
+// near-no-op. It remains as the explicit, idempotent re-assertion for
+// discoverability and as the documented opt-in path — e.g. to make the
+// dependency on the built-ins visible at the call site, or to re-assert
+// after code that registers an explicit ABI for a built-in signature
+// (explicit registrations win; re-assertion does not overwrite them).
+func BuiltinTRC20() {
+	builtinOnce.Do(func() {
+		registerBuiltin(builtinTRC20)
+	})
+}
 
 // builtinTRC20 maps the first 4 bytes of
 // keccak256("Transfer(address,address,uint256)") and
-// keccak256("Approval(address,address,uint256)") to their definitions.
+// keccak256("Approval(address,address,uint256)") to their definitions. It
+// overlaps the generated table on purpose: registering it insert-if-absent
+// is idempotent against init()'s registration of the same signatures.
 var builtinTRC20 = map[[4]byte]*EventDef{
 	{0xdd, 0xf2, 0x52, 0xad}: {
 		Name: "Transfer",
@@ -28,21 +46,4 @@ var builtinTRC20 = map[[4]byte]*EventDef{
 			{Type: "uint256", Indexed: false, Name: "value"},
 		},
 	},
-}
-
-// builtinOnce guards the one-time insertion of the built-in definitions.
-var builtinOnce sync.Once
-
-// BuiltinTRC20 registers the standard TRC-20 event definitions
-// (Transfer, Approval) in the global registry. It is idempotent and safe
-// for concurrent use; built-in definitions never overwrite a previously
-// registered signature.
-//
-// v1 registered these implicitly via package init(). v2 requires the
-// explicit call (keeping package import free of global side effects);
-// call it once at startup or immediately before decoding.
-func BuiltinTRC20() {
-	builtinOnce.Do(func() {
-		registerBuiltin(builtinTRC20)
-	})
 }

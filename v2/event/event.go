@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"strings"
 
 	eABI "github.com/ethereum/go-ethereum/accounts/abi"
 	eCommon "github.com/ethereum/go-ethereum/common"
@@ -74,6 +75,51 @@ func Decode(topics [][]byte, data []byte) (*Log, error) {
 	}
 
 	return decodeEvent(def, topics, data)
+}
+
+// DecodeLenient decodes a log like Decode, but materializes logs whose
+// signature matches no registered definition instead of dropping them:
+// on an unknown signature it returns
+// &Log{Topics: topics, Data: data, EventName: ""}, nil — callers classify
+// by EventName == "" and still get the raw bytes. Receipt.Logs and
+// Events() use this so unknown logs are materialized with EventName == ""
+// instead of dropped.
+//
+// Known events behave exactly like Decode: a successful decode returns the
+// decoded Log; a known event whose topics/data don't match its ABI (or a
+// malformed log shape — no topics, short signature topic) returns the same
+// *tron.Error as Decode. Corrupt data on a known event is corrupt: it is
+// an error, not a lenient pass-through.
+func DecodeLenient(topics [][]byte, data []byte) (*Log, error) {
+	log, err := Decode(topics, data)
+	if err != nil && tron.HasCode(err, tron.CodeEventUnknown) {
+		return &Log{Topics: topics, Data: data, EventName: ""}, nil
+	}
+	return log, err
+}
+
+// DecodeEventSignature returns the canonical event signature string
+// ("Transfer(address,address,uint256)") for a 4-byte signature prefix,
+// without decoding a log. The boolean reports whether the prefix matches a
+// registered definition (built-ins included). Ported from v1.
+func DecodeEventSignature(sig []byte) (string, bool) {
+	if len(sig) < 4 {
+		return "", false
+	}
+	var key [4]byte
+	copy(key[:], sig[:4])
+
+	mu.RLock()
+	def := sig4[key]
+	mu.RUnlock()
+	if def == nil {
+		return "", false
+	}
+	types := make([]string, len(def.Inputs))
+	for i, in := range def.Inputs {
+		types[i] = in.Type
+	}
+	return fmt.Sprintf("%s(%s)", def.Name, strings.Join(types, ",")), true
 }
 
 // decodeEvent decodes a matched event definition against raw topics/data.
@@ -155,7 +201,9 @@ func tronAddressFromEVM(b []byte) (tron.Address, error) {
 
 // decodeTopicValue decodes an indexed parameter from its 32-byte topic.
 // Ported from v1 decodeTopicValue, returning decoded values instead of
-// strings.
+// strings. Signed int types are interpreted two's-complement — a v2 fix:
+// v1 used big.Int.SetBytes (unsigned), so a negative indexed int256 topic
+// decoded as a huge positive (see TestDecodeIndexedNegativeInt).
 func decodeTopicValue(topic []byte, paramType string) any {
 	switch paramType {
 	case "address":
@@ -164,9 +212,18 @@ func decodeTopicValue(topic []byte, paramType string) any {
 			return hex.EncodeToString(topic)
 		}
 		return addr
-	case "uint256", "uint128", "uint64", "uint32", "uint16", "uint8",
-		"int256", "int128", "int64", "int32", "int16", "int8":
+	case "uint256", "uint128", "uint64", "uint32", "uint16", "uint8":
 		return new(big.Int).SetBytes(topic)
+	case "int256", "int128", "int64", "int32", "int16", "int8":
+		// Two's complement: a 32-byte ABI word with the top bit set is
+		// negative. big.Int.SetBytes is unsigned, so negate the
+		// two's-complement of the magnitude in that case.
+		v := new(big.Int).SetBytes(topic)
+		if len(topic) > 0 && topic[0]&0x80 != 0 {
+			max := new(big.Int).Lsh(big.NewInt(1), uint(len(topic)*8))
+			v.Sub(v, max)
+		}
+		return v
 	case "bool":
 		// ABI encodes bool as a 32-byte word: true = 0x00...01.
 		for _, b := range topic {
