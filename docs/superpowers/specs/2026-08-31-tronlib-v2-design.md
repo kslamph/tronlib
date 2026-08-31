@@ -1,6 +1,6 @@
 # tronlib v2 — API Design Specification
 
-**Status:** Approved for spec; awaiting user review
+**Status:** Revised after review (`docs/reviews/2026-08-31-tronlib-v2-design-review.md`); see §16 for the disposition of every finding. Awaiting user review.
 **Date:** 2026-08-31
 **Scope:** Core API redesign. Breaking changes permitted; no v1 compatibility work.
 **Provenance:** Derived from a two-model adversarial design process (oracle draft + three independent attack lanes) with every P0 finding independently re-verified by execution. Evidence citations refer to the v1 tree at `/Users/kslam/goproj/tronlib`.
@@ -75,7 +75,7 @@ github.com/kslamph/tronlib/v2
 ├── tron         vocabulary: Address, SUN, Error, Code, Action, constants
 ├── key          Signer, PrivateKey, HDWallet, SignMessage, VerifyMessage
 ├── rpc          transport, connection pool, ~106 1:1 gRPC wrappers
-├── tx           NativeTx, ContractTx, Receipt, Estimate, EnergyEstimate, CostPreview
+├── tx           NativeTx, ContractTx, DeployTx, AssetTx, Receipt, Estimate, EnergyEstimate, CostPreview
 ├── contract     Instance, Result, Arg
 ├── token        Handle, Amount
 └── event        Log, EventDef, Decode
@@ -114,7 +114,7 @@ tron  (no internal deps)
 | `network` (13) | fold | `rpc` + `tronlib` (`ChainTip`) |
 | `resources` (15) | fold | `rpc` + `tx` (`CostPreview`) |
 | `voting` (12) | fold | `rpc` |
-| `trc10` (14) | out of scope | — (C3) |
+| `trc10` (14) | split | issuance out of scope (C3); **transfer** in scope as `tx.AssetTx` — see §13 |
 
 ### `utils` dissolution
 
@@ -123,7 +123,7 @@ tron  (no internal deps)
 | `EncodeAddress` / `DecodeAddress` | delete → `tron.Address` methods |
 | `HumanReadableBalance`, `HumanReadableNumber`, `HumanReadableTokenAmount`, `FormatBigInt` | collapse to **two** methods: `String()` (canonical) and `Formatted()` (display) on the type owning the scale. Not one: v1's output carries comma separators *and* rounds (`conversion.go:22-25`), so a single method cannot be both round-trippable and display-friendly. |
 | 10 `IsValidX` / `ValidateX` twins | keep `ValidateX() error` only. A bool cannot tell an agent *why*. |
-| `SetFeeLimit`, `SetTimestamp`, `SetExpiration`, `SetPermissionID` (`tx any`) | delete → methods on `tx` types. `SetTimestamp` deleted outright — timestamps are derived. |
+| `SetFeeLimit`, `SetTimestamp`, `SetExpiration`, `SetPermissionID` (`tx any`) | replaced by the typed `With*` methods in **§6.4** — fee limit, expiration and permission id are all required by real flows and are defined there, not merely promised. `SetTimestamp` deleted outright: timestamps are derived from the head block. |
 | `EncodeTRC20Transfer`, `EncodeTRC20BalanceOf`, `DecodeTRC20Balance` | move to `token` |
 | `EncodeParameters`, `DecodeParameters`, `EncodeMethodSignature` | move to `contract` |
 | `VerifyMessageV2` | move to `key`, beside `SignMessageV2` |
@@ -200,7 +200,8 @@ func MustTRX(s string) SUN
 | `TRX(1.6)` | compiler | `float64 does not satisfy Whole` |
 | `TRX(someSUN)` | compiler | `SUN does not satisfy Whole (possibly missing ~ for int64 in Whole)` |
 | `TRX(uint64(x))` | compiler | `uint64 does not satisfy Whole` |
-| `TRX(10e15)` | runtime panic | literal-only function |
+| `TRX(10e15)` | compiler | `float64 does not satisfy Whole` — `10e15` is an **untyped float constant**, so it is rejected at compile time, not at runtime |
+| `TRX(9_223_372_036_855)` | runtime panic | an *integer* literal above `maxSafeTRX`; the only genuine panic case |
 | `ParseTRX("1.6666666")` | error | `amount.too_many_decimals` |
 | `ParseTRX("+1.6")` | error | `amount.invalid` |
 | `ParseTRX("1,234")` | error | `amount.invalid` |
@@ -209,13 +210,15 @@ func MustTRX(s string) SUN
 ### 5.3 Display
 
 ```go
-func (s SUN) String() string      // value receiver; canonical; round-trips with ParseTRX
-func (s SUN) Formatted() string   // display only: thousands separators, rounding
-func (s SUN) Add(o SUN) SUN
-func (s SUN) Sub(o SUN) SUN
+func (s SUN) String() string        // value receiver; canonical; round-trips with ParseTRX
+func (s SUN) Formatted() string     // display only: thousands separators, rounding
+func (s SUN) Add(o SUN) (SUN, error) // checked — see overflow note below
+func (s SUN) Sub(o SUN) (SUN, error) // checked
 func (s SUN) Mul(n int64) (SUN, error)
 func (s SUN) Int64() int64
 ```
+
+**Overflow discipline is uniform.** `Add` and `Sub` are checked and return `error` like `Mul`. `SUN` is an `int64` and the type admits arbitrary values, so two near-`MaxInt64` amounts would otherwise wrap silently — and an unchecked pair of binary operators next to a checked `Mul` is exactly the inconsistency this spec exists to remove. The supply bound makes these cases unreachable *in practice*; it does not make them unreachable *in the type*, and the difference is the whole point of §5.
 
 `String()` **must** use a value receiver. With a pointer receiver, `fmt.Sprintf("%v", sun)` on a non-addressable `SUN` does not select the method and prints the raw integer — every log line then silently lies about units.
 
@@ -243,7 +246,7 @@ func (a Amount) Formatted() string                  // display
 
 `Handle` is **eager and immutable**: `Client.Token(ctx, addr)` performs the `decimals()` read at construction, which is why it takes `ctx` and returns `error`. There is no `Refresh`. This is required by the amount model — `Amount(s string)` cannot compute a scale-shifted integer without knowing the token's decimals, and laziness would force I/O into a pure parse function.
 
-`decimals` is validated to ≤ 18 at construction; a malformed on-chain response produces `contract.bad_metadata` (§7.3).
+**Decimals validation.** `decimals()` returns `uint8`, so anything in `0..255` is representable on-chain and must not be rejected as malformed — values above 18 are unusual, not invalid, and refusing them would make the library unable to read a token the chain accepts. `contract.bad_metadata` is reserved for the case v1 actually has a test for: a response whose **encoding width** is wrong, e.g. `decimals` returned packed as uint256 instead of uint8 (`pkg/trc20/decimals_uint256_test.go:17-24`). `Amount.String()` and `Handle.Amount` must therefore tolerate `decimals` up to 255 and are tested against a 255-decimal fixture.
 
 ---
 
@@ -261,37 +264,54 @@ type ContractTx struct  // TriggerSmartContract — contract calls and all TRC-2
 
 // Kind reports which TRON contract a built transaction wraps. It is derived
 // from Transaction_Contract.Type (pb/core/tron.pb.go:4806) at build time and
-// is informational only — safety comes from the two distinct Go types, not
-// from this value. Open enum: a third kind is a new type, not a change here.
+// is informational only — safety comes from the distinct Go types, not from
+// this value. Open enum: a further kind is a new type, not a change here.
 type Kind int
 
 const (
-    KindNative Kind = iota   // non-contract transaction, no energy cost
-    KindContract             // TriggerSmartContract; Simulate/EstimateEnergy apply
+    KindNative   Kind = iota   // non-contract transaction, no energy cost
+    KindContract               // TriggerSmartContract; Simulate/EstimateEnergy apply
+    KindDeploy                 // CreateSmartContract; no simulate path exists
+    KindAssetTransfer          // TransferAssetContract (TRC-10 transfer, §13)
 )
 
-// Tx is the sealed interface satisfied by both kinds.
+// Tx is the sealed interface satisfied by every transaction kind.
+//
+// Sealing is deliberate: without txInternal() the interface would be
+// satisfiable by any caller-supplied type, and Broadcast would accept a
+// hand-rolled Tx that bypasses the builders which set fee_limit, expiration
+// and permission id. This is the same technique §9 uses for Arg.
 type Tx interface {
+    txInternal()                        // unexported; seals the set
     ID() string
     Kind() Kind
     Extension() *api.TransactionExtention   // escape hatch
     Transaction() *core.Transaction         // escape hatch
     Signers() ([]tron.Address, error)
     IsSigned() bool
+    FeeLimit() tron.SUN
+    Expiration() time.Time
+    PermissionID() int32
 }
 ```
+
+Four kinds, four types. `NativeTx`, `ContractTx`, `DeployTx` and `AssetTx` each carry only the options that are meaningful for them, and each exposes read-back accessors so a caller can inspect what a builder defaulted.
 
 The kind is decided **statically by the builder**, not by runtime inspection:
 
 ```go
 func (c *Client) TransferTRX(ctx, from, to Address, amt tron.SUN) (*tx.NativeTx, error)
+func (c *Client) TransferToken(ctx, from, to Address, assetName string, qty int64) (*tx.AssetTx, error)
 func (h *token.Handle) Transfer(ctx, from, to Address, amt token.Amount) (*tx.ContractTx, error)
 func (i *contract.Instance) Invoke(ctx, owner Address, value tron.SUN, method string, args ...Arg) (*tx.ContractTx, error)
+func (c *Client) Deploy(ctx, owner Address, p DeployParams) (*tx.DeployTx, error)
 ```
+
+**Deployment is in scope.** v1 exposes `smartcontract.Manager.Deploy`, `UpdateSetting` and `UpdateEnergyLimit`; omitting them would be a regression, and C3 excludes only shielded operations, TRC-10 *issuance*, and the CLI. `DeployTx` is a distinct type rather than a variant of `ContractTx` because it carries fields no other kind has — `OriginEnergyLimit` (must be > 0) and `ConsumeUserResourcePercent` — and because the protocol gives it **no simulation path**, which the type system should express rather than document.
 
 ### 6.2 This is the F1 fix
 
-`Simulate` and `EstimateEnergy` are declared **only** on `*ContractTx`. `nativeTx.Simulate(ctx)` is a compile error because the method does not exist. No dispatch to forget, no type check to omit.
+`Simulate` and `EstimateEnergy` are declared **only** on `*ContractTx`. `nativeTx.Simulate(ctx)` and `deployTx.Simulate(ctx)` are both compile errors because the methods do not exist. No dispatch to forget, no type check to omit.
 
 > **Implementation note:** methods on a generic type instantiated in the receiver do **not** restrict the method to that instantiation — Go registers the method for all type arguments. Verified: `func (t *Tx[Contract]) Simulate()` remains callable on `*Tx[Native]`. Two distinct named types are therefore mandatory; a generic `Tx[K]` does not achieve compile-time exclusion.
 
@@ -307,27 +327,82 @@ func (c *Client) Wait(ctx context.Context, txid string) (*Receipt, error)
 
 `Sign` **returns a copy** and leaves the receiver unmodified, so a partially-signed transaction cannot be shared by accident and multi-sig composes as `tx = tx.Sign(a).Sign(b)`. The kind is preserved by the return type.
 
-**No `SignedTx` type.** Broadcasting an unsigned transaction already fails at the node with a distinct code; it is not a silent-wrong-answer defect, and four types where two suffice is not justified.
+**No `SignedTx` type.** Broadcasting an unsigned transaction already fails at the node with a distinct code; it is not a silent-wrong-answer defect, and doubling the type count is not justified.
 
-### 6.4 Retry safety
+### 6.4 Transaction options — fee limit, expiration, permission id
 
-`Broadcast` performs one reconciliation poll on timeout. A timeout after the broadcast has landed returns `chain.unconfirmed` **with the txid populated** and `Next = ActionWait`, instructing the caller to poll for the receipt rather than resend.
+These are **not** optional in the protocol sense, and their absence was a blocking defect in the first version of this spec: TRON requires `fee_limit` for contract calls, and a transaction broadcast with `fee_limit = 0` cannot purchase energy and fails. Every builder therefore applies a documented default, and every default is overridable.
 
-This closes a defect in the prior design where the taxonomy marked `chain.timeout` retryable while the default broadcast path waits *after* submission — following the documented advice would resend a signed transaction and duplicate a transfer.
+```go
+// Contract-shaped transactions: fee limit, expiration and permission id.
+func (t *ContractTx) WithFeeLimit(s tron.SUN) *ContractTx
+func (t *ContractTx) WithExpiration(d time.Duration) *ContractTx
+func (t *ContractTx) WithPermissionID(id int32) *ContractTx
 
-### 6.5 Receipt
+// Native and asset transfers: expiration and permission id only — they
+// consume no energy, so a fee limit is meaningless and is not offered.
+func (t *NativeTx) WithExpiration(d time.Duration) *NativeTx
+func (t *NativeTx) WithPermissionID(id int32) *NativeTx
+func (t *AssetTx)  WithExpiration(d time.Duration) *AssetTx
+func (t *AssetTx)  WithPermissionID(id int32) *AssetTx
+
+// Deploy adds two fields no other kind carries.
+func (t *DeployTx) WithFeeLimit(s tron.SUN) *DeployTx
+func (t *DeployTx) WithExpiration(d time.Duration) *DeployTx
+func (t *DeployTx) WithOriginEnergyLimit(n int64) *DeployTx
+func (t *DeployTx) WithResourcePercent(p int64) *DeployTx
+```
+
+`With*` returns a copy, matching `Sign`'s copy-on-write discipline, so options compose: `ct.WithFeeLimit(tron.TRX(5)).WithPermissionID(3).Sign(a).Sign(b)`.
+
+**Defaults, stated so they are testable:**
+
+| Option | Default | Rationale |
+|---|---|---|
+| `fee_limit` (contract) | `150_000_000` SUN (150 TRX) | v1's `DefaultBroadcastOptions` value (`broadcaster.go:42`); carried over deliberately rather than invented |
+| `fee_limit` (deploy) | same | deploy is the most expensive call a user makes |
+| expiration | head + 60 s | protocol default |
+| `permission_id` | `0` (owner) | protocol default; multi-sig under active permissions needs 2–9 |
+
+**Expiration is a real constraint, not a nicety.** The 60 s default is the documented remedy for large multi-signer flows where an unsigned transaction must circulate between signers for longer than a minute — exactly the `With*`/`Sign` composition this spec advertises. One-process multi-sig fits inside 60 s; cross-process circulation does not, which is why `WithExpiration` is required rather than deferred.
+
+`CostPreview` and `Simulate` must compare the effective `fee_limit` against `Estimate.Energy × SunPerEnergy` and surface `tx.fee_limit_too_low` **before** broadcast, so the default is a floor that is checked, not trusted.
+
+### 6.5 Retry safety
+
+`Broadcast` performs one reconciliation poll on timeout. A timeout after the broadcast has landed returns `chain.unconfirmed` **with the txid populated** and `Next = ActionWait`.
+
+The reason is protocol-specific and the first version of this spec stated it wrongly. Re-broadcasting the **identical signed payload** cannot double-spend: a TRON txid is a pure function of `raw_data`, and the node deduplicates it with `DUP_TRANSACTION_ERROR`. The hazard is **rebuilding** — a fresh transaction gets a new TAPOS reference block and therefore a new txid, and *that* spends twice.
+
+So `ActionWait` is correct, but the rule the agent must learn is:
+
+> After an ambiguous timeout, never rebuild-and-resign until the original txid's receipt is confirmed absent or failed. Resending the same bytes is safe but futile; rebuilding is what loses money.
+
+### 6.6 Receipt
 
 ```go
 type Receipt struct {
     TxID     string
     Code     tron.Code
-    NodeCode string          // raw api.Return_* name, preserved — see §7.4
+    NodeCode string          // raw api.Return_* / broadcast code, preserved — §7.4
+    BlockNum uint64          // inclusion block, 0 if not yet included
+    BlockTime time.Time      // block timestamp
     Cost     ActualCost
     Logs     []event.Log
     Revert   string
 }
 func (r *Receipt) OK() bool   // derived from Code; no stored Success field
+func (r *Receipt) Solidified() bool
 ```
+
+**`Wait` semantics.** `Wait(ctx, txid)` polls the **FullNode** receipt and returns as soon as the transaction is *included and executed*. That is not finality. TRON reaches practical finality when a block is **solidified** — confirmed by ≥ 19 of 27 Super Representatives, roughly a minute — and for custody or deposit-crediting use cases solidification, not inclusion, is the semantic that matters. `Receipt.Solidified()` reports it, and `WaitForSolid` is the finality-aware variant:
+
+```go
+func (c *Client) Wait(ctx context.Context, txid string) (*Receipt, error)             // included + executed
+func (c *Client) WaitForSolid(ctx context.Context, txid string) (*Receipt, error)     // solidified
+```
+
+Both are served by the Solidity endpoint where the protocol provides one; `rpc` already wraps `WalletSolidity`, and `EstimateEnergy` is available on it (`pb/api/api_grpc.pb.go:6181`), so estimates are not restricted to the head-based FullNode service.
 
 v1's `BroadcastResult` leaks `api.ReturnResponseCode` and `[]*core.TransactionInfo_Log` past the high-level boundary and represents revert data as `ConstantReturn [][]byte` requiring a nil test. v2 converts all three at the boundary.
 
@@ -423,7 +498,12 @@ type EnergyPrice struct {
 }
 ```
 
-**Cache rule, stated so it is testable:** `EnergyPrice` is memoised against the head block number returned by the most recent `ChainTip`, and refetched when that number changes or when `FetchedAt` is older than one maintenance period. It is never cached across a `CostPreview` that the caller has asked to be fresh.
+**Cache rule, stated so it is testable.** The unit price changes **only** via governance proposal, so the cache is TTL-only: refetch when `FetchedAt` is older than one maintenance period, or when the caller explicitly requests a fresh read. It must **not** be keyed on head block number — the head advances every ~3 seconds, which would refetch on every call and make the memoisation dead while the second condition stayed unreachable. That was the rule in the first version of this spec and it was self-defeating.
+
+**Two stated limitations of `CostPreview`:**
+
+1. **Bandwidth is not modelled.** `Receipt.Cost` reports `NetFee`, so a preview→actual delta can contain bandwidth cost the preview never mentioned. `CostPreview` therefore carries an explicit `BandwidthNote` and §12's docs must state that the preview covers energy only. Adding a bandwidth line is a v2.1 item, not a v2.0 blocker.
+2. **Recipient activation is not modelled.** Sending TRX to an address that has never existed costs roughly 1.1 TRX (account creation plus bandwidth shortfall), and a contract transfer to an unactivated address costs about 25,000 extra energy. `CostPreview` cannot know the recipient's state without an account read, so it documents the delta rather than guessing it. An agent transferring to a fresh address will otherwise see an unexplained cost jump — which is exactly the class of surprise §8 exists to eliminate.
 
 **Staleness is a stated property, not an implementation detail.** `consumption_factor` is recomputed each maintenance period, so a `CostPreview` is a **floor, not a ceiling**. `PricedAt` exists so callers can set their own tolerance.
 
@@ -516,6 +596,7 @@ address.invalid         address.wrong_prefix
 
 tx.no_signer            tx.already_signed            tx.expired             tx.duplicate
 tx.fee_limit_too_low    tx.invalid_argument          tx.unknown_contract
+tx.tapos_invalid        tx.too_large
 
 chain.connection        chain.timeout                chain.closed           chain.unavailable
 chain.unconfirmed
@@ -533,6 +614,8 @@ rpc.method_failed
 ```
 
 `account.insufficient_*` and `account.permission_denied` **restore remediation v1 already ships and the prior design deleted.** v1's `ErrInsufficientEnergy` carries `"freeze TRX for energy or wait for energy regeneration"` — precisely an `ActionFund` hint. `contract.bad_metadata` covers a case v1 already tests: a contract returning `decimals()` packed as uint256 instead of uint8 (`pkg/trc20/decimals_uint256_test.go:17-24`).
+
+`tx.tapos_invalid` and `tx.too_large` map the real broadcast codes `TAPOS_ERROR` and `TOO_BIG_TRANSACTION_ERROR`. The broadcast response carries a distinct enum set — `SUCCESS`, `SIGERROR`, `CONTRACT_VALIDATE_ERROR`, `CONTRACT_EXE_ERROR`, `BANDWITH_ERROR`, `DUP_TRANSACTION_ERROR`, `TAPOS_ERROR`, `TOO_BIG_TRANSACTION_ERROR`, `TRANSACTION_EXPIRATION_ERROR` — and the generated mapping in §8.5 must cover **all** of them, because `DUP_TRANSACTION_ERROR` in particular is the signal that tells an agent its resend was deduplicated rather than lost (§6.5).
 
 ### 8.4 Action semantics
 
@@ -571,6 +654,12 @@ func (r *Result) IsNil() bool
 // of tx.Estimate.ConstantResult (§7.2), which tx cannot decode itself.
 func (i *Instance) Decode(method string, data []byte) (*Result, error)
 
+// Call executes a view function end to end: triggerconstantcontract, then
+// decode, in one step. Without it the read path for the single most common
+// agent operation after transfers is four calls plus raw-byte plumbing.
+func (i *Instance) Call(ctx context.Context, method string, args ...Arg) (*Result, error)
+func (i *Instance) CallAtBlock(ctx context.Context, block uint64, method string, args ...Arg) (*Result, error)
+
 // Arg is sealed: the unexported method cannot be satisfied outside this package,
 // so an agent cannot construct an invalid argument.
 type Arg interface{ argABI() string }
@@ -582,6 +671,12 @@ func Uint64Arg(v uint64) Arg
 ```
 
 `Arg` constructors are named `XxxArg`, not bare `Xxx` — bare `Address(...)` collides with the `tron.Address` alias re-exported at root.
+
+### 9.1 The ABI address rule — a requirement, not a footnote
+
+**TRON addresses are 21 bytes with a leading `0x41`; ABI-encoded address arguments are the 20-byte form with that prefix stripped.** `AddressArg` must strip `0x41` before encoding, and `Result.Address()` must re-prepend it on decode. Sending the 21-byte value padded to 32 is documented as *the most common ABI-encoding mistake* on TRON, and it produces a call that encodes cleanly, executes, and reads the wrong slot — the exact silent-wrong-answer class this spec exists to eliminate.
+
+This is a normative requirement with a named acceptance test: **step 8 of §14 must include a round-trip test** asserting `AddressArg(a)` encodes to the 20-byte form and `Result.Address()` of that value returns a `tron.Address` equal to `a`, for both a mainnet and a testnet address.
 
 `Result` accessors return `(T, error)` with `contract.result_type_mismatch` on the wrong accessor, so a mistaken type assertion is a classified error rather than a zero value.
 
@@ -625,10 +720,12 @@ func (c *Client) Network(ctx context.Context) (Network, error)
 func (c *Client) ChainTip(ctx context.Context) (uint64, error)
 func (c *Client) TronBalance(ctx context.Context, a Address) (tron.SUN, error)
 func (c *Client) TransferTRX(ctx, from, to Address, amt tron.SUN) (*tx.NativeTx, error)
+func (c *Client) Deploy(ctx, owner Address, p tx.DeployParams) (*tx.DeployTx, error)
 func (c *Client) Token(ctx, tokenAddr Address) (*token.Handle, error)
 func (c *Client) Contract(ctx, contractAddr Address) (*contract.Instance, error)
 func (c *Client) Broadcast(ctx, t tx.Tx) (*tx.Receipt, error)
 func (c *Client) Wait(ctx, txid string) (*tx.Receipt, error)
+func (c *Client) WaitForSolid(ctx, txid string) (*tx.Receipt, error)
 func (c *Client) CostPreview(ctx, t *tx.ContractTx, owner Address) (*tx.CostPreview, error)
 func (c *Client) EnergyPrice(ctx) (*tx.EnergyPrice, error)
 func (c *Client) Events(ctx, txid string) ([]event.Log, error)
@@ -636,7 +733,30 @@ func (c *Client) Events(ctx, txid string) ([]event.Log, error)
 
 **Aliases, not wrappers.** `type Address = tron.Address` makes a `tron.Address` and a `tronlib.Address` the same type, so facade and subpackage calls interoperate with zero conversion. This is only possible because v2 is a single module (C1); the decision is coupled to it.
 
-**`Dial` performs one round trip** (`GetChainParams`) unless `WithLazyDial()` is passed, and `Network` is exposed. Validating URL *shape* is not validating reachability: a `Dial` to a dead node returning `err == nil` sends the first `TronBalance` to `chain.connection → retry`, so the agent retries the wrong operation instead of switching endpoint. `Network` is required because the design distinguishes mainnet (`0x41`) from testnet (`0x65`) addresses via `address.wrong_prefix` but must give callers a way to ask which network they are on.
+**`Dial` performs one round trip** (`GetChainParams`) unless `WithLazyDial()` is passed. Validating URL *shape* is not validating reachability: a `Dial` to a dead node returning `err == nil` sends the first `TronBalance` to `chain.connection → retry`, so the agent retries the wrong operation instead of switching endpoint.
+
+**Network identity is explicit configuration, not a derivation.** An earlier version of this spec claimed mainnet addresses use `0x41` and testnet addresses use `0x65`. That is **false** and has been removed: the 21-byte address prefix is `0x41` on Mainnet, Shasta **and** Nile; the only other documented value is `0xa0`, a legacy `net.type = testnet` config value no active network uses. (`0x65` appears nowhere in the protocol — it is almost certainly `0x41` read as the decimal 65.) Two consequences:
+
+1. `address.wrong_prefix` is a **format** check meaning "not `0x41`". It cannot discriminate networks and must not be documented as if it could.
+2. `Client.Network` has no protocol source. **TRON has no chain ID**, and `GetChainParams` carries governance parameters only, no network identity. Network is therefore declared at construction and verified heuristically:
+
+```go
+// Network is explicit configuration. It is not inferred from an address byte.
+type Network string
+
+const (
+    Mainnet Network = "mainnet"
+    Shasta  Network = "shasta"
+    Nile    Network = "nile"
+    Private Network = "private"   // own genesis; no fingerprint match
+)
+
+func WithNetwork(n Network) DialOption
+func (c *Client) Network() Network                    // the configured value, no I/O
+func (c *Client) VerifyNetwork(ctx context.Context) error   // genesis-hash fingerprint
+```
+
+`VerifyNetwork` compares `GetBlockByNum(0)`'s block id against a table of known genesis hashes and returns `chain.network_mismatch` when it disagrees with the configured value. It is **heuristic and must be documented as such** — a private chain matches no entry, and a future testnet redeploy changes its genesis. `Dial` calls it automatically unless `WithLazyDial()` or `Network == Private`.
 
 **`Sign` is on the transaction, not the client** (§6.3), so it is absent from this list by design. `ParseAddress`, `MustAddress`, `KeyFromHex` and `KeyFromMnemonic` are thin re-exports of `tron` and `key` constructors; they are listed here because the happy path below must compile with a single import.
 
@@ -704,7 +824,9 @@ P11 is structural, not disciplinary: `README.md` and `docs/*.md` contain Go that
 v2 explicitly does **not**:
 
 - Provide shielded/Sapling operations (C3). Deferred to v2.1; `rpc` means nothing is blocked.
-- Provide TRC-10 asset issuance (C3).
+- Provide TRC-10 asset **issuance** (C3) — `AssetIssueCreate`, update and permission variants.
+- **TRC-10 *transfer* is in scope**, as `tx.AssetTx` via `Client.TransferToken`. C3 excludes issuance, not the ability to move an asset you already hold, and `TransferAssetContract` is a native (non-TVM, no-energy) transaction that fits `NativeTx`'s category. It is a distinct type because it carries an asset-name field neither `NativeTx` nor `ContractTx` has.
+- Contract **deployment is in scope** (§6.1). v1 exposes `Manager.Deploy`, so omitting it would be a regression.
 - Ship a CLI (C3).
 - Carry any `Deprecated:` shim (C4).
 - Guarantee that a `CostPreview` equals the eventual `Receipt.Cost` — the penalty factor moves between maintenance periods (§7.3).
@@ -724,12 +846,12 @@ Build in DAG order (§3). Each step is independently shippable on the v2 branch 
 |---|---|---|
 | 1 | Freeze v1 at `v1.9.0`; bugfixes only | tag exists |
 | 2 | `/v2` module skeleton, `go.mod`, CI wiring | empty build green |
-| 3 | `tron` — Address, SUN, Error, Code, Action, constants | §5.2 rejection matrix passes as tests; `codes_gen.go` generates |
+| 3 | `tron` — Address, SUN, Error, Code, Action, constants | **§5.2 rejection matrix executed as real compile and runtime tests** (negative-compile cases via a `go vet`-style harness or `go/types` check, panic case as a test); `codes_gen.go` generates |
 | 4 | `cmd/docgen` + `docgen -check` in CI **now, not later** | a deliberately stale doc fails the build |
 | 5 | `key`, `event` | sign/verify round-trip in one package |
 | 6 | `rpc` — transport, pool, ~106 wrappers | bufconn fake passes |
-| 7 | `tx` — kinds, Sign, Broadcast, Wait, Receipt, cost types | F1 is a compile error in a negative test; §6.4 timeout path tested against a fake |
-| 8 | `contract`, `token` | `Result` accessors; `Amount` round-trips through `String`/parse |
+| 7 | `tx` — four kinds, `Sign`, `With*` options, `Broadcast`, `Wait`, `WaitForSolid`, `Receipt`, cost types | F1 is a compile error in a negative test; **fee-limit default asserted non-zero on every contract-shaped builder**; ambiguous-timeout path yields `chain.unconfirmed` + txid against a fake; `Tx` sealing verified by a negative compile test |
+| 8 | `contract`, `token` | `Result` accessors; `Amount` round-trips through `String`/parse; **§9.1 ABI `0x41` strip/re-prepend round-trip test**; `Instance.Call` against the bufconn fake; `Handle` accepts a 255-decimal fixture |
 | 9 | Root facade + happy-path examples | one-import example compiles |
 | 10 | Implementor verification of §7.5 items | recorded against a live Nile transaction |
 | 11 | Generated migration guide, v1 symbol → v2 symbol, by AST diff | no hand-written table |
@@ -744,8 +866,38 @@ Step 4 precedes all API work deliberately: `docgen` is the mechanism that keeps 
 | ID | Risk | Mitigation |
 |---|---|---|
 | **R1** | The §7.5 pricing assumptions are unverified against a live node. | Step 10 gates `EstimateEnergy` and `CostPreview`. The API shape survives either outcome. |
-| **R2** | Tier A ≤120 may still be missed once `tx` and `contract` are enumerated. | The ratchet in step 3 records the real number; the budget is a target, and missing it is visible rather than silent. |
+| **R2** | Tier A ≤120 may still be missed once `tx` and `contract` are enumerated. Four kinds plus `With*` options raised this risk. | The ratchet in step 3 records the real number; the budget is a target, and missing it is visible rather than silent. |
 | **R3** | `Code` is an open string type, so a downstream typo (`"chain.conection"`) falls through an agent's switch. | `codes_gen.go` exports `AllCodes` as the authoritative set; `HasCode` never panics on unknown codes. |
-| **R4** | Two transaction kinds may not cover a future contract type cleanly. | `Kind()` is an open enum; a third kind is a new type, not a change to the existing two. |
+| **R4** | More transaction kinds may not cover a future contract type cleanly. | `Kind` is an open enum; a further kind is a new type, not a change to the existing four. |
 | **R5** | `rpc` exemption from N1/N3 means the drop-down violates rules the curated surface enforces. | Intentional and stated: its names are a mechanical projection, not designer choices. |
-| **R6** | `Sign` returning a copy allocates per signature on multi-sig paths. | Multi-sig counts are single digits; correctness of non-mutation is worth one allocation. |
+| **R6** | `Sign` and `With*` returning copies allocate per call on multi-sig paths. | Multi-sig counts are single digits; correctness of non-mutation is worth the allocations. |
+| **R7** | `VerifyNetwork` is heuristic. A redeployed testnet changes its genesis hash and a private chain matches nothing. | Explicit `WithNetwork` is the source of truth; `VerifyNetwork` only *detects* mismatch, never *infers* identity. |
+| **R8** | The default 150 TRX fee limit is a large ceiling for small users and a possible under-estimate for heavy contracts. | It is v1's shipped value, it is overridable, and §6.4 requires `CostPreview`/`Simulate` to check it against the estimate rather than trust it. |
+
+---
+
+## 16. Review disposition
+
+Every finding in `docs/reviews/2026-08-31-tronlib-v2-design-review.md`, with its verification status. Load-bearing claims were re-checked against source or the live protocol before being accepted; one review claim was found to be wrong.
+
+| ID | Finding | Status | Action |
+|---|---|---|---|
+| **B1** | `fee_limit` unsettable; contract calls go out with 0 | **Accepted — verified by inspection**: §4 promised methods §6 never defined | §6.4 `With*` family + documented defaults |
+| **B2** | `0x65` testnet prefix is false | **Accepted — verified against official docs**: `0x41` on Mainnet/Shasta/Nile; no `0x65`; no chain ID exists | §10 rewritten: `address.wrong_prefix` is format-only; `WithNetwork` explicit + `VerifyNetwork` heuristic |
+| **B3** | Deployment in scope but unassigned | **Accepted — verified**: v1 exposes `Manager.Deploy`, so omission is a regression | §6.1 `DeployTx` as a third kind, no simulate path |
+| **B4** | Expiration and permission id also undefined | **Accepted** | §6.4; expiration is the documented remedy for cross-process multi-sig circulation |
+| **G1** | No block data; `Wait` finality unspecified | **Partly accepted** | §6.6 adds `BlockNum`/`BlockTime`/`Solidified()`/`WaitForSolid`. **The review's parenthetical is wrong**: `EstimateEnergy` *is* on `WalletSolidity` (`pb/api/api_grpc.pb.go:6181`), not Wallet-only |
+| **G2** | No read path for view functions | **Accepted** | §9 `Instance.Call` / `CallAtBlock` |
+| **G3** | ABI `0x41`-strip rule absent | **Accepted** | §9.1 as a normative requirement with a named step-8 test |
+| **G4** | §6.4 rationale protocol-wrong | **Accepted — verified**: `DUP_TRANSACTION_ERROR` deduplicates identical payloads, so resend cannot double-spend; the hazard is rebuilding | §6.5 rewritten; `ActionWait` kept, reason corrected; `tx.duplicate` now mapped explicitly |
+| **G5** | `EnergyPrice` cache keyed on head block refetches every ~3 s | **Accepted** | §7.3 TTL-only rule |
+| **G6** | TRC-10 transfer homeless; C3 vs §3 disagree | **Accepted** | `AssetTx` + `TransferToken` in scope; §13 separates transfer from issuance |
+| **P2.1** | `TRX(10e15)` is a compile error, not a panic | **Accepted — verified by execution** | §5.2 corrected; real panic row added |
+| **P2.2** | Decimals cap 18 rejects valid uint8 tokens | **Accepted** | §5.4 accepts 0–255; `bad_metadata` reserved for wrong encoding width |
+| **P2.3** | `Add`/`Sub` unchecked vs `Mul` checked | **Accepted** | §5.3 all three checked |
+| **P2.4** | `Tx` claimed sealed but is not | **Accepted** | §6.1 adds `txInternal()` marker |
+| **P2.5** | Activation cost unmodelled | **Accepted as a documented limitation** | §7.3 note; not modelled in v2.0 |
+| **P2.6** | `CostPreview` ignores bandwidth | **Accepted as a documented limitation** | §7.3 note; bandwidth line deferred to v2.1 |
+| **P2.7** | `Network` type undefined | **Accepted** | §10 defines it |
+
+**Net effect on the design's spine:** none. The package DAG, the amount model, the error taxonomy, the four-kind F1 fix and docgen-before-API all survived review unchanged. Every accepted finding was a last-mile gap — a mechanism promised in one section and not defined in another, or a protocol fact stated from recollection. That is the same failure mode as P11, appearing in a document written to eliminate P11, which is worth noting as the real lesson here: **a spec that polices unverified claims still has to make them, and every one needs a source.**
