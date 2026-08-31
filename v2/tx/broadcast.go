@@ -81,6 +81,7 @@ func Broadcast(cp rpc.ConnProvider, ctx context.Context, t Tx) (*Receipt, error)
 			TxID:     txid,
 			Code:     mappedReturnCode(ret, op),
 			NodeCode: ret.GetCode().String(),
+			Revert:   string(ret.GetMessage()),
 		}, nil
 	}
 	return &Receipt{TxID: txid, NodeCode: api.Return_SUCCESS.String()}, nil

@@ -1,0 +1,131 @@
+package tx
+
+import (
+	"context"
+
+	"github.com/kslamph/tronlib/pb/core"
+	"github.com/kslamph/tronlib/v2/rpc"
+	"github.com/kslamph/tronlib/v2/tron"
+	"google.golang.org/protobuf/proto"
+)
+
+// Estimate is the result of a read-only dry run of a ContractTx against the
+// node (spec §7.2). It deliberately has NO TxID field (the B5 fix): a
+// simulation never becomes a transaction, so any id it could carry would be
+// fabricated.
+//
+// live-verified: pending (spec §7.5).
+type Estimate struct {
+	// ConstantResult holds the returned ABI-encoded values of the constant
+	// call (one entry per returned value).
+	ConstantResult [][]byte
+	// Energy is the energy the call is estimated to consume
+	// (TransactionExtention.EnergyUsed).
+	Energy int64
+	// Penalty is the TIP-491 dynamic-model energy surcharge the node already
+	// includes in Energy (TransactionExtention.EnergyPenalty, field 8).
+	Penalty int64
+	// Net is always 0: TriggerConstantContract exposes no bandwidth figure.
+	// Receipt.Cost reports actual bandwidth after broadcast.
+	Net int64
+	// Revert is the node's revert/failure message (ResMessage), when any.
+	Revert string
+	// Code is the v2 classification of a node-level rejection; "" means the
+	// simulation ran (which does NOT mean the eventual broadcast will — an
+	// execution revert surfaces here as Revert + Code receipt.reverted).
+	Code tron.Code
+}
+
+// EnergyEstimate is the result of the node's EstimateEnergy RPC (spec §7.1):
+// the penalty-INCLUSIVE total energy the call is expected to consume. It has
+// a single field because that is all the RPC exposes
+// (api.EstimateEnergyMessage.EnergyRequired) — a Base/Penalty split here
+// would be fabricated; use ContractTx.Simulate (Estimate.Penalty) for the
+// split.
+//
+// live-verified: pending (spec §7.5).
+type EnergyEstimate struct {
+	// Energy is the total (penalty-inclusive) energy estimate.
+	Energy int64
+}
+
+// Simulate dry-runs the contract call read-only via the node's
+// TriggerConstantContract (no fee_limit is spent, nothing is broadcast) and
+// returns the decoded constant results, the energy/penalty split and any
+// revert message (spec §7.2). It exists ONLY on *ContractTx (the F1 fix) —
+// calling it on any other kind is a compile error, pinned in
+// v2/internal/compilecheck. A node-level rejection is returned in
+// Estimate.Code/Revert, not as an error; transport failures are *tron.Error.
+func (t *ContractTx) Simulate(ctx context.Context) (*Estimate, error) {
+	const op = "tx.Simulate"
+	req, err := triggerParam(&t.baseTx, op)
+	if err != nil {
+		return nil, err
+	}
+	ext, err := rpc.TriggerConstantContract(t.cp, ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	est := &Estimate{
+		ConstantResult: ext.GetConstantResult(),
+		Energy:         ext.GetEnergyUsed(),
+		Penalty:        ext.GetEnergyPenalty(),
+		// TransactionExtention carries no message of its own; the node's
+		// revert/diagnostic text rides on the embedded Result (Return.Message).
+		Revert: string(ext.GetResult().GetMessage()),
+	}
+	if ret := ext.GetResult(); !ret.GetResult() {
+		// The node rejected the simulated call. A revert marker in the
+		// failure message means the contract deliberately reverted —
+		// receipt-style, the same classification a real broadcast receipt
+		// would carry — otherwise the raw Return maps through rpc's table.
+		if isRevertMessage(est.Revert) {
+			est.Code = tron.CodeReceiptReverted
+		} else {
+			est.Code = mappedReturnCode(ret, op)
+		}
+	}
+	return est, nil
+}
+
+// EstimateEnergy asks the node's EstimateEnergy RPC for the penalty-inclusive
+// total energy of the call (spec §7.1). Like Simulate it exists ONLY on
+// *ContractTx. A node-level rejection surfaces as a *tron.Error (the RPC's
+// Return mapped through the v2 table), unlike Simulate's in-band Code.
+func (t *ContractTx) EstimateEnergy(ctx context.Context) (*EnergyEstimate, error) {
+	const op = "tx.EstimateEnergy"
+	req, err := triggerParam(&t.baseTx, op)
+	if err != nil {
+		return nil, err
+	}
+	msg, err := rpc.EstimateEnergy(t.cp, ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if ret := msg.GetResult(); !ret.GetResult() {
+		return nil, &tron.Error{Code: mappedReturnCode(ret, op), Op: op, Hint: "the node rejected the EstimateEnergy request"}
+	}
+	return &EnergyEstimate{Energy: msg.GetEnergyRequired()}, nil
+}
+
+// triggerParam decodes the wrapped contract message of a ContractTx as the
+// TriggerSmartContract request shape Simulate and EstimateEnergy re-submit.
+func triggerParam(b *baseTx, op string) (*core.TriggerSmartContract, error) {
+	raw := b.raw()
+	if raw == nil {
+		return nil, &tron.Error{Code: tron.CodeTxInvalidArgument, Op: op, Hint: "transaction has no raw data; build it with the tx.Build* functions"}
+	}
+	if err := requireOneContract(raw, op); err != nil {
+		return nil, err
+	}
+	req := new(core.TriggerSmartContract)
+	if err := proto.Unmarshal(raw.GetContract()[0].GetParameter().GetValue(), req); err != nil {
+		return nil, &tron.Error{
+			Code:  tron.CodeTxInvalidArgument,
+			Op:    op,
+			Cause: err,
+			Hint:  "the wrapped contract parameter does not decode as TriggerSmartContract; was the extention replaced via Extension()?",
+		}
+	}
+	return req, nil
+}

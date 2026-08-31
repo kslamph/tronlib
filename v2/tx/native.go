@@ -24,6 +24,7 @@ func (t *NativeTx) clone() *NativeTx { return &NativeTx{baseTx: *t.cloneBase()} 
 // node's head+60s build default. It must be called BEFORE Sign: the signature
 // covers raw_data. It panics if raw data is missing, which is unreachable for
 // builder-produced transactions (see package doc).
+// Note: setting options after signing invalidates any signature (raw_data changes; the node rejects with SIGERROR).
 func (t *NativeTx) WithExpiration(d time.Duration) *NativeTx {
 	c := t.clone()
 	setExpiration(c.raw(), d)
@@ -33,6 +34,7 @@ func (t *NativeTx) WithExpiration(d time.Duration) *NativeTx {
 // WithPermissionID returns a COPY of t with Permission_id set on the wrapped
 // contract message (2–9 for multi-sig under active permissions). Call it
 // before Sign.
+// Note: setting options after signing invalidates any signature (raw_data changes; the node rejects with SIGERROR).
 func (t *NativeTx) WithPermissionID(id int32) *NativeTx {
 	c := t.clone()
 	setPermissionID(c.raw(), id)

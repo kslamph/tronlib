@@ -19,6 +19,7 @@ func (t *AssetTx) clone() *AssetTx { return &AssetTx{baseTx: *t.cloneBase()} }
 
 // WithExpiration returns a COPY of t whose raw_data.expiration is moved to
 // now+d (milliseconds). Call it before Sign.
+// Note: setting options after signing invalidates any signature (raw_data changes; the node rejects with SIGERROR).
 func (t *AssetTx) WithExpiration(d time.Duration) *AssetTx {
 	c := t.clone()
 	setExpiration(c.raw(), d)
@@ -27,6 +28,7 @@ func (t *AssetTx) WithExpiration(d time.Duration) *AssetTx {
 
 // WithPermissionID returns a COPY of t with Permission_id set on the wrapped
 // contract message. Call it before Sign.
+// Note: setting options after signing invalidates any signature (raw_data changes; the node rejects with SIGERROR).
 func (t *AssetTx) WithPermissionID(id int32) *AssetTx {
 	c := t.clone()
 	setPermissionID(c.raw(), id)

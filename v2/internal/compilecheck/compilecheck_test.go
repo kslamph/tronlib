@@ -168,16 +168,43 @@ func (fakeTx) PermissionID() int32                  { return 0 }
 var _ tx.Tx = fakeTx{}
 `
 
-// txPositiveFixture: the four built kinds satisfy Tx. (The F1-fix fixtures
-// around Simulate-on-*ContractTx land with the Part B estimate/cost work.)
+// txPositiveFixture: the four built kinds satisfy Tx, and Simulate/
+// EstimateEnergy compile on *ContractTx (the F1 fix positive control).
 const txPositiveFixture = `package p
 
-import "github.com/kslamph/tronlib/v2/tx"
+import (
+	"context"
+
+	"github.com/kslamph/tronlib/v2/tx"
+)
 
 var _ tx.Tx = (*tx.NativeTx)(nil)
 var _ tx.Tx = (*tx.ContractTx)(nil)
 var _ tx.Tx = (*tx.DeployTx)(nil)
 var _ tx.Tx = (*tx.AssetTx)(nil)
+
+func simulateContractTx(c *tx.ContractTx, ctx context.Context) {
+	_, _ = c.Simulate(ctx)
+	_, _ = c.EstimateEnergy(ctx)
+}
+`
+
+// txF1NegativeFixture: Simulate and EstimateEnergy exist ONLY on
+// *ContractTx (spec §6.2). Calling them on a *NativeTx is a compile error —
+// the static kind replaces the runtime dispatch v1 could forget. One fixture
+// exercises both methods; either alone would fail to type-check.
+const txF1NegativeFixture = `package p
+
+import (
+	"context"
+
+	"github.com/kslamph/tronlib/v2/tx"
+)
+
+func simulateNativeTx(n *tx.NativeTx, ctx context.Context) {
+	_ = n.Simulate(ctx)
+	_, _ = n.EstimateEnergy(ctx)
+}
 `
 
 func TestForeignTypeCannotSatisfyTx(t *testing.T) {
@@ -193,6 +220,11 @@ func TestTxKindsSatisfyTxAndSimulateIsContractOnly(t *testing.T) {
 	imp := loadTxGraph(t)
 	if err := typecheckTx(t, imp, txPositiveFixture); err != nil {
 		t.Fatalf("positive control failed: %v", err)
+	}
+	if err := typecheckTx(t, imp, txF1NegativeFixture); err == nil {
+		t.Fatal("Simulate/EstimateEnergy on *NativeTx compiled; the F1 fix (ContractTx-only read paths) failed")
+	} else {
+		t.Logf("Simulate on *NativeTx rejected as expected: %v", err)
 	}
 }
 

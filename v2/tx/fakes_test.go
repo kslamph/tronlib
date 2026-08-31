@@ -60,11 +60,22 @@ type fakeWalletServer struct {
 
 	CreateTx2       func(ctx context.Context, in *core.TransferContract) (*api.TransactionExtention, error)
 	Trigger         func(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error)
+	TriggerConstant func(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error)
+	EstimateEnerg   func(ctx context.Context, in *core.TriggerSmartContract) (*api.EstimateEnergyMessage, error)
+	AccountResource func(ctx context.Context, in *core.Account) (*api.AccountResourceMessage, error)
+	EnergyPrices    func(ctx context.Context, in *api.EmptyMessage) (*api.PricesResponseMessage, error)
 	Deploy          func(ctx context.Context, in *core.CreateSmartContract) (*api.TransactionExtention, error)
 	TransferAssetFn func(ctx context.Context, in *core.TransferAssetContract) (*api.TransactionExtention, error)
 	Broadcast       func(ctx context.Context, in *core.Transaction) (*api.Return, error)
 	TxInfo          func(ctx context.Context, in *api.BytesMessage) (*core.TransactionInfo, error)
 	TxInfoSolidity  func(ctx context.Context, in *api.BytesMessage) (*core.TransactionInfo, error)
+
+	// simulateCalls / estimateCalls / accountResourceCalls / energyPricesCalls
+	// count invocations, for asserting the CostPreview read sequence.
+	simulateCalls        atomic.Int32
+	estimateCalls        atomic.Int32
+	accountResourceCalls atomic.Int32
+	energyPricesCalls    atomic.Int32
 
 	// broadcastCalls / txInfoCalls / txInfoSolidityCalls count invocations,
 	// for asserting the single-reconciliation-poll behavior.
@@ -85,6 +96,38 @@ func (f *fakeWalletServer) TriggerContract(ctx context.Context, in *core.Trigger
 		return f.Trigger(ctx, in)
 	}
 	return triggerExt(), nil
+}
+
+func (f *fakeWalletServer) TriggerConstantContract(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error) {
+	f.simulateCalls.Add(1)
+	if f.TriggerConstant != nil {
+		return f.TriggerConstant(ctx, in)
+	}
+	return triggerExt(), nil
+}
+
+func (f *fakeWalletServer) EstimateEnergy(ctx context.Context, in *core.TriggerSmartContract) (*api.EstimateEnergyMessage, error) {
+	f.estimateCalls.Add(1)
+	if f.EstimateEnerg != nil {
+		return f.EstimateEnerg(ctx, in)
+	}
+	return &api.EstimateEnergyMessage{Result: okResult(), EnergyRequired: 5000}, nil
+}
+
+func (f *fakeWalletServer) GetAccountResource(ctx context.Context, in *core.Account) (*api.AccountResourceMessage, error) {
+	f.accountResourceCalls.Add(1)
+	if f.AccountResource != nil {
+		return f.AccountResource(ctx, in)
+	}
+	return &api.AccountResourceMessage{}, nil
+}
+
+func (f *fakeWalletServer) GetEnergyPrices(ctx context.Context, in *api.EmptyMessage) (*api.PricesResponseMessage, error) {
+	f.energyPricesCalls.Add(1)
+	if f.EnergyPrices != nil {
+		return f.EnergyPrices(ctx, in)
+	}
+	return &api.PricesResponseMessage{Prices: "1691400000000:410,1691500000000:420"}, nil
 }
 
 func (f *fakeWalletServer) DeployContract(ctx context.Context, in *core.CreateSmartContract) (*api.TransactionExtention, error) {

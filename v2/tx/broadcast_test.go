@@ -205,11 +205,6 @@ func TestWaitForSolidUsesSolidityEndpoint(t *testing.T) {
 	if !r.Solidified() {
 		t.Error("WaitForSolid receipt must report Solidified")
 	}
-	if n := f.txInfoSolidityCalls.Load(); n != 0 {
-		// solid calls are counted inside the solidity delegator only when the
-		// shared fake path is used; assert the full-node counter stayed at 0.
-		_ = n
-	}
 	if n := f.txInfoCalls.Load(); n != 0 {
 		t.Errorf("WaitForSolid hit the FullNode endpoint %d times, want 0", n)
 	}

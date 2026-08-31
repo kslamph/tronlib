@@ -49,6 +49,7 @@ func (t *DeployTx) clone() *DeployTx { return &DeployTx{baseTx: *t.cloneBase()} 
 // WithFeeLimit returns a COPY of t with raw_data.fee_limit set to s. Deploy
 // is the most expensive call a user makes; the builder default is
 // 150_000_000 SUN. Call it before Sign.
+// Note: setting options after signing invalidates any signature (raw_data changes; the node rejects with SIGERROR).
 func (t *DeployTx) WithFeeLimit(s tron.SUN) *DeployTx {
 	c := t.clone()
 	c.raw().FeeLimit = int64(s)
@@ -57,6 +58,7 @@ func (t *DeployTx) WithFeeLimit(s tron.SUN) *DeployTx {
 
 // WithExpiration returns a COPY of t whose raw_data.expiration is moved to
 // now+d (milliseconds). Call it before Sign.
+// Note: setting options after signing invalidates any signature (raw_data changes; the node rejects with SIGERROR).
 func (t *DeployTx) WithExpiration(d time.Duration) *DeployTx {
 	c := t.clone()
 	setExpiration(c.raw(), d)
@@ -65,6 +67,7 @@ func (t *DeployTx) WithExpiration(d time.Duration) *DeployTx {
 
 // WithPermissionID returns a COPY of t with Permission_id set on the wrapped
 // contract message. Call it before Sign.
+// Note: setting options after signing invalidates any signature (raw_data changes; the node rejects with SIGERROR).
 func (t *DeployTx) WithPermissionID(id int32) *DeployTx {
 	c := t.clone()
 	setPermissionID(c.raw(), id)
@@ -75,6 +78,7 @@ func (t *DeployTx) WithPermissionID(id int32) *DeployTx {
 // the decoded CreateSmartContract parameter (the value lives inside the
 // contract parameter, not in raw_data, so the parameter is decoded, mutated
 // and re-encoded — it must be called before Sign). Unlike the builder, no
+// Note: setting options after signing invalidates any signature (raw_data changes; the node rejects with SIGERROR).
 // 0-floor is enforced here: the node is the authority for post-build
 // mutations.
 func (t *DeployTx) WithOriginEnergyLimit(n int64) *DeployTx {
@@ -91,7 +95,8 @@ func (t *DeployTx) WithOriginEnergyLimit(n int64) *DeployTx {
 // WithResourcePercent returns a COPY of t with Consume_user_resource_percent
 // set on the decoded CreateSmartContract parameter. Unlike the builder, the
 // 0–100 range is not enforced here: the node is the authority for post-build
-// mutations.
+// mutations. Call it before Sign.
+// Note: setting options after signing invalidates any signature (raw_data changes; the node rejects with SIGERROR).
 func (t *DeployTx) WithResourcePercent(p int64) *DeployTx {
 	c := t.clone()
 	mutateDeployParam(c.raw(), func(m *core.CreateSmartContract) {

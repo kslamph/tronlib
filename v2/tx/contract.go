@@ -23,6 +23,7 @@ func (t *ContractTx) clone() *ContractTx { return &ContractTx{baseTx: *t.cloneBa
 // maximum SUN the node may burn for it. The builder already applied the
 // documented default (150_000_000); this overrides it. It must be called
 // before Sign (the signature covers raw_data).
+// Note: setting options after signing invalidates any signature (raw_data changes; the node rejects with SIGERROR).
 func (t *ContractTx) WithFeeLimit(s tron.SUN) *ContractTx {
 	c := t.clone()
 	c.raw().FeeLimit = int64(s)
@@ -33,6 +34,7 @@ func (t *ContractTx) WithFeeLimit(s tron.SUN) *ContractTx {
 // now+d (milliseconds), the exact mutation of v1's utils.SetExpiration. Use
 // it to circulate an unsigned transaction between signers for longer than the
 // node's head+60s build default. Call it before Sign.
+// Note: setting options after signing invalidates any signature (raw_data changes; the node rejects with SIGERROR).
 func (t *ContractTx) WithExpiration(d time.Duration) *ContractTx {
 	c := t.clone()
 	setExpiration(c.raw(), d)
@@ -42,6 +44,7 @@ func (t *ContractTx) WithExpiration(d time.Duration) *ContractTx {
 // WithPermissionID returns a COPY of t with Permission_id set on the wrapped
 // contract message (2–9 for multi-sig under active permissions). Call it
 // before Sign.
+// Note: setting options after signing invalidates any signature (raw_data changes; the node rejects with SIGERROR).
 func (t *ContractTx) WithPermissionID(id int32) *ContractTx {
 	c := t.clone()
 	setPermissionID(c.raw(), id)
