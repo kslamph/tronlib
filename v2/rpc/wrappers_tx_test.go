@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -92,8 +93,53 @@ func TestTxCallMapsNodeReturnCodes(t *testing.T) {
 			if te.Cause == nil || !containsSub(te.Cause.Error(), "node says no") {
 				t.Fatalf("Cause = %v, want the node's message", te.Cause)
 			}
+			// errors.As recovery of the typed node-return cause: the numeric
+			// api.Return_* code must be recoverable without string parsing.
+			var nre *nodeReturnError
+			if !errors.As(err, &nre) {
+				t.Fatalf("err = %T, want errors.As to find *nodeReturnError", err)
+			}
+			if nre.code != tc.returnCode {
+				t.Fatalf("nodeReturnError.code = %v, want %v", nre.code, tc.returnCode)
+			}
+			if nre.op != "create transaction2" {
+				t.Fatalf("nodeReturnError.op = %q, want create transaction2", nre.op)
+			}
+			if got, ok := NodeReturnCode(err); !ok || got != tc.returnCode {
+				t.Fatalf("NodeReturnCode = (%v, %v), want (%v, true)", got, ok, tc.returnCode)
+			}
 		})
 	}
+}
+
+// TestNodeReturnCodeRecovery pins NodeReturnCode's negative paths: a
+// transport-level error (no node Return involved) must yield (0, false), and
+// the typed cause must render the same text the untyped fmt.Errorf cause
+// carried before the ride-along refactor.
+func TestNodeReturnCodeRecovery(t *testing.T) {
+	t.Run("transport-error-no-node-return", func(t *testing.T) {
+		if got, ok := NodeReturnCode(fmt.Errorf("plain transport failure")); ok || got != 0 {
+			t.Fatalf("NodeReturnCode = (%v, %v), want (0, false)", got, ok)
+		}
+	})
+	t.Run("typed-cause-text-unchanged", func(t *testing.T) {
+		err := mapNodeReturn(&api.Return{
+			Result:  false,
+			Code:    api.Return_DUP_TRANSACTION_ERROR,
+			Message: []byte("dup"),
+		}, "broadcast")
+		want := fmt.Sprintf("node return code %d (%s): %s", int32(api.Return_DUP_TRANSACTION_ERROR), api.Return_DUP_TRANSACTION_ERROR, "dup")
+		var nre *nodeReturnError
+		if !errors.As(err, &nre) {
+			t.Fatalf("err = %T, want errors.As to find *nodeReturnError", err)
+		}
+		if nre.Error() != want {
+			t.Fatalf("Error() = %q, want %q", nre.Error(), want)
+		}
+		if got, ok := NodeReturnCode(err); !ok || got != api.Return_DUP_TRANSACTION_ERROR {
+			t.Fatalf("NodeReturnCode = (%v, %v), want (%v, true)", got, ok, api.Return_DUP_TRANSACTION_ERROR)
+		}
+	})
 }
 
 func containsSub(s, sub string) bool {

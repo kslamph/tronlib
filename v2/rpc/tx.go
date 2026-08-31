@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/kslamph/tronlib/pb/api"
@@ -29,9 +30,36 @@ var returnCodeToCode = map[api.ReturnResponseCode]tron.Code{
 	api.Return_OTHER_ERROR:                     tron.CodeRPCMethodFailed,
 }
 
+// nodeReturnError is the typed cause of a failed node Return (Result ==
+// false). It preserves the numeric api.Return_* code so callers (e.g. the
+// Receipt layer) can recover it programmatically via NodeReturnCode instead
+// of parsing the rendered message. The rendered text is unchanged from the
+// previous untyped fmt.Errorf cause.
+type nodeReturnError struct {
+	code api.ReturnResponseCode
+	msg  string
+	op   string
+}
+
+func (e *nodeReturnError) Error() string {
+	return fmt.Sprintf("node return code %d (%s): %s", int32(e.code), e.code, e.msg)
+}
+
+// NodeReturnCode recovers the node's numeric api.Return_* code from an error
+// produced by ValidateTransactionResult/mapNodeReturn (the nodeReturnError is
+// attached as the Cause of the *tron.Error, which unwraps into it). The bool
+// reports whether err carries a node return code at all.
+func NodeReturnCode(err error) (api.ReturnResponseCode, bool) {
+	var nre *nodeReturnError
+	if errors.As(err, &nre) {
+		return nre.code, true
+	}
+	return 0, false
+}
+
 // mapNodeReturn converts a failed (Result == false) api.Return into a
-// *tron.Error. The raw node code and message ride along as Cause, preserving
-// the NodeCode for the Receipt layer.
+// *tron.Error. The raw node code and message ride along as a typed
+// nodeReturnError Cause, preserving the NodeCode for the Receipt layer.
 func mapNodeReturn(ret *api.Return, operation string) *tron.Error {
 	code, ok := returnCodeToCode[ret.Code]
 	if !ok || code == "" {
@@ -44,7 +72,7 @@ func mapNodeReturn(ret *api.Return, operation string) *tron.Error {
 	return &tron.Error{
 		Code:  code,
 		Op:    operation,
-		Cause: fmt.Errorf("node return code %d (%s): %s", int32(ret.Code), ret.Code, msg),
+		Cause: &nodeReturnError{code: ret.Code, msg: msg, op: operation},
 	}
 }
 

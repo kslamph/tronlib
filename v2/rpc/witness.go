@@ -2,13 +2,9 @@ package rpc
 
 import (
 	"context"
-	"errors"
 
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
-	"github.com/kslamph/tronlib/v2/tron"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 // Voting and witness related gRPC calls (1:1 port of lowlevel/witness.go,
@@ -85,24 +81,6 @@ func GetPaginatedNowWitnessListSolidity(cp ConnProvider, ctx context.Context, re
 	return callSolidity(cp, ctx, "get paginated now witness list", func(cl api.WalletSolidityClient, ctx context.Context) (*api.WitnessList, error) {
 		return cl.GetPaginatedNowWitnessList(ctx, req)
 	})
-}
-
-// mapCallError applies the same error-code mapping as Call (client.go): an
-// existing *tron.Error passes through, a mid-call deadline/cancel is
-// chain.timeout, and every other node/RPC failure is rpc.method_failed.
-func mapCallError(operation string, err error) error {
-	var te *tron.Error
-	switch {
-	case errors.As(err, &te):
-		return err
-	case errors.Is(err, context.DeadlineExceeded),
-		errors.Is(err, context.Canceled),
-		status.Code(err) == codes.DeadlineExceeded,
-		status.Code(err) == codes.Canceled:
-		return &tron.Error{Code: tron.CodeChainTimeout, Op: operation, Cause: err}
-	default:
-		return &tron.Error{Code: tron.CodeRPCMethodFailed, Op: operation, Cause: err}
-	}
 }
 
 // callSolidity mirrors Call for the WalletSolidity service: identical

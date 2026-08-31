@@ -54,6 +54,26 @@ func classifyConnError(op string, err error) error {
 	return &tron.Error{Code: tron.CodeChainConnection, Op: op, Cause: err}
 }
 
+// mapCallError applies the same error-code mapping as Call: an existing
+// *tron.Error passes through, a mid-call deadline/cancel is chain.timeout,
+// and every other node/RPC failure is rpc.method_failed with the operation
+// string in Op (the v2 boundary every free-function wrapper inherits).
+// Call's mid-call path and callSolidity share this one implementation.
+func mapCallError(operation string, err error) error {
+	var te *tron.Error
+	switch {
+	case errors.As(err, &te):
+		return err
+	case errors.Is(err, context.DeadlineExceeded),
+		errors.Is(err, context.Canceled),
+		status.Code(err) == codes.DeadlineExceeded,
+		status.Code(err) == codes.Canceled:
+		return &tron.Error{Code: tron.CodeChainTimeout, Op: operation, Cause: err}
+	default:
+		return &tron.Error{Code: tron.CodeRPCMethodFailed, Op: operation, Cause: err}
+	}
+}
+
 // Call wraps the lifecycle for a WalletClient RPC: acquire a connection from
 // the provider, apply the provider's timeout when the context has no deadline,
 // invoke the call, and run the optional validator. See the package comment for
@@ -81,22 +101,10 @@ func Call[T any](cp ConnProvider, ctx context.Context, operation string, call fu
 
 	result, err := call(cl, ctx)
 	if err != nil {
-		// A deadline hit mid-call is chain.timeout; any other node/RPC
-		// failure is rpc.method_failed with the operation in Op (the v2
-		// boundary every free-function wrapper inherits). *tron.Error raised
-		// inside the call passes through untouched.
-		var te *tron.Error
-		switch {
-		case errors.As(err, &te):
-			return zero, err
-		case errors.Is(err, context.DeadlineExceeded),
-			errors.Is(err, context.Canceled),
-			status.Code(err) == codes.DeadlineExceeded,
-			status.Code(err) == codes.Canceled:
-			return zero, &tron.Error{Code: tron.CodeChainTimeout, Op: operation, Cause: err}
-		default:
-			return zero, &tron.Error{Code: tron.CodeRPCMethodFailed, Op: operation, Cause: err}
-		}
+		// Shared mapping with callSolidity: *tron.Error passes through, a
+		// mid-call deadline hit is chain.timeout, anything else is
+		// rpc.method_failed with the operation in Op.
+		return zero, mapCallError(operation, err)
 	}
 	if len(validateFunc) > 0 && validateFunc[0] != nil {
 		if err := validateFunc[0](result, operation); err != nil {

@@ -156,6 +156,51 @@ var defaultResponses = map[string]any{
 	"GetBrokerageInfo":           &api.NumberMessage{},
 	"UpdateBrokerage":            okExtention(),
 	"GetPaginatedNowWitnessList": &api.WitnessList{},
+	// Task 5 groups: contract, proposal, resource, other
+	"DeployContract":                     okExtention(),
+	"TriggerContract":                    okExtention(),
+	"EstimateEnergy":                     &api.EstimateEnergyMessage{},
+	"GetContract":                        &core.SmartContract{},
+	"GetContractInfo":                    &core.SmartContractDataWrapper{},
+	"UpdateSetting":                      okExtention(),
+	"UpdateEnergyLimit":                  okExtention(),
+	"ClearContractABI":                   okExtention(),
+	"ProposalCreate":                     okExtention(),
+	"ProposalApprove":                    okExtention(),
+	"ProposalDelete":                     okExtention(),
+	"ListProposals":                      &api.ProposalList{},
+	"GetPaginatedProposalList":           &api.ProposalList{},
+	"GetProposalById":                    &core.Proposal{},
+	"FreezeBalanceV2":                    okExtention(),
+	"UnfreezeBalanceV2":                  okExtention(),
+	"DelegateResource":                   okExtention(),
+	"UnDelegateResource":                 okExtention(),
+	"CancelAllUnfreezeV2":                okExtention(),
+	"WithdrawExpireUnfreeze":             okExtention(),
+	"GetDelegatedResourceV2":             &api.DelegatedResourceList{},
+	"GetDelegatedResourceAccountIndexV2": &core.DelegatedResourceAccountIndex{},
+	"GetCanDelegatedMaxSize":             &api.CanDelegatedMaxSizeResponseMessage{},
+	"GetAvailableUnfreezeCount":          &api.GetAvailableUnfreezeCountResponseMessage{},
+	"GetCanWithdrawUnfreezeAmount":       &api.CanWithdrawUnfreezeAmountResponseMessage{},
+	"FreezeBalance2":                     okExtention(),
+	"UnfreezeBalance2":                   okExtention(),
+	"ListExchanges":                      &api.ExchangeList{},
+	"GetPaginatedExchangeList":           &api.ExchangeList{},
+	"GetExchangeById":                    &core.Exchange{},
+	"ExchangeCreate":                     okExtention(),
+	"ExchangeInject":                     okExtention(),
+	"ExchangeWithdraw":                   okExtention(),
+	"ExchangeTransaction":                okExtention(),
+	"MarketSellAsset":                    okExtention(),
+	"MarketCancelOrder":                  okExtention(),
+	"GetMarketOrderById":                 &core.MarketOrder{},
+	"GetMarketOrderByAccount":            &core.MarketOrderList{},
+	"GetMarketPriceByPair":               &core.MarketPriceList{},
+	"GetMarketOrderListByPair":           &core.MarketOrderList{},
+	"GetMarketPairList":                  &core.MarketOrderPairList{},
+	"BuyStorage":                         okExtention(),
+	"BuyStorageBytes":                    okExtention(),
+	"SellStorage":                        okExtention(),
 }
 
 func (s *testWalletServer) BroadcastTransaction(ctx context.Context, in *core.Transaction) (*api.Return, error) {
@@ -191,10 +236,11 @@ func (s *testWalletServer) GetBlockByNum(ctx context.Context, in *api.NumberMess
 }
 
 func (s *testWalletServer) TriggerConstantContract(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error) {
-	if s.TriggerConstantContractFunc != nil {
-		return s.TriggerConstantContractFunc(ctx, in)
+	v, err := s.dispatch(ctx, "TriggerConstantContract", in)
+	if err != nil {
+		return nil, err
 	}
-	return okExtention(), nil
+	return v.(*api.TransactionExtention), nil
 }
 
 // --- Wallet method impls exercised by the wallet-core wrappers ---
@@ -704,4 +750,363 @@ func newBufconnClient(t *testing.T, impl api.WalletServer, timeout time.Duration
 	}
 	t.Cleanup(func() { c.Close() })
 	return c
+}
+
+// --- Task 5: fake impls for the contract/proposal/resource/other groups ---
+// Each delegates to dispatch so Handlers[method] overrides the canned default.
+
+// --- Wallet method impls for the contract group (Task 5 port) ---
+func (s *testWalletServer) DeployContract(ctx context.Context, in *core.CreateSmartContract) (*api.TransactionExtention, error) {
+	v, err := s.dispatch(ctx, "DeployContract", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*api.TransactionExtention), nil
+}
+
+func (s *testWalletServer) TriggerContract(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error) {
+	v, err := s.dispatch(ctx, "TriggerContract", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*api.TransactionExtention), nil
+}
+
+func (s *testWalletServer) EstimateEnergy(ctx context.Context, in *core.TriggerSmartContract) (*api.EstimateEnergyMessage, error) {
+	v, err := s.dispatch(ctx, "EstimateEnergy", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*api.EstimateEnergyMessage), nil
+}
+
+func (s *testWalletServer) GetContract(ctx context.Context, in *api.BytesMessage) (*core.SmartContract, error) {
+	v, err := s.dispatch(ctx, "GetContract", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*core.SmartContract), nil
+}
+
+func (s *testWalletServer) GetContractInfo(ctx context.Context, in *api.BytesMessage) (*core.SmartContractDataWrapper, error) {
+	v, err := s.dispatch(ctx, "GetContractInfo", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*core.SmartContractDataWrapper), nil
+}
+
+func (s *testWalletServer) UpdateSetting(ctx context.Context, in *core.UpdateSettingContract) (*api.TransactionExtention, error) {
+	v, err := s.dispatch(ctx, "UpdateSetting", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*api.TransactionExtention), nil
+}
+
+func (s *testWalletServer) UpdateEnergyLimit(ctx context.Context, in *core.UpdateEnergyLimitContract) (*api.TransactionExtention, error) {
+	v, err := s.dispatch(ctx, "UpdateEnergyLimit", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*api.TransactionExtention), nil
+}
+
+func (s *testWalletServer) ClearContractABI(ctx context.Context, in *core.ClearABIContract) (*api.TransactionExtention, error) {
+	v, err := s.dispatch(ctx, "ClearContractABI", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*api.TransactionExtention), nil
+}
+
+// --- Wallet method impls for the proposal group (Task 5 port) ---
+func (s *testWalletServer) ProposalCreate(ctx context.Context, in *core.ProposalCreateContract) (*api.TransactionExtention, error) {
+	v, err := s.dispatch(ctx, "ProposalCreate", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*api.TransactionExtention), nil
+}
+
+func (s *testWalletServer) ProposalApprove(ctx context.Context, in *core.ProposalApproveContract) (*api.TransactionExtention, error) {
+	v, err := s.dispatch(ctx, "ProposalApprove", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*api.TransactionExtention), nil
+}
+
+func (s *testWalletServer) ProposalDelete(ctx context.Context, in *core.ProposalDeleteContract) (*api.TransactionExtention, error) {
+	v, err := s.dispatch(ctx, "ProposalDelete", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*api.TransactionExtention), nil
+}
+
+func (s *testWalletServer) ListProposals(ctx context.Context, in *api.EmptyMessage) (*api.ProposalList, error) {
+	v, err := s.dispatch(ctx, "ListProposals", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*api.ProposalList), nil
+}
+
+func (s *testWalletServer) GetPaginatedProposalList(ctx context.Context, in *api.PaginatedMessage) (*api.ProposalList, error) {
+	v, err := s.dispatch(ctx, "GetPaginatedProposalList", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*api.ProposalList), nil
+}
+
+func (s *testWalletServer) GetProposalById(ctx context.Context, in *api.BytesMessage) (*core.Proposal, error) {
+	v, err := s.dispatch(ctx, "GetProposalById", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*core.Proposal), nil
+}
+
+// --- Wallet method impls for the resource group (Task 5 port) ---
+func (s *testWalletServer) FreezeBalanceV2(ctx context.Context, in *core.FreezeBalanceV2Contract) (*api.TransactionExtention, error) {
+	v, err := s.dispatch(ctx, "FreezeBalanceV2", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*api.TransactionExtention), nil
+}
+
+func (s *testWalletServer) UnfreezeBalanceV2(ctx context.Context, in *core.UnfreezeBalanceV2Contract) (*api.TransactionExtention, error) {
+	v, err := s.dispatch(ctx, "UnfreezeBalanceV2", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*api.TransactionExtention), nil
+}
+
+func (s *testWalletServer) DelegateResource(ctx context.Context, in *core.DelegateResourceContract) (*api.TransactionExtention, error) {
+	v, err := s.dispatch(ctx, "DelegateResource", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*api.TransactionExtention), nil
+}
+
+func (s *testWalletServer) UnDelegateResource(ctx context.Context, in *core.UnDelegateResourceContract) (*api.TransactionExtention, error) {
+	v, err := s.dispatch(ctx, "UnDelegateResource", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*api.TransactionExtention), nil
+}
+
+func (s *testWalletServer) CancelAllUnfreezeV2(ctx context.Context, in *core.CancelAllUnfreezeV2Contract) (*api.TransactionExtention, error) {
+	v, err := s.dispatch(ctx, "CancelAllUnfreezeV2", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*api.TransactionExtention), nil
+}
+
+func (s *testWalletServer) WithdrawExpireUnfreeze(ctx context.Context, in *core.WithdrawExpireUnfreezeContract) (*api.TransactionExtention, error) {
+	v, err := s.dispatch(ctx, "WithdrawExpireUnfreeze", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*api.TransactionExtention), nil
+}
+
+func (s *testWalletServer) GetDelegatedResourceV2(ctx context.Context, in *api.DelegatedResourceMessage) (*api.DelegatedResourceList, error) {
+	v, err := s.dispatch(ctx, "GetDelegatedResourceV2", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*api.DelegatedResourceList), nil
+}
+
+func (s *testWalletServer) GetDelegatedResourceAccountIndexV2(ctx context.Context, in *api.BytesMessage) (*core.DelegatedResourceAccountIndex, error) {
+	v, err := s.dispatch(ctx, "GetDelegatedResourceAccountIndexV2", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*core.DelegatedResourceAccountIndex), nil
+}
+
+func (s *testWalletServer) GetCanDelegatedMaxSize(ctx context.Context, in *api.CanDelegatedMaxSizeRequestMessage) (*api.CanDelegatedMaxSizeResponseMessage, error) {
+	v, err := s.dispatch(ctx, "GetCanDelegatedMaxSize", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*api.CanDelegatedMaxSizeResponseMessage), nil
+}
+
+func (s *testWalletServer) GetAvailableUnfreezeCount(ctx context.Context, in *api.GetAvailableUnfreezeCountRequestMessage) (*api.GetAvailableUnfreezeCountResponseMessage, error) {
+	v, err := s.dispatch(ctx, "GetAvailableUnfreezeCount", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*api.GetAvailableUnfreezeCountResponseMessage), nil
+}
+
+func (s *testWalletServer) GetCanWithdrawUnfreezeAmount(ctx context.Context, in *api.CanWithdrawUnfreezeAmountRequestMessage) (*api.CanWithdrawUnfreezeAmountResponseMessage, error) {
+	v, err := s.dispatch(ctx, "GetCanWithdrawUnfreezeAmount", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*api.CanWithdrawUnfreezeAmountResponseMessage), nil
+}
+
+func (s *testWalletServer) FreezeBalance2(ctx context.Context, in *core.FreezeBalanceContract) (*api.TransactionExtention, error) {
+	v, err := s.dispatch(ctx, "FreezeBalance2", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*api.TransactionExtention), nil
+}
+
+func (s *testWalletServer) UnfreezeBalance2(ctx context.Context, in *core.UnfreezeBalanceContract) (*api.TransactionExtention, error) {
+	v, err := s.dispatch(ctx, "UnfreezeBalance2", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*api.TransactionExtention), nil
+}
+
+// --- Wallet method impls for the other group (Task 5 port) ---
+func (s *testWalletServer) ListExchanges(ctx context.Context, in *api.EmptyMessage) (*api.ExchangeList, error) {
+	v, err := s.dispatch(ctx, "ListExchanges", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*api.ExchangeList), nil
+}
+
+func (s *testWalletServer) GetPaginatedExchangeList(ctx context.Context, in *api.PaginatedMessage) (*api.ExchangeList, error) {
+	v, err := s.dispatch(ctx, "GetPaginatedExchangeList", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*api.ExchangeList), nil
+}
+
+func (s *testWalletServer) GetExchangeById(ctx context.Context, in *api.BytesMessage) (*core.Exchange, error) {
+	v, err := s.dispatch(ctx, "GetExchangeById", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*core.Exchange), nil
+}
+
+func (s *testWalletServer) ExchangeCreate(ctx context.Context, in *core.ExchangeCreateContract) (*api.TransactionExtention, error) {
+	v, err := s.dispatch(ctx, "ExchangeCreate", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*api.TransactionExtention), nil
+}
+
+func (s *testWalletServer) ExchangeInject(ctx context.Context, in *core.ExchangeInjectContract) (*api.TransactionExtention, error) {
+	v, err := s.dispatch(ctx, "ExchangeInject", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*api.TransactionExtention), nil
+}
+
+func (s *testWalletServer) ExchangeWithdraw(ctx context.Context, in *core.ExchangeWithdrawContract) (*api.TransactionExtention, error) {
+	v, err := s.dispatch(ctx, "ExchangeWithdraw", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*api.TransactionExtention), nil
+}
+
+func (s *testWalletServer) ExchangeTransaction(ctx context.Context, in *core.ExchangeTransactionContract) (*api.TransactionExtention, error) {
+	v, err := s.dispatch(ctx, "ExchangeTransaction", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*api.TransactionExtention), nil
+}
+
+func (s *testWalletServer) MarketSellAsset(ctx context.Context, in *core.MarketSellAssetContract) (*api.TransactionExtention, error) {
+	v, err := s.dispatch(ctx, "MarketSellAsset", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*api.TransactionExtention), nil
+}
+
+func (s *testWalletServer) MarketCancelOrder(ctx context.Context, in *core.MarketCancelOrderContract) (*api.TransactionExtention, error) {
+	v, err := s.dispatch(ctx, "MarketCancelOrder", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*api.TransactionExtention), nil
+}
+
+func (s *testWalletServer) GetMarketOrderById(ctx context.Context, in *api.BytesMessage) (*core.MarketOrder, error) {
+	v, err := s.dispatch(ctx, "GetMarketOrderById", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*core.MarketOrder), nil
+}
+
+func (s *testWalletServer) GetMarketOrderByAccount(ctx context.Context, in *api.BytesMessage) (*core.MarketOrderList, error) {
+	v, err := s.dispatch(ctx, "GetMarketOrderByAccount", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*core.MarketOrderList), nil
+}
+
+func (s *testWalletServer) GetMarketPriceByPair(ctx context.Context, in *core.MarketOrderPair) (*core.MarketPriceList, error) {
+	v, err := s.dispatch(ctx, "GetMarketPriceByPair", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*core.MarketPriceList), nil
+}
+
+func (s *testWalletServer) GetMarketOrderListByPair(ctx context.Context, in *core.MarketOrderPair) (*core.MarketOrderList, error) {
+	v, err := s.dispatch(ctx, "GetMarketOrderListByPair", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*core.MarketOrderList), nil
+}
+
+func (s *testWalletServer) GetMarketPairList(ctx context.Context, in *api.EmptyMessage) (*core.MarketOrderPairList, error) {
+	v, err := s.dispatch(ctx, "GetMarketPairList", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*core.MarketOrderPairList), nil
+}
+
+func (s *testWalletServer) BuyStorage(ctx context.Context, in *core.BuyStorageContract) (*api.TransactionExtention, error) {
+	v, err := s.dispatch(ctx, "BuyStorage", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*api.TransactionExtention), nil
+}
+
+func (s *testWalletServer) BuyStorageBytes(ctx context.Context, in *core.BuyStorageBytesContract) (*api.TransactionExtention, error) {
+	v, err := s.dispatch(ctx, "BuyStorageBytes", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*api.TransactionExtention), nil
+}
+
+func (s *testWalletServer) SellStorage(ctx context.Context, in *core.SellStorageContract) (*api.TransactionExtention, error) {
+	v, err := s.dispatch(ctx, "SellStorage", in)
+	if err != nil {
+		return nil, err
+	}
+	return v.(*api.TransactionExtention), nil
 }
