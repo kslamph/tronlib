@@ -129,3 +129,125 @@ func (s stubImporter) Import(path string) (*types.Package, error) {
 	}
 	return nil, fmt.Errorf("unexpected import %q", path)
 }
+
+// --- tx.Tx sealing fixtures (Task 6, spec §6.1) ---
+//
+// tx.Tx is sealed with the unexported txInternal method, so a foreign type
+// implementing every exported Tx method is still NOT a Tx — a hand-rolled
+// transaction that bypasses the builders (and their fee-limit, expiration
+// and permission-id defaults) cannot be broadcast. The positive control is
+// that the four real kinds DO satisfy the interface.
+
+const txImportPath = "github.com/kslamph/tronlib/v2/tx"
+
+// txForeignFixture implements every exported Tx method but, being outside
+// the tx package, cannot implement txInternal.
+const txForeignFixture = `package p
+
+import (
+	"time"
+
+	"github.com/kslamph/tronlib/pb/api"
+	"github.com/kslamph/tronlib/pb/core"
+	"github.com/kslamph/tronlib/v2/tx"
+	"github.com/kslamph/tronlib/v2/tron"
+)
+
+type fakeTx struct{}
+
+func (fakeTx) ID() string                           { return "" }
+func (fakeTx) Kind() tx.Kind                        { return 0 }
+func (fakeTx) Extension() *api.TransactionExtention { return nil }
+func (fakeTx) Transaction() *core.Transaction       { return nil }
+func (fakeTx) Signers() ([]tron.Address, error)     { return nil, nil }
+func (fakeTx) IsSigned() bool                       { return false }
+func (fakeTx) FeeLimit() tron.SUN                   { return 0 }
+func (fakeTx) Expiration() time.Time                { return time.Time{} }
+func (fakeTx) PermissionID() int32                  { return 0 }
+
+var _ tx.Tx = fakeTx{}
+`
+
+// txPositiveFixture: the four built kinds satisfy Tx. (The F1-fix fixtures
+// around Simulate-on-*ContractTx land with the Part B estimate/cost work.)
+const txPositiveFixture = `package p
+
+import "github.com/kslamph/tronlib/v2/tx"
+
+var _ tx.Tx = (*tx.NativeTx)(nil)
+var _ tx.Tx = (*tx.ContractTx)(nil)
+var _ tx.Tx = (*tx.DeployTx)(nil)
+var _ tx.Tx = (*tx.AssetTx)(nil)
+`
+
+func TestForeignTypeCannotSatisfyTx(t *testing.T) {
+	imp := loadTxGraph(t)
+	if err := typecheckTx(t, imp, txForeignFixture); err == nil {
+		t.Fatal("a foreign type with every exported Tx method compiled as tx.Tx; the seal (txInternal) failed")
+	} else {
+		t.Logf("foreign type rejected as expected: %v", err)
+	}
+}
+
+func TestTxKindsSatisfyTxAndSimulateIsContractOnly(t *testing.T) {
+	imp := loadTxGraph(t)
+	if err := typecheckTx(t, imp, txPositiveFixture); err != nil {
+		t.Fatalf("positive control failed: %v", err)
+	}
+}
+
+// typecheckTx type-checks a full-source fixture with imp.
+func typecheckTx(t *testing.T, imp types.Importer, src string) error {
+	t.Helper()
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "p.go", src, 0)
+	if err != nil {
+		t.Fatalf("fixture does not parse: %v", err)
+	}
+	conf := types.Config{Importer: imp, Error: func(error) {}}
+	_, typeErr := conf.Check("p", fset, []*ast.File{f}, nil)
+	return typeErr
+}
+
+// loadTxGraph loads the tx package with its full dependency graph and an
+// importer serving every reachable package (tx, tron, pb, stdlib).
+func loadTxGraph(t *testing.T) types.Importer {
+	t.Helper()
+	pkgs, err := packages.Load(&packages.Config{
+		Mode: packages.NeedName | packages.NeedImports | packages.NeedTypes | packages.NeedDeps,
+		Dir:  "../..",
+	}, txImportPath)
+	if err != nil {
+		t.Fatalf("load tx: %v", err)
+	}
+	if len(pkgs) == 0 || pkgs[0].Types == nil {
+		t.Fatal("tx package not found or has no types")
+	}
+	if errs := pkgs[0].Errors; len(errs) > 0 {
+		t.Fatalf("tx package has load errors: %v", errs)
+	}
+	graph := map[string]*types.Package{}
+	var visit func(p *packages.Package)
+	visit = func(p *packages.Package) {
+		if p.Types != nil && graph[p.PkgPath] == nil {
+			graph[p.PkgPath] = p.Types
+			for _, imp := range p.Imports {
+				visit(imp)
+			}
+		}
+	}
+	visit(pkgs[0])
+	if graph[txImportPath] == nil || graph[tronImportPath] == nil {
+		t.Fatal("tx graph incomplete: missing tx or tron types")
+	}
+	return graphImporter{graph}
+}
+
+type graphImporter struct{ graph map[string]*types.Package }
+
+func (g graphImporter) Import(path string) (*types.Package, error) {
+	if p, ok := g.graph[path]; ok && p.Complete() {
+		return p, nil
+	}
+	return nil, fmt.Errorf("unexpected import %q", path)
+}

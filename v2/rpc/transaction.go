@@ -37,6 +37,14 @@ func GetTransactionInfoById(cp ConnProvider, ctx context.Context, req *api.Bytes
 	})
 }
 
+// GetTransactionInfoByIdSolidity gets transaction info by ID from the
+// solidity node (WalletSolidity variant; the poll answer of tx.WaitForSolid).
+func GetTransactionInfoByIdSolidity(cp ConnProvider, ctx context.Context, req *api.BytesMessage) (*core.TransactionInfo, error) {
+	return callSolidity(cp, ctx, "get transaction info by id (solidity)", func(client api.WalletSolidityClient, ctx context.Context) (*core.TransactionInfo, error) {
+		return client.GetTransactionInfoById(ctx, req)
+	})
+}
+
 // GetTransactionCountByBlockNum gets transaction count by block number
 func GetTransactionCountByBlockNum(cp ConnProvider, ctx context.Context, req *api.NumberMessage) (*api.NumberMessage, error) {
 	return Call(cp, ctx, "get transaction count by block num", func(client api.WalletClient, ctx context.Context) (*api.NumberMessage, error) {

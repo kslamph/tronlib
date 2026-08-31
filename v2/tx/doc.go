@@ -1,0 +1,61 @@
+// Package tx is the v2 transaction pipeline: build → optionally simulate →
+// sign → broadcast, expressed as types so each stage's output is the next
+// stage's input and illegal transitions do not compile (spec §6).
+//
+// # The four kinds
+//
+// NativeTx (TRX transfer and other non-contract operations), ContractTx
+// (TriggerSmartContract — contract calls and all TRC-20 operations), DeployTx
+// (CreateSmartContract) and AssetTx (TransferAssetContract, TRC-10 transfers)
+// each wrap the pb transaction returned by the node's server-side build RPC
+// and carry only the options meaningful for their kind. The builders decide
+// the Kind statically; no runtime inspection is involved.
+//
+// The Tx interface is sealed with the unexported txInternal method: a
+// hand-rolled Tx that bypasses the builders (and with them the fee-limit,
+// expiration and permission-id defaults) is a compile error. This is pinned
+// by a negative-compile fixture in v2/internal/compilecheck.
+//
+// # The F1 fix
+//
+// Simulate and EstimateEnergy exist ONLY on *ContractTx, so
+// nativeTx.Simulate(ctx) and deployTx.Simulate(ctx) are compile errors — the
+// static kind replaces the runtime dispatch v1 could forget.
+//
+// # Copy-on-write
+//
+// Every With* option and every Sign call returns a copy and leaves the
+// receiver untouched, so multi-signature flows compose as
+// tx = tx.Sign(a).Sign(b) and a partially-signed transaction can never be
+// shared by accident. Note that changing options after signing invalidates
+// the signature (the signature covers raw_data); set options first.
+//
+// # Defaults (spec §6.4, stated so they are testable)
+//
+//   - fee_limit: 150_000_000 SUN (150 TRX) — v1's DefaultBroadcastOptions
+//     value, applied by every builder at build time unless a later WithFeeLimit
+//     overrides it (a node response with fee_limit 0 cannot purchase energy)
+//   - expiration: head + 60 s — set server-side by the build RPC; WithExpiration
+//     mutates raw_data.expiration post-build for long multi-signer circulation
+//   - permission_id: 0 (owner); multi-sig under active permissions needs 2–9
+//
+// # The double-spend fix (spec §6.4/§6.5)
+//
+// Broadcast performs one reconciliation poll on an ambiguous timeout. A
+// timeout after the broadcast has landed returns chain.unconfirmed with the
+// txid populated and Next = ActionWait: re-broadcasting the identical signed
+// payload cannot double-spend (a TRON txid is a pure function of raw_data and
+// the node deduplicates), but REBUILDING gets a new TAPOS reference and a new
+// txid — that is what spends twice. Never rebuild-and-resign until the
+// original txid's receipt is confirmed absent or failed.
+//
+// # Deviations from spec §7.2/§7.3 (adjudicated)
+//
+//   - EnergyEstimate carries only Energy: the EstimateEnergy RPC
+//     (api.EstimateEnergyMessage) exposes only the penalty-inclusive total, so
+//     the spec's Base/Penalty split would be fabricated (spec §7.1 says the
+//     node already applies the penalty). Use ContractTx.Simulate (Estimate
+//     .Energy/.Penalty) when the split matters.
+//   - Estimate.Net is always 0: TriggerConstantContract exposes no bandwidth
+//     figure. Receipt.Cost reports actual bandwidth after broadcast.
+package tx
