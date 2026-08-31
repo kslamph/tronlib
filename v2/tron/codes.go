@@ -89,6 +89,8 @@ const (
 	CodeKeyMnemonicInvalid Code = "key.mnemonic_invalid"
 
 	CodeRPCMethodFailed Code = "rpc.method_failed"
+
+	CodeEventUnknown Code = "event.unknown"
 )
 
 // AllCodes is the authoritative code set. docgen regenerates the
@@ -152,6 +154,9 @@ var AllCodes = []Code{
 
 	// rpc
 	CodeRPCMethodFailed,
+
+	// event
+	CodeEventUnknown,
 }
 
 // Three layers, three jobs:

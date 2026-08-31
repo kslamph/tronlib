@@ -97,6 +97,8 @@ func (c Code) Action() Action {
 		return ActionFixCall
 	case CodeRPCMethodFailed: // rpc.method_failed
 		return ActionRetry
+	case CodeEventUnknown: // event.unknown
+		return ActionFixCall
 	default: // any future code not yet classified
 		return ActionBug
 	}
@@ -186,6 +188,8 @@ func (c Code) Doc() string {
 		return `the mnemonic phrase is invalid`
 	case CodeRPCMethodFailed: // rpc.method_failed
 		return `the node rejected or failed an rpc; retry with backoff, and if the error repeats identically switch node or method rather than looping`
+	case CodeEventUnknown: // event.unknown
+		return `no registered event definition matches this log's signature; register the emitting contract's ABI before decoding`
 	default:
 		return "unknown code: " + string(c)
 	}
