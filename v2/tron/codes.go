@@ -94,7 +94,7 @@ const (
 // AllCodes is the authoritative code set. docgen regenerates the
 // Action/Doc tables from this slice; hand-editing those tables is the
 // drift this package exists to prevent. Every exported Code constant MUST
-// appear here (TestAllCodesHaveActionAndDoc enforces it).
+// appear here (docgen's parity check enforces it; see cmd/docgen).
 var AllCodes = []Code{
 	// amount
 	CodeAmountInvalid,

@@ -305,6 +305,19 @@ func checkDefaultArm(ret ast.Expr, method string) error {
 		if !ok || bin.Op != token.ADD {
 			return fmt.Errorf("func (c Code) Doc: default arm returns %s, want \"unknown code: \" + string(c)", renderExpr(ret))
 		}
+		pfx, ok := bin.X.(*ast.BasicLit)
+		if !ok || pfx.Kind != token.STRING || pfx.Value != `"unknown code: "` {
+			return fmt.Errorf("func (c Code) Doc: default arm returns %s, want \"unknown code: \" + string(c)", renderExpr(ret))
+		}
+		call, ok2 := bin.Y.(*ast.CallExpr)
+		if !ok2 || len(call.Args) != 1 {
+			return fmt.Errorf("func (c Code) Doc: default arm returns %s, want \"unknown code: \" + string(c)", renderExpr(ret))
+		}
+		fn, ok3 := call.Fun.(*ast.Ident)
+		arg, ok4 := call.Args[0].(*ast.Ident)
+		if !ok3 || fn.Name != "string" || !ok4 || arg.Name != "c" {
+			return fmt.Errorf("func (c Code) Doc: default arm returns %s, want \"unknown code: \" + string(c)", renderExpr(ret))
+		}
 	}
 	return nil
 }
