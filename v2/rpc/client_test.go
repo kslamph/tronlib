@@ -539,3 +539,92 @@ func TestPoolConcurrentCalls(t *testing.T) {
 		t.Fatalf("%d concurrent calls failed", failures)
 	}
 }
+
+// --- FIX ROUND 1: pool close/return race and Solidity fake registration ---
+
+// TestCloseRacesWithReturnConnection: concurrent Close + in-flight
+// ReturnConnection used to send on the closed p.conns channel and panic. The
+// mutex-guarded put/close makes that send impossible; loop 200x to widen the
+// window (run with -race).
+func TestCloseRacesWithReturnConnection(t *testing.T) {
+	for iter := 0; iter < 200; iter++ {
+		srv := &testWalletServer{}
+		c := newBufconnClient(t, srv, time.Second)
+
+		const n = 8
+		var wg sync.WaitGroup
+		for i := 0; i < n; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				conn, err := c.GetConnection(context.Background())
+				if err != nil {
+					return // pool may already be closed; fine
+				}
+				c.ReturnConnection(conn)
+			}()
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_ = c.Close()
+		}()
+		wg.Wait()
+		// t.Cleanup closes the client again; Close is idempotent.
+	}
+}
+
+// TestDoubleReturnDoesNotDuplicate: returning the same conn twice must not
+// create two channel entries; the second caller must get a different conn.
+func TestDoubleReturnDoesNotDuplicate(t *testing.T) {
+	srv := &testWalletServer{}
+	c := newBufconnClient(t, srv, time.Second)
+	defer c.Close()
+
+	conn1, err := c.GetConnection(context.Background())
+	if err != nil {
+		t.Fatalf("first GetConnection: %v", err)
+	}
+	c.ReturnConnection(conn1)
+	c.ReturnConnection(conn1) // double return
+
+	conn2, err := c.GetConnection(context.Background())
+	if err != nil {
+		t.Fatalf("second GetConnection: %v", err)
+	}
+	conn3, err := c.GetConnection(context.Background())
+	if err != nil {
+		t.Fatalf("third GetConnection: %v", err)
+	}
+	if conn2 == conn3 {
+		t.Fatal("same conn handed to two callers after double return")
+	}
+}
+
+// TestBufconnServesSolidity: the fake registers WalletSolidityServer alongside
+// WalletServer; a Solidity client reaches the same canned handlers.
+func TestBufconnServesSolidity(t *testing.T) {
+	want := &core.TransactionInfo{BlockNumber: 4242}
+	srv := &testWalletServer{
+		GetTxInfoByIdHandler: func(ctx context.Context, in *api.BytesMessage) (*core.TransactionInfo, error) {
+			return want, nil
+		},
+	}
+	c := newBufconnClient(t, srv, time.Second)
+	defer c.Close()
+
+	conn, err := c.GetConnection(context.Background())
+	if err != nil {
+		t.Fatalf("GetConnection: %v", err)
+	}
+	defer c.ReturnConnection(conn)
+
+	cl := api.NewWalletSolidityClient(conn)
+	got, err := cl.GetTransactionInfoById(context.Background(), &api.BytesMessage{Value: []byte("txid")})
+	if err != nil {
+		t.Fatalf("solidity GetTransactionInfoById: %v", err)
+	}
+	if got.GetBlockNumber() != want.GetBlockNumber() {
+		t.Fatalf("got block %d, want %d", got.GetBlockNumber(), want.GetBlockNumber())
+	}
+}

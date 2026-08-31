@@ -269,6 +269,13 @@ func (c *Client) GetConnection(ctx context.Context) (*grpc.ClientConn, error) {
 
 	conn, err := c.pool.get(ctx)
 	if err != nil {
+		if errors.Is(err, errPoolClosed) {
+			return nil, &tron.Error{
+				Code: tron.CodeChainClosed,
+				Op:   "rpc.GetConnection",
+				Hint: "client is closed; create a new one with rpc.Dial",
+			}
+		}
 		return nil, classifyConnError("rpc.GetConnection", err)
 	}
 	return conn, nil
@@ -312,12 +319,22 @@ func (c *Client) IsConnected() bool {
 	return atomic.LoadInt32(&c.closed) == 0
 }
 
+// errPoolClosed is returned by get when the pool's channel has been closed by
+// close(); GetConnection maps it to chain.closed.
+var errPoolClosed = errors.New("connection pool closed")
+
 // --- Connection pool (ported from v1 pkg/client/connection.go) ---
 
 // connPool manages a pool of gRPC client connections.
 // For testing purposes, GetFunc can be overridden to mock connection behavior.
 type connPool struct {
-	mu          sync.Mutex
+	mu sync.Mutex
+	// closed is guarded by mu. put() checks it and sends to conns while still
+	// holding mu, so no send to p.conns can happen after close(p.conns).
+	closed bool
+	// inPool tracks conns currently sitting in the channel so a double return
+	// of the same conn cannot add a second entry (double-return guard).
+	inPool      map[*grpc.ClientConn]struct{}
 	conns       chan *grpc.ClientConn
 	factory     func(ctx context.Context) (*grpc.ClientConn, error)
 	initialSize int
@@ -336,6 +353,7 @@ func newConnPool(factory func(ctx context.Context) (*grpc.ClientConn, error), in
 		conns:       make(chan *grpc.ClientConn, capacity),
 		factory:     factory,
 		initialSize: initialSize,
+		inPool:      make(map[*grpc.ClientConn]struct{}),
 	}
 
 	// Don't create initial connections - let them be created on demand
@@ -352,6 +370,14 @@ func (p *connPool) capacity() int {
 	return cap(p.conns)
 }
 
+// take removes a received conn from the inPool set under mu.
+func (p *connPool) take(conn *grpc.ClientConn) *grpc.ClientConn {
+	p.mu.Lock()
+	delete(p.inPool, conn)
+	p.mu.Unlock()
+	return conn
+}
+
 // get retrieves a connection from the pool. If no connection is available,
 // it will try to create a new one if the pool has not reached its capacity.
 func (p *connPool) get(ctx context.Context) (*grpc.ClientConn, error) {
@@ -362,24 +388,27 @@ func (p *connPool) get(ctx context.Context) (*grpc.ClientConn, error) {
 
 	select {
 	case conn := <-p.conns:
-		return healthyOrNew(p, ctx, conn)
+		return healthyOrNew(p, ctx, p.take(conn))
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	default:
 		p.mu.Lock()
-		defer p.mu.Unlock()
-
 		if len(p.conns) < cap(p.conns) {
 			conn, err := p.factory(ctx)
+			p.mu.Unlock()
 			if err != nil {
 				return nil, fmt.Errorf("connection failed: %w", err)
 			}
 			return conn, nil
 		}
-		// Wait for a connection to be returned to the pool
+		p.mu.Unlock()
+		// Wait for a connection to be returned to the pool. mu is NOT held
+		// here: put() needs it to return a conn, so holding it through this
+		// blocking receive would deadlock (v1 got away with it because put
+		// was lock-free — and racy).
 		select {
 		case conn := <-p.conns:
-			return healthyOrNew(p, ctx, conn)
+			return healthyOrNew(p, ctx, p.take(conn))
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		}
@@ -389,6 +418,10 @@ func (p *connPool) get(ctx context.Context) (*grpc.ClientConn, error) {
 // healthyOrNew keeps v1's health check: a pooled connection that is not Ready
 // is closed and replaced by a fresh one from the factory.
 func healthyOrNew(p *connPool, ctx context.Context, conn *grpc.ClientConn) (*grpc.ClientConn, error) {
+	if conn == nil {
+		// Only close(p.conns) yields a nil receive; the pool is closed.
+		return nil, errPoolClosed
+	}
 	if conn.GetState() != connectivity.Ready {
 		// Connection is not ready, close it and create a new one
 		_ = conn.Close()
@@ -412,8 +445,24 @@ func (p *connPool) put(conn *grpc.ClientConn) {
 		return
 	}
 
+	// The closed check and the channel send happen under the same mutex as
+	// close(), so a put that passes the check cannot race with close(p.conns).
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.closed {
+		// Pool closed concurrently: close the conn instead of sending on a
+		// closed channel (which would panic).
+		_ = conn.Close()
+		return
+	}
+	if _, dup := p.inPool[conn]; dup {
+		// Double return of the same conn: ignore the duplicate entry so one
+		// conn can never be handed to two callers at once.
+		return
+	}
 	select {
 	case p.conns <- conn:
+		p.inPool[conn] = struct{}{}
 	default:
 		// Pool is full, close the connection and ignore close error
 		_ = conn.Close()
@@ -424,6 +473,11 @@ func (p *connPool) put(conn *grpc.ClientConn) {
 func (p *connPool) close() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
+	if p.closed {
+		return
+	}
+	p.closed = true
 
 	if p.conns == nil {
 		// Nothing to close in test/fake pools.

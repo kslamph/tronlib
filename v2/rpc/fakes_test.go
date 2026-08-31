@@ -71,13 +71,41 @@ func (s *testWalletServer) GetTransactionInfoById(ctx context.Context, in *api.B
 	return &core.TransactionInfo{}, nil
 }
 
+// testWalletSolidityServer serves the WalletSolidity service by delegating to
+// the same *testWalletServer handlers, so both services share canned behavior.
+type testWalletSolidityServer struct {
+	api.UnimplementedWalletSolidityServer
+	ws *testWalletServer
+}
+
+func (s *testWalletSolidityServer) GetTransactionInfoById(ctx context.Context, in *api.BytesMessage) (*core.TransactionInfo, error) {
+	return s.ws.GetTransactionInfoById(ctx, in)
+}
+
+func (s *testWalletSolidityServer) GetNowBlock(ctx context.Context, in *api.EmptyMessage) (*core.Block, error) {
+	return s.ws.GetNowBlock(ctx, in)
+}
+
+func (s *testWalletSolidityServer) GetBlockByNum(ctx context.Context, in *api.NumberMessage) (*core.Block, error) {
+	return s.ws.GetBlockByNum(ctx, in)
+}
+
+func (s *testWalletSolidityServer) TriggerConstantContract(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error) {
+	return s.ws.TriggerConstantContract(ctx, in)
+}
+
 // newBufconnServer spins up a bufconn-backed gRPC server serving impl and
-// registers automatic teardown.
+// registers automatic teardown. When impl is a *testWalletServer, the
+// WalletSolidity service is registered on the same server, backed by the same
+// handlers (Solidity-side wrappers and WaitForSolid tests hit this).
 func newBufconnServer(t *testing.T, impl api.WalletServer) *bufconn.Listener {
 	t.Helper()
 	lis := bufconn.Listen(bufSize)
 	srv := grpc.NewServer()
 	api.RegisterWalletServer(srv, impl)
+	if ws, ok := impl.(*testWalletServer); ok {
+		api.RegisterWalletSolidityServer(srv, &testWalletSolidityServer{ws: ws})
+	}
 	go func() { _ = srv.Serve(lis) }()
 
 	t.Cleanup(func() {
