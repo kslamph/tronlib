@@ -173,11 +173,11 @@ func (c Code) Action() Action {
 		return ActionFixTransaction
 	case CodeChainConnection, CodeChainTimeout, CodeChainClosed, CodeChainUnavailable, CodeRPCMethodFailed:
 		return ActionRetry
-	case CodeChainUnconfirmed:
+	case CodeChainUnconfirmed, CodeTxDuplicate:
 		return ActionWait
 	case CodeAccountInsufficientBalance, CodeAccountInsufficientEnergy, CodeAccountInsufficientBandwidth:
 		return ActionFund
-	default: // CodeTxDuplicate and any future code not yet classified
+	default: // any future code not yet classified
 		return ActionBug
 	}
 }
@@ -209,7 +209,7 @@ func (c Code) Doc() string {
 	case CodeTxExpired:
 		return "the transaction's expiration has passed"
 	case CodeTxDuplicate:
-		return "the node reports the transaction already exists"
+		return "this txid was already broadcast or executed; poll its receipt instead of resending"
 	case CodeTxFeeLimitTooLow:
 		return "the fee limit is below the node's minimum"
 	case CodeTxInvalidArgument:
@@ -235,7 +235,7 @@ func (c Code) Doc() string {
 	case CodeReceiptReverted:
 		return "the contract execution reverted"
 	case CodeReceiptOutOfEnergy:
-		return "the contract execution ran out of energy"
+		return "the transaction exceeded its energy budget; raise fee_limit or stake energy for the account"
 	case CodeReceiptFailed:
 		return "the transaction was processed but failed"
 	case CodeContractNotFound:
@@ -265,7 +265,7 @@ func (c Code) Doc() string {
 	case CodeKeyMnemonicInvalid:
 		return "the mnemonic phrase is invalid"
 	case CodeRPCMethodFailed:
-		return "the node returned an error for the RPC method"
+		return "the node rejected or failed an rpc; retry with backoff, and if the error repeats identically switch node or method rather than looping"
 	default:
 		return "unknown code: " + string(c)
 	}

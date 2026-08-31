@@ -30,6 +30,7 @@ func TestActionDerivedFromCode(t *testing.T) {
 	assert.Equal(t, ActionRetry, CodeChainConnection.Action())
 	assert.Equal(t, ActionRetry, CodeChainTimeout.Action())
 	assert.Equal(t, ActionWait, CodeChainUnconfirmed.Action())
+	assert.Equal(t, ActionWait, CodeTxDuplicate.Action())
 	assert.Equal(t, ActionFixCall, CodeAmountInvalid.Action())
 	assert.Equal(t, ActionFund, CodeAccountInsufficientEnergy.Action())
 	assert.Equal(t, ActionFixTransaction, CodeReceiptReverted.Action())
