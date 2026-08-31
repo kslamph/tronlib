@@ -36,8 +36,13 @@ const (
 )
 
 // renderErrorList fills the errStart/errEnd block with a Markdown table of
-// the codes, sorted by Code so re-renders are diff-stable.
+// the codes, sorted by Code so re-renders are diff-stable. A file without
+// an errStart marker is returned unchanged: docs files that carry only
+// example blocks (e.g. an example index) are valid sync targets too.
 func renderErrorList(md string, codes []codeDoc) (string, error) {
+	if !strings.Contains(md, errStart) {
+		return md, nil
+	}
 	sorted := append([]codeDoc(nil), codes...)
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i].Code < sorted[j].Code })
 	var b strings.Builder
@@ -152,6 +157,13 @@ func betweenContent(s, start, end string) (string, error) {
 	return s[i+len(start) : i+j], nil
 }
 
+// multiFlag collects a repeated -flag into a slice (flag.Set overwrites a
+// plain string value, but sync-docs takes multiple -docs files).
+type multiFlag []string
+
+func (m *multiFlag) String() string     { return strings.Join(*m, ",") }
+func (m *multiFlag) Set(v string) error { *m = append(*m, v); return nil }
+
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Fprint(os.Stderr, usage)
@@ -180,6 +192,24 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Printf("docgen: wrote %s (%d bytes)\n", *out, len(src))
+	case "sync-docs":
+		fs := flag.NewFlagSet("sync-docs", flag.ExitOnError)
+		pkgDir := fs.String("pkg", "", "package directory to read codes and Example functions from")
+		var docs multiFlag
+		fs.Var(&docs, "docs", "docs file to sync; repeatable")
+		check := fs.Bool("check", false, "do not write; byte-compare rendered output against each docs file and fail on drift")
+		if err := fs.Parse(os.Args[2:]); err != nil {
+			fmt.Fprint(os.Stderr, usage)
+			os.Exit(2)
+		}
+		if *pkgDir == "" || len(docs) == 0 {
+			fmt.Fprintln(os.Stderr, "sync-docs requires -pkg and at least one -docs")
+			os.Exit(2)
+		}
+		if err := runSync(*pkgDir, docs, *check); err != nil {
+			fmt.Fprintf(os.Stderr, "docgen: %v\n", err)
+			os.Exit(1)
+		}
 	default:
 		fmt.Fprintf(os.Stderr, "docgen: unknown command %q\n%s", os.Args[1], usage)
 		os.Exit(2)
@@ -192,6 +222,10 @@ commands:
   generate-codes -pkg <dir> -out <file>
       regenerate the tron package's codes_gen.go from codes.go
 
-(docs fill and -check are wired in a later change; this dispatch only
-makes the generator invokable.)
+  sync-docs -pkg <dir> -docs <file> [-docs <file> ...] [-check]
+      fill the go:errors table and go:example blocks in each docs file from
+      the package source. With -check, write nothing: re-render every docs
+      file and byte-compare; any difference (including an Example function
+      with no marker, or a marker naming no real Example) exits 1. This is
+      the CI drift gate.
 `

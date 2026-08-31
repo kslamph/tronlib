@@ -77,6 +77,14 @@ jobs:
           exit 1
         }
 
+    # Docs drift gate: re-render v2/docs/errors.md and v2/docs/examples.md
+    # from the v2/tron package source and byte-compare. Any hand-edit between
+    # the go:errors / go:example markers, or an Example function without a
+    # marker (or vice versa), fails the build. Fix with:
+    #   go -C v2 run ./cmd/docgen sync-docs -pkg ./tron -docs ./docs/errors.md -docs ./docs/examples.md
+    - name: docgen drift check (v2)
+      run: go -C v2 run ./cmd/docgen sync-docs -pkg ./tron -docs ./docs/errors.md -docs ./docs/examples.md -check
+
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v7
       with:

@@ -35,43 +35,69 @@ import (
 //     case in codes.go; docgen does not generate default-arm fallbacks
 func generateCodes(pkgDir string) (string, error) {
 	constPath := filepath.Join(pkgDir, "codes.go")
+	data, err := parseCodesData(pkgDir)
+	if err != nil {
+		return "", err
+	}
+	if err := checkParity(constPath, data.consts, data.all, data.action, data.doc); err != nil {
+		return "", err
+	}
+	return emitCodesGen(data.all, data.consts, data.action, data.doc)
+}
+
+// codesData is everything parseCodesData extracts from a package: the Code
+// constants, the AllCodes order, and the per-code Action/Doc data. It is the
+// shared source for codes_gen.go emission and for the docs error table.
+type codesData struct {
+	consts []codeConst
+	all    []string
+	action map[string]string
+	doc    map[string]string
+	// actionStrings maps Action identifiers to their lower-case names as
+	// declared by the (a Action) String() switch in codes.go; nil entries
+	// fall back to actionName's camel-case conversion.
+	actionStrings map[string]string
+}
+
+// parseCodesData parses pkgDir/codes.go (and codes_gen.go when present) and
+// extracts the data generateCodes emits and codeTable renders. See
+// generateCodes for the extraction and parity rules.
+func parseCodesData(pkgDir string) (codesData, error) {
+	constPath := filepath.Join(pkgDir, "codes.go")
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, constPath, nil, 0)
 	if err != nil {
-		return "", fmt.Errorf("%s: %w", constPath, err)
+		return codesData{}, fmt.Errorf("%s: %w", constPath, err)
 	}
 	if f.Name.Name != "tron" {
-		return "", fmt.Errorf("%s: package %q, want %q (codes_gen.go is generated into package tron)", constPath, f.Name.Name, "tron")
+		return codesData{}, fmt.Errorf("%s: package %q, want %q (codes_gen.go is generated into package tron)", constPath, f.Name.Name, "tron")
 	}
 
 	// codes_gen.go is the switch source once the hand-written switches have
 	// been deleted from codes.go; it may not exist yet on first generation.
 	genFile, err := parseOptional(fset, filepath.Join(pkgDir, "codes_gen.go"))
 	if err != nil {
-		return "", err
+		return codesData{}, err
 	}
 
 	consts, err := codeConsts(f)
 	if err != nil {
-		return "", err
+		return codesData{}, err
 	}
 	all, err := allCodesList(f)
 	if err != nil {
-		return "", err
+		return codesData{}, err
 	}
 	action, err := switchMapping(f, genFile, "Action")
 	if err != nil {
-		return "", err
+		return codesData{}, err
 	}
 	doc, err := switchMapping(f, genFile, "Doc")
 	if err != nil {
-		return "", err
+		return codesData{}, err
 	}
-
-	if err := checkParity(constPath, consts, all, action, doc); err != nil {
-		return "", err
-	}
-	return emitCodesGen(all, consts, action, doc)
+	actionStrings, _ := actionStringMapping(f)
+	return codesData{consts: consts, all: all, action: action, doc: doc, actionStrings: actionStrings}, nil
 }
 
 // parseOptional parses path if it exists; a missing file yields (nil, nil).
@@ -380,4 +406,72 @@ func checkParity(path string, consts []codeConst, all []string, action, doc map[
 		return fmt.Errorf("%s: codes.go parity violations:\n\t%s", path, strings.Join(problems, "\n\t"))
 	}
 	return nil
+}
+
+// actionStringMapping extracts the (a Action) String() switch from
+// codes.go: Action identifier -> lower-case display name. It is optional —
+// the docs table falls back to actionName's camel-case conversion — so a
+// missing or non-conforming String() yields (nil, nil) rather than an error.
+func actionStringMapping(f *ast.File) (map[string]string, error) {
+	var fn *ast.FuncDecl
+	for _, decl := range f.Decls {
+		fd, ok := decl.(*ast.FuncDecl)
+		if !ok || fd.Name.Name != "String" || fd.Recv == nil || len(fd.Recv.List) != 1 {
+			continue
+		}
+		if id, ok := fd.Recv.List[0].Type.(*ast.Ident); ok && id.Name == "Action" {
+			fn = fd
+			break
+		}
+	}
+	if fn == nil {
+		return nil, nil
+	}
+	var sw *ast.SwitchStmt
+	for _, stmt := range fn.Body.List {
+		if s, ok := stmt.(*ast.SwitchStmt); ok {
+			sw = s
+			break
+		}
+	}
+	if sw == nil {
+		return nil, nil
+	}
+	out := make(map[string]string)
+	for _, stmt := range sw.Body.List {
+		cc, ok := stmt.(*ast.CaseClause)
+		if !ok || cc.List == nil || len(cc.Body) != 1 {
+			continue
+		}
+		ret, ok := cc.Body[0].(*ast.ReturnStmt)
+		if !ok || len(ret.Results) != 1 {
+			continue
+		}
+		lit, ok := ret.Results[0].(*ast.BasicLit)
+		if !ok || lit.Kind != token.STRING {
+			continue
+		}
+		val, err := strconv.Unquote(lit.Value)
+		if err != nil {
+			continue
+		}
+		for _, e := range cc.List {
+			if id, ok := e.(*ast.Ident); ok {
+				out[id.Name] = val
+			}
+		}
+	}
+	return out, nil
+}
+
+// actionName renders an Action identifier as the lower-case word the docs
+// table shows. The String() switch in codes.go is the real name source;
+// the fallback strips the "Action" prefix so a package without String()
+// still yields a recognizable (if concatenated) label rather than a Go
+// identifier.
+func actionName(ident string, stringsMap map[string]string) string {
+	if s, ok := stringsMap[ident]; ok {
+		return s
+	}
+	return strings.TrimPrefix(ident, "Action")
 }
