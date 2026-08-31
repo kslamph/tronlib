@@ -1,7 +1,8 @@
 package key
 
 import (
-	"encoding/base64"
+	"encoding/hex"
+	"strings"
 	"testing"
 )
 
@@ -17,8 +18,11 @@ func TestSignMessageV2RoundTrip(t *testing.T) {
 	if sig == "" {
 		t.Fatal("empty signature")
 	}
-	if _, err := base64.StdEncoding.DecodeString(sig); err != nil {
-		t.Fatalf("signature not base64: %v", err)
+	if !strings.HasPrefix(sig, "0x") {
+		t.Fatalf("signature %q not 0x-prefixed hex", sig)
+	}
+	if _, err := hex.DecodeString(strings.TrimPrefix(sig, "0x")); err != nil {
+		t.Fatalf("signature not hex: %v", err)
 	}
 	ok, err := VerifyMessageV2("Hello Tron!", sig, s.Address())
 	if err != nil {
@@ -26,6 +30,27 @@ func TestSignMessageV2RoundTrip(t *testing.T) {
 	}
 	if !ok {
 		t.Fatal("VerifyMessageV2 = false, want true for own signature")
+	}
+}
+
+// TestVerifyMessageV2Missing0xPrefix pins TronWeb verifyMessageV2 tolerance:
+// a signature without the 0x prefix must still verify.
+func TestVerifyMessageV2Missing0xPrefix(t *testing.T) {
+	s, err := PrivateKeyFromHex(fixtureHexKey)
+	if err != nil {
+		t.Fatalf("PrivateKeyFromHex: %v", err)
+	}
+	sig, err := SignMessageV2(s, "Hello Tron!")
+	if err != nil {
+		t.Fatalf("SignMessageV2: %v", err)
+	}
+	stripped := strings.TrimPrefix(sig, "0x")
+	ok, err := VerifyMessageV2("Hello Tron!", stripped, s.Address())
+	if err != nil {
+		t.Fatalf("VerifyMessageV2 (no 0x): %v", err)
+	}
+	if !ok {
+		t.Fatal("signature without 0x prefix failed to verify")
 	}
 }
 
@@ -93,17 +118,17 @@ func TestVerifyMessageV2BadSignature(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PrivateKeyFromHex: %v", err)
 	}
-	// Not base64.
-	if _, err := VerifyMessageV2("Hello Tron!", "not base64!!", s.Address()); err == nil {
-		t.Fatal("expected error for non-base64 signature")
+	// Not hex.
+	if _, err := VerifyMessageV2("Hello Tron!", "not hex!!", s.Address()); err == nil {
+		t.Fatal("expected error for non-hex signature")
 	}
-	// Valid base64 but wrong length.
-	short := base64.StdEncoding.EncodeToString([]byte("too short"))
+	// Valid hex but wrong length.
+	short := "0x" + hex.EncodeToString([]byte("too short"))
 	if _, err := VerifyMessageV2("Hello Tron!", short, s.Address()); err == nil {
 		t.Fatal("expected error for non-65-byte signature")
 	}
-	// Valid 65-byte base64 but bad recovery id.
-	badV := base64.StdEncoding.EncodeToString(make([]byte, 65))
+	// Valid 65-byte hex but bad recovery id.
+	badV := "0x" + hex.EncodeToString(make([]byte, 65))
 	if _, err := VerifyMessageV2("Hello Tron!", badV, s.Address()); err == nil {
 		t.Fatal("expected error for invalid recovery id")
 	}
@@ -139,11 +164,11 @@ func TestSignMessageV2UsesTIP191Prefix(t *testing.T) {
 		t.Fatalf("PrivateKeyFromHex: %v", err)
 	}
 	msg := "manual prefix check"
-	sigB64, err := SignMessageV2(s, msg)
+	sigHex, err := SignMessageV2(s, msg)
 	if err != nil {
 		t.Fatalf("SignMessageV2: %v", err)
 	}
-	sig, err := base64.StdEncoding.DecodeString(sigB64)
+	sig, err := hex.DecodeString(strings.TrimPrefix(sigHex, "0x"))
 	if err != nil {
 		t.Fatalf("decode: %v", err)
 	}

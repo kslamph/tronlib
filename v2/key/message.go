@@ -1,7 +1,7 @@
 package key
 
 import (
-	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"strings"
 
@@ -31,9 +31,10 @@ func tip191Prefixed(message string) ([]byte, error) {
 	return []byte(fmt.Sprintf("%s%d%s", tronMessagePrefix, messageLen, string(data))), nil
 }
 
-// SignMessageV2 signs message in TIP-191 v2 format and returns the base64
-// signature. A message starting with "0x" is treated as hex-encoded bytes,
-// matching v1 behavior; anything else is signed as UTF-8 text.
+// SignMessageV2 signs message in TIP-191 v2 format and returns the 0x-prefixed
+// 65-byte hex signature (TronWeb signMessageV2 compatible). A message starting
+// with "0x" is treated as hex-encoded bytes, matching v1 behavior; anything
+// else is signed as UTF-8 text.
 func SignMessageV2(s Signer, message string) (string, error) {
 	const op = "SignMessageV2"
 	prefixedMessage, err := tip191Prefixed(message)
@@ -55,18 +56,19 @@ func SignMessageV2(s Signer, message string) (string, error) {
 	// expects V to be 27 or 28, so we add 27.
 	signature[64] += 27
 
-	return base64.StdEncoding.EncodeToString(signature), nil
+	return "0x" + common.Bytes2Hex(signature), nil
 }
 
-// VerifyMessageV2 reports whether sigBase64 — a base64 TIP-191 v2 signature —
-// recovers to addr over the TIP-191-prefixed message. The message is
-// interpreted exactly as in SignMessageV2.
-func VerifyMessageV2(message, sigBase64 string, addr tron.Address) (bool, error) {
+// VerifyMessageV2 reports whether signature — the 0x-prefixed 65-byte hex
+// produced by SignMessageV2 (TronWeb verifyMessageV2 compatible; a missing 0x
+// prefix is tolerated) — recovers to addr over the TIP-191-prefixed message.
+// The message is interpreted exactly as in SignMessageV2.
+func VerifyMessageV2(message, signature string, addr tron.Address) (bool, error) {
 	const op = "VerifyMessageV2"
 
-	sigBytes, err := base64.StdEncoding.DecodeString(sigBase64)
+	sigBytes, err := hex.DecodeString(strings.TrimPrefix(signature, "0x"))
 	if err != nil {
-		return false, &tron.Error{Code: tron.CodeKeyInvalid, Op: op, Hint: "pass the base64 signature returned by SignMessageV2", Cause: err}
+		return false, &tron.Error{Code: tron.CodeKeyInvalid, Op: op, Hint: "pass the 0x-hex signature returned by SignMessageV2", Cause: err}
 	}
 	if len(sigBytes) != 65 {
 		return false, &tron.Error{Code: tron.CodeKeyInvalid, Op: op, Hint: fmt.Sprintf("signature must be 65 bytes, got %d bytes", len(sigBytes))}
