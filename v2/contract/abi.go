@@ -36,10 +36,13 @@ type jsonABIEntry struct {
 }
 
 // pbABIToJSON renders a protobuf SmartContract_ABI into the Solidity JSON
-// ABI form geth parses. The pb param carries no stateMutability, so
-// function entries render without it — geth treats that as nonpayable,
-// which matches how the entries are used here (the node, not the ABI,
-// decides what a call may spend).
+// ABI form geth parses. The pb entries DO carry mutability — StateMutability
+// (field 8, enum StateMutabilityType) plus the legacy Payable (field 7) and
+// Constant (field 2) bools — and it must survive the rendering: geth
+// rejects a "receive" entry without "stateMutability":"payable", which
+// would fail the lazy ABI load for every Solidity >=0.6 payable contract.
+// The mapping mirrors v1's pkg/utils/abi_parse.go. Fallback entries parse
+// fine without a mutability, so none is invented for them.
 func pbABIToJSON(abi *core.SmartContract_ABI) (string, error) {
 	if abi == nil || len(abi.GetEntrys()) == 0 {
 		return "", fmt.Errorf("ABI has no entries")
@@ -53,10 +56,17 @@ func pbABIToJSON(abi *core.SmartContract_ABI) (string, error) {
 		// the Solidity JSON ABI geth parses uses lowercase ("function",
 		// "event") — normalize here so the on-chain form actually parses.
 		entry := jsonABIEntry{
-			Type:    strings.ToLower(e.GetType().String()),
-			Name:    e.GetName(),
-			Inputs:  paramsToJSON(e.GetInputs()),
-			Outputs: paramsToJSON(e.GetOutputs()),
+			Type:            strings.ToLower(e.GetType().String()),
+			Name:            e.GetName(),
+			Inputs:          paramsToJSON(e.GetInputs()),
+			Outputs:         paramsToJSON(e.GetOutputs()),
+			StateMutability: mutabilityToJSON(e),
+		}
+		// geth requires "the statemutability of receive can only be
+		// payable" — force it when the node left the entry's mutability
+		// unset, or the whole lazy ABI load would fail.
+		if entry.Type == "receive" && entry.StateMutability == "" {
+			entry.StateMutability = "payable"
 		}
 		entries = append(entries, entry)
 	}
@@ -68,6 +78,33 @@ func pbABIToJSON(abi *core.SmartContract_ABI) (string, error) {
 		return "", fmt.Errorf("ABI re-encode failed: %w", err)
 	}
 	return string(b), nil
+}
+
+// mutabilityToJSON maps a pb entry's mutability to its Solidity JSON ABI
+// spelling (the inverse of v1's pkg/utils/abi_parse.go mapping: pure, view,
+// nonpayable, payable). When the enum is unset/Unknown the legacy
+// Payable/Constant bools take over: Payable -> payable, Constant -> view.
+// Anything else renders without a mutability (geth reads that as
+// nonpayable).
+func mutabilityToJSON(e *core.SmartContract_ABI_Entry) string {
+	switch e.GetStateMutability() {
+	case core.SmartContract_ABI_Entry_Pure:
+		return "pure"
+	case core.SmartContract_ABI_Entry_View:
+		return "view"
+	case core.SmartContract_ABI_Entry_Nonpayable:
+		return "nonpayable"
+	case core.SmartContract_ABI_Entry_Payable:
+		return "payable"
+	default: // UnknownMutabilityType / unset — fall back to the legacy bools
+		if e.GetPayable() {
+			return "payable"
+		}
+		if e.GetConstant() {
+			return "view"
+		}
+		return ""
+	}
 }
 
 func paramsToJSON(params []*core.SmartContract_ABI_Entry_Param) []jsonABIParam {
