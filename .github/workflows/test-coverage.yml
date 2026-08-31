@@ -38,6 +38,42 @@ jobs:
           exit 1
         }
 
+    # v2 is a separate Go module (v2/go.mod), so the root module cannot see it:
+    # `./v2/...` from the repo root fails with "directory prefix v2 does not
+    # contain main module". Every v2 command therefore runs as `go -C v2 ...`.
+    - name: Build v2 module
+      run: go -C v2 build ./...
+
+    - name: Run v2 tests with coverage
+      run: go -C v2 test -short -coverprofile=v2_coverage.txt -covermode=atomic ./...
+
+    - name: Enforce v2 coverage floor (80%)
+      run: |
+        # `go -C v2` resolves -coverprofile relative to v2/, so the profile lands
+        # at v2/v2_coverage.txt, and `go tool cover` needs the v2 module context
+        # to read v2 package paths (from the root module it fails with
+        # "no required module provides package github.com/kslamph/tronlib/v2").
+        #
+        # Before any v2 test exists the profile holds only its `mode:` header,
+        # which `go tool cover` reports as a numeric 0.0% (not "no statements"),
+        # so the floor is skipped until the module has coverable statements.
+        if [ ! -s v2/v2_coverage.txt ] || ! grep -qv '^mode:' v2/v2_coverage.txt; then
+          echo "v2 coverage: no statements yet"
+          exit 0
+        fi
+        total=$(go -C v2 tool cover -func=v2_coverage.txt | grep '^total:' | awk '{print substr($NF, 1, length($NF)-1)}')
+        case "$total" in
+          ''|*[!0-9.]*)
+            echo "v2 coverage: no statements yet"
+            exit 0
+            ;;
+        esac
+        echo "v2 statement coverage: ${total}%"
+        awk -v c="$total" 'BEGIN { exit !(c >= 80) }' || {
+          echo "::error::v2 coverage ${total}% is below the 80% floor"
+          exit 1
+        }
+
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v7
       with:
