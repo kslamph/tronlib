@@ -107,3 +107,17 @@ func TestAddressZeroValue(t *testing.T) {
 	_, err := ParseAddress("")
 	assert.Error(t, err)
 }
+
+func TestAddressFromBytesDoesNotAliasCallerBuffer(t *testing.T) {
+	body, _ := hex.DecodeString("41e28b3cfd4e0e909077821478e9fcb86b84be786e")
+	big := make([]byte, 0, 64)                   // cap > len everywhere downstream
+	big = append(big, body...)                   // body has len 21, cap 43+
+	big = append(big, make([]byte, 22)...)       // spare capacity the old append could scribble into
+	sentinel := append([]byte(nil), big[21:]...) // bytes after the 21-byte body
+
+	a, err := AddressFromBytes(big[:21])
+	require.NoError(t, err)
+	require.Equal(t, "TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwb", a.String())
+
+	assert.Equal(t, sentinel, big[21:], "AddressFromBytes must not write past the 21-byte body into the caller's backing array")
+}

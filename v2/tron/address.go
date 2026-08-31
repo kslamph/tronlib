@@ -171,7 +171,10 @@ func base58Decode(s string) ([]byte, error) {
 func base58CheckEncode(body []byte) string {
 	h1 := sha256.Sum256(body)
 	h2 := sha256.Sum256(h1[:])
-	return base58Encode(append(body, h2[0], h2[1], h2[2], h2[3]))
+	var buf [25]byte
+	copy(buf[:21], body)
+	copy(buf[21:], h2[:4])
+	return base58Encode(buf[:])
 }
 
 // base58Encode encodes b; leading zero bytes become leading '1's.
