@@ -39,6 +39,10 @@ import (
 // the price is a governance parameter and energy prices only ever move in the
 // caller's favor at the margins between preview and broadcast.
 //
+// Fee-limit floor-check (spec §6.4): PreviewCost returns tx.fee_limit_too_low
+// when TronToBurn exceeds the transaction's fee_limit — the 150-TRX default
+// is a floor that is checked, not trusted.
+//
 // live-verified: pending (spec §7.5).
 type CostPreview struct {
 	// EnergyNeeded is the penalty-inclusive total energy (EstimateEnergy).
@@ -73,7 +77,9 @@ func (c *CostPreview) String() string {
 }
 
 // PreviewCost returns the predicted cost of broadcasting t (see CostPreview
-// for the read sequence). It is the free-function entry point the facade's
+// for the read sequence). It returns tx.fee_limit_too_low when the computed
+// burn exceeds the transaction's fee limit — the §6.4 floor-check.
+// It is the free-function entry point the facade's
 // Client.CostPreview wraps — the spec (§7.3) names the RESULT type
 // CostPreview and the Client method CostPreview, so a package-level function
 // of the same name cannot exist in Go; PreviewCost is that function.
@@ -111,7 +117,19 @@ func PreviewCost(cp rpc.ConnProvider, ctx context.Context, t *ContractTx, owner 
 	burn, err := tron.SUN(toBuy).Mul(price)
 	if err != nil {
 		return nil, &tron.Error{Code: tron.CodeAmountOverflow, Op: op, Cause: err,
-			Hint: "EnergyToBuy × SunPerEnergy overflows SUN; the call cannot be priced in int64 SUN"}
+			Hint: "EnergyToBuy × SunPerEnergy overflows SUN; the call cannot be priced in int64 SUN",
+		}
+	}
+	// §6.4 floor-check: the fee_limit caps the TRX burned on energy, so the
+	// computed burn must fit under it. The 150-TRX default is a floor that is
+	// checked, not trusted.
+	if t.FeeLimit() < burn {
+		return nil, &tron.Error{
+			Code: tron.CodeTxFeeLimitTooLow,
+			Op:   op,
+			Next: tron.ActionFixTransaction,
+			Hint: "raise fee_limit via WithFeeLimit (current default 150 TRX) — the computed burn exceeds the transaction's fee limit",
+		}
 	}
 	return &CostPreview{
 		EnergyNeeded:    est.Energy,

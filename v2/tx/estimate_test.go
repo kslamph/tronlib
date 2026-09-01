@@ -312,3 +312,71 @@ func TestPreviewCostNilTxRejected(t *testing.T) {
 		t.Errorf("PreviewCost(nil) = %v, want tx.invalid_argument", err)
 	}
 }
+
+// TestPreviewCostFeeLimitGateTooLow pins the §6.4 floor-check: the computed
+// burn (3500 energy × 420 sun = 1,470,000 SUN) exceeds a 1-TRX fee limit, so
+// PreviewCost must return tx.fee_limit_too_low with Next=fix_transaction —
+// the gate the code table defined but no path emitted before this fix.
+func TestPreviewCostFeeLimitGateTooLow(t *testing.T) {
+	f := &fakeWalletServer{}
+	cp := newTxTestClient(t, f)
+	ctx := t.Context()
+	ctxTx, _ := BuildTriggerSmartContract(cp, ctx, testFrom, testTo, nil, 0)
+	f.TriggerConstant = func(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error) {
+		return &api.TransactionExtention{Result: okResult(), EnergyUsed: 5, EnergyPenalty: 0}, nil
+	}
+	f.EstimateEnerg = func(ctx context.Context, in *core.TriggerSmartContract) (*api.EstimateEnergyMessage, error) {
+		return &api.EstimateEnergyMessage{Result: okResult(), EnergyRequired: 5000}, nil
+	}
+	f.AccountResource = func(ctx context.Context, in *core.Account) (*api.AccountResourceMessage, error) {
+		return &api.AccountResourceMessage{EnergyLimit: 2000, EnergyUsed: 500}, nil
+	}
+	f.EnergyPrices = func(ctx context.Context, in *api.EmptyMessage) (*api.PricesResponseMessage, error) {
+		return &api.PricesResponseMessage{Prices: "1691500000000:420"}, nil
+	}
+	low := ctxTx.WithFeeLimit(tron.TRX(1)) // 1_000_000 SUN < 1_470_000 SUN burn
+	_, err := PreviewCost(cp, ctx, low, testFrom)
+	if err == nil || !tron.HasCode(err, tron.CodeTxFeeLimitTooLow) {
+		t.Errorf("PreviewCost with 1-TRX fee limit vs 1.47-TRX burn = %v, want %q", err, tron.CodeTxFeeLimitTooLow)
+	}
+	var te *tron.Error
+	if !errors.As(err, &te) {
+		t.Fatalf("want a *tron.Error, got %T", err)
+	}
+	if te.Op != "tx.CostPreview" {
+		t.Errorf("Op = %q, want tx.CostPreview", te.Op)
+	}
+	if te.Action() != tron.ActionFixTransaction {
+		t.Errorf("Action() = %v, want fix_transaction (rebuild with higher fee limit, re-sign, re-broadcast)", te.Action())
+	}
+}
+
+// TestPreviewCostFeeLimitGatePasses: the same preview with a 5-TRX fee limit
+// (5,000,000 SUN > 1,470,000 SUN burn) succeeds — the gate is a floor-check,
+// not a rejection of fee limits in general.
+func TestPreviewCostFeeLimitGatePasses(t *testing.T) {
+	f := &fakeWalletServer{}
+	cp := newTxTestClient(t, f)
+	ctx := t.Context()
+	ctxTx, _ := BuildTriggerSmartContract(cp, ctx, testFrom, testTo, nil, 0)
+	f.TriggerConstant = func(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error) {
+		return &api.TransactionExtention{Result: okResult(), EnergyUsed: 5, EnergyPenalty: 0}, nil
+	}
+	f.EstimateEnerg = func(ctx context.Context, in *core.TriggerSmartContract) (*api.EstimateEnergyMessage, error) {
+		return &api.EstimateEnergyMessage{Result: okResult(), EnergyRequired: 5000}, nil
+	}
+	f.AccountResource = func(ctx context.Context, in *core.Account) (*api.AccountResourceMessage, error) {
+		return &api.AccountResourceMessage{EnergyLimit: 2000, EnergyUsed: 500}, nil
+	}
+	f.EnergyPrices = func(ctx context.Context, in *api.EmptyMessage) (*api.PricesResponseMessage, error) {
+		return &api.PricesResponseMessage{Prices: "1691500000000:420"}, nil
+	}
+	high := ctxTx.WithFeeLimit(tron.TRX(5)) // 5_000_000 SUN > 1_470_000 SUN burn
+	preview, err := PreviewCost(cp, ctx, high, testFrom)
+	if err != nil {
+		t.Fatalf("PreviewCost with 5-TRX fee limit: %v", err)
+	}
+	if preview.TronToBurn != 1_470_000 {
+		t.Errorf("TronToBurn = %d, want 1470000", preview.TronToBurn)
+	}
+}

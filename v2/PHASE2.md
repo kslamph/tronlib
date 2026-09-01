@@ -84,19 +84,56 @@ All checks run at closeout on branch `v2` (Go toolchain, `-count=1`, `-race`):
     hand-rolled; dead assertion block in `TestWaitForSolidUsesSolidityEndpoint`;
     `With*` post-sign doc line ("invalidates any signature").
 
+## Spec deltas (§ references vs shipped)
+
+Every item below is a spec deviation shipped in Phase 2, recorded so Phase 2.1
+planning does not assume they exist.
+
+- §7.3 `EnergyPrice.CostOf(energy)` — the pure batching primitive — NOT
+  implemented (`EnergyPriceOf` exists; `CostOf` deferred).
+- §7.3 price cache (one-maintenance-period TTL) — NOT implemented;
+  `EnergyPriceOf` refetches every call.
+- §7.3 `CostPreview.BandwidthNote` — NOT implemented; preview covers energy
+  only (documented limitation).
+- §7.2 `Estimate.HasResult()` — NOT implemented; use
+  `len(ConstantResult) > 0`.
+- §5.4 token `Amount.Formatted()` — NOT implemented (`tron.SUN` has both
+  `String` and `Formatted`; token has `String` only).
+- §10 Dial eager round-trip — INVERTED: v2 `Dial` is always-lazy (v1
+  semantics; reachability proven by first call), no `WithLazyDial`.
+  Documented in `rpc` doc.go as a feature, but it is a spec deviation.
+- §5.4 `Handle.Whole` is `Whole(n int64) (Amount, error)` — the
+  generic-method signature requires go 1.27+; concrete int64 preserves the
+  compile-time float/SUN rejection (controller ruling D1, Task 8).
+
 ## §7.5 live-verification checklist (USER-GATED — needs a funded Nile key)
+
+PRECONDITIONS: Use a funded Nile key with NO staked energy
+(EnergyAvailable < EnergyNeeded, so TronToBurn > 0 — otherwise the comparison
+is trivially zero). Use a heavily-consumed Nile contract for the TIP-491
+penalty check (a fresh contract has factor 0).
 
 1. Fund a Nile test key (faucet).
 2. Build a ContractTx (e.g. TRC-20 transfer via `cli.Token` + `Transfer`) and run
    `cli.CostPreview` — record EnergyNeeded/EnergyAvailable/TronToBurn/SunPerEnergy/PricedAt.
 3. Broadcast and wait for the receipt — record `Receipt.Cost` (ActualCost).
-4. VERIFY: `CostPreview.TronToBurn` approximates `Receipt.Cost.EnergyFee` (the TIP-491
-   penalty factor can move between maintenance periods — floor, not ceiling; §7.3).
-5. VERIFY: `Receipt.Cost.EnergyFee == ResourceReceipt.EnergyFee` (the mapping fidelity
-   check — spec §7.5 item 2).
-6. VERIFY: `EstimateEnergyMessage.EnergyRequired` includes the TIP-491 penalty —
-   compare vs `OriginEnergyUsage`/`EnergyPenaltyTotal` in the receipt (spec §7.5 item 1).
-7. Record results here or in the issue tracking the tag.
+4. VERIFY: Compare `CostPreview.TronToBurn` against `Receipt.Cost.EnergyFee`
+   within a stated tolerance (the TIP-491 penalty factor can move between
+   maintenance periods — floor, not ceiling; §7.3). Record both plus the delta.
+5. VERIFY: Compare `CostPreview.TronToBurn` against the RAW node answer: after
+   broadcast, fetch GetTransactionInfoById yourself (`cli.Raw()` escape hatch)
+   and read `ResourceReceipt.EnergyFee` from the pb — NOT the library's parsed
+   `Cost.EnergyFee`. This is the check that catches a mapping bug.
+6. VERIFY: First assert `Receipt.Cost.Penalty > 0`. If 0, record
+   "inconclusive — no TIP-491 factor on this contract/period" (a fresh Nile
+   contract will hit this). Only Penalty > 0 verifies §7.5 item 1
+   (`EstimateEnergy` includes the penalty): compare
+   `EstimateEnergy.EnergyRequired` against `OriginEnergyUsage` +
+   `EnergyPenaltyTotal`.
+7. Record NetFee and Bandwidth alongside — the preview does not cover
+   bandwidth (documented limitation); the delta's bandwidth component must be
+   observed to validate that limitation.
+8. Record results here or in the issue tracking the tag.
 
 ## Known limitations
 
