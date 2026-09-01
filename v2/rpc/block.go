@@ -122,3 +122,14 @@ func GetBlock(cp ConnProvider, ctx context.Context, req *api.BlockReq) (*api.Blo
 		return client.GetBlock(ctx, req)
 	})
 }
+
+// ChainTip returns the latest known block number (GetNowBlock2's block
+// header number). Facade-facing convenience over GetNowBlock2; added for
+// Task 9 (spec §10 Client.ChainTip delegates here).
+func ChainTip(cp ConnProvider, ctx context.Context) (uint64, error) {
+	b, err := GetNowBlock2(cp, ctx, &api.EmptyMessage{})
+	if err != nil {
+		return 0, err
+	}
+	return uint64(b.GetBlockHeader().GetRawData().GetNumber()), nil
+}

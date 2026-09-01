@@ -99,7 +99,7 @@ func PreviewCost(cp rpc.ConnProvider, ctx context.Context, t *ContractTx, owner 
 	if err != nil {
 		return nil, err
 	}
-	price, err := latestEnergyPrice(cp, ctx, op)
+	price, _, err := latestEnergyPrice(cp, ctx, op)
 	if err != nil {
 		return nil, err
 	}
@@ -125,14 +125,14 @@ func PreviewCost(cp rpc.ConnProvider, ctx context.Context, t *ContractTx, owner 
 	}, nil
 }
 
-// latestEnergyPrice fetches the energy price history and returns the price of
-// the entry with the greatest timestamp. Malformed entries are
-// contract.bad_metadata: the node answered, but not in the documented
+// latestEnergyPrice fetches the energy price history and returns the price
+// and timestamp of the entry with the greatest timestamp. Malformed entries
+// are contract.bad_metadata: the node answered, but not in the documented
 // "timestamp:price" comma-list shape.
-func latestEnergyPrice(cp rpc.ConnProvider, ctx context.Context, op string) (int64, error) {
+func latestEnergyPrice(cp rpc.ConnProvider, ctx context.Context, op string) (int64, int64, error) {
 	msg, err := rpc.GetEnergyPrices(cp, ctx, &api.EmptyMessage{})
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 	var bestTs, bestPrice int64
 	for _, entry := range strings.Split(msg.GetPrices(), ",") {
@@ -142,21 +142,21 @@ func latestEnergyPrice(cp rpc.ConnProvider, ctx context.Context, op string) (int
 		}
 		tsStr, priceStr, ok := strings.Cut(entry, ":")
 		if !ok {
-			return 0, badPriceMetadata(op, msg.GetPrices())
+			return 0, 0, badPriceMetadata(op, msg.GetPrices())
 		}
 		ts, err1 := strconv.ParseInt(tsStr, 10, 64)
 		price, err2 := strconv.ParseInt(priceStr, 10, 64)
 		if err1 != nil || err2 != nil {
-			return 0, badPriceMetadata(op, msg.GetPrices())
+			return 0, 0, badPriceMetadata(op, msg.GetPrices())
 		}
 		if ts >= bestTs { // latest timestamp wins; ties keep the last entry
 			bestTs, bestPrice = ts, price
 		}
 	}
 	if len(msg.GetPrices()) == 0 {
-		return 0, badPriceMetadata(op, "")
+		return 0, 0, badPriceMetadata(op, "")
 	}
-	return bestPrice, nil
+	return bestPrice, bestTs, nil
 }
 
 func badPriceMetadata(op, raw string) *tron.Error {

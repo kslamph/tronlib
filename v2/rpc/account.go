@@ -5,6 +5,7 @@ import (
 
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
+	"github.com/kslamph/tronlib/v2/tron"
 )
 
 // Account-related gRPC calls (1:1 port of lowlevel/account.go).
@@ -77,4 +78,17 @@ func GetBlockBalanceTrace(cp ConnProvider, ctx context.Context, req *core.BlockB
 	return Call(cp, ctx, "get block balance trace", func(client api.WalletClient, ctx context.Context) (*core.BlockBalanceTrace, error) {
 		return client.GetBlockBalanceTrace(ctx, req)
 	})
+}
+
+// TronBalance returns the account's TRX balance in SUN (the GetAccount
+// wrapper's Balance field, already the atomic unit). An account the node
+// does not know — never funded — reports balance 0 with no error.
+// Facade-facing convenience over GetAccount; added for Task 9 (spec §10
+// Client.TronBalance delegates here).
+func TronBalance(cp ConnProvider, ctx context.Context, addr tron.Address) (tron.SUN, error) {
+	acc, err := GetAccount(cp, ctx, &core.Account{Address: addr.Bytes()})
+	if err != nil {
+		return 0, err
+	}
+	return tron.SUN(acc.GetBalance()), nil
 }

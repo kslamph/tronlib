@@ -5,6 +5,7 @@ import (
 
 	"github.com/kslamph/tronlib/pb/api"
 	"github.com/kslamph/tronlib/pb/core"
+	"github.com/kslamph/tronlib/v2/tron"
 )
 
 // Voting and witness related gRPC calls (1:1 port of lowlevel/witness.go,
@@ -81,6 +82,40 @@ func GetPaginatedNowWitnessListSolidity(cp ConnProvider, ctx context.Context, re
 	return callSolidity(cp, ctx, "get paginated now witness list", func(cl api.WalletSolidityClient, ctx context.Context) (*api.WitnessList, error) {
 		return cl.GetPaginatedNowWitnessList(ctx, req)
 	})
+}
+
+// Witnesses returns one page of the current witness list (the
+// GetPaginatedNowWitnessList wrapper, decoded onto the value shape the
+// facade's spec §10.1 Witness declares: address, vote count, isJobs).
+// offset/limit pass through to the node's PaginatedMessage unchanged;
+// limit 0 means the node's rpc default, never "all".
+// Facade-facing convenience; added for Task 9.
+func Witnesses(cp ConnProvider, ctx context.Context, offset, limit int64) ([]Witness, error) {
+	wl, err := GetPaginatedNowWitnessList(cp, ctx, &api.PaginatedMessage{Offset: offset, Limit: limit})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Witness, 0, len(wl.GetWitnesses()))
+	for _, w := range wl.GetWitnesses() {
+		addr, err := tron.AddressFromBytes(w.GetAddress())
+		if err != nil {
+			return nil, &tron.Error{Code: tron.CodeAddressInvalid, Op: "rpc.Witnesses", Cause: err,
+				Hint: "the node returned a witness whose address is not a 0x41-prefixed 21-byte value"}
+		}
+		out = append(out, Witness{Address: addr, VoteCount: w.GetVoteCount(), IsJobs: w.GetIsJobs()})
+	}
+	return out, nil
+}
+
+// Witness is one super-representative candidate as the facade's Witnesses
+// page returns it (spec §10.1 shape; a decoded view of core.Witness).
+type Witness struct {
+	// Address is the witness's TRON address.
+	Address tron.Address
+	// VoteCount is the total votes the witness currently holds.
+	VoteCount int64
+	// IsJobs reports whether the witness is currently producing blocks.
+	IsJobs bool
 }
 
 // callSolidity mirrors Call for the WalletSolidity service: identical
