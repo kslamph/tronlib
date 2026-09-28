@@ -39,6 +39,24 @@
 //     mutates raw_data.expiration post-build for long multi-signer circulation
 //   - permission_id: 0 (owner); multi-sig under active permissions needs 2–9
 //
+// # Cost prediction in two phases
+//
+// Energy can be previewed before signing (simulation ignores signatures),
+// but bandwidth is measured on the exact broadcast bytes and therefore
+// only after signing. The API mirrors that order so the convenient call
+// is also the correct one:
+//
+//	build → PreviewCost (energy, pre-sign OK, ContractTx only)
+//	      → Sign
+//	      → TotalCostOf (all-in total, every kind)
+//	      → Broadcast
+//
+// TotalCostOf runs its bandwidth half first, so calling it pre-sign fails
+// fast with tx.invalid_argument — naming the unsigned size and the
+// per-signature delta — before any simulation RPC is spent. PreviewCost
+// stays valid after signing, but post-sign callers should prefer the
+// single all-in call.
+//
 // # The double-spend fix (spec §6.4/§6.5)
 //
 // Broadcast performs one reconciliation poll on an ambiguous timeout. A

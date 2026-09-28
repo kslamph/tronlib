@@ -27,14 +27,13 @@ const ResultSizePerContract = 64
 //
 // Measure the EXACT bytes you will broadcast: the transaction must already
 // carry its signatures (~65 bytes each), so an unsigned transaction is
-// tx.invalid_argument rather than a silent undercount.
+// tx.invalid_argument rather than a silent undercount. The rejection names
+// the unsigned size and the per-signature delta, so the failure itself
+// teaches the model instead of merely blocking it.
 func BandwidthSize(signed *core.Transaction) (int64, error) {
 	const op = "tx.BandwidthSize"
 	if signed == nil {
 		return 0, &tron.Error{Code: tron.CodeTxInvalidArgument, Op: op, Hint: "transaction is nil"}
-	}
-	if len(signed.GetSignature()) == 0 {
-		return 0, &tron.Error{Code: tron.CodeTxInvalidArgument, Op: op, Hint: "transaction is unsigned; sign first — signatures add ~65 bytes each and measuring early undercounts the burn"}
 	}
 	cleared := proto.Clone(signed).(*core.Transaction)
 	cleared.Ret = nil
@@ -46,7 +45,13 @@ func BandwidthSize(signed *core.Transaction) (int64, error) {
 	if size > math.MaxInt64-contracts*ResultSizePerContract {
 		return 0, &tron.Error{Code: tron.CodeAmountOverflow, Op: op, Hint: "serialized size plus result overhead overflows int64"}
 	}
-	return size + contracts*ResultSizePerContract, nil
+	size += contracts * ResultSizePerContract
+	if len(signed.GetSignature()) == 0 {
+		return 0, &tron.Error{Code: tron.CodeTxInvalidArgument, Op: op,
+			Hint: "transaction is unsigned at " + itoa(size) + " bytes; sign first — each signature adds ~65 bytes and the burn is priced on the broadcast bytes",
+		}
+	}
+	return size, nil
 }
 
 // BandwidthPrice is the current bandwidth unit price read from the node's
