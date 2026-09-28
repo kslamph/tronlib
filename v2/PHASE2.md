@@ -307,6 +307,29 @@ Bandwidth is pure size accounting — no simulation. Established from the
   - The insufficient_bandwidth rejection stays hermetic-only (needs
     precise draining; not worth testnet choreography).
 
+### Deploy broadcast (2026-09-28, Nile, user-funded key)
+
+First live DeployTx broadcast (`e40e069a…`, block 71359418): minimal
+1-byte-STOP init (`6001600c60003960016000f300`), name tronlib-probe,
+percent 100, origin 1M, fee_limit 150 TRX cap. Deployed contract
+`TGHsNCnqw9fnwB86NcKU36xdoT9BPQUPqV`, runtimecode `00` (1 byte) via
+GetContractInfo. Receipt: code "", NodeCode SUCCESS, energy=221,
+penalty=0, bandwidth=312, NetFee=0, EnergyFee=2,210. Bandwidth predicted
+312/free-covered exactly. Balance drift 0. Total spend: 2,210 SUN
+(~0.002 TRX) against a ~3.25 TRX worst-case estimate.
+- The estimate was wrong in the safe direction: top-level deploys do NOT
+  pay the 32,000 internal-CREATE opcode price (that is contract-creating-
+  contract only) — init exec 221 is the whole energy charge, matching the
+  constant-call figure exactly (Simulate==receipt holds for deploys too).
+- Open source-reading puzzle (not a verification gap — every billed,
+  reported and accounted number is exactly consistent): the 200 code-
+  deposit (`saveCodeEnergy = 1 byte × 200`) is nowhere in energy_used,
+  fee or drift, yet the code persisted. Likely explanation: in
+  VMActuator.execute the deposit is spent on the program's result object
+  while billing reads the context's result, with the code persisted by a
+  direct store write — i.e. top-level deploys effectively skip the
+  deposit charge. 200 SUN either way.
+
 #### Root-cause analysis: the energy-accuracy fix
 
 The initial preview returned EnergyNeeded **20354** (1,356,900 SUN burn, delta
