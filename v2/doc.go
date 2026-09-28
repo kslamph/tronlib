@@ -29,8 +29,12 @@
 //
 // One import; v1 needed four.
 //
-// Deferred from the v2.0 facade surface (Task 9 report, D2): Network and
-// VerifyNetwork. TRON has no chain ID and the genesis-fingerprint heuristic
-// cannot be validated offline; a wrong guess is worse than an absent
-// method. ChainTip alone is the network surface until Phase 2.1.
+// Network identity is explicit configuration, not a derivation. TRON has no
+// chain ID, and the 21-byte address prefix is 0x41 on Mainnet, Shasta and
+// Nile alike, so an address byte cannot discriminate a network. Declare it
+// with WithNetwork; Client.Network reports the declaration with no I/O, and
+// Client.VerifyNetwork compares the endpoint's genesis block id against a
+// recorded table (heuristic: a redeployed testnet changes its genesis and a
+// private chain matches nothing). Dial does not verify automatically — Dial
+// is lazy by design, so verification is an explicit call.
 package tronlib

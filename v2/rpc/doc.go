@@ -42,7 +42,7 @@
 // GetTimeout) that every free-function wrapper in this package takes, so the
 // ~106 gRPC wrappers stay testable against a fake provider: *Client
 // implements it, and tests substitute a provider backed by a bufconn server.
-// Network identity (Network()/VerifyNetwork genesis fingerprint) is deferred
-// to the root facade task — it needs a live call and a known-hash table, and
-// the facade owns WithNetwork/WithLazyDial.
+// Network identity (Network()/VerifyNetwork genesis fingerprint) lives in
+// the root facade, which owns WithNetwork; this package stays a mechanical
+// projection of the node's gRPC surface and never infers a network.
 package rpc

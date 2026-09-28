@@ -74,36 +74,50 @@ func KeyFromMnemonic(mnemonic, passphrase, path string) (Signer, error) {
 // grpc://host:port (plaintext) or grpcs://host:port (TLS). Dial is lazy:
 // it builds the connection factory without network I/O, so reachability is
 // proven by the first call. Options: WithTimeout (default 30s), WithPool
-// (default 1..5).
+// (default 1..5), WithNetwork. Dial does NOT verify the network — call
+// Client.VerifyNetwork explicitly when a declaration was made.
 func Dial(ctx context.Context, endpoint string, opts ...DialOption) (*Client, error) {
-	c, err := rpc.Dial(ctx, endpoint, opts...)
+	var rpcOpts []rpc.DialOption
+	var network Network
+	for _, o := range opts {
+		rpcOpts = append(rpcOpts, o.rpcOpts...)
+		if o.network != "" {
+			network = o.network
+		}
+	}
+	c, err := rpc.Dial(ctx, endpoint, rpcOpts...)
 	if err != nil {
 		return nil, err
 	}
-	return &Client{inner: c}, nil
+	return &Client{inner: c, network: network}, nil
 }
 
-// DialOption configures a Client at Dial time (rpc.WithTimeout,
-// rpc.WithPool).
-type DialOption = rpc.DialOption
+// DialOption configures a Client at Dial time. It is opaque: build one with
+// WithTimeout, WithPool, or WithNetwork.
+type DialOption struct {
+	rpcOpts []rpc.DialOption
+	network Network
+}
 
 // WithTimeout sets the default timeout for client operations when the
 // context has no deadline (default 30 seconds).
-func WithTimeout(d time.Duration) DialOption { return rpc.WithTimeout(d) }
+func WithTimeout(d time.Duration) DialOption {
+	return DialOption{rpcOpts: []rpc.DialOption{rpc.WithTimeout(d)}}
+}
 
 // WithPool configures the initial and maximum connections for the pool
 // (default 1..5; sizes <= 0 fall back to the defaults).
 func WithPool(initConnections, maxConnections int) DialOption {
-	return rpc.WithPool(initConnections, maxConnections)
+	return DialOption{rpcOpts: []rpc.DialOption{rpc.WithPool(initConnections, maxConnections)}}
 }
 
 // Client is the happy-path handle to one TRON node. It wraps *rpc.Client;
 // every method is a one-line delegation to the subpackage owner (spec D7).
-// Network identity is NOT part of the v2.0 surface: Network/VerifyNetwork
-// are deferred (see the Task 9 report, D2) — ChainTip alone is the network
-// surface until the genesis-fingerprint heuristic can be live-verified.
+// The declared network is explicit configuration recorded here by
+// WithNetwork; VerifyNetwork checks it against the endpoint's genesis.
 type Client struct {
-	inner *rpc.Client
+	inner   *rpc.Client
+	network Network
 }
 
 // Close closes the client and all pooled connections. Idempotent.

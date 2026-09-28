@@ -72,6 +72,11 @@ type fakeFacadeServer struct {
 	GetAccountFn    func(ctx context.Context, in *core.Account) (*core.Account, error)
 	GetNowBlock2Fn  func(ctx context.Context, in *api.EmptyMessage) (*api.BlockExtention, error)
 	WitnessPage     func(ctx context.Context, in *api.PaginatedMessage) (*api.WitnessList, error)
+	BlockByNum2     func(ctx context.Context, in *api.NumberMessage) (*api.BlockExtention, error)
+
+	// blockByNumCalls counts GetBlockByNum2 invocations, proving that
+	// VerifyNetwork's undeclared/Private paths perform no read.
+	blockByNumCalls int
 
 	// broadcastCalls counts BroadcastTransaction invocations, proving the
 	// facade's Broadcast goes through tx.Broadcast's wire path exactly once.
@@ -168,6 +173,14 @@ func (f *fakeFacadeServer) GetPaginatedNowWitnessList(ctx context.Context, in *a
 		return f.WitnessPage(ctx, in)
 	}
 	return &api.WitnessList{Witnesses: []*core.Witness{{Address: facadeFrom.Bytes(), VoteCount: 99, IsJobs: true}}}, nil
+}
+
+func (f *fakeFacadeServer) GetBlockByNum2(ctx context.Context, in *api.NumberMessage) (*api.BlockExtention, error) {
+	f.blockByNumCalls++
+	if f.BlockByNum2 != nil {
+		return f.BlockByNum2(ctx, in)
+	}
+	return &api.BlockExtention{}, nil
 }
 
 // facadeSolidityServer serves the WalletSolidity service on the same
