@@ -307,6 +307,22 @@ Bandwidth is pure size accounting — no simulation. Established from the
   - The insufficient_bandwidth rejection stays hermetic-only (needs
     precise draining; not worth testnet choreography).
 
+### Deploy estimation (2026-09-28, research + live)
+
+`triggerconstantcontract` with init bytecode as `data` and an EMPTY
+contract address synthesizes a `CreateSmartContract` server-side
+(java-tron Wallet:3113, percent 100) and returns the COMPLETE deploy
+energy — init exec + 200/byte deposit — in one call. Verified
+differentially on Nile (all free): 0B→15, 1B→221, 32B→6421
+(6200/31 = 200.0 exact), 1000B→200209; broadcast receipt 221 ==
+constant 221. No 32,000 (internal-CREATE-opcode only). New surface:
+`tx.DeployEstimate` + `(*DeployTx).Estimate` (owner/bytecode/callvalue
+reused from the built tx; rejection in-band like Simulate), verified
+live through the real path (`cli.Deploy` → `Estimate`): 221 and
+200209 exact, exit 0. This supersedes spec §6.1's "no simulation
+path" premise for the constant-call shape (EstimateEnergy RPC still
+has none; Simulate stays ContractTx-only).
+
 ### Deploy broadcast (2026-09-28, Nile, user-funded key)
 
 First live DeployTx broadcast (`e40e069a…`, block 71359418): minimal

@@ -64,6 +64,90 @@ type EnergyEstimate struct {
 // replaces the `len(e.ConstantResult) > 0` idiom (spec §7.2) and is nil-safe.
 func (e *Estimate) HasResult() bool { return e != nil && len(e.ConstantResult) > 0 }
 
+// DeployEstimate is the result of a read-only dry run of a DeployTx
+// against the node: the full deployment energy — init execution plus the
+// 200-per-byte code deposit — with the TIP-491 factor applied per the
+// contract's (nonexistent-yet, hence zero) state. Like Estimate it
+// deliberately has NO TxID field.
+//
+// The estimation path is the node's triggerConstantContract with an empty
+// contract address and the init bytecode as data (java-tron Wallet
+// synthesizes a CreateSmartContract server-side): the same VM execution
+// the broadcast performs, minus persistence. Live-verified: constant 221
+// == broadcast receipt 221 on Nile; deposit rate 200/byte verified
+// differentially (6200 over 31 bytes).
+type DeployEstimate struct {
+	// Energy is the full deployment energy the broadcast will consume.
+	Energy int64
+	// Penalty is the TIP-491 surcharge included in Energy (zero for a
+	// contract with no consumption history).
+	Penalty int64
+	// Revert is the node's revert/failure message, when any.
+	Revert string
+	// Code is the v2 classification of a node-level rejection; "" means
+	// the dry run executed (which does NOT mean the broadcast will — a
+	// revert surfaces here, not as an error).
+	Code tron.Code
+}
+
+// Estimate dry-runs the deployment read-only via the node's deploy
+// estimation path and returns the full energy the broadcast will consume
+// (research 2026-09-28 — the "no simulation path" premise in spec §6.1
+// is superseded: the path exists, it just takes bytecode instead of a
+// built call). It exists ONLY on *DeployTx. The request reuses the built
+// transaction's own owner, bytecode and call value, so what is estimated
+// is what will be broadcast. A node-level rejection is returned in
+// Code/Revert, not as an error; transport failures are *tron.Error.
+//
+// fee_limit sizing from the estimate follows the documented strategies
+// (estimate × SunPerEnergy, plus headroom for the TIP-491 upper bound).
+func (t *DeployTx) Estimate(ctx context.Context) (*DeployEstimate, error) {
+	const op = "tx.DeployTx.Estimate"
+	if t == nil {
+		return nil, &tron.Error{Code: tron.CodeTxInvalidArgument, Op: op, Hint: "transaction is nil"}
+	}
+	raw := t.raw()
+	if err := requireOneContract(raw, op); err != nil {
+		return nil, err
+	}
+	if c := raw.GetContract()[0]; c.GetType() != core.Transaction_Contract_CreateSmartContract {
+		return nil, &tron.Error{Code: tron.CodeTxInvalidArgument, Op: op,
+			Hint: "the wrapped contract is not a CreateSmartContract; was the extention replaced via Extension()?"}
+	}
+	var create core.CreateSmartContract
+	if err := proto.Unmarshal(raw.GetContract()[0].GetParameter().GetValue(), &create); err != nil {
+		return nil, &tron.Error{
+			Code: tron.CodeTxInvalidArgument, Op: op, Cause: err,
+			Hint: "the wrapped contract parameter does not decode as CreateSmartContract; was the extention replaced via Extension()?",
+		}
+	}
+	// Empty contract address selects the node's deploy-estimation path:
+	// it synthesizes the CreateSmartContract server-side and runs the
+	// same VM execution the broadcast would.
+	req := &core.TriggerSmartContract{
+		OwnerAddress: create.GetOwnerAddress(),
+		Data:         create.GetNewContract().GetBytecode(),
+		CallValue:    create.GetNewContract().GetCallValue(),
+	}
+	ext, err := rpc.TriggerConstantContract(t.cp, ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	est := &DeployEstimate{
+		Energy:  ext.GetEnergyUsed(),
+		Penalty: ext.GetEnergyPenalty(),
+		Revert:  string(ext.GetResult().GetMessage()),
+	}
+	if ret := ext.GetResult(); !ret.GetResult() {
+		if isRevertMessage(est.Revert) {
+			est.Code = tron.CodeReceiptReverted
+		} else {
+			est.Code = mappedReturnCode(ret, op)
+		}
+	}
+	return est, nil
+}
+
 // EffectiveFactor derives the TIP-491 surcharge factor the node applied to
 // this simulation, from the node's own two numbers:
 //

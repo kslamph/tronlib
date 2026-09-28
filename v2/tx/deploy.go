@@ -35,9 +35,12 @@ type DeployParams struct {
 
 // DeployTx is a CreateSmartContract transaction. It is a distinct type — not
 // a ContractTx variant — because it carries fields no other kind has
-// (OriginEnergyLimit, ConsumeUserResourcePercent) and because the protocol
-// gives deployment no simulation path, which the type system should express
-// rather than document (spec §6.1).
+// (OriginEnergyLimit, ConsumeUserResourcePercent) and because deployment
+// estimates by bytecode rather than by built call: DeployTx.Estimate runs
+// the node's triggerConstantContract deploy path (empty contract address,
+// init bytecode as data), which research 2026-09-28 verified end to end.
+// There is still no EstimateEnergy RPC path for deploys, and no Simulate
+// — the estimation shape differs, which is what the type system expresses.
 type DeployTx struct{ baseTx }
 
 // txInternal seals Tx: only the kinds in this package implement it.
