@@ -181,10 +181,15 @@ type BandwidthCost struct {
 
 // String renders the prediction as one line.
 func (c *BandwidthCost) String() string {
+	burnNote := "to burn " + itoa(c.ToBurn) + " @ " + itoa(c.SunPerByte) + " sun/byte = " + c.Burn.String() + " sun"
+	if c.CreatesAccount && c.ToBurn == 0 && c.Burn > 0 {
+		// Fee branch: Burn is the flat creation fee, not a per-byte burn.
+		burnNote = "flat creation fee = " + c.Burn.String() + " sun (no per-byte burn)"
+	}
 	return strings.Join([]string{
 		"bandwidth preview: need " + itoa(c.BytesNeeded) +
 			" (staked " + itoa(c.StakedAvailable) + " + free " + itoa(c.FreeAvailable) + ")",
-		"to burn " + itoa(c.ToBurn) + " @ " + itoa(c.SunPerByte) + " sun/byte = " + c.Burn.String() + " sun",
+		burnNote,
 		"new-account fee " + c.NewAccountFee.String() + " sun",
 		"priced " + c.PricedAt.Format(time.RFC3339),
 	}, "; ")

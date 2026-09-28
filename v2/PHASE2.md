@@ -293,12 +293,19 @@ Bandwidth is pure size accounting — no simulation. Established from the
  replays 13569/0 exactly even weeks later); mainnet `41808e02` replays
  bytes=345, receipt usage=345 fee=0 — covered matches exactly. Both 345 =
  ~281 serialized + 64, confirming the overhead empirically.
-- NOT live-verified (user-gated, needs a funded key + real spend): the
- creation path's 1 TRX (invisible in receipts — verify by balance delta:
- fund a fresh key with exact X, transfer Y to a new address, assert
- X − Y − NetFee − EnergyFee − balance == 1,000,000) and the
- account.insufficient_bandwidth rejection. Hermetic tests cover all
- branches against the fake.
+- LIVE-VERIFIED 2026-09-28 (Nile, user-funded 52.3869 TRX to fresh key
+  `TFajiYgytkFiBpustBNQSFEDsiHBoAFrBo`; throwaway runner, deleted after):
+  - Transfer 1 — 10 TRX to fresh `TCvU2ENS6sksbhcz2x7jX87yrrCWZLt7Rf`:
+    predicted CreatesAccount, Burn=100,000, NewAccountFee=1,000,000
+    (need 274); broadcast `4abe41a6…` → receipt NetUsage=0,
+    NetFee=100,000 EXACT; balance 52.3869 − 10 − 0.1 − 41.2869 =
+    1.000000 TRX drift EXACT — the invisible creation burn proven by
+    full accounting.
+  - Transfer 2 — 1 TRX to the now-existing address: predicted
+    free-covered (need 273); broadcast `ef1660a5…` → receipt
+    NetUsage=273, NetFee=0 EXACT; balance drift 0.
+  - The insufficient_bandwidth rejection stays hermetic-only (needs
+    precise draining; not worth testnet choreography).
 
 #### Root-cause analysis: the energy-accuracy fix
 
