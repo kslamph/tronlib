@@ -56,13 +56,31 @@ All checks run at closeout on branch `v2` (Go toolchain, `-count=1`, `-race`):
   module proxy, exactly like downstream consumers. The same pb for both v1 and v2.
   Verified: v1 builds and passes all tests against the regenerated pb; v2 builds,
   tests, vet, and docgen gates all green against the proxy-resolved v1.3.0.
-- **Network()/VerifyNetwork()** — deferred (no verifiable genesis fingerprints offline;
-  needs a known-genesis table plus one live run; fabricating hashes would violate the
-  verified-data discipline). `ChainTip` is the v2.0 network surface. (spec §10 D2)
-- **docgen multi-package support** — `parseCodesData` is hardwired to package `tron`;
-  facade Examples are compile-only without docs markers (D3). Phase 2.1: docgen scans
-  multiple packages or markers become package-relative.
-- **§7.5 live verification (USER-GATED)** — checklist below; needs a funded Nile key.
+- **Network()/VerifyNetwork() — IMPLEMENTED 2026-09-28.** `Network` is explicit
+  configuration (`WithNetwork`); `Client.Network()` reports it with no I/O, and
+  `Client.VerifyNetwork(ctx)` compares block 0's id against a table of
+  live-fetched genesis hashes (Mainnet/Nile/Shasta). The undeclared zero value
+  and `Private` skip the read; a declared network absent from the table fails
+  closed as `chain.network_mismatch`. `tronlib.DialOption` is now an opaque
+  facade struct (built by `WithTimeout`/`WithPool`/`WithNetwork`), not an alias
+  to `rpc.DialOption`. §10's "Dial auto-verifies" is NOT implemented: `Dial`
+  stays always-lazy, so verification is an explicit call.
+- **docgen multi-package support — IMPLEMENTED 2026-09-28.** `sync-docs` takes a
+  repeatable `-example-pkg`; example markers are namespaced `<package>.<Example>`
+  (`tron.ExampleTRX`, `tronlib.ExampleClient_token`). The facade Examples are now
+  documented, not compile-only.
+- **Migration guide — IMPLEMENTED 2026-09-28.** `cmd/migrate` generates
+  `v2/docs/migration.md` by AST diff (426 v1 symbols: 137 moved, 4 renamed,
+  25 removed, 68 candidates, 192 unmapped); CI runs `migrate -check` as a drift gate.
+- **§7.5 item 6 (TIP-491 penalty) — INCONCLUSIVE, NETWORK-PARAMETER BOUND.**
+  Nile has `getAllowDynamicEnergy = 1` but `getDynamicEnergyThreshold = 5000000000`
+  (5e9 energy per contract per maintenance period) — unreachable at testnet traffic;
+  a constant call against Nile's official USDT returned `energy_used: 651` with no
+  penalty field. This is not a funding problem: item 6 needs a Mainnet contract
+  with a non-zero consumption factor, or a private chain with a lowered threshold.
+  `cmd/tip491probe` is the harness for that run; it is built and its verdict logic
+  is tested, but it has not been run against a network. Items 2–5 and 7 remain
+  verified by the 2026-09-01 Nile run (delta 0 SUN).
 - **Quality defers carried from task reviews 1–9** (one line each):
   - compilecheck per-fixture rationale comments (why each fixture exists).
   - `ParseTRX`: negative-band table cases not exhaustively enumerated.
@@ -95,17 +113,19 @@ planning does not assume they exist.
   energy-burn calculator (energy × SunPerEnergy with checked overflow),
   added as the fix for the §7.5 energy-accuracy finding (see verification
   results below).
-- §7.3 price cache (one-maintenance-period TTL) — NOT implemented;
-  `EnergyPriceOf` refetches every call.
-- §7.3 `CostPreview.BandwidthNote` — NOT implemented; preview covers energy
-  only (documented limitation).
-- §7.2 `Estimate.HasResult()` — NOT implemented; use
-  `len(ConstantResult) > 0`.
-- §5.4 token `Amount.Formatted()` — NOT implemented (`tron.SUN` has both
-  `String` and `Formatted`; token has `String` only).
+- §7.3 price cache (one-maintenance-period TTL) — IMPLEMENTED 2026-09-28:
+  `tx.MaintenancePeriod = 6h`; `Client.EnergyPrice` memoises one read per period
+  (mutex-guarded; `CostPreview` keeps its own fresh read with `PricedAt`).
+- §7.3 `CostPreview.BandwidthNote` — IMPLEMENTED 2026-09-28: the field is
+  populated with `tx.BandwidthNotModelled` and `String()` appends it.
+- §7.2 `Estimate.HasResult()` — IMPLEMENTED 2026-09-28 (nil-safe).
+- §5.4 token `Amount.Formatted()` — IMPLEMENTED 2026-09-28, sharing
+  `internal/format.Thousands` with `tron.SUN.Formatted`.
 - §10 Dial eager round-trip — INVERTED: v2 `Dial` is always-lazy (v1
   semantics; reachability proven by first call), no `WithLazyDial`.
   Documented in `rpc` doc.go as a feature, but it is a spec deviation.
+  **Consequence (2026-09-28):** Dial does NOT auto-verify the network;
+  `Client.VerifyNetwork` is explicit.
 - §5.4 `Handle.Whole` is `Whole(n int64) (Amount, error)` — the
   generic-method signature requires go 1.27+; concrete int64 preserves the
   compile-time float/SUN rejection (controller ruling D1, Task 8).
@@ -223,6 +243,5 @@ network-parameter-driven concern the design intended.
 
 - `CallAtBlock`: pb `TriggerSmartContract` has no block anchor — classified refusal
   (contract package).
-- facade Examples compile-only without docs markers (docgen multi-package limitation, D3).
 - `Receipt.NodeCode` carries the raw `api.Return_*`/VM-result enum name; the numeric
   code is recoverable via `rpc.NodeReturnCode`.
