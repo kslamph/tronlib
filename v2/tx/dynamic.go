@@ -58,6 +58,18 @@ func (d *DynamicEnergy) HasPenalty() bool { return d != nil && d.Factor > 0 }
 // charges: per-opcode flooring means the actual penalty sits within
 // (opcode count) below it. A base of 0 costs 0 under any factor.
 //
+// This is a planning bound, not the estimator. The exact surcharge for a
+// specific call comes from Simulate (Estimate.Penalty), which runs the
+// node's own VM and matches the broadcast receipt exactly (spec §7.5).
+// Use PredictPenalty to budget calls you have not simulated — e.g. what
+// a larger call would cost under the current factor — never to second-
+// guess a simulation you already have.
+//
+// Single-frame scope: the bound assumes the whole call executes under
+// this factor. Calls with internal transactions into other contracts run
+// each frame under that frame's own factor, which this bound does not
+// model.
+//
 // A negative base is amount.negative; a negative factor is
 // tx.invalid_argument (the node floors the stored factor at 0, so a
 // negative one did not come from GetContractInfo); an overflowing

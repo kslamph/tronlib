@@ -10,9 +10,17 @@
 //
 //	go -C v2 run ./cmd/tip491probe -contract <addr> -data <hex> [-key <hex> | -owner <addr> | -random-owner] [-endpoint <url>]
 //
-// Exit codes: 0 = factor observed live with all cross-checks agreeing
-// (item 6 verified); 1 = inconclusive (zero factor) or cross-check
-// mismatch (see the printed detail); 2 = bad flags or a failed setup.
+// Exit codes (factor mode): 0 = factor observed live with all cross-checks
+// agreeing; 1 = inconclusive (zero factor) or cross-check mismatch;
+// 2 = bad flags or a failed setup.
+//
+// A second mode replays an already-broadcast transaction exactly:
+//
+//	go -C v2 run ./cmd/tip491probe -replay <txid-hex> [-endpoint <url>]
+//
+// It fetches the transaction and its receipt, re-simulates the identical
+// calldata, and asserts EXACT equality of energy and penalty (no
+// tolerances). Exit 0 on exact match, 1 on mismatch, 2 on setup failure.
 package main
 
 import (
@@ -37,6 +45,7 @@ func main() { os.Exit(run()) }
 
 func run() int {
 	endpoint := flag.String("endpoint", "grpc://grpc.nile.trongrid.io:50051", "node endpoint (grpc:// or grpcs://)")
+	replayHex := flag.String("replay", "", "txid hex: exact-replay mode (fetch tx + receipt, re-simulate, assert exact match)")
 	contractStr := flag.String("contract", "", "target contract address (required)")
 	ownerStr := flag.String("owner", "", "caller address (defaults to -key's address)")
 	randomOwnerFlag := flag.Bool("random-owner", false, "generate a fresh random owner address on the fly (constant calls need no key)")
@@ -44,8 +53,22 @@ func run() int {
 	dataHex := flag.String("data", "", "hex-encoded calldata (required)")
 	flag.Parse()
 
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	cli, err := tronlib.Dial(ctx, *endpoint)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "dial: %v\n", err)
+		return 2
+	}
+	defer func() { _ = cli.Close() }()
+
+	if *replayHex != "" {
+		return runReplay(ctx, cli, *replayHex)
+	}
+
 	if *contractStr == "" || *dataHex == "" {
 		fmt.Fprintln(os.Stderr, "usage: tip491probe -contract <addr> -data <hex> [-key <hex> | -owner <addr> | -random-owner] [-endpoint <url>]")
+		fmt.Fprintln(os.Stderr, "   or: tip491probe -replay <txid-hex> [-endpoint <url>]")
 		return 2
 	}
 
@@ -69,15 +92,6 @@ func run() int {
 		fmt.Fprintf(os.Stderr, "data: %v\n", err)
 		return 2
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	cli, err := tronlib.Dial(ctx, *endpoint)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "dial: %v\n", err)
-		return 2
-	}
-	defer func() { _ = cli.Close() }()
 
 	printDynamicParams(cli)
 
@@ -109,9 +123,12 @@ func run() int {
 	v := verifyFactor(dyn, est)
 	fmt.Printf("cross-check: stored=%d derived=%d predicted=%d actual=%d\n",
 		v.infoFactor, v.simFactor, v.predicted, v.actual)
+	if est.Code != "" || est.Revert != "" {
+		fmt.Printf("simulate note: code=%s revert=%q (a non-executing call still verifies the accounting, but not the happy path)\n", est.Code, est.Revert)
+	}
 	switch {
 	case v.pass:
-		fmt.Println("PASS: the TIP-491 factor is live and all cross-checks agree (spec §7.5 item 6)")
+		fmt.Printf("PASS: %s (spec §7.5 item 6)\n", v.detail)
 		return 0
 	case v.live:
 		fmt.Fprintf(os.Stderr, "MISMATCH (not verified): %s\n", v.detail)

@@ -239,6 +239,34 @@ receipt.Penalty 0, raw EnergyPenaltyTotal 0 — consistent with a fresh/lightly
 used contract (factor 0), so §7.5 item 1 remains unverified; a heavily-consumed
 contract (e.g. the official Nile USDT or a long-running DEX) is required.
 
+### §7.5 penalized-contract verification (2026-09-28, mainnet, read-only)
+
+Closes the gap Step 6 left: exactness on a contract carrying a penalty.
+The library's exactness contract is Simulate == receipt EXACTLY (no
+tolerances) within one maintenance cycle; the client-side PredictPenalty
+formula stays a planning upper bound and never second-guesses a
+simulation (see `tx.DynamicEnergy.PredictPenalty` docs). New harness:
+`cmd/tip491probe -replay <txid>` fetches the broadcast tx + receipt,
+re-simulates the identical calldata, and asserts exact equality; a
+reverted replay reports "comparison void" (chain state moved) instead
+of a numeric mismatch.
+
+- Replay `41808e02d08669098860742b19bba2e16de29da6c065725e6394495d0b3ec2e8`
+  (mainnet USDT `transfer`, block 86642154; sender balance re-checked to
+  still cover the 900 USDT amount before replaying): receipt
+  energy=130285 penalty=100635 base=29650 vs replay energy=130285
+  penalty=100635 base=29650 — EXACT match, probe exit 0. §7.5 item 2 now
+  verified for penalized contracts: delta 0, the same bar as the
+  2026-09-01 penalty-free run.
+- Replay `646e6d4494a9d9d072b50f62c5a352bca4a0ef45df89fd35271d57f64eb5df3f`
+  (same block; sender had since moved the funds, balance 9000 < costs):
+  the replay reverted (`REVERT opcode executed`, energy=8624 penalty=6640)
+  and the harness reported the comparison void rather than a mismatch —
+  the stale-replay guard verified live.
+- Factor-mode cross-checks were tightened to exact one-sided bounds
+  (derived > stored and actual > predicted are contradictions, never
+  noise); the loose flooring sides are reported, not judged.
+
 #### Root-cause analysis: the energy-accuracy fix
 
 The initial preview returned EnergyNeeded **20354** (1,356,900 SUN burn, delta

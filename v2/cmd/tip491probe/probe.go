@@ -15,12 +15,22 @@ import (
 //   - simFactor: the effective factor derived from Simulate's
 //     (energy, penalty) pair via Estimate.EffectiveFactor.
 //   - predicted: PredictPenalty(base, infoFactor) — what the per-opcode
-//     formula says this call's penalty should be (an upper bound).
+//     formula says this call's penalty is at most (an upper bound).
 //   - actual/base: the Simulate penalty and its penalty-excluded base.
 //
-// pass means the factor was observed live AND every cross-check agrees.
-// live without pass is a model mismatch, not a verification. Neither live
-// nor pass is the Nile outcome: both independent reads agree at zero.
+// The checks are EXACT one-sided bounds, not tolerances:
+//
+//   - simFactor > infoFactor is impossible under the model (the aggregate
+//     derivation floors at or below the stored factor), so it is a
+//     contradiction, never noise.
+//   - actual > predicted is impossible under the model (the aggregate is
+//     an upper bound on the per-opcode sum), so it is a contradiction.
+//
+// The loose sides (how far below) are per-opcode flooring and carry no
+// verdict — they are printed for a human to judge. pass means the factor
+// was observed live AND neither exact bound is violated. live without pass
+// is a model mismatch, not a verification. Neither live nor pass is the
+// Nile outcome: both independent reads agree at zero.
 type factorVerdict struct {
 	infoFactor int64
 	simFactor  int64
@@ -30,30 +40,6 @@ type factorVerdict struct {
 	live       bool
 	pass       bool
 	detail     string
-}
-
-// factorTolerance bounds how far the Simulate-derived factor may sit below
-// the stored factor. The derivation aggregates per-opcode flooring into one
-// division, so it is a lower bound; the gap grows with the call's opcode
-// count relative to its base cost. This is a heuristic harness guardrail
-// (1% of the factor, floor 8), not a protocol constant — live mainnet data
-// showed a 117-unit gap on a 34000 factor (0.34%), all of it explained by
-// opcode flooring. The printed numbers let a human judge any near-miss.
-func factorTolerance(f int64) int64 {
-	if t := f / 100; t > 8 {
-		return t
-	}
-	return 8
-}
-
-// penaltyTolerance bounds how far the node's penalty may sit below the
-// aggregate prediction, for the same per-opcode flooring reason (0.5% of
-// the prediction, floor 64 energy units).
-func penaltyTolerance(p int64) int64 {
-	if t := p / 200; t > 64 {
-		return t
-	}
-	return 64
 }
 
 func verifyFactor(dyn *tx.DynamicEnergy, est *tx.Estimate) factorVerdict {
@@ -96,17 +82,13 @@ func verifyFactor(dyn *tx.DynamicEnergy, est *tx.Estimate) factorVerdict {
 
 	switch {
 	case simFactor > dyn.Factor:
-		v.detail = fmt.Sprintf("derived factor %d exceeds stored factor %d: the simulation disagrees with GetContractInfo", simFactor, dyn.Factor)
-	case dyn.Factor-simFactor > factorTolerance(dyn.Factor):
-		v.detail = fmt.Sprintf("derived factor %d is below stored factor %d beyond flooring tolerance: the simulation disagrees with GetContractInfo", simFactor, dyn.Factor)
+		v.detail = fmt.Sprintf("derived factor %d exceeds stored factor %d: impossible under the per-opcode formula — the simulation disagrees with GetContractInfo", simFactor, dyn.Factor)
 	case est.Penalty > predicted:
-		v.detail = fmt.Sprintf("actual penalty %d exceeds predicted upper bound %d: the per-opcode formula does not explain the node", est.Penalty, predicted)
-	case predicted-est.Penalty > penaltyTolerance(predicted):
-		v.detail = fmt.Sprintf("actual penalty %d is below prediction %d beyond flooring tolerance", est.Penalty, predicted)
+		v.detail = fmt.Sprintf("actual penalty %d exceeds predicted upper bound %d: impossible under the per-opcode formula — the node charged more than the stored factor explains", est.Penalty, predicted)
 	default:
 		v.pass = v.live
 		if v.pass {
-			v.detail = "stored factor, derived factor and penalty prediction agree"
+			v.detail = fmt.Sprintf("stored factor, derived factor and penalty prediction agree (gaps: factor %d, penalty %d — per-opcode flooring)", dyn.Factor-simFactor, predicted-est.Penalty)
 		} else {
 			v.detail = "inconclusive: energy penalty is 0 and the stored factor is 0, so spec §7.5 item 6 is NOT verified — " +
 				"Nile's getDynamicEnergyThreshold = 5000000000 (5e9) energy per contract per maintenance period is unreachable at testnet traffic; " +

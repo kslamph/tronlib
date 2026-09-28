@@ -70,10 +70,10 @@ func (e *Estimate) HasResult() bool { return e != nil && len(e.ConstantResult) >
 //	FactorDecimal*Energy/(Energy-Penalty) - FactorDecimal
 //
 // It is the second independent read of the same factor DynamicEnergyOf
-// reports (the first): the two must agree within the per-opcode flooring
-// the node applies (the aggregate derivation is a lower bound — see
-// DynamicEnergy.PredictPenalty — so the derived value sits at or just
-// below the stored factor). A penalty-free simulation derives exactly 0.
+// reports (the first). The aggregate derivation floors at or below the
+// stored factor — derived > stored is impossible under the per-opcode
+// formula, so it contradicts the model rather than approximating it.
+// A penalty-free simulation derives exactly 0.
 //
 // ok is false when the estimate carries no information to derive from:
 // a nil estimate, non-positive energy, a negative penalty, or a penalty
