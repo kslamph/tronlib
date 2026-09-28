@@ -80,15 +80,25 @@ type CostPreview struct {
 	SunPerEnergy int64
 	// PricedAt is when the price was read; staleness is explicit.
 	PricedAt time.Time
+	// BandwidthNote states what the preview does not cover. The energy-only
+	// preview is a FLOOR: a live run measured a 345,000 SUN NetFee delta the
+	// preview never mentioned (spec §7.3 limitation 1).
+	BandwidthNote string
 }
 
-// String renders the preview as one line.
+// BandwidthNotModelled is the CostPreview.BandwidthNote value: the preview
+// prices energy only, and RecipientActivation is a separate unmodelled cost
+// (spec §7.3 limitations 1 and 2).
+const BandwidthNotModelled = "bandwidth (NetFee) and recipient activation are not included"
+
+// String renders the preview as one line, including the bandwidth note so a
+// logged preview cannot be read as a total.
 func (c *CostPreview) String() string {
 	return fmt.Sprintf(
-		"cost preview: energy needed %d (base %d + penalty %d), available %d, to buy %d @ %d sun/energy = %s sun (priced %s)",
+		"cost preview: energy needed %d (base %d + penalty %d), available %d, to buy %d @ %d sun/energy = %s sun (priced %s; %s)",
 		c.EnergyNeeded, c.EnergyBase, c.EnergyPenalty, c.EnergyAvailable,
 		c.EnergyToBuy, c.SunPerEnergy, c.TronToBurn,
-		c.PricedAt.Format(time.RFC3339),
+		c.PricedAt.Format(time.RFC3339), c.BandwidthNote,
 	)
 }
 
@@ -157,6 +167,7 @@ func PreviewCost(cp rpc.ConnProvider, ctx context.Context, t *ContractTx, owner 
 		TronToBurn:      burn,
 		SunPerEnergy:    price.SunPerEnergy,
 		PricedAt:        price.FetchedAt,
+		BandwidthNote:   BandwidthNotModelled,
 	}, nil
 }
 

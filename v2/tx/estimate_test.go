@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math"
+	"strings"
 	"testing"
 	"time"
 
@@ -184,6 +185,29 @@ func TestEstimateEnergyNodeRejectIsError(t *testing.T) {
 	_, err := ctxTx.EstimateEnergy(ctx)
 	if err == nil || !tron.HasCode(err, tron.CodeTxInvalidArgument) {
 		t.Errorf("EstimateEnergy node reject = %v, want a mapped code error", err)
+	}
+}
+
+func TestPreviewCostCarriesBandwidthNote(t *testing.T) {
+	f := &fakeWalletServer{}
+	cp := newTxTestClient(t, f)
+	ctx := t.Context()
+	ctxTx, _ := BuildTriggerSmartContract(cp, ctx, testFrom, testTo, nil, 0)
+	f.TriggerConstant = func(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error) {
+		return &api.TransactionExtention{Result: okResult(), EnergyUsed: 5000, EnergyPenalty: 0}, nil
+	}
+	f.AccountResource = func(ctx context.Context, in *core.Account) (*api.AccountResourceMessage, error) {
+		return &api.AccountResourceMessage{}, nil
+	}
+	cp2, err := PreviewCost(cp, ctx, ctxTx, testFrom)
+	if err != nil {
+		t.Fatalf("CostPreview: %v", err)
+	}
+	if cp2.BandwidthNote != BandwidthNotModelled {
+		t.Errorf("BandwidthNote = %q, want %q", cp2.BandwidthNote, BandwidthNotModelled)
+	}
+	if !strings.Contains(cp2.String(), "bandwidth") {
+		t.Errorf("String() = %q, want it to mention bandwidth", cp2.String())
 	}
 }
 
