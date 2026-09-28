@@ -72,15 +72,39 @@ All checks run at closeout on branch `v2` (Go toolchain, `-count=1`, `-race`):
 - **Migration guide — IMPLEMENTED 2026-09-28.** `cmd/migrate` generates
   `v2/docs/migration.md` by AST diff (426 v1 symbols: 137 moved, 4 renamed,
   25 removed, 68 candidates, 192 unmapped); CI runs `migrate -check` as a drift gate.
-- **§7.5 item 6 (TIP-491 penalty) — INCONCLUSIVE, NETWORK-PARAMETER BOUND.**
-  Nile has `getAllowDynamicEnergy = 1` but `getDynamicEnergyThreshold = 5000000000`
-  (5e9 energy per contract per maintenance period) — unreachable at testnet traffic;
-  a constant call against Nile's official USDT returned `energy_used: 651` with no
-  penalty field. This is not a funding problem: item 6 needs a Mainnet contract
-  with a non-zero consumption factor, or a private chain with a lowered threshold.
-  `cmd/tip491probe` is the harness for that run; it is built and its verdict logic
-  is tested, but it has not been run against a network. Items 2–5 and 7 remain
-  verified by the 2026-09-01 Nile run (delta 0 SUN).
+- **§7.5 item 6 (TIP-491 penalty) — VERIFIED 2026-09-28 (mainnet, read-only).**
+  The mechanism was established from the java-tron source (clone of
+  tronprotocol/java-tron, GreatVoyage-era `develop`): `VM.play`
+  (`actuator/.../vm/VM.java`) hoists `factor = energyFactor + 10_000`
+  (`DYNAMIC_ENERGY_FACTOR_DECIMAL`) per execution and charges each opcode
+  `floor(base*factor/10_000) - base` into `energyPenaltyTotal`
+  (`ProgramResult.spendEnergyWithPenalty`); `triggerConstantContract`
+  runs the same VM path and reports it as `TransactionExtention.energy_penalty`
+  (Wallet.java `builder.setEnergyPenalty(...)`); `estimateEnergy` is a
+  binary search for the smallest succeeding fee cap over repeated constant
+  calls (`ceil(high/energyFee)`) — conservative by construction, which
+  explains the live 1.5× observation and confirms §7.5 item 1 (the penalty
+  is included in every iteration). The stored per-contract state is
+  readable via `GetContractInfo` → `SmartContractDataWrapper.contract_state
+  {energy_usage, energy_factor, update_cycle}`, caught up to the current
+  cycle by the node at read time — no new RPC needed. New v2 surface:
+  `tx.DynamicEnergy` + `tx.DynamicEnergyOf` + `(*DynamicEnergy).PredictPenalty`
+  (+ `HasPenalty`), `(*Estimate).EffectiveFactor`,
+  `contract.Instance.DynamicEnergy`; `FactorDecimal = 10_000`.
+  Live run (no key, no spend, fixed owner; public gateways rate-limit, so
+  the probe retries read-only steps): mainnet USDT
+  `TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t`, `balanceOf` constant call —
+  `Simulate` returned energy=63999 penalty=49415 base=14584 (reproduced
+  exactly twice) and `GetContractInfo` returned factor=34000
+  (= getDynamicEnergyMaxFactor, pinned at the ceiling), usage=1154798690,
+  cycle=10097. Cross-checks: predicted penalty
+  floor(14584*44000/10000)-14584 = 49585 vs actual 49415 (gap 170,
+  per-opcode flooring); derived factor floor(10000*63999/14584)-10000 =
+  33883 vs stored 34000 (gap 0.34%). Probe exit 0. Nile control run
+  (official USDT, incl. a `-random-owner` variant): factor 0, both
+  independent reads agree at zero, exit 1 inconclusive — the zero path
+  verified end-to-end. Items 2–5 and 7 remain verified by the 2026-09-01
+  Nile run (delta 0 SUN).
 - **Quality defers carried from task reviews 1–9** (one line each):
   - compilecheck per-fixture rationale comments (why each fixture exists).
   - `ParseTRX`: negative-band table cases not exhaustively enumerated.

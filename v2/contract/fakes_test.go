@@ -57,9 +57,10 @@ var testContractAddress = testMainnetAddr
 type fakeWallet struct {
 	api.UnimplementedWalletServer
 
-	TriggerConstant func(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error)
-	Trigger         func(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error)
-	GetContractFn   func(ctx context.Context, in *api.BytesMessage) (*core.SmartContract, error)
+	TriggerConstant   func(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error)
+	Trigger           func(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error)
+	GetContractFn     func(ctx context.Context, in *api.BytesMessage) (*core.SmartContract, error)
+	GetContractInfoFn func(ctx context.Context, in *api.BytesMessage) (*core.SmartContractDataWrapper, error)
 
 	triggerConstantCalls atomic.Int32
 	triggerCalls         atomic.Int32
@@ -89,6 +90,15 @@ func (f *fakeWallet) GetContract(ctx context.Context, in *api.BytesMessage) (*co
 	}
 	// Default: a contract whose on-chain ABI is the test ABI.
 	return &core.SmartContract{Abi: mustPbABI(testABI)}, nil
+}
+
+func (f *fakeWallet) GetContractInfo(ctx context.Context, in *api.BytesMessage) (*core.SmartContractDataWrapper, error) {
+	if f.GetContractInfoFn != nil {
+		return f.GetContractInfoFn(ctx, in)
+	}
+	// Default: a fresh contract — deployed (SmartContract present) but with
+	// no state row yet.
+	return &core.SmartContractDataWrapper{SmartContract: &core.SmartContract{}}, nil
 }
 
 // newContractTestClient dials a bufconn-backed gRPC Wallet server with a

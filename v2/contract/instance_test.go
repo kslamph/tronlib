@@ -516,3 +516,45 @@ func newInstanceWithTestABIOn(t *testing.T, f *fakeWallet) *Instance {
 	}
 	return i
 }
+
+// TestInstanceDynamicEnergy: the Instance read delegates to tx's
+// GetContractInfo path — state fields map through, a nil wrapper is
+// contract.not_found, and an absent state is a fresh (zero) contract.
+func TestInstanceDynamicEnergy(t *testing.T) {
+	ctx := t.Context()
+
+	f := &fakeWallet{
+		GetContractInfoFn: func(ctx context.Context, in *api.BytesMessage) (*core.SmartContractDataWrapper, error) {
+			return &core.SmartContractDataWrapper{
+				SmartContract: &core.SmartContract{},
+				ContractState: &core.ContractState{EnergyUsage: 6000000000, EnergyFactor: 2000, UpdateCycle: 999},
+			}, nil
+		},
+	}
+	i := newInstanceWithTestABIOn(t, f)
+	got, err := i.DynamicEnergy(ctx)
+	if err != nil {
+		t.Fatalf("DynamicEnergy: %v", err)
+	}
+	if got.Factor != 2000 || got.Usage != 6000000000 || got.UpdateCycle != 999 {
+		t.Fatalf("DynamicEnergy = %+v, want factor 2000 usage 6000000000 cycle 999", got)
+	}
+	var _ *tx.DynamicEnergy = got
+
+	missing := &fakeWallet{
+		GetContractInfoFn: func(ctx context.Context, in *api.BytesMessage) (*core.SmartContractDataWrapper, error) {
+			return nil, nil
+		},
+	}
+	if _, err := newInstanceWithTestABIOn(t, missing).DynamicEnergy(ctx); !tron.HasCode(err, tron.CodeContractNotFound) {
+		t.Fatalf("missing contract: want contract.not_found, got %v", err)
+	}
+
+	fresh, err := newInstanceWithTestABIOn(t, &fakeWallet{}).DynamicEnergy(ctx)
+	if err != nil {
+		t.Fatalf("fresh contract: %v", err)
+	}
+	if *fresh != (tx.DynamicEnergy{}) {
+		t.Fatalf("fresh contract = %+v, want zero state", fresh)
+	}
+}

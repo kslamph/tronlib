@@ -69,6 +69,7 @@ type fakeWalletServer struct {
 	Broadcast       func(ctx context.Context, in *core.Transaction) (*api.Return, error)
 	TxInfo          func(ctx context.Context, in *api.BytesMessage) (*core.TransactionInfo, error)
 	TxInfoSolidity  func(ctx context.Context, in *api.BytesMessage) (*core.TransactionInfo, error)
+	ContractInfo    func(ctx context.Context, in *api.BytesMessage) (*core.SmartContractDataWrapper, error)
 
 	// simulateCalls / estimateCalls / accountResourceCalls / energyPricesCalls
 	// count invocations, for asserting the CostPreview read sequence.
@@ -159,6 +160,16 @@ func (f *fakeWalletServer) GetTransactionInfoById(ctx context.Context, in *api.B
 	}
 	// Default: not found (empty info — no Id), the "still unconfirmed" answer.
 	return &core.TransactionInfo{}, nil
+}
+
+func (f *fakeWalletServer) GetContractInfo(ctx context.Context, in *api.BytesMessage) (*core.SmartContractDataWrapper, error) {
+	if f.ContractInfo != nil {
+		return f.ContractInfo(ctx, in)
+	}
+	// Default: a fresh contract — deployed (SmartContract present) but with
+	// no state row yet, which the node reports as an absent ContractState
+	// (DynamicEnergyOf maps it to zero).
+	return &core.SmartContractDataWrapper{SmartContract: &core.SmartContract{}}, nil
 }
 
 // fakeSolidityServer serves the WalletSolidity service on the same bufconn

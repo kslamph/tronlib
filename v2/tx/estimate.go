@@ -2,6 +2,7 @@ package tx
 
 import (
 	"context"
+	"math"
 
 	"github.com/kslamph/tronlib/pb/core"
 	"github.com/kslamph/tronlib/v2/rpc"
@@ -62,6 +63,35 @@ type EnergyEstimate struct {
 // HasResult reports whether the simulated call returned any ABI values. It
 // replaces the `len(e.ConstantResult) > 0` idiom (spec §7.2) and is nil-safe.
 func (e *Estimate) HasResult() bool { return e != nil && len(e.ConstantResult) > 0 }
+
+// EffectiveFactor derives the TIP-491 surcharge factor the node applied to
+// this simulation, from the node's own two numbers:
+//
+//	FactorDecimal*Energy/(Energy-Penalty) - FactorDecimal
+//
+// It is the second independent read of the same factor DynamicEnergyOf
+// reports (the first): the two must agree within the per-opcode flooring
+// the node applies (the aggregate derivation is a lower bound — see
+// DynamicEnergy.PredictPenalty — so the derived value sits at or just
+// below the stored factor). A penalty-free simulation derives exactly 0.
+//
+// ok is false when the estimate carries no information to derive from:
+// a nil estimate, non-positive energy, a negative penalty, or a penalty
+// at or above the energy (a degenerate node answer — penalty scales with
+// base cost, so it cannot meet or exceed the total).
+func (e *Estimate) EffectiveFactor() (factor int64, ok bool) {
+	if e == nil || e.Energy <= 0 || e.Penalty < 0 || e.Penalty >= e.Energy {
+		return 0, false
+	}
+	if e.Penalty == 0 {
+		return 0, true
+	}
+	base := e.Energy - e.Penalty
+	if e.Energy > math.MaxInt64/FactorDecimal {
+		return 0, false
+	}
+	return FactorDecimal*e.Energy/base - FactorDecimal, true
+}
 
 // Simulate dry-runs the contract call read-only via the node's
 // TriggerConstantContract (no fee_limit is spent, nothing is broadcast) and

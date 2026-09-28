@@ -50,6 +50,18 @@ func NewInstance(cp rpc.ConnProvider, address tron.Address) (*Instance, error) {
 	return &Instance{cp: cp, address: address}, nil
 }
 
+// DynamicEnergy reads the contract's TIP-491 dynamic-energy state: the
+// surcharge factor the node's VM is currently applying to this contract,
+// with the tracked usage and the maintenance cycle it is effective for.
+// It is a constant-call-cheap read (GetContractInfo) — no key, no
+// signature, no spend. A fresh contract reads as the zero DynamicEnergy
+// (factor 0, no penalty); an address with no contract is
+// contract.not_found. See tx.DynamicEnergy for the factor semantics and
+// tx.DynamicEnergy.PredictPenalty for turning it into a surcharge.
+func (i *Instance) DynamicEnergy(ctx context.Context) (*tx.DynamicEnergy, error) {
+	return tx.DynamicEnergyOf(i.cp, ctx, i.address)
+}
+
 // UseABI loads the contract's ABI from a Solidity JSON string, replacing
 // any previously loaded ABI. Loading parses the JSON (contract.bad_abi on
 // failure) and registers the ABI's event definitions with the event
