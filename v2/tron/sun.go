@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/kslamph/tronlib/v2/internal/format"
 	"github.com/shopspring/decimal"
 )
 
@@ -150,7 +151,7 @@ func (s SUN) Formatted() string {
 		str = str[1:]
 	}
 	intPart, frac, _ := strings.Cut(str, ".")
-	intPart = groupThousands(intPart)
+	intPart = format.Thousands(intPart)
 	if frac != "" {
 		intPart += "." + frac
 	}
@@ -158,28 +159,6 @@ func (s SUN) Formatted() string {
 		intPart = "-" + intPart
 	}
 	return intPart
-}
-
-// groupThousands inserts ',' every three digits from the right ("1234567" ->
-// "1,234,567").
-func groupThousands(digits string) string {
-	n := len(digits)
-	if n <= 3 {
-		return digits
-	}
-	var b strings.Builder
-	head := n % 3
-	if head > 0 {
-		b.WriteString(digits[:head])
-		b.WriteByte(',')
-	}
-	for i := head; i < n; i += 3 {
-		b.WriteString(digits[i : i+3])
-		if i+3 < n {
-			b.WriteByte(',')
-		}
-	}
-	return b.String()
 }
 
 // Add returns s + o. Overflow and underflow are CodeAmountOverflow; SUN has

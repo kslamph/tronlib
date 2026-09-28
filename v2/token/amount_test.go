@@ -228,3 +228,35 @@ func TestAmountAcceptsMaxDecimals(t *testing.T) {
 		t.Errorf("Amount(\"5\") at 255 decimals: err = %v, want amount.overflow", err)
 	}
 }
+
+// TestAmountFormatted pins the display form: thousands separators on the
+// integer part, exact decimals, and a nil-safe zero value.
+func TestAmountFormatted(t *testing.T) {
+	cases := []struct {
+		raw      int64
+		decimals uint8
+		want     string
+	}{
+		{0, 6, "0"},
+		{1_500_000, 6, "1.5"},
+		{1_234_567_891, 6, "1,234.567891"},
+	}
+	for _, c := range cases {
+		if got := newAmount(big.NewInt(c.raw), c.decimals).Formatted(); got != c.want {
+			t.Errorf("Formatted(raw %d, decimals %d) = %q, want %q", c.raw, c.decimals, got, c.want)
+		}
+	}
+
+	// The zero value has a nil raw; Formatted must not panic.
+	var z Amount
+	if got := z.Formatted(); got != "0" {
+		t.Errorf("zero Amount.Formatted() = %q, want %q", got, "0")
+	}
+
+	// 255 decimals: the smallest unit renders without panic and keeps the
+	// exact fraction.
+	smallest := "0." + strings.Repeat("0", 254) + "1"
+	if got := newAmount(big.NewInt(1), 255).Formatted(); got != smallest {
+		t.Errorf("Formatted(1, 255) = %q, want %q", got, smallest)
+	}
+}

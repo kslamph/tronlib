@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/kslamph/tronlib/v2/internal/format"
 	"github.com/kslamph/tronlib/v2/tron"
 	"github.com/shopspring/decimal"
 )
@@ -75,6 +76,28 @@ func (a Amount) String() string {
 		str = "-" + str
 	}
 	return str
+}
+
+// Formatted returns a display form of the amount in whole tokens: thousands
+// separators on the integer part, exact decimals (no rounding). It mirrors
+// tron.SUN.Formatted. The zero value renders "0".
+// Display only; parse with Handle.Amount, not Formatted — String() is the
+// canonical round-trip form.
+func (a Amount) Formatted() string {
+	str := a.String()
+	neg := strings.HasPrefix(str, "-")
+	if neg {
+		str = str[1:]
+	}
+	intPart, frac, _ := strings.Cut(str, ".")
+	intPart = format.Thousands(intPart)
+	if frac != "" {
+		intPart += "." + frac
+	}
+	if neg {
+		intPart = "-" + intPart
+	}
+	return intPart
 }
 
 // parseAmount parses s against the given scale with the same exact-decimal
