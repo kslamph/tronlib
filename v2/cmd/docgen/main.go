@@ -195,6 +195,8 @@ func main() {
 	case "sync-docs":
 		fs := flag.NewFlagSet("sync-docs", flag.ExitOnError)
 		pkgDir := fs.String("pkg", "", "package directory to read codes and Example functions from")
+		var examplePkgs multiFlag
+		fs.Var(&examplePkgs, "example-pkg", "additional package directory to extract Example functions from; repeatable")
 		var docs multiFlag
 		fs.Var(&docs, "docs", "docs file to sync; repeatable")
 		check := fs.Bool("check", false, "do not write; byte-compare rendered output against each docs file and fail on drift")
@@ -206,7 +208,7 @@ func main() {
 			fmt.Fprintln(os.Stderr, "sync-docs requires -pkg and at least one -docs")
 			os.Exit(2)
 		}
-		if err := runSync(*pkgDir, docs, *check); err != nil {
+		if err := runSync(*pkgDir, examplePkgs, docs, *check); err != nil {
 			fmt.Fprintf(os.Stderr, "docgen: %v\n", err)
 			os.Exit(1)
 		}
@@ -222,10 +224,13 @@ commands:
   generate-codes -pkg <dir> -out <file>
       regenerate the tron package's codes_gen.go from codes.go
 
-  sync-docs -pkg <dir> -docs <file> [-docs <file> ...] [-check]
+  sync-docs -pkg <dir> [-example-pkg <dir> ...] -docs <file> [-docs <file> ...] [-check]
       fill the go:errors table and go:example blocks in each docs file from
-      the package source. With -check, write nothing: re-render every docs
-      file and byte-compare; any difference (including an Example function
-      with no marker, or a marker naming no real Example) exits 1. This is
-      the CI drift gate.
+      the package source. -pkg supplies the error-code table and its own
+      Examples; each -example-pkg adds another package whose Examples are
+      namespaced <package>.<ExampleFunc> (e.g. tron.ExampleTRX,
+      tronlib.ExampleClient_token). With -check, write nothing: re-render
+      every docs file and byte-compare; any difference (including an Example
+      function with no marker, or a marker naming no real Example) exits 1.
+      This is the CI drift gate.
 `

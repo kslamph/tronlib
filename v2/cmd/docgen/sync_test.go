@@ -18,10 +18,10 @@ const syncDocFixture = `# Fixture
 <!-- go:errors -->
 <!-- /go:errors -->
 
-<!-- go:example ExampleGreet -->
+<!-- go:example syncpkg.ExampleGreet -->
 <!-- /go:example -->
 
-<!-- go:example ExampleFarewell -->
+<!-- go:example syncpkg.ExampleFarewell -->
 <!-- /go:example -->
 `
 
@@ -42,7 +42,7 @@ func syncFixturePkg(t *testing.T) string {
 // text) and example bodies are extracted from the _test.go files.
 func TestSyncDocHappyPath(t *testing.T) {
 	path := writeSyncFixture(t, syncDocFixture)
-	require.NoError(t, runSync(syncFixturePkg(t), []string{path}, false))
+	require.NoError(t, runSync(syncFixturePkg(t), nil, []string{path}, false))
 
 	out, err := os.ReadFile(path)
 	require.NoError(t, err)
@@ -58,10 +58,10 @@ func TestSyncDocHappyPath(t *testing.T) {
 // TestSyncDocIdempotent: syncing an already-synced file is a fixed point.
 func TestSyncDocIdempotent(t *testing.T) {
 	path := writeSyncFixture(t, syncDocFixture)
-	require.NoError(t, runSync(syncFixturePkg(t), []string{path}, false))
+	require.NoError(t, runSync(syncFixturePkg(t), nil, []string{path}, false))
 	first, err := os.ReadFile(path)
 	require.NoError(t, err)
-	require.NoError(t, runSync(syncFixturePkg(t), []string{path}, false))
+	require.NoError(t, runSync(syncFixturePkg(t), nil, []string{path}, false))
 	second, err := os.ReadFile(path)
 	require.NoError(t, err)
 	assert.Equal(t, string(first), string(second))
@@ -71,14 +71,14 @@ func TestSyncDocIdempotent(t *testing.T) {
 // -check names the file.
 func TestSyncDocCheckDetectsCellEdit(t *testing.T) {
 	path := writeSyncFixture(t, syncDocFixture)
-	require.NoError(t, runSync(syncFixturePkg(t), []string{path}, false))
+	require.NoError(t, runSync(syncFixturePkg(t), nil, []string{path}, false))
 	raw, err := os.ReadFile(path)
 	require.NoError(t, err)
 	mutated := strings.Replace(string(raw), "| `retry` |", "| `bug` |", 1)
 	require.NotEqual(t, string(raw), mutated, "mutation must change the file")
 	require.NoError(t, os.WriteFile(path, []byte(mutated), 0o644))
 
-	err = runSync(syncFixturePkg(t), []string{path}, true)
+	err = runSync(syncFixturePkg(t), nil, []string{path}, true)
 	require.Error(t, err, "-check must fail on a hand-edited cell")
 	assert.Contains(t, err.Error(), path, "the error must name the drifted file")
 	assert.Contains(t, err.Error(), "stale")
@@ -89,16 +89,16 @@ func TestSyncDocCheckDetectsCellEdit(t *testing.T) {
 // the coverage check must still fail, naming the orphaned Example function.
 func TestSyncDocCheckDetectsDeletedExampleBlock(t *testing.T) {
 	path := writeSyncFixture(t, syncDocFixture)
-	require.NoError(t, runSync(syncFixturePkg(t), []string{path}, false))
+	require.NoError(t, runSync(syncFixturePkg(t), nil, []string{path}, false))
 	raw, err := os.ReadFile(path)
 	require.NoError(t, err)
 	deleted := strings.Replace(string(raw),
-		"<!-- go:example ExampleFarewell -->\nfmt.Println(\"bye\")<!-- /go:example -->\n", "", 1)
+		"<!-- go:example syncpkg.ExampleFarewell -->\nfmt.Println(\"bye\")<!-- /go:example -->\n", "", 1)
 	require.NotEqual(t, string(raw), deleted, "mutation must change the file")
 	require.NoError(t, os.WriteFile(path, []byte(deleted), 0o644))
 
 	// Sync would also "pass" here — the block is gone. The check must not.
-	err = runSync(syncFixturePkg(t), []string{path}, true)
+	err = runSync(syncFixturePkg(t), nil, []string{path}, true)
 	require.Error(t, err, "-check must fail when a marker pair is deleted")
 	assert.Contains(t, err.Error(), "ExampleFarewell", "the error must name the orphaned Example")
 }
@@ -107,11 +107,11 @@ func TestSyncDocCheckDetectsDeletedExampleBlock(t *testing.T) {
 // direction — a marker naming an Example function the package does not have.
 func TestSyncDocCheckDetectsMarkerWithoutFunction(t *testing.T) {
 	broken := strings.Replace(syncDocFixture,
-		"<!-- go:example ExampleFarewell -->",
-		"<!-- go:example ExampleGhost -->", 1)
+		"<!-- go:example syncpkg.ExampleFarewell -->",
+		"<!-- go:example syncpkg.ExampleGhost -->", 1)
 	path := writeSyncFixture(t, broken)
 
-	err := runSync(syncFixturePkg(t), []string{path}, true)
+	err := runSync(syncFixturePkg(t), nil, []string{path}, true)
 	require.Error(t, err, "a marker without a real Example function must fail")
 	assert.Contains(t, err.Error(), "ExampleGhost")
 }
@@ -124,22 +124,22 @@ func TestSyncDocCoverageAcrossFiles(t *testing.T) {
 	tableOnly := filepath.Join(dir, "errors.md")
 	require.NoError(t, os.WriteFile(tableOnly, []byte("# Errors\n\n<!-- go:errors -->\n<!-- /go:errors -->\n"), 0o644))
 	exampleOnly := filepath.Join(dir, "examples.md")
-	require.NoError(t, os.WriteFile(exampleOnly, []byte("# Examples\n\n<!-- go:example ExampleGreet -->\n<!-- /go:example -->\n\n<!-- go:example ExampleFarewell -->\n<!-- /go:example -->\n"), 0o644))
+	require.NoError(t, os.WriteFile(exampleOnly, []byte("# Examples\n\n<!-- go:example syncpkg.ExampleGreet -->\n<!-- /go:example -->\n\n<!-- go:example syncpkg.ExampleFarewell -->\n<!-- /go:example -->\n"), 0o644))
 
-	require.NoError(t, runSync(syncFixturePkg(t), []string{tableOnly, exampleOnly}, false))
+	require.NoError(t, runSync(syncFixturePkg(t), nil, []string{tableOnly, exampleOnly}, false))
 
 	// And the check passes on the synced pair.
-	require.NoError(t, runSync(syncFixturePkg(t), []string{tableOnly, exampleOnly}, true))
+	require.NoError(t, runSync(syncFixturePkg(t), nil, []string{tableOnly, exampleOnly}, true))
 
 	// Deleting one block from examples.md orphans ExampleFarewell and the
 	// check must name it even though errors.md is fine.
 	raw, err := os.ReadFile(exampleOnly)
 	require.NoError(t, err)
 	deleted := strings.Replace(string(raw),
-		"<!-- go:example ExampleFarewell -->\nfmt.Println(\"bye\")<!-- /go:example -->\n", "", 1)
+		"<!-- go:example syncpkg.ExampleFarewell -->\nfmt.Println(\"bye\")<!-- /go:example -->\n", "", 1)
 	require.NotEqual(t, string(raw), deleted, "mutation must change the file")
 	require.NoError(t, os.WriteFile(exampleOnly, []byte(deleted), 0o644))
-	err = runSync(syncFixturePkg(t), []string{tableOnly, exampleOnly}, true)
+	err = runSync(syncFixturePkg(t), nil, []string{tableOnly, exampleOnly}, true)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "ExampleFarewell")
 }
@@ -160,5 +160,47 @@ func TestSyncDocRealTronIsAFixedPoint(t *testing.T) {
 			t.Fatalf("docs target missing: %v", err)
 		}
 	}
-	require.NoError(t, runSync(tronDir, files, true))
+	require.NoError(t, runSync(tronDir, []string{filepath.Join("..", "..")}, files, true))
+}
+
+// TestPackageNameOf proves the example namespace is the package under test,
+// with a _test suffix stripped: tron_test -> tron, tronlib_test -> tronlib.
+func TestPackageNameOf(t *testing.T) {
+	for dir, want := range map[string]string{
+		filepath.Join("testdata", "syncpkg"):    "syncpkg",
+		filepath.Join("testdata", "examplepkg"): "examplepkg",
+		filepath.Join("..", "..", "tron"):       "tron",
+		filepath.Join("..", ".."):               "tronlib",
+	} {
+		got, err := packageNameOf(dir)
+		require.NoError(t, err, dir)
+		assert.Equal(t, want, got, dir)
+	}
+}
+
+// TestRunSyncNamespacesExamplesByPackage proves two packages may define the
+// same Example function name without colliding: each is namespaced by its
+// package, so both markers fill from their own body.
+func TestRunSyncNamespacesExamplesByPackage(t *testing.T) {
+	base := t.TempDir()
+	writePkg := func(sub, pkgName, body string) string {
+		dir := filepath.Join(base, sub)
+		require.NoError(t, os.MkdirAll(dir, 0o755))
+		src := "package " + pkgName + "\n\nfunc ExampleShared() {\n\t" + body + "\n}\n"
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "example_test.go"), []byte(src), 0o644))
+		return dir
+	}
+	dirA := writePkg("a", "pkgA", `fmt.Println("from A")`)
+	dirB := writePkg("b", "pkgB", `fmt.Println("from B")`)
+
+	doc := writeSyncFixture(t, "# X\n\n"+
+		"<!-- go:example pkgA.ExampleShared -->\n<!-- /go:example -->\n\n"+
+		"<!-- go:example pkgB.ExampleShared -->\n<!-- /go:example -->\n")
+
+	require.NoError(t, runSync(syncFixturePkg(t), []string{dirA, dirB}, []string{doc}, false))
+
+	out, err := os.ReadFile(doc)
+	require.NoError(t, err)
+	assert.Contains(t, string(out), `fmt.Println("from A")`)
+	assert.Contains(t, string(out), `fmt.Println("from B")`)
 }

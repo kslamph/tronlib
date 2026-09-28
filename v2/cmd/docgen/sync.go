@@ -2,7 +2,10 @@ package main
 
 import (
 	"fmt"
+	"go/parser"
+	"go/token"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 )
@@ -74,6 +77,31 @@ func checkExampleCoverage(examples map[string]string, docsMarkers map[string][]s
 	return nil
 }
 
+// packageNameOf returns the namespace examples from dir are documented under:
+// the package clause of its example files, with a trailing "_test" stripped
+// (an Example in package tron_test documents package tron). Example files are
+// preferred; a package with no example file falls back to its regular source.
+func packageNameOf(dir string) (string, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return "", err
+	}
+	for _, wantTest := range []bool{true, false} {
+		for _, e := range entries {
+			n := e.Name()
+			if e.IsDir() || !strings.HasSuffix(n, ".go") || strings.HasSuffix(n, "_test.go") != wantTest {
+				continue
+			}
+			f, err := parser.ParseFile(token.NewFileSet(), filepath.Join(dir, n), nil, parser.PackageClauseOnly)
+			if err != nil {
+				return "", fmt.Errorf("%s: %w", filepath.Join(dir, n), err)
+			}
+			return strings.TrimSuffix(f.Name.Name, "_test"), nil
+		}
+	}
+	return "", fmt.Errorf("%s: no .go files", dir)
+}
+
 // runSync is the sync-docs engine shared by the sync and -check paths.
 // It renders every docs file — filling the go:errors table from the parsed
 // package and every go:example block from the package's Example functions —
@@ -84,14 +112,35 @@ func checkExampleCoverage(examples map[string]string, docsMarkers map[string][]s
 // across all docs files before the byte comparison, so the CI gate fails
 // closed. Plain sync stays a permissive filler: it must be able to refresh
 // a single docs file (e.g. only errors.md) without the full docs set.
-func runSync(pkgDir string, docsFiles []string, check bool) error {
-	data, err := parseCodesData(pkgDir)
+func runSync(codesPkg string, examplePkgs []string, docsFiles []string, check bool) error {
+	data, err := parseCodesData(codesPkg)
 	if err != nil {
-		return fmt.Errorf("parsing %s: %w", pkgDir, err)
+		return fmt.Errorf("parsing %s: %w", codesPkg, err)
 	}
-	examples, err := extractExamples(pkgDir)
-	if err != nil {
-		return fmt.Errorf("extracting examples from %s: %w", pkgDir, err)
+	// Examples are namespaced <package>.<ExampleFunc> so two packages may
+	// define the same Example name without colliding (multiple -example-pkg).
+	examples := map[string]string{}
+	seen := map[string]bool{}
+	for _, dir := range append([]string{codesPkg}, examplePkgs...) {
+		if seen[dir] {
+			continue
+		}
+		seen[dir] = true
+		pkgName, err := packageNameOf(dir)
+		if err != nil {
+			return fmt.Errorf("example package %s: %w", dir, err)
+		}
+		ex, err := extractExamples(dir)
+		if err != nil {
+			return fmt.Errorf("extracting examples from %s: %w", dir, err)
+		}
+		for fn, body := range ex {
+			key := pkgName + "." + fn
+			if _, dup := examples[key]; dup {
+				return fmt.Errorf("example %q extracted from more than one package", key)
+			}
+			examples[key] = body
+		}
 	}
 	rows := codeTable(data)
 
