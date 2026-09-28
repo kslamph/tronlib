@@ -64,6 +64,9 @@ type fakeWalletServer struct {
 	EstimateEnerg   func(ctx context.Context, in *core.TriggerSmartContract) (*api.EstimateEnergyMessage, error)
 	AccountResource func(ctx context.Context, in *core.Account) (*api.AccountResourceMessage, error)
 	EnergyPrices    func(ctx context.Context, in *api.EmptyMessage) (*api.PricesResponseMessage, error)
+	BandwidthPrices func(ctx context.Context, in *api.EmptyMessage) (*api.PricesResponseMessage, error)
+	ChainParameters func(ctx context.Context, in *api.EmptyMessage) (*core.ChainParameters, error)
+	Account         func(ctx context.Context, in *core.Account) (*core.Account, error)
 	Deploy          func(ctx context.Context, in *core.CreateSmartContract) (*api.TransactionExtention, error)
 	TransferAssetFn func(ctx context.Context, in *core.TransferAssetContract) (*api.TransactionExtention, error)
 	Broadcast       func(ctx context.Context, in *core.Transaction) (*api.Return, error)
@@ -129,6 +132,28 @@ func (f *fakeWalletServer) GetEnergyPrices(ctx context.Context, in *api.EmptyMes
 		return f.EnergyPrices(ctx, in)
 	}
 	return &api.PricesResponseMessage{Prices: "1691400000000:410,1691500000000:420"}, nil
+}
+
+func (f *fakeWalletServer) GetBandwidthPrices(ctx context.Context, in *api.EmptyMessage) (*api.PricesResponseMessage, error) {
+	if f.BandwidthPrices != nil {
+		return f.BandwidthPrices(ctx, in)
+	}
+	return &api.PricesResponseMessage{Prices: "1627279200000:1000"}, nil
+}
+
+func (f *fakeWalletServer) GetChainParameters(ctx context.Context, in *api.EmptyMessage) (*core.ChainParameters, error) {
+	if f.ChainParameters != nil {
+		return f.ChainParameters(ctx, in)
+	}
+	return &core.ChainParameters{}, nil
+}
+
+func (f *fakeWalletServer) GetAccount(ctx context.Context, in *core.Account) (*core.Account, error) {
+	if f.Account != nil {
+		return f.Account(ctx, in)
+	}
+	// Default: the queried account exists with zero balance.
+	return &core.Account{Address: in.GetAddress()}, nil
 }
 
 func (f *fakeWalletServer) DeployContract(ctx context.Context, in *core.CreateSmartContract) (*api.TransactionExtention, error) {

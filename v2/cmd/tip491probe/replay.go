@@ -130,19 +130,72 @@ func runReplay(ctx context.Context, cli *tronlib.Client, txidHex string) int {
 		fmt.Fprintf(os.Stderr, "replay simulate: %v\n", err)
 		return 2
 	}
+	energyPass, energyVoid := false, false
 	if est.Code != "" || est.Revert != "" {
-		fmt.Printf("replay energy=%d penalty=%d base=%d code=%s revert=%q\n",
-			est.Energy, est.Penalty, est.Energy-est.Penalty, est.Code, est.Revert)
-		fmt.Fprintln(os.Stderr, "replay did not execute (revert or node rejection): chain state moved since the broadcast — the comparison is void, not a mismatch")
-		return 1
+		fmt.Printf("replay energy=%d penalty=%d code=%s revert=%q\n", est.Energy, est.Penalty, est.Code, est.Revert)
+		fmt.Println("replay note: chain state moved since the broadcast; the energy comparison is void, not a mismatch")
+		energyVoid = true
+	} else {
+		detail, pass := replayVerdict(est, rec)
+		fmt.Println(detail)
+		energyPass = pass
+		if !pass {
+			fmt.Fprintln(os.Stderr, "MISMATCH (not verified): replay and receipt disagree — same-cycle replay should be exact")
+		}
 	}
 
-	detail, pass := replayVerdict(est, rec)
-	fmt.Println(detail)
-	if pass {
-		fmt.Println("PASS: replay matches the broadcast receipt exactly (spec §7.5 item 2, penalized)")
+	bwDetail, bwPass := replayBandwidth(ctx, cli, btx, rec)
+	fmt.Println(bwDetail)
+	if energyPass && bwPass {
+		fmt.Println("PASS: replay matches the broadcast receipt exactly (spec §7.5 item 2)")
 		return 0
 	}
-	fmt.Fprintln(os.Stderr, "MISMATCH (not verified): replay and receipt disagree — same-cycle replay should be exact")
+	if !energyPass && !energyVoid {
+		fmt.Fprintln(os.Stderr, "MISMATCH (not verified): replay and receipt disagree — same-cycle replay should be exact")
+	}
+	if !bwPass {
+		fmt.Fprintln(os.Stderr, "MISMATCH (not verified): bandwidth replay and receipt disagree")
+	}
 	return 1
+}
+
+// replayBandwidth verifies the bandwidth half exactly, from the broadcast
+// bytes alone — no resource state needed:
+//
+//   - burn receipts report NetUsage 0 and NetFee == bytes × price;
+//   - covered receipts report NetFee 0 and NetUsage == bytes.
+//
+// Both are exact equalities. Anything else (e.g. the account-creation
+// paths, which scale usage by a ratio or burn a flat fee) is reported, not
+// judged — except the exact-100-byte ambiguity (a 100-byte burn costs
+// exactly the 100,000 creation fee), which is named explicitly.
+func replayBandwidth(ctx context.Context, cli *tronlib.Client, btx *core.Transaction, rec *core.ResourceReceipt) (detail string, pass bool) {
+	need, err := tx.BandwidthSize(btx)
+	if err != nil {
+		return fmt.Sprintf("bandwidth size: %v", err), false
+	}
+	price, err := tx.BandwidthPriceOf(cli.Raw(), ctx)
+	if err != nil {
+		return fmt.Sprintf("bandwidth price: %v", err), false
+	}
+	return replayBandwidthVerdict(need, price.SunPerByte, rec)
+}
+
+// replayBandwidthVerdict is the pure comparison behind replayBandwidth,
+// so the shapes are unit-testable without a node.
+func replayBandwidthVerdict(need, sunPerByte int64, rec *core.ResourceReceipt) (detail string, pass bool) {
+	usage, fee := rec.GetNetUsage(), rec.GetNetFee()
+	prefix := fmt.Sprintf("bandwidth: bytes=%d price=%d receipt usage=%d fee=%d", need, sunPerByte, usage, fee)
+	switch {
+	case fee == 100_000 && need == 100:
+		// Ambiguous first: a 100-byte burn costs exactly the 100,000
+		// creation fee, so the two branches are indistinguishable here.
+		return prefix + " — ambiguous: cannot tell burn from creation-fee branch", false
+	case fee > 0 && usage == 0 && fee == need*sunPerByte:
+		return prefix + " — burn matches exactly", true
+	case fee == 0 && usage == need:
+		return prefix + " — covered usage matches exactly", true
+	default:
+		return prefix + " — MISMATCH: non-standard shape (account-creation path?)", false
+	}
 }

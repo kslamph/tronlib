@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/kslamph/tronlib/pb/core"
@@ -61,6 +62,36 @@ func TestExtractTriggerRejects(t *testing.T) {
 	multi.RawData.Contract = append(multi.RawData.Contract, multi.RawData.Contract[0])
 	if _, err := extractTrigger(multi); err == nil {
 		t.Fatal("multi-contract: want an error, got nil")
+	}
+}
+
+func TestReplayBandwidthVerdictShapes(t *testing.T) {
+	// Burn: 345 bytes × 1000 = 345,000 — the Nile live-run shape.
+	if detail, ok := replayBandwidthVerdict(345, 1000, &core.ResourceReceipt{NetUsage: 0, NetFee: 345_000}); !ok {
+		t.Fatalf("burn shape must pass: %s", detail)
+	}
+	// Covered: usage equals the byte count, no fee.
+	if detail, ok := replayBandwidthVerdict(281, 1000, &core.ResourceReceipt{NetUsage: 281}); !ok {
+		t.Fatalf("covered shape must pass: %s", detail)
+	}
+	// Off-by-one on either side fails.
+	if detail, ok := replayBandwidthVerdict(345, 1000, &core.ResourceReceipt{NetFee: 345_001}); ok {
+		t.Fatalf("wrong fee must not pass: %s", detail)
+	}
+	if detail, ok := replayBandwidthVerdict(281, 1000, &core.ResourceReceipt{NetUsage: 282}); ok {
+		t.Fatalf("wrong usage must not pass: %s", detail)
+	}
+	// Creation-scale fee on non-100 bytes is reported, not passed.
+	if detail, ok := replayBandwidthVerdict(281, 1000, &core.ResourceReceipt{NetFee: 100_000}); ok {
+		t.Fatalf("creation-fee shape must not pass as burn: %s", detail)
+	}
+	// The exact-100-byte ambiguity is named.
+	detail, ok := replayBandwidthVerdict(100, 1000, &core.ResourceReceipt{NetFee: 100_000})
+	if ok {
+		t.Fatalf("ambiguous shape must not pass: %s", detail)
+	}
+	if !strings.Contains(detail, "ambiguous") {
+		t.Fatalf("detail should name the ambiguity: %s", detail)
 	}
 }
 

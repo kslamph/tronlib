@@ -267,6 +267,39 @@ of a numeric mismatch.
   (derived > stored and actual > predicted are contradictions, never
   noise); the loose flooring sides are reported, not judged.
 
+### Bandwidth cost model (2026-09-28, docs + java-tron source + live)
+
+Bandwidth is pure size accounting — no simulation. Established from the
+ official resource-docs (burn 1,000 sun/byte via `getTransactionFee`, free
+ 600/day via `getFreeNetLimit`, staked → free → burn order, 1 TRX creation
+ fee + 0.1 TRX bandwidth-shortfall creation fee + 25,000 energy for
+ contract-internal creation) and confirmed in java-tron
+ `BandwidthProcessor.consume`: bytes = serializedSize(tx with ret cleared)
+ + 64 (`MAX_RESULT_SIZE_IN_TX`) per non-shielded contract; burn reports
+ NetUsage 0 with NetFee = bytes × price; covered reports NetUsage = bytes.
+ Chain params verified identical on mainnet and Nile (1000 / 100000 /
+ 1000000 / rate 1 / free 600). New v2 surface (`v2/tx/bandwidth.go`):
+ `ResultSizePerContract`, `BandwidthSize` (signed only — unsigned is
+ tx.invalid_argument, not a silent undercount), `BandwidthPrice` +
+ `BandwidthPriceOf` + `CostOf`, `BandwidthCost` + `BandwidthCostOf` with
+ the creation branch (recipient-existence read, ratio-scaled stake else
+ flat 0.1 TRX, 1 TRX on top invisible to the receipt) and a
+ `account.insufficient_bandwidth` (ActionFund) balance gate. `CostPreview`
+ is untouched (still energy-only with its BandwidthNote).
+- Exact live verification, zero spend, via `-replay` (bandwidth needs no
+ resource state — burn and covered shapes both reduce to exact byte
+ equalities): Nile `738c6d0e` (the 2026-09-01 transfer) replays
+ bytes=345, receipt usage=0 fee=345000 — burn matches exactly (and energy
+ replays 13569/0 exactly even weeks later); mainnet `41808e02` replays
+ bytes=345, receipt usage=345 fee=0 — covered matches exactly. Both 345 =
+ ~281 serialized + 64, confirming the overhead empirically.
+- NOT live-verified (user-gated, needs a funded key + real spend): the
+ creation path's 1 TRX (invisible in receipts — verify by balance delta:
+ fund a fresh key with exact X, transfer Y to a new address, assert
+ X − Y − NetFee − EnergyFee − balance == 1,000,000) and the
+ account.insufficient_bandwidth rejection. Hermetic tests cover all
+ branches against the fake.
+
 #### Root-cause analysis: the energy-accuracy fix
 
 The initial preview returned EnergyNeeded **20354** (1,356,900 SUN burn, delta
