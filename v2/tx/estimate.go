@@ -59,6 +59,10 @@ type EnergyEstimate struct {
 	Energy int64
 }
 
+// HasResult reports whether the simulated call returned any ABI values. It
+// replaces the `len(e.ConstantResult) > 0` idiom (spec §7.2) and is nil-safe.
+func (e *Estimate) HasResult() bool { return e != nil && len(e.ConstantResult) > 0 }
+
 // Simulate dry-runs the contract call read-only via the node's
 // TriggerConstantContract (no fee_limit is spent, nothing is broadcast) and
 // returns the decoded constant results, the energy/penalty split and any

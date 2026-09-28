@@ -439,3 +439,16 @@ func TestPreviewCostFeeLimitGatePasses(t *testing.T) {
 		t.Errorf("TronToBurn = %d, want 1470000", preview.TronToBurn)
 	}
 }
+
+func TestEstimateHasResult(t *testing.T) {
+	if (&Estimate{}).HasResult() {
+		t.Error("(&Estimate{}).HasResult() = true, want false")
+	}
+	if !(&Estimate{ConstantResult: [][]byte{{0x01}}}).HasResult() {
+		t.Error("populated Estimate.HasResult() = false, want true")
+	}
+	var e *Estimate
+	if e.HasResult() {
+		t.Error("nil Estimate.HasResult() = true, want false (nil-safe)")
+	}
+}
