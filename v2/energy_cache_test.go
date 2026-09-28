@@ -87,3 +87,30 @@ func TestEnergyPriceConcurrentSingleFetch(t *testing.T) {
 		t.Errorf("GetEnergyPrices called %d times under 16 concurrent callers, want 1", n)
 	}
 }
+
+// TestEnergyPriceReturnsDefensiveCopy proves the memoised price cannot be
+// mutated through the returned handle: a caller editing it must not corrupt
+// the cache for every later caller inside the TTL.
+func TestEnergyPriceReturnsDefensiveCopy(t *testing.T) {
+	f := &fakeFacadeServer{}
+	c := newFacadeTestClient(t, f)
+	p1, err := c.EnergyPrice(context.Background())
+	if err != nil {
+		t.Fatalf("EnergyPrice: %v", err)
+	}
+	if p1.SunPerEnergy != 420 {
+		t.Fatalf("SunPerEnergy = %d, want 420", p1.SunPerEnergy)
+	}
+	p1.SunPerEnergy = 0 // a caller scribbling on its result
+
+	p2, err := c.EnergyPrice(context.Background())
+	if err != nil {
+		t.Fatalf("EnergyPrice: %v", err)
+	}
+	if p2.SunPerEnergy != 420 {
+		t.Errorf("cached SunPerEnergy = %d after a caller mutated its handle, want 420 (defensive copy)", p2.SunPerEnergy)
+	}
+	if p1 == p2 {
+		t.Error("EnergyPrice returned the same pointer twice; the cached value is exposed for mutation")
+	}
+}

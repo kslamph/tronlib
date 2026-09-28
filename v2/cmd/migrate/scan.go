@@ -106,6 +106,11 @@ func symbolsInFile(f *ast.File, path string) []Symbol {
 			recv := ""
 			if d.Recv != nil && len(d.Recv.List) > 0 {
 				recv = receiverName(d.Recv.List[0].Type)
+				// A method on an unexported type is not part of the public
+				// surface, even when the method name is exported.
+				if recv != "" && !ast.IsExported(recv) {
+					continue
+				}
 			}
 			kind := "func"
 			if recv != "" {

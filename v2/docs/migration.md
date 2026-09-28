@@ -8,7 +8,7 @@
 > `cmd/migrate/tables.go` from that list; they never hand-edit this block.
 
 <!-- go:migration -->
-**426 v1 symbols: 137 moved, 4 renamed, 25 removed, 68 candidates, 192 unmapped.**
+**423 v1 symbols: 137 moved, 4 renamed, 25 removed, 63 candidates, 194 unmapped.**
 
 ## Moved
 
@@ -215,11 +215,9 @@
 | `resources.ResourcesManager.UnfreezeBalanceV2` | `rpc.UnfreezeBalanceV2` |
 | `resources.ResourcesManager.WithdrawExpireUnfreeze` | `rpc.WithdrawExpireUnfreeze` |
 | `signer.HDWalletSigner.Address` | `contract.Result.Address` |
-| `signer.HDWalletSigner.PublicKey` | `key.hdWalletSigner.PublicKey` |
-| `signer.HDWalletSigner.Sign` | `key.hdWalletSigner.Sign` |
+| `signer.HDWalletSigner.Sign` | `tx.AssetTx.Sign` |
 | `signer.PrivateKeySigner.Address` | `contract.Result.Address` |
-| `signer.PrivateKeySigner.PublicKey` | `key.hdWalletSigner.PublicKey` |
-| `signer.PrivateKeySigner.Sign` | `key.hdWalletSigner.Sign` |
+| `signer.PrivateKeySigner.Sign` | `tx.AssetTx.Sign` |
 | `smartcontract.Instance.Simulate` | `tx.ContractTx.Simulate` |
 | `smartcontract.Manager.ClearContractABI` | `rpc.ClearContractABI` |
 | `smartcontract.Manager.Deploy` | `tronlib.Client.Deploy` |
@@ -229,9 +227,6 @@
 | `smartcontract.Manager.Instance` | `contract.Instance` |
 | `smartcontract.Manager.UpdateEnergyLimit` | `rpc.UpdateEnergyLimit` |
 | `smartcontract.Manager.UpdateSetting` | `rpc.UpdateSetting` |
-| `smartcontract.mockClient.GetConnection` | `rpc.Client.GetConnection` |
-| `smartcontract.mockClient.GetTimeout` | `rpc.Client.GetTimeout` |
-| `smartcontract.mockClient.ReturnConnection` | `rpc.Client.ReturnConnection` |
 | `trc10.TRC10Manager.CreateAssetIssue2` | `rpc.CreateAssetIssue2` |
 | `trc10.TRC10Manager.GetAssetIssueByAccount` | `rpc.GetAssetIssueByAccount` |
 | `trc10.TRC10Manager.GetAssetIssueById` | `rpc.GetAssetIssueById` |
@@ -246,14 +241,14 @@
 | `trc20.TRC20Manager.BalanceOf` | `token.Handle.BalanceOf` |
 | `trc20.TRC20Manager.Decimals` | `token.Amount.Decimals` |
 | `trc20.TRC20Manager.Transfer` | `token.Handle.Transfer` |
-| `types.ContractError.Error` | `rpc.nodeReturnError.Error` |
+| `types.ContractError.Error` | `tron.Error` |
 | `types.ContractError.Unwrap` | `tron.Error.Unwrap` |
 | `types.ContractType.String` | `contract.Result.String` |
 | `types.ResourceType.String` | `contract.Result.String` |
-| `types.TransactionError.Error` | `rpc.nodeReturnError.Error` |
+| `types.TransactionError.Error` | `tron.Error` |
 | `types.TransactionError.Unwrap` | `tron.Error.Unwrap` |
 | `types.TransactionStatus.String` | `contract.Result.String` |
-| `types.TronError.Error` | `rpc.nodeReturnError.Error` |
+| `types.TronError.Error` | `tron.Error` |
 | `types.TronError.Unwrap` | `tron.Error.Unwrap` |
 | `voting.Manager.CreateWitness2` | `rpc.CreateWitness2` |
 | `voting.Manager.GetBrokerageInfo` | `rpc.GetBrokerageInfo` |
@@ -303,11 +298,13 @@
 - `resources.ResourceTypeEnergy`
 - `resources.ResourcesManager`
 - `signer.HDWalletSigner`
+- `signer.HDWalletSigner.PublicKey`
 - `signer.NewHDWalletSigner`
 - `signer.NewPrivateKeySigner`
 - `signer.NewPrivateKeySignerFromECDSA`
 - `signer.PrivateKeySigner`
 - `signer.PrivateKeySigner.PrivateKeyHex`
+- `signer.PrivateKeySigner.PublicKey`
 - `signer.SignTx`
 - `signer.TronMessagePrefix`
 - `smartcontract.DecodeABI`

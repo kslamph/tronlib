@@ -237,7 +237,8 @@ func (c *Client) EnergyPrice(ctx context.Context) (*tx.EnergyPrice, error) {
 	c.priceMu.Lock()
 	defer c.priceMu.Unlock()
 	if c.price != nil && time.Since(c.priceAt) < tx.MaintenancePeriod {
-		return c.price, nil
+		cp := *c.price // defensive copy: the cache stays un-mutable through the handle
+		return &cp, nil
 	}
 	p, err := tx.EnergyPriceOf(c.inner, ctx)
 	if err != nil {
@@ -245,7 +246,8 @@ func (c *Client) EnergyPrice(ctx context.Context) (*tx.EnergyPrice, error) {
 	}
 	c.price = p
 	c.priceAt = time.Now()
-	return p, nil
+	cp := *p // never hand the cached pointer to a caller (Amount.Raw's copy rule)
+	return &cp, nil
 }
 
 // Events fetches the transaction's logs, decoded leniently — unknown
