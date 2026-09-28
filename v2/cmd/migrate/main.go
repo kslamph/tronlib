@@ -29,15 +29,17 @@ func main() {
 	check := flag.Bool("check", false, "report drift instead of writing the guide")
 	flag.Parse()
 
-	if err := run(*v1, *v2Root, v2Pkgs, *out, *check); err != nil {
+	if err := run(*v1, *v2Root, v2Pkgs, curatedInputs(), *out, *check); err != nil {
 		fmt.Fprintln(os.Stderr, "migrate:", err)
 		os.Exit(1)
 	}
 }
 
-// run scans both trees, classifies, and either writes the guide or (check)
-// byte-compares the re-rendered block against the file on disk.
-func run(v1Root, v2Root string, pkgs []string, out string, check bool) error {
+// run scans both trees, classifies with the supplied curated inputs, and
+// either writes the guide or (check) byte-compares the re-rendered block
+// against the file on disk. Inputs is a parameter (not the global curated set)
+// so tests can exercise the engine against fixture trees.
+func run(v1Root, v2Root string, pkgs []string, in Inputs, out string, check bool) error {
 	v1, err := scanTree(v1Root)
 	if err != nil {
 		return fmt.Errorf("scan v1 %s: %w", v1Root, err)
@@ -56,7 +58,7 @@ func run(v1Root, v2Root string, pkgs []string, out string, check bool) error {
 	}
 	sort.Slice(v2, func(i, j int) bool { return v2[i].Key < v2[j].Key })
 
-	r, err := classify(v1, v2, curatedInputs())
+	r, err := classify(v1, v2, in)
 	if err != nil {
 		return err
 	}

@@ -13,13 +13,13 @@ func TestRunCheckDetectsDrift(t *testing.T) {
 	if err := os.WriteFile(out, []byte("# Migration\n\n<!-- go:migration -->\nSTALE\n<!-- /go:migration -->\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := run("testdata/v1", "testdata/v2", []string{"other"}, out, true); err == nil {
+	if err := run("testdata/v1", "testdata/v2", []string{"other"}, Inputs{}, out, true); err == nil {
 		t.Fatal("check on a stale doc = nil, want a drift error")
 	}
-	if err := run("testdata/v1", "testdata/v2", []string{"other"}, out, false); err != nil {
+	if err := run("testdata/v1", "testdata/v2", []string{"other"}, Inputs{}, out, false); err != nil {
 		t.Fatalf("sync: %v", err)
 	}
-	if err := run("testdata/v1", "testdata/v2", []string{"other"}, out, true); err != nil {
+	if err := run("testdata/v1", "testdata/v2", []string{"other"}, Inputs{}, out, true); err != nil {
 		t.Fatalf("check after sync = %v, want nil (fixed point)", err)
 	}
 }
@@ -27,7 +27,7 @@ func TestRunCheckDetectsDrift(t *testing.T) {
 func TestRunCreatesTemplateWhenMissing(t *testing.T) {
 	dir := t.TempDir()
 	out := filepath.Join(dir, "nested", "migration.md")
-	if err := run("testdata/v1", "testdata/v2", []string{"other"}, out, false); err != nil {
+	if err := run("testdata/v1", "testdata/v2", []string{"other"}, Inputs{}, out, false); err != nil {
 		t.Fatalf("sync into a missing file: %v", err)
 	}
 	b, err := os.ReadFile(out)
@@ -37,7 +37,7 @@ func TestRunCreatesTemplateWhenMissing(t *testing.T) {
 	if !strings.Contains(string(b), migStart) || !strings.Contains(string(b), migEnd) {
 		t.Fatalf("created doc lacks the migration markers:\n%s", b)
 	}
-	if err := run("testdata/v1", "testdata/v2", []string{"other"}, out, true); err != nil {
+	if err := run("testdata/v1", "testdata/v2", []string{"other"}, Inputs{}, out, true); err != nil {
 		t.Fatalf("check after create = %v, want nil", err)
 	}
 }
@@ -49,7 +49,7 @@ func TestRunPreservesProseOutsideMarkers(t *testing.T) {
 	if err := os.WriteFile(out, []byte(prose), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := run("testdata/v1", "testdata/v2", []string{"other"}, out, false); err != nil {
+	if err := run("testdata/v1", "testdata/v2", []string{"other"}, Inputs{}, out, false); err != nil {
 		t.Fatalf("sync: %v", err)
 	}
 	b, err := os.ReadFile(out)

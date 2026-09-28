@@ -85,6 +85,12 @@ jobs:
     - name: docgen drift check (v2)
       run: go -C v2 run ./cmd/docgen sync-docs -pkg ./tron -docs ./docs/errors.md -docs ./docs/examples.md -check
 
+    # Migration-guide drift gate: re-render v2/docs/migration.md from an AST
+    # diff of v1's pkg/ surface against v2's, and byte-compare. Fix with:
+    #   go -C v2 run ./cmd/migrate -v1 ../pkg -v2-root . -out docs/migration.md
+    - name: migration guide drift check (v2)
+      run: go -C v2 run ./cmd/migrate -check
+
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v7
       with:
