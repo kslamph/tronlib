@@ -14,6 +14,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"net"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -78,6 +79,10 @@ type fakeFacadeServer struct {
 	// VerifyNetwork's undeclared/Private paths perform no read.
 	blockByNumCalls int
 
+	// energyPricesCalls counts GetEnergyPrices invocations, proving the
+	// facade's TTL cache fetches once inside the maintenance period.
+	energyPricesCalls atomic.Int32
+
 	// broadcastCalls counts BroadcastTransaction invocations, proving the
 	// facade's Broadcast goes through tx.Broadcast's wire path exactly once.
 	broadcastCalls int
@@ -133,6 +138,7 @@ func (f *fakeFacadeServer) GetAccountResource(ctx context.Context, in *core.Acco
 }
 
 func (f *fakeFacadeServer) GetEnergyPrices(ctx context.Context, in *api.EmptyMessage) (*api.PricesResponseMessage, error) {
+	f.energyPricesCalls.Add(1)
 	if f.EnergyPrices != nil {
 		return f.EnergyPrices(ctx, in)
 	}

@@ -11,6 +11,7 @@ package tronlib
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/kslamph/tronlib/v2/contract"
@@ -114,10 +115,15 @@ func WithPool(initConnections, maxConnections int) DialOption {
 // Client is the happy-path handle to one TRON node. It wraps *rpc.Client;
 // every method is a one-line delegation to the subpackage owner (spec D7).
 // The declared network is explicit configuration recorded here by
-// WithNetwork; VerifyNetwork checks it against the endpoint's genesis.
+// WithNetwork; VerifyNetwork checks it against the endpoint's genesis. The
+// energy-price cache is one memoised read per maintenance period.
 type Client struct {
 	inner   *rpc.Client
 	network Network
+
+	priceMu sync.Mutex
+	price   *tx.EnergyPrice
+	priceAt time.Time
 }
 
 // Close closes the client and all pooled connections. Idempotent.
@@ -223,9 +229,23 @@ func (c *Client) CostPreview(ctx context.Context, t *ContractTx, owner Address) 
 }
 
 // EnergyPrice returns the current energy unit price (the latest governance
-// "ts:price" entry; a read is a floor, not a ceiling).
+// "ts:price" entry). The unit price changes only via governance proposal, so
+// the read is cached for one maintenance period (spec §7.3, risk G5): the
+// cache is TTL-only, never keyed on the head block. A caller wanting a
+// guaranteed-fresh read calls tx.EnergyPriceOf(c.Raw(), ctx) directly.
 func (c *Client) EnergyPrice(ctx context.Context) (*tx.EnergyPrice, error) {
-	return tx.EnergyPriceOf(c.inner, ctx)
+	c.priceMu.Lock()
+	defer c.priceMu.Unlock()
+	if c.price != nil && time.Since(c.priceAt) < tx.MaintenancePeriod {
+		return c.price, nil
+	}
+	p, err := tx.EnergyPriceOf(c.inner, ctx)
+	if err != nil {
+		return nil, err
+	}
+	c.price = p
+	c.priceAt = time.Now()
+	return p, nil
 }
 
 // Events fetches the transaction's logs, decoded leniently — unknown

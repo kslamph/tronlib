@@ -8,6 +8,12 @@ import (
 	"github.com/kslamph/tronlib/v2/tron"
 )
 
+// MaintenancePeriod is TRON's maintenance interval: the window over which the
+// dynamic-energy consumption factor is recomputed (spec §7.1/§7.3). The unit
+// energy price changes only via governance proposal, so a cached price is
+// refetched once this much time has passed.
+const MaintenancePeriod = 6 * time.Hour
+
 // EnergyPrice is the current energy unit price read from the node's
 // governance price history (spec §7.1): the entry with the greatest
 // timestamp in rpc.GetEnergyPrices' "timestamp:price" comma-list.
