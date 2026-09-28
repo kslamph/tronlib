@@ -517,6 +517,61 @@ func newInstanceWithTestABIOn(t *testing.T, f *fakeWallet) *Instance {
 	return i
 }
 
+// TestInstanceManagementOps: UpdateSetting, UpdateEnergyLimit and ClearABI
+// delegate to the tx management builders bound to the Instance's address,
+// returning bandwidth-only NativeTx.
+func TestInstanceManagementOps(t *testing.T) {
+	ctx := t.Context()
+	var gotSetting *core.UpdateSettingContract
+	var gotLimit *core.UpdateEnergyLimitContract
+	var gotClear *core.ClearABIContract
+	f := &fakeWallet{
+		UpdateSettingFn: func(ctx context.Context, in *core.UpdateSettingContract) (*api.TransactionExtention, error) {
+			gotSetting = in
+			return manageExt(), nil
+		},
+		UpdateEnergyFn: func(ctx context.Context, in *core.UpdateEnergyLimitContract) (*api.TransactionExtention, error) {
+			gotLimit = in
+			return manageExt(), nil
+		},
+		ClearABIFn: func(ctx context.Context, in *core.ClearABIContract) (*api.TransactionExtention, error) {
+			gotClear = in
+			return manageExt(), nil
+		},
+	}
+	i := newInstanceWithTestABIOn(t, f)
+	owner := mustAddr(0x11)
+
+	nt, err := i.UpdateSetting(ctx, owner, 30)
+	if err != nil {
+		t.Fatalf("UpdateSetting: %v", err)
+	}
+	var _ *tx.NativeTx = nt
+	if string(gotSetting.GetContractAddress()) != string(testContractAddress.Bytes()) {
+		t.Errorf("contract = %x, want the Instance address %x", gotSetting.GetContractAddress(), testContractAddress.Bytes())
+	}
+	if gotSetting.GetConsumeUserResourcePercent() != 30 {
+		t.Errorf("percent = %d, want 30", gotSetting.GetConsumeUserResourcePercent())
+	}
+	if _, err := i.UpdateSetting(ctx, owner, 101); !tron.HasCode(err, tron.CodeTxInvalidArgument) {
+		t.Errorf("percent 101: want tx.invalid_argument, got %v", err)
+	}
+
+	if _, err := i.UpdateEnergyLimit(ctx, owner, 5_000_000); err != nil {
+		t.Fatalf("UpdateEnergyLimit: %v", err)
+	}
+	if gotLimit.GetOriginEnergyLimit() != 5_000_000 {
+		t.Errorf("limit = %d, want 5000000", gotLimit.GetOriginEnergyLimit())
+	}
+
+	if _, err := i.ClearABI(ctx, owner); err != nil {
+		t.Fatalf("ClearABI: %v", err)
+	}
+	if string(gotClear.GetOwnerAddress()) != string(owner.Bytes()) {
+		t.Errorf("owner = %x, want %x", gotClear.GetOwnerAddress(), owner.Bytes())
+	}
+}
+
 // TestInstanceDynamicEnergy: the Instance read delegates to tx's
 // GetContractInfo path — state fields map through, a nil wrapper is
 // contract.not_found, and an absent state is a fresh (zero) contract.

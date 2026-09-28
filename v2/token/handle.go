@@ -27,7 +27,19 @@ const trc20ABI = `[
    "outputs":[{"name":"","type":"uint256"}]},
   {"type":"function","name":"transfer","stateMutability":"nonpayable",
    "inputs":[{"name":"to","type":"address"},{"name":"amount","type":"uint256"}],
-   "outputs":[{"name":"","type":"bool"}]}
+   "outputs":[{"name":"","type":"bool"}]},
+  {"type":"function","name":"approve","stateMutability":"nonpayable",
+   "inputs":[{"name":"spender","type":"address"},{"name":"amount","type":"uint256"}],
+   "outputs":[{"name":"","type":"bool"}]},
+  {"type":"function","name":"allowance","stateMutability":"view",
+   "inputs":[{"name":"owner","type":"address"},{"name":"spender","type":"address"}],
+   "outputs":[{"name":"","type":"uint256"}]},
+  {"type":"function","name":"name","stateMutability":"view",
+   "inputs":[],"outputs":[{"name":"","type":"string"}]},
+  {"type":"function","name":"symbol","stateMutability":"view",
+   "inputs":[],"outputs":[{"name":"","type":"string"}]},
+  {"type":"function","name":"totalSupply","stateMutability":"view",
+   "inputs":[],"outputs":[{"name":"","type":"uint256"}]}
 ]`
 
 // Handle is a pinned view of one TRC-20 contract: the token's decimals
@@ -122,6 +134,28 @@ func (h *Handle) Whole(n int64) (Amount, error) {
 	return newAmount(raw, h.decimals), nil
 }
 
+// metaErr classifies a failed metadata read. Contract-layer shape
+// failures (the contract answered, but not as TRC-20 declares) become
+// contract.bad_metadata — "this is not a TRC-20" is the actionable fact
+// for an agent. Transport errors, reverts, and not_found pass through
+// untouched: a reverted call means the contract RAN and chose to fail,
+// which is different information from malformed metadata.
+func metaErr(op, what string, err error) error {
+	for _, c := range []tron.Code{
+		tron.CodeContractArgMismatch,
+		tron.CodeContractMethodUnknown,
+		tron.CodeContractNoABI,
+		tron.CodeContractBadABI,
+		tron.CodeContractResultTypeMismatch,
+	} {
+		if tron.HasCode(err, c) {
+			return &tron.Error{Code: tron.CodeContractBadMetadata, Op: op,
+				Hint: what + " did not answer as TRC-20 declares; the contract does not implement TRC-20", Cause: err}
+		}
+	}
+	return err
+}
+
 // BalanceOf reads owner's token balance as an Amount at the Handle's
 // scale. balanceOf returns uint256, so contract.Result.BigInt() is its
 // accessor (decimals() needed the uint8-gap workaround instead — see the
@@ -130,7 +164,7 @@ func (h *Handle) BalanceOf(ctx context.Context, owner tron.Address) (Amount, err
 	const op = "token.Handle.BalanceOf"
 	res, err := h.instance.Call(ctx, "balanceOf", contract.AddressArg(owner))
 	if err != nil {
-		return Amount{}, err
+		return Amount{}, metaErr(op, "balanceOf()", err)
 	}
 	raw, err := res.BigInt()
 	if err != nil {
@@ -155,4 +189,82 @@ func (h *Handle) Transfer(ctx context.Context, from, to tron.Address, amt Amount
 			Hint: fmt.Sprintf("the Amount carries %d decimals but this token has %d; mint amounts with this Handle (Amount/Whole/BalanceOf) — they are never re-scaled", amt.Decimals(), h.decimals)}
 	}
 	return h.instance.Invoke(ctx, from, 0, "transfer", contract.AddressArg(to), contract.BigIntArg(amt.Raw()))
+}
+
+// Approve builds the approve(address,uint256) transaction: owner authorizes
+// spender to move up to amt of the owner's tokens (the DEX allowance
+// flow). Same rules as Transfer: the call value is 0, the Amount must
+// carry this token's scale, and a zero owner is address.invalid.
+func (h *Handle) Approve(ctx context.Context, owner, spender tron.Address, amt Amount) (*tx.ContractTx, error) {
+	const op = "token.Handle.Approve"
+	if owner.IsZero() {
+		return nil, &tron.Error{Code: tron.CodeAddressInvalid, Op: op, Hint: "owner address is unset; Approve needs the account that will sign and broadcast"}
+	}
+	if amt.Decimals() != h.decimals {
+		return nil, &tron.Error{Code: tron.CodeAmountDecimalsMismatch, Op: op,
+			Hint: fmt.Sprintf("the Amount carries %d decimals but this token has %d; mint amounts with this Handle (Amount/Whole/BalanceOf) — they are never re-scaled", amt.Decimals(), h.decimals)}
+	}
+	return h.instance.Invoke(ctx, owner, 0, "approve", contract.AddressArg(spender), contract.BigIntArg(amt.Raw()))
+}
+
+// Allowance reads how much of owner's tokens spender may currently move,
+// as an Amount at the Handle's scale.
+func (h *Handle) Allowance(ctx context.Context, owner, spender tron.Address) (Amount, error) {
+	const op = "token.Handle.Allowance"
+	res, err := h.instance.Call(ctx, "allowance", contract.AddressArg(owner), contract.AddressArg(spender))
+	if err != nil {
+		return Amount{}, metaErr(op, "allowance()", err)
+	}
+	raw, err := res.BigInt()
+	if err != nil {
+		return Amount{}, &tron.Error{Code: tron.CodeContractBadMetadata, Op: op,
+			Hint: "allowance() did not return a number; the contract does not implement TRC-20", Cause: err}
+	}
+	return newAmount(raw, h.decimals), nil
+}
+
+// Name reads the token's name. A non-string answer is contract.bad_metadata.
+func (h *Handle) Name(ctx context.Context) (string, error) {
+	const op = "token.Handle.Name"
+	res, err := h.instance.Call(ctx, "name")
+	if err != nil {
+		return "", metaErr(op, "name()", err)
+	}
+	name, err := res.String()
+	if err != nil {
+		return "", &tron.Error{Code: tron.CodeContractBadMetadata, Op: op,
+			Hint: "name() did not return a string; the contract does not implement TRC-20", Cause: err}
+	}
+	return name, nil
+}
+
+// Symbol reads the token's symbol. A non-string answer is contract.bad_metadata.
+func (h *Handle) Symbol(ctx context.Context) (string, error) {
+	const op = "token.Handle.Symbol"
+	res, err := h.instance.Call(ctx, "symbol")
+	if err != nil {
+		return "", metaErr(op, "symbol()", err)
+	}
+	symbol, err := res.String()
+	if err != nil {
+		return "", &tron.Error{Code: tron.CodeContractBadMetadata, Op: op,
+			Hint: "symbol() did not return a string; the contract does not implement TRC-20", Cause: err}
+	}
+	return symbol, nil
+}
+
+// TotalSupply reads the token's total supply as an Amount at the Handle's
+// scale. A non-numeric answer is contract.bad_metadata.
+func (h *Handle) TotalSupply(ctx context.Context) (Amount, error) {
+	const op = "token.Handle.TotalSupply"
+	res, err := h.instance.Call(ctx, "totalSupply")
+	if err != nil {
+		return Amount{}, metaErr(op, "totalSupply()", err)
+	}
+	raw, err := res.BigInt()
+	if err != nil {
+		return Amount{}, &tron.Error{Code: tron.CodeContractBadMetadata, Op: op,
+			Hint: "totalSupply() did not return a number; the contract does not implement TRC-20", Cause: err}
+	}
+	return newAmount(raw, h.decimals), nil
 }

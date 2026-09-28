@@ -61,6 +61,9 @@ type fakeWallet struct {
 	Trigger           func(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error)
 	GetContractFn     func(ctx context.Context, in *api.BytesMessage) (*core.SmartContract, error)
 	GetContractInfoFn func(ctx context.Context, in *api.BytesMessage) (*core.SmartContractDataWrapper, error)
+	UpdateSettingFn   func(ctx context.Context, in *core.UpdateSettingContract) (*api.TransactionExtention, error)
+	UpdateEnergyFn    func(ctx context.Context, in *core.UpdateEnergyLimitContract) (*api.TransactionExtention, error)
+	ClearABIFn        func(ctx context.Context, in *core.ClearABIContract) (*api.TransactionExtention, error)
 
 	triggerConstantCalls atomic.Int32
 	triggerCalls         atomic.Int32
@@ -99,6 +102,34 @@ func (f *fakeWallet) GetContractInfo(ctx context.Context, in *api.BytesMessage) 
 	// Default: a fresh contract — deployed (SmartContract present) but with
 	// no state row yet.
 	return &core.SmartContractDataWrapper{SmartContract: &core.SmartContract{}}, nil
+}
+
+func manageExt() *api.TransactionExtention {
+	return &api.TransactionExtention{
+		Result:      okResult(),
+		Transaction: &core.Transaction{RawData: &core.TransactionRaw{}},
+	}
+}
+
+func (f *fakeWallet) UpdateSetting(ctx context.Context, in *core.UpdateSettingContract) (*api.TransactionExtention, error) {
+	if f.UpdateSettingFn != nil {
+		return f.UpdateSettingFn(ctx, in)
+	}
+	return manageExt(), nil
+}
+
+func (f *fakeWallet) UpdateEnergyLimit(ctx context.Context, in *core.UpdateEnergyLimitContract) (*api.TransactionExtention, error) {
+	if f.UpdateEnergyFn != nil {
+		return f.UpdateEnergyFn(ctx, in)
+	}
+	return manageExt(), nil
+}
+
+func (f *fakeWallet) ClearContractABI(ctx context.Context, in *core.ClearABIContract) (*api.TransactionExtention, error) {
+	if f.ClearABIFn != nil {
+		return f.ClearABIFn(ctx, in)
+	}
+	return manageExt(), nil
 }
 
 // newContractTestClient dials a bufconn-backed gRPC Wallet server with a

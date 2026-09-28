@@ -62,6 +62,28 @@ func (i *Instance) DynamicEnergy(ctx context.Context) (*tx.DynamicEnergy, error)
 	return tx.DynamicEnergyOf(i.cp, ctx, i.address)
 }
 
+// UpdateSetting builds an UpdateSettingContract transaction setting this
+// contract's consume_user_resource_percent (0..100): the deployer's share
+// of every call's energy cost. Only the deployer account may broadcast
+// it. Bandwidth-only (NativeTx) — no energy, no simulation path.
+func (i *Instance) UpdateSetting(ctx context.Context, owner tron.Address, percent int64) (*tx.NativeTx, error) {
+	return tx.BuildUpdateSetting(i.cp, ctx, owner, i.address, percent)
+}
+
+// UpdateEnergyLimit builds an UpdateEnergyLimitContract transaction
+// setting this contract's origin_energy_limit. Only the deployer account
+// may broadcast it. Bandwidth-only (NativeTx).
+func (i *Instance) UpdateEnergyLimit(ctx context.Context, owner tron.Address, limit int64) (*tx.NativeTx, error) {
+	return tx.BuildUpdateEnergyLimit(i.cp, ctx, owner, i.address, limit)
+}
+
+// ClearABI builds a ClearABIContract transaction dropping this contract's
+// published ABI. The contract keeps running. Only the deployer account
+// may broadcast it. Bandwidth-only (NativeTx).
+func (i *Instance) ClearABI(ctx context.Context, owner tron.Address) (*tx.NativeTx, error) {
+	return tx.BuildClearABI(i.cp, ctx, owner, i.address)
+}
+
 // UseABI loads the contract's ABI from a Solidity JSON string, replacing
 // any previously loaded ABI. Loading parses the JSON (contract.bad_abi on
 // failure) and registers the ABI's event definitions with the event

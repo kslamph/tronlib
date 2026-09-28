@@ -8,7 +8,7 @@
 > `cmd/migrate/tables.go` from that list; they never hand-edit this block.
 
 <!-- go:migration -->
-**423 v1 symbols: 137 moved, 4 renamed, 25 removed, 63 candidates, 194 unmapped.**
+**423 v1 symbols: 137 moved, 4 renamed, 25 removed, 68 candidates, 189 unmapped.**
 
 ## Moved
 
@@ -225,8 +225,8 @@
 | `smartcontract.Manager.GetContract` | `rpc.GetContract` |
 | `smartcontract.Manager.GetContractInfo` | `rpc.GetContractInfo` |
 | `smartcontract.Manager.Instance` | `contract.Instance` |
-| `smartcontract.Manager.UpdateEnergyLimit` | `rpc.UpdateEnergyLimit` |
-| `smartcontract.Manager.UpdateSetting` | `rpc.UpdateSetting` |
+| `smartcontract.Manager.UpdateEnergyLimit` | `contract.Instance.UpdateEnergyLimit` |
+| `smartcontract.Manager.UpdateSetting` | `contract.Instance.UpdateSetting` |
 | `trc10.TRC10Manager.CreateAssetIssue2` | `rpc.CreateAssetIssue2` |
 | `trc10.TRC10Manager.GetAssetIssueByAccount` | `rpc.GetAssetIssueByAccount` |
 | `trc10.TRC10Manager.GetAssetIssueById` | `rpc.GetAssetIssueById` |
@@ -238,8 +238,13 @@
 | `trc10.TRC10Manager.TransferAsset2` | `rpc.TransferAsset2` |
 | `trc10.TRC10Manager.UnfreezeAsset2` | `rpc.UnfreezeAsset2` |
 | `trc10.TRC10Manager.UpdateAsset2` | `rpc.UpdateAsset2` |
+| `trc20.TRC20Manager.Allowance` | `token.Handle.Allowance` |
+| `trc20.TRC20Manager.Approve` | `token.Handle.Approve` |
 | `trc20.TRC20Manager.BalanceOf` | `token.Handle.BalanceOf` |
 | `trc20.TRC20Manager.Decimals` | `token.Amount.Decimals` |
+| `trc20.TRC20Manager.Name` | `token.Handle.Name` |
+| `trc20.TRC20Manager.Symbol` | `token.Handle.Symbol` |
+| `trc20.TRC20Manager.TotalSupply` | `token.Handle.TotalSupply` |
 | `trc20.TRC20Manager.Transfer` | `token.Handle.Transfer` |
 | `types.ContractError.Error` | `tron.Error` |
 | `types.ContractError.Unwrap` | `tron.Error.Unwrap` |
@@ -322,11 +327,6 @@
 - `trc20.FromWeiWithDecimals`
 - `trc20.NewManager`
 - `trc20.TRC20Manager`
-- `trc20.TRC20Manager.Allowance`
-- `trc20.TRC20Manager.Approve`
-- `trc20.TRC20Manager.Name`
-- `trc20.TRC20Manager.Symbol`
-- `trc20.TRC20Manager.TotalSupply`
 - `trc20.ToWei`
 - `trc20.ToWeiWithDecimals`
 - `types.ActivePermissionID`

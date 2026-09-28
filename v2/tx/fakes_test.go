@@ -73,6 +73,9 @@ type fakeWalletServer struct {
 	TxInfo          func(ctx context.Context, in *api.BytesMessage) (*core.TransactionInfo, error)
 	TxInfoSolidity  func(ctx context.Context, in *api.BytesMessage) (*core.TransactionInfo, error)
 	ContractInfo    func(ctx context.Context, in *api.BytesMessage) (*core.SmartContractDataWrapper, error)
+	UpdateSettingFn func(ctx context.Context, in *core.UpdateSettingContract) (*api.TransactionExtention, error)
+	UpdateEnergyFn  func(ctx context.Context, in *core.UpdateEnergyLimitContract) (*api.TransactionExtention, error)
+	ClearABIFn      func(ctx context.Context, in *core.ClearABIContract) (*api.TransactionExtention, error)
 
 	// simulateCalls / estimateCalls / accountResourceCalls / energyPricesCalls
 	// count invocations, for asserting the CostPreview read sequence.
@@ -195,6 +198,37 @@ func (f *fakeWalletServer) GetContractInfo(ctx context.Context, in *api.BytesMes
 	// no state row yet, which the node reports as an absent ContractState
 	// (DynamicEnergyOf maps it to zero).
 	return &core.SmartContractDataWrapper{SmartContract: &core.SmartContract{}}, nil
+}
+
+// manageExt is the canned build response for the contract management RPCs:
+// a transaction shell with raw data (no contract message needed — the
+// management builders never decode it).
+func manageExt() *api.TransactionExtention {
+	return &api.TransactionExtention{
+		Result:      okResult(),
+		Transaction: &core.Transaction{RawData: &core.TransactionRaw{}},
+	}
+}
+
+func (f *fakeWalletServer) UpdateSetting(ctx context.Context, in *core.UpdateSettingContract) (*api.TransactionExtention, error) {
+	if f.UpdateSettingFn != nil {
+		return f.UpdateSettingFn(ctx, in)
+	}
+	return manageExt(), nil
+}
+
+func (f *fakeWalletServer) UpdateEnergyLimit(ctx context.Context, in *core.UpdateEnergyLimitContract) (*api.TransactionExtention, error) {
+	if f.UpdateEnergyFn != nil {
+		return f.UpdateEnergyFn(ctx, in)
+	}
+	return manageExt(), nil
+}
+
+func (f *fakeWalletServer) ClearContractABI(ctx context.Context, in *core.ClearABIContract) (*api.TransactionExtention, error) {
+	if f.ClearABIFn != nil {
+		return f.ClearABIFn(ctx, in)
+	}
+	return manageExt(), nil
 }
 
 // fakeSolidityServer serves the WalletSolidity service on the same bufconn
