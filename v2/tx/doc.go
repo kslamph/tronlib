@@ -56,6 +56,13 @@
 //     the spec's Base/Penalty split would be fabricated (spec §7.1 says the
 //     node already applies the penalty). Use ContractTx.Simulate (Estimate
 //     .Energy/.Penalty) when the split matters.
+//   - EstimateEnergy is the node's CONSERVATIVE fee-limit calculator, not the
+//     accurate cost: live-verified §7.5, it returns 1.5× the actual execution
+//     energy. CostPreview uses Simulate.Energy (TriggerConstantContract.Energy
+//     Used, the accurate dry-run cost, exact on the live run) as EnergyNeeded,
+//     and the energy→SUN conversion goes through EnergyPrice.CostOf — the pure
+//     burn calculator driven by the network's SunPerEnergy parameter, which is
+//     independent of any specific contract or transaction.
 //   - Estimate.Net is always 0: TriggerConstantContract exposes no bandwidth
 //     figure. Receipt.Cost reports actual bandwidth after broadcast.
 package tx

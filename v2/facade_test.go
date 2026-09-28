@@ -540,7 +540,13 @@ func TestWaitForSolidDelegatesToSolidityEndpoint(t *testing.T) {
 // --- cost delegations ---
 
 func TestCostPreviewDelegatesToPreviewCost(t *testing.T) {
-	c := newFacadeTestClient(t, &fakeFacadeServer{})
+	f := &fakeFacadeServer{}
+	f.TriggerConstant = func(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error) {
+		ext := facadeTriggerExt()
+		ext.EnergyUsed = 5000
+		return ext, nil
+	}
+	c := newFacadeTestClient(t, f)
 	txr, err := tx.BuildTriggerSmartContract(c.Raw(), context.Background(), facadeFrom, facadeTo, nil, 0)
 	if err != nil {
 		t.Fatalf("BuildTriggerSmartContract: %v", err)

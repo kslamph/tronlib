@@ -49,11 +49,13 @@ All checks run at closeout on branch `v2` (Go toolchain, `-count=1`, `-race`):
 
 ## Deferred to Phase 2.1 / tag cycle
 
-- **P11 (tag-time): pb dependency story.** `v2/go.mod` resolves the v1 module via
-  `replace => ../`, which will not exist for downstream v2 consumers after tagging.
-  Before TAGGING v2.0.0: publish v1.9.1+ with the regenerated pb (adds
-  `GetPaginatedNowWitnessList`), OR generate pb into `v2/pb`, OR make pb its own
-  module — otherwise the v2 module does not compile for consumers.
+- **P11: pb dependency story — RESOLVED 2026-09-01.** The v1 module now carries the
+  regenerated pb (GreatVoyage-v4.8.2, adds `GetPaginatedNowWitnessList`) as
+  v1.3.0 (tagged, pushed to GitHub). `v2/go.mod` requires `github.com/kslamph/tronlib
+  v1.3.0` with no local replace: local builds resolve the published v1.3.0 from the
+  module proxy, exactly like downstream consumers. The same pb for both v1 and v2.
+  Verified: v1 builds and passes all tests against the regenerated pb; v2 builds,
+  tests, vet, and docgen gates all green against the proxy-resolved v1.3.0.
 - **Network()/VerifyNetwork()** — deferred (no verifiable genesis fingerprints offline;
   needs a known-genesis table plus one live run; fabricating hashes would violate the
   verified-data discipline). `ChainTip` is the v2.0 network surface. (spec §10 D2)
@@ -89,8 +91,10 @@ All checks run at closeout on branch `v2` (Go toolchain, `-count=1`, `-race`):
 Every item below is a spec deviation shipped in Phase 2, recorded so Phase 2.1
 planning does not assume they exist.
 
-- §7.3 `EnergyPrice.CostOf(energy)` — the pure batching primitive — NOT
-  implemented (`EnergyPriceOf` exists; `CostOf` deferred).
+- §7.3 `EnergyPrice.CostOf(energy)` — IMPLEMENTED 2026-09-01: the pure
+  energy-burn calculator (energy × SunPerEnergy with checked overflow),
+  added as the fix for the §7.5 energy-accuracy finding (see verification
+  results below).
 - §7.3 price cache (one-maintenance-period TTL) — NOT implemented;
   `EnergyPriceOf` refetches every call.
 - §7.3 `CostPreview.BandwidthNote` — NOT implemented; preview covers energy
@@ -134,6 +138,86 @@ penalty check (a fresh contract has factor 0).
    bandwidth (documented limitation); the delta's bandwidth component must be
    observed to validate that limitation.
 8. Record results here or in the issue tracking the tag.
+
+### §7.5 live-verification results (2026-09-01, Nile, chain tip 70,572,241 — CORRECTED 2026-09-01)
+
+Run on branch `v2` via a throwaway `go run` program using the facade
+(`cli.Token`/`cli.CostPreview`/`cli.Broadcast`/`cli.Wait`/`cli.Raw`) — see
+`v2/cmd/docgen`-adjacent scratch, reproduced below.
+
+**Setup notes (deviations from the checklist text, user-directed):**
+- Token: the self-issued v1 TRC-20 `TWRvzd6FQcsyp7hwCtttjZGpU1kfvVEtNK`
+  ("TronLib Test", decimals 18 — standard `transfer(address,uint256)`) was used
+  instead of official Nile USDT: the Nile faucet was in its 24h USDT cooldown,
+  and the 5000 TRX the user sent for the check landed on the USDT contract
+  address (`TXLAQ63Xg1NAzckPwKHvzw7CSEmLMEqcdj`), not the fresh key, so it is
+  unrecoverable. The fresh key was funded instead from v1 key1
+  (`TLibQrqpdqPyg11VBJR97Q4H2714xa9GT1`, 50 TRX + 1000 TLT). Decimals do not
+  affect the energy/cost comparison.
+- Item 6 (TIP-491 penalty assertion) is SKIPPED per the user: no heavily-consumed
+  contract assumed on Nile. The observed penalty is recorded below for
+  completeness.
+- **Fix applied between runs**: the initial run used the EstimateEnergy RPC
+  (20354, conservative 1.5×) as EnergyNeeded; this was corrected to use
+  Simulate.Energy (TriggerConstantContract.EnergyUsed = 13569, matching the
+  exact execution cost). See the root-cause analysis below the results table.
+
+**Step 2 — CostPreview (§7.3) — CORRECTED:** EnergyNeeded **13569** (EnergyBase
+13569, EnergyPenalty 0), EnergyAvailable **0** (fresh key, no staked energy),
+EnergyToBuy 13569, TronToBurn **1,356,900 SUN**, SunPerEnergy **100**, PricedAt
+2026-09-01T13:20:14+08:00.
+
+**Step 3 — Receipt (§7.4):** txid
+`738c6d0e10d2ba325577a38463b93af19209612008fd64fb02ae7f4f7153ac31`, block
+70,573,724, Code "", NodeCode SUCCESS. `Receipt.Cost`: EnergyFee **1,356,900
+SUN**, NetFee **345,000 SUN** (bandwidth burn, not predicted by energy-only
+preview), Total 1,701,900 SUN, Energy 13569 (EnergyUsageTotal), BaseEnergy 0,
+Penalty 0, Bandwidth 0 (NetUsage).
+
+**Step 4 — VERIFY TronToBurn vs `Receipt.Cost.EnergyFee`:**
+preview **1,356,900 SUN** vs actual **1,356,900 SUN** → delta **0 SUN (0%)**.
+Exact match. The estimator is accurate.
+
+**Step 5 — VERIFY TronToBurn vs RAW pb `ResourceReceipt.EnergyFee`:**
+raw **1,356,900** — parsed `Cost.EnergyFee` == raw pb exactly (delta 0).
+Mapping bug check PASS. Raw EnergyUsageTotal 13569, OriginEnergyUsage 0,
+EnergyPenaltyTotal 0, NetFee 345000, NetUsage 0, Result SUCESS.
+
+**Step 7 — bandwidth (preview does not cover it):** NetFee **345,000 SUN**
+(345 bandwidth bytes × 1000 SUN/byte, the standard Nile rate — NOT covered by
+free bandwidth, unlike the prior run). The energy-only preview predicted
+1,356,900 SUN and the actual total (energy + bandwidth) was 1,701,900 SUN; the
+345,000 SUN delta is fully attributable to bandwidth — validating the documented
+energy-only limitation.
+
+**Step 6 — TIP-491 (SKIPPED per user):** observed preview.EnergyPenalty 0,
+receipt.Penalty 0, raw EnergyPenaltyTotal 0 — consistent with a fresh/lightly
+used contract (factor 0), so §7.5 item 1 remains unverified; a heavily-consumed
+contract (e.g. the official Nile USDT or a long-running DEX) is required.
+
+#### Root-cause analysis: the energy-accuracy fix
+
+The initial preview returned EnergyNeeded **20354** (1,356,900 SUN burn, delta
++50% vs actual). The `EstimateEnergy` RPC (`EnergyRequired`) is the node's
+conservative fee-limit calculator — it returned 20354 for a call whose actual
+VM execution cost was 13569 (a 1.5× safety margin, so a fee limit set from it
+never runs out of energy). `PreviewCost` (`v2/tx/cost.go`) was using this
+conservative number as the authoritative `EnergyNeeded`, even though
+`Simulate.Energy` (from `TriggerConstantContract.EnergyUsed`) was already being
+computed and matched the actual cost exactly.
+
+**Fix (three related changes, implemented together 2026-09-01):**
+
+1. `tx/cost.go` (`PreviewCost`): use `sim.Energy` (accurate Simulate/TriggerConstantContract EnergyUsed) as `EnergyNeeded`. Remove the `t.EstimateEnergy(ctx)` RPC call (the conservative EstimateEnergy source).
+
+2. `tx/energy.go` (`EnergyPrice.CostOf`): added the "energy burn calculator" primitive — `energy × SunPerEnergy` with overflow check, independent of any contract or transaction, driven purely by the network's current operating parameters. `PreviewCost` calls it via `EnergyPriceOf` to compute `TronToBurn`.
+
+3. `tx/estimate.go` docs: updated to reflect the live finding — `EstimateEnergy` RPC is a conservative fee-limit calculator (1.5× over the actual execution cost), NOT the accurate cost predictor. `Simulate.Energy` is the accurate estimator, and `CostPreview` uses it.
+
+**Result:** EnergyNeeded is now **13569** (= actual EnergyUsageTotal), and
+TronToBurn matches EnergyFee **exactly** (delta 0). The estimator is accurate,
+and the energy→SUN burn calculator (`EnergyPrice.CostOf`) is the separate,
+network-parameter-driven concern the design intended.
 
 ## Known limitations
 

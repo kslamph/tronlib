@@ -122,6 +122,35 @@ func TestSimulateTransportErrorPropagates(t *testing.T) {
 	}
 }
 
+func TestEnergyPriceCostOfBurnsAtCurrentRate(t *testing.T) {
+	p := &EnergyPrice{SunPerEnergy: 100}
+	cost, err := p.CostOf(13569) // the live-run energy: 13569 × 100 = 1,356,900 SUN
+	if err != nil {
+		t.Fatalf("CostOf: %v", err)
+	}
+	if int64(cost) != 1_356_900 {
+		t.Errorf("CostOf(13569 @ 100) = %d, want 1356900", int64(cost))
+	}
+	// Zero energy burns nothing, at any price.
+	zero, err := (&EnergyPrice{SunPerEnergy: 999_999_999}).CostOf(0)
+	if err != nil || int64(zero) != 0 {
+		t.Errorf("CostOf(0) = %d, %v; want 0, nil", int64(zero), err)
+	}
+}
+
+func TestEnergyPriceCostOfOverflowIsAmountOverflow(t *testing.T) {
+	p := &EnergyPrice{SunPerEnergy: 100}
+	_, err := p.CostOf(math.MaxInt64)
+	if err == nil || !tron.HasCode(err, tron.CodeAmountOverflow) {
+		t.Errorf("CostOf(MaxInt64) = %v, want amount.overflow", err)
+	}
+	// Negative energy is not a burnable amount.
+	_, err = p.CostOf(-1)
+	if err == nil || !tron.HasCode(err, tron.CodeAmountNegative) {
+		t.Errorf("CostOf(-1) = %v, want amount.negative", err)
+	}
+}
+
 func TestEstimateEnergyReturnsInclusiveTotal(t *testing.T) {
 	f := &fakeWalletServer{}
 	cp := newTxTestClient(t, f)
@@ -163,6 +192,7 @@ func TestPreviewCostThreeReadSequence(t *testing.T) {
 	cp := newTxTestClient(t, f)
 	ctx := t.Context()
 	ctxTx, _ := BuildTriggerSmartContract(cp, ctx, testFrom, testTo, nil, 0)
+	// Simulate returns the accurate dry-run energy (the actual VM cost).
 	f.TriggerConstant = func(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error) {
 		return &api.TransactionExtention{
 			Result:        okResult(),
@@ -170,8 +200,11 @@ func TestPreviewCostThreeReadSequence(t *testing.T) {
 			EnergyPenalty: 200,
 		}, nil
 	}
+	// EstimateEnergy is NOT called by PreviewCost (it is a conservative
+	// fee-limit calculator, not the actual execution cost).  Setting it to a
+	// different value should have no effect, and the call count must be 0.
 	f.EstimateEnerg = func(ctx context.Context, in *core.TriggerSmartContract) (*api.EstimateEnergyMessage, error) {
-		return &api.EstimateEnergyMessage{Result: okResult(), EnergyRequired: 5000}, nil
+		return &api.EstimateEnergyMessage{Result: okResult(), EnergyRequired: 9999}, nil
 	}
 	var gotOwner *core.Account
 	f.AccountResource = func(ctx context.Context, in *core.Account) (*api.AccountResourceMessage, error) {
@@ -186,29 +219,30 @@ func TestPreviewCostThreeReadSequence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CostPreview: %v", err)
 	}
-	if cp2.EnergyNeeded != 5000 {
-		t.Errorf("EnergyNeeded = %d, want 5000 (from EstimateEnergy, the inclusive total)", cp2.EnergyNeeded)
+	// EnergyNeeded comes from Simulate.Energy (TriggerConstantContract.EnergyUsed),
+	// the accurate dry-run energy, NOT from the conservative EstimateEnergy RPC.
+	if cp2.EnergyNeeded != 643 {
+		t.Errorf("EnergyNeeded = %d, want 643 (from Simulate.Energy, the accurate execution cost)", cp2.EnergyNeeded)
 	}
 	if cp2.EnergyPenalty != 200 {
 		t.Errorf("EnergyPenalty = %d, want 200 (from Simulate)", cp2.EnergyPenalty)
 	}
-	if cp2.EnergyBase != 4800 {
-		t.Errorf("EnergyBase = %d, want 4800", cp2.EnergyBase)
+	if cp2.EnergyBase != 443 {
+		t.Errorf("EnergyBase = %d, want 443 (643 EnergyNeeded − 200 Penalty)", cp2.EnergyBase)
 	}
 	if cp2.EnergyAvailable != 1500 {
 		t.Errorf("EnergyAvailable = %d, want 1500 (2000 limit − 500 used)", cp2.EnergyAvailable)
 	}
-	if cp2.EnergyToBuy != 3500 {
-		t.Errorf("EnergyToBuy = %d, want 3500", cp2.EnergyToBuy)
+	if cp2.EnergyToBuy != 0 {
+		// 643 EnergyNeeded − 1500 available = 0 (no burn needed).
+		t.Errorf("EnergyToBuy = %d, want 0 (643 needed ≤ 1500 available)", cp2.EnergyToBuy)
 	}
 	if cp2.SunPerEnergy != 420 {
 		t.Errorf("SunPerEnergy = %d, want 420 (latest timestamp wins)", cp2.SunPerEnergy)
 	}
-	if cp2.TronToBurn != 1_470_000 {
-		// 3500 × 420 = 1,470,000 SUN (1.47 TRX). NOTE: the dispatch brief's
-		// "1470000000" is an arithmetic slip; the spec §7.3 formula is the
-		// direct multiply energyToBuy × sunPerEnergy.
-		t.Errorf("TronToBurn = %d, want 1470000", cp2.TronToBurn)
+	if cp2.TronToBurn != 0 {
+		// 0 energy to buy, so 0 SUN burned.
+		t.Errorf("TronToBurn = %d, want 0 (no energy to buy)", cp2.TronToBurn)
 	}
 	if cp2.PricedAt.IsZero() {
 		t.Error("PricedAt must be set")
@@ -219,15 +253,20 @@ func TestPreviewCostThreeReadSequence(t *testing.T) {
 	if s := cp2.String(); s == "" || len(s) < 20 {
 		t.Errorf("String() = %q, want a rendered one-line preview", s)
 	}
-	// The read sequence: exactly one call per RPC.
+	// The read sequence: Simulate + GetAccountResource + GetEnergyPrices
+	// (EstimateEnergy is NOT called).
 	for name, n := range map[string]int32{
 		"Simulate":           f.simulateCalls.Load(),
 		"EstimateEnergy":     f.estimateCalls.Load(),
 		"GetAccountResource": f.accountResourceCalls.Load(),
 		"GetEnergyPrices":    f.energyPricesCalls.Load(),
 	} {
-		if n != 1 {
-			t.Errorf("%s called %d times, want exactly 1", name, n)
+		want := int32(1)
+		if name == "EstimateEnergy" {
+			want = 0
+		}
+		if n != want {
+			t.Errorf("%s called %d times, want %d", name, n, want)
 		}
 	}
 	if gotOwner == nil || string(gotOwner.GetAddress()) != string(testFrom.Bytes()) {
@@ -285,8 +324,9 @@ func TestPreviewCostBurnOverflowIsAmountOverflow(t *testing.T) {
 	cp := newTxTestClient(t, f)
 	ctx := t.Context()
 	ctxTx, _ := BuildTriggerSmartContract(cp, ctx, testFrom, testTo, nil, 0)
-	f.EstimateEnerg = func(ctx context.Context, in *core.TriggerSmartContract) (*api.EstimateEnergyMessage, error) {
-		return &api.EstimateEnergyMessage{Result: okResult(), EnergyRequired: math.MaxInt64}, nil
+	// Simulate returns the accurate energy; use MaxInt64 to trigger overflow.
+	f.TriggerConstant = func(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error) {
+		return &api.TransactionExtention{Result: okResult(), EnergyUsed: math.MaxInt64, EnergyPenalty: 0}, nil
 	}
 	f.AccountResource = func(ctx context.Context, in *core.Account) (*api.AccountResourceMessage, error) {
 		return &api.AccountResourceMessage{}, nil // nothing available → buy MaxInt64
@@ -322,11 +362,9 @@ func TestPreviewCostFeeLimitGateTooLow(t *testing.T) {
 	cp := newTxTestClient(t, f)
 	ctx := t.Context()
 	ctxTx, _ := BuildTriggerSmartContract(cp, ctx, testFrom, testTo, nil, 0)
+	// Simulate is the accurate energy source: 5000 needed − 1500 available.
 	f.TriggerConstant = func(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error) {
-		return &api.TransactionExtention{Result: okResult(), EnergyUsed: 5, EnergyPenalty: 0}, nil
-	}
-	f.EstimateEnerg = func(ctx context.Context, in *core.TriggerSmartContract) (*api.EstimateEnergyMessage, error) {
-		return &api.EstimateEnergyMessage{Result: okResult(), EnergyRequired: 5000}, nil
+		return &api.TransactionExtention{Result: okResult(), EnergyUsed: 5000, EnergyPenalty: 0}, nil
 	}
 	f.AccountResource = func(ctx context.Context, in *core.Account) (*api.AccountResourceMessage, error) {
 		return &api.AccountResourceMessage{EnergyLimit: 2000, EnergyUsed: 500}, nil
@@ -360,10 +398,7 @@ func TestPreviewCostFeeLimitGatePasses(t *testing.T) {
 	ctx := t.Context()
 	ctxTx, _ := BuildTriggerSmartContract(cp, ctx, testFrom, testTo, nil, 0)
 	f.TriggerConstant = func(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error) {
-		return &api.TransactionExtention{Result: okResult(), EnergyUsed: 5, EnergyPenalty: 0}, nil
-	}
-	f.EstimateEnerg = func(ctx context.Context, in *core.TriggerSmartContract) (*api.EstimateEnergyMessage, error) {
-		return &api.EstimateEnergyMessage{Result: okResult(), EnergyRequired: 5000}, nil
+		return &api.TransactionExtention{Result: okResult(), EnergyUsed: 5000, EnergyPenalty: 0}, nil
 	}
 	f.AccountResource = func(ctx context.Context, in *core.Account) (*api.AccountResourceMessage, error) {
 		return &api.AccountResourceMessage{EnergyLimit: 2000, EnergyUsed: 500}, nil

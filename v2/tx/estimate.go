@@ -14,13 +14,17 @@ import (
 // simulation never becomes a transaction, so any id it could carry would be
 // fabricated.
 //
-// live-verified: pending (spec §7.5).
+// live-verified: §7.5 — Estimate.Energy (TransactionExtention.EnergyUsed,
+// 13569 on the live run) matches the post-broadcast
+// ResourceReceipt.EnergyUsageTotal (13569) EXACTLY; it is the accurate
+// execution cost and therefore the source CostPreview uses for EnergyNeeded.
 type Estimate struct {
 	// ConstantResult holds the returned ABI-encoded values of the constant
 	// call (one entry per returned value).
 	ConstantResult [][]byte
 	// Energy is the energy the call is estimated to consume
-	// (TransactionExtention.EnergyUsed).
+	// (TransactionExtention.EnergyUsed) — live-verified to equal the actual
+	// post-broadcast EnergyUsageTotal exactly.
 	Energy int64
 	// Penalty is the TIP-491 dynamic-model energy surcharge the node already
 	// includes in Energy (TransactionExtention.EnergyPenalty, field 8).
@@ -43,7 +47,13 @@ type Estimate struct {
 // would be fabricated; use ContractTx.Simulate (Estimate.Penalty) for the
 // split.
 //
-// live-verified: pending (spec §7.5).
+// live-verified: §7.5 — EstimateEnergy is the node's CONSERVATIVE fee-limit
+// calculator: on the live run it returned 20354 for a call whose actual
+// execution cost was 13569 (a 1.5× safety margin, sized so a fee limit set
+// from it never runs out of energy). It is the right answer for "what fee
+// limit guarantees success", NOT for "what will this cost" — use
+// ContractTx.Simulate (Estimate.Energy) for the accurate cost prediction;
+// CostPreview does exactly that.
 type EnergyEstimate struct {
 	// Energy is the total (penalty-inclusive) energy estimate.
 	Energy int64
@@ -92,6 +102,13 @@ func (t *ContractTx) Simulate(ctx context.Context) (*Estimate, error) {
 // total energy of the call (spec §7.1). Like Simulate it exists ONLY on
 // *ContractTx. A node-level rejection surfaces as a *tron.Error (the RPC's
 // Return mapped through the v2 table), unlike Simulate's in-band Code.
+//
+// NOTE (live-verified §7.5): the node's EstimateEnergy RPC returns a
+// CONSERVATIVE upper bound for fee-limit setting (1.5× actual on the live
+// run), NOT the accurate execution cost. Use it when you need a fee limit
+// that guarantees the call completes without OUT_OF_ENERGY; for an accurate
+// cost prediction use Simulate (Estimate.Energy), which is what CostPreview
+// does.
 func (t *ContractTx) EstimateEnergy(ctx context.Context) (*EnergyEstimate, error) {
 	const op = "tx.EstimateEnergy"
 	req, err := triggerParam(&t.baseTx, op)

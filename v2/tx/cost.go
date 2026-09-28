@@ -16,36 +16,52 @@ import (
 // CostPreview predicts what broadcasting a ContractTx will cost the owner in
 // SUN, combining three read-only node answers (spec §7.3):
 //
-//  1. ContractTx.Simulate — the Energy/Penalty split AND the revert check. If
-//     Simulate errors (including a node rejection surfaced as an error),
-//     CostPreview returns the error: the caller then knows the call will not
-//     run, and a cost prediction for a call that cannot run would be noise.
-//  2. ContractTx.EstimateEnergy — the authoritative penalty-INCLUSIVE total
-//     (EnergyNeeded). Simulate supplies the split; the total comes from
-//     EstimateEnergy because that RPC is the node's dedicated estimate. This
-//     costs ONE extra RPC versus using EstimateEnergy alone — the price of
-//     knowing the penalty share.
-//  3. rpc.GetAccountResource (owner) — EnergyLimit−EnergyUsed = staked
-//     energy available without buying.
+//  1. ContractTx.Simulate — the accurate ENERGY ESTIMATOR
+//     (TriggerConstantContract.EnergyUsed) AND the revert check.
+//     Simulate.Energy (Estimate.Energy) is the energy the call actually
+//     consumes during a deterministic dry run — live-verified to match the
+//     post-broadcast ResourceReceipt.EnergyUsageTotal exactly (spec §7.5).
+//     If Simulate errors, CostPreview returns the error: a cost prediction
+//     for a call that cannot run would be noise.
+//     Simulate.Penalty supplies the TIP-491 penalty split (when > 0).
 //
-// The unit price comes from rpc.GetEnergyPrices: its history is a
-// comma-separated "timestamp:price" list and the entry with the GREATEST
-// timestamp is the current price (SUN per energy).
+//  2. rpc.GetAccountResource (owner) — EnergyLimit−EnergyUsed = staked
+//     energy available without buying (EnergyAvailable).
 //
-// TronToBurn = max(0, EnergyNeeded − EnergyAvailable) × price, computed with
-// SUN's checked multiply: an overflow (huge energies × high prices) returns
-// amount.overflow rather than wrapping into a silently wrong amount.
-// PricedAt timestamps the price read — the preview is a FLOOR, not a ceiling:
-// the price is a governance parameter and energy prices only ever move in the
-// caller's favor at the margins between preview and broadcast.
+//  3. EnergyPriceOf — the current SunPerEnergy (the network governance
+//     parameter that sets the energy→SUN burn ratio, independent of any
+//     specific contract or transaction).
+//
+// Energy estimator vs Energy burn calculator:
+//
+//	The energy estimator (Simulate) returns the accurate energy units the
+//	call will consume.  The burn calculator (EnergyPrice.CostOf) converts
+//	energy that must be purchased into SUN at the network's current
+//	SunPerEnergy ratio — a property of the TRON network's operating
+//	parameters, not of any specific contract or transaction (see the design
+//	separation in §7.3: EnergyPrice.CostOf is the pure batching primitive).
+//
+//	CostPreview combines both roles: it feeds the estimator's accurate
+//	EnergyNeeded through the burn calculator to produce TronToBurn.
+//
+// TronToBurn = max(0, EnergyNeeded − EnergyAvailable) converted to SUN at
+// the network's current SunPerEnergy price via the checked multiply in
+// EnergyPrice.CostOf.  An overflow returns amount.overflow.
+//
+// PricedAt timestamps the price read — the preview is a FLOOR, not a
+// ceiling: the price is a governance parameter and energy prices only ever
+// move in the caller's favor at the margins between preview and broadcast.
 //
 // Fee-limit floor-check (spec §6.4): PreviewCost returns tx.fee_limit_too_low
 // when TronToBurn exceeds the transaction's fee_limit — the 150-TRX default
 // is a floor that is checked, not trusted.
 //
-// live-verified: pending (spec §7.5).
+// live-verified: §7.5 item 2-3 (energy matches actual receipt), corrected
+// from the prior EstimateEnergy RPC to the accurate Simulate.Energy source.
 type CostPreview struct {
-	// EnergyNeeded is the penalty-inclusive total energy (EstimateEnergy).
+	// EnergyNeeded is the total energy the call is expected to consume — the
+	// accurate dry-run EnergyUsed from TriggerConstantContract (Simulate.Energy),
+	// live-verified to match the post-execution EnergyUsageTotal exactly.
 	EnergyNeeded int64
 	// EnergyBase is EnergyNeeded − EnergyPenalty: the call's own consumption.
 	EnergyBase int64
@@ -90,31 +106,32 @@ func PreviewCost(cp rpc.ConnProvider, ctx context.Context, t *ContractTx, owner 
 	if t == nil {
 		return nil, &tron.Error{Code: tron.CodeTxInvalidArgument, Op: op, Hint: "transaction is nil"}
 	}
-	// Read 1: the split and the revert check. Errors propagate.
+	// Read 1: the accurate energy estimator (Simulate.Energy =
+	// TriggerConstantContract.EnergyUsed) AND the revert check.
+	// Errors propagate: a call that cannot execute has no cost.
 	sim, err := t.Simulate(ctx)
 	if err != nil {
 		return nil, err
 	}
-	// Read 2: the authoritative inclusive total. Errors propagate.
-	est, err := t.EstimateEnergy(ctx)
-	if err != nil {
-		return nil, err
-	}
-	// Read 3: the owner's staked energy.
+	// Read 2: the owner's staked energy.
 	res, err := rpc.GetAccountResource(cp, ctx, &core.Account{Address: owner.Bytes()})
 	if err != nil {
 		return nil, err
 	}
-	price, _, err := latestEnergyPrice(cp, ctx, op)
+	// Read 3: the energy→SUN burn ratio (network governance parameter,
+	// independent of the contract or transaction).
+	price, err := EnergyPriceOf(cp, ctx)
 	if err != nil {
 		return nil, err
 	}
 	available := res.GetEnergyLimit() - res.GetEnergyUsed()
-	toBuy := est.Energy - available
+	toBuy := sim.Energy - available
 	if toBuy < 0 {
 		toBuy = 0
 	}
-	burn, err := tron.SUN(toBuy).Mul(price)
+	// Energy burn calculator: convert energy-to-buy into SUN at the
+	// network's current SunPerEnergy ratio.
+	burn, err := price.CostOf(toBuy)
 	if err != nil {
 		return nil, &tron.Error{Code: tron.CodeAmountOverflow, Op: op, Cause: err,
 			Hint: "EnergyToBuy × SunPerEnergy overflows SUN; the call cannot be priced in int64 SUN",
@@ -132,14 +149,14 @@ func PreviewCost(cp rpc.ConnProvider, ctx context.Context, t *ContractTx, owner 
 		}
 	}
 	return &CostPreview{
-		EnergyNeeded:    est.Energy,
-		EnergyBase:      est.Energy - sim.Penalty,
+		EnergyNeeded:    sim.Energy,
+		EnergyBase:      sim.Energy - sim.Penalty,
 		EnergyPenalty:   sim.Penalty,
 		EnergyAvailable: available,
 		EnergyToBuy:     toBuy,
 		TronToBurn:      burn,
-		SunPerEnergy:    price,
-		PricedAt:        time.Now(),
+		SunPerEnergy:    price.SunPerEnergy,
+		PricedAt:        price.FetchedAt,
 	}, nil
 }
 

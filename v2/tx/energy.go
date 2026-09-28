@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/kslamph/tronlib/v2/rpc"
+	"github.com/kslamph/tronlib/v2/tron"
 )
 
 // EnergyPrice is the current energy unit price read from the node's
@@ -43,4 +44,23 @@ func EnergyPriceOf(cp rpc.ConnProvider, ctx context.Context) (*EnergyPrice, erro
 		EffectiveAt:  time.UnixMilli(ts),
 		FetchedAt:    time.Now(),
 	}, nil
+}
+
+// CostOf converts an energy amount into the SUN that burning that energy
+// costs at this price (energy × SunPerEnergy). It is the energy-burn
+// calculator: the energy→SUN ratio is a property of the network's current
+// operating parameters, independent of any specific contract or
+// transaction. Energy estimators (Simulate/EstimateEnergy, CostPreview)
+// produce energy units; this primitive is the one place energy becomes SUN.
+// An overflow (energy × price > int64 SUN) returns amount.overflow; a
+// negative energy has no SUN cost and returns amount.negative.
+func (p *EnergyPrice) CostOf(energy int64) (tron.SUN, error) {
+	if energy < 0 {
+		return 0, &tron.Error{
+			Code: tron.CodeAmountNegative,
+			Op:   "EnergyPrice.CostOf",
+			Hint: "negative energy has no SUN cost",
+		}
+	}
+	return tron.SUN(energy).Mul(p.SunPerEnergy)
 }

@@ -200,8 +200,10 @@ func (c *Client) WaitForSolid(ctx context.Context, txid string) (*Receipt, error
 }
 
 // CostPreview predicts what broadcasting t will cost owner in SUN,
-// combining the simulation (energy split + revert check), the authoritative
-// energy estimate and the owner's staked energy (spec §7.3).
+// combining the accurate simulated energy (the estimator: Simulate.Energy,
+// live-verified to match the execution cost), the energy→SUN burn at the
+// current network price (EnergyPrice.CostOf), and the owner's staked energy
+// (spec §7.3).
 func (c *Client) CostPreview(ctx context.Context, t *ContractTx, owner Address) (*tx.CostPreview, error) {
 	return tx.PreviewCost(c.inner, ctx, t, owner)
 }
