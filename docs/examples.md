@@ -1,6 +1,6 @@
 # tronlib v2 — Compiled Examples
 
-<!-- Regenerate: go -C v2 run ./cmd/docgen sync-docs -pkg ./tron -example-pkg . -docs ./docs/examples.md -->
+<!-- Regenerate: go run ./cmd/docgen sync-docs -pkg ./tron -example-pkg . -docs ./docs/examples.md -->
 
 Every snippet below is extracted from a compiled `Example` function in the
 package's `_test.go` files — it is exactly what CI builds. To add one, write

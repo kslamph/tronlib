@@ -20,26 +20,21 @@ Anything not covered here falls back to the official Go style:
 ## 1. Project layout
 
 ```
-cmd/                 standalone tools (event_abi_generator, setup_nile_testnet, ...)
-pkg/                 the public library, one domain per package
-  account/           account queries and permissions
-  client/            gRPC client, connection pool, broadcaster
-  eventdecoder/      transaction log / event decoding
-  network/           node & network info
-  resources/         bandwidth / energy queries
-  signer/            private-key and HD-wallet signing
-  smartcontract/     deploy, call, simulate
-  trc10/             TRC10 asset operations
-  trc20/             TRC20 token operations
-  types/             shared domain types, sentinel errors, address
-  utils/             ABI, encoding, transaction helpers
-  voting/            vote & witness operations
+*/                   the public library (facade package at the repo root)
+  contract/          ABI-driven contract calls and deploys
+  event/             transaction log / event decoding
+  key/               signers (private key, mnemonic) and message signing
+  rpc/               gRPC client, connection pool, 1:1 wrappers
+  token/             TRC-20/TRC-10 token handles
+  tron/              core types: addresses, SUN, coded errors
+  tx/                transaction builders, signing, broadcast, receipts
 pb/                  GENERATED protobuf code — do not hand-edit (regenerate)
-protos/              protobuf sources for pb/
-internal/            private packages (incl. internal/testutil for tests)
-example/             runnable quickstart programs
-integration_test/    live-network tests (build-tagged, opt-in)
-docs/                package-level documentation
+protos/              protobuf sources for pb/ (git submodule)
+internal/format/     private formatting helpers
+internal/compilecheck/ compile-time API guards
+cmd/docgen/          docs + generated-code tooling
+cmd/tip491probe/     live-network probe (manual, read-only by default)
+docs/                user and process documentation
 scripts/             proto generation and other tooling
 ```
 
@@ -48,17 +43,13 @@ Rules:
 - One domain per package. A change that touches the same concern across many
   packages is fine; a change that makes one package serve two unrelated domains
   is not.
-- `pkg/` packages may import `pkg/types`, `pkg/utils`, and `internal/*`. They
-  must **not** import each other unless the dependency is one-directional and
-  obvious (e.g. `trc20` → `smartcontract`). Cycles are a design error.
-  **Exception — the facade:** `pkg/client/manager.go` deliberately imports
-  every domain package to expose `Client.Account()`, `Client.TRC20()`, etc.;
-  domain packages depend only on their local `gRPCClient`/`lowlevel`
-  interfaces and never import `pkg/client` back, keeping the graph acyclic.
-  Don't add imports to the facade without preserving that rule.
-- Nothing under `pkg/` imports `cmd/`, `example/`, or `integration_test/`.
-- New public packages need a `docs/<package>.md` page and a doc comment at the
-  top of the package.
+- The root package (`tronlib`) is the **facade**: it aliases (`type X = p.X`)
+  and delegates, and never reimplements subpackage logic. Subpackages do not
+  import the facade back, so the graph stays acyclic.
+- Subpackages may import `tron`, `rpc`, and `internal/*`. Cross-domain imports
+  must be one-directional and obvious; cycles are a design error.
+- Nothing outside `cmd/` imports a `cmd/` package.
+- New public packages need a `docs/<package>.md` page and a package doc comment.
 
 ## 2. Go style
 
@@ -90,10 +81,12 @@ groups), `govet`, `errcheck`, `staticcheck`, `unused`, `revive`, `gocyclo`
 
 tronlib's error contract is part of its public API.
 
-- **Sentinel errors live in `pkg/types/errors.go`** (`ErrInvalidAddress`,
-  `ErrInvalidAmount`, `ErrInvalidContract`, `ErrInvalidTransaction`, ...).
-  Add a new sentinel there when the condition is something a caller would want
-  to branch on; give it a comment explaining the likely cause.
+- **Coded errors live in `tron`** — `tron.Error` carrying a `tron.Code`
+  (defined in `tron/codes.go`, rendered in `tron/codes_gen.go`): e.g.
+  `key.invalid`, `account.insufficient_bandwidth`, `contract.arg_mismatch`.
+  Callers branch with `errors.Is` / `errors.As`. Add a code in `tron/codes.go`
+  (then regenerate) when the condition is something a caller would want to
+  branch on; give it a comment explaining the likely cause.
 - **Wrap with context, preserve the chain:**
   ```go
   return nil, fmt.Errorf("failed to pre-fetch decimals: %w", err)
@@ -172,10 +165,9 @@ repository and been flagged; don't reintroduce them:
   delete it from the implementation instead of testing around it.
 - **Line-number comments.** `// covers line 56` rots on every edit. Test names
   and assertions describe behaviour, not source layout.
-- **Copy-pasted scaffolding.** Fake gRPC servers, bufconn setup, and
-  `mockConnProvider` implementations belong in `internal/testutil` (§6.3).
-  A new test file that hand-rolls its own bufconn server will be asked to
-  move it.
+- **Copy-pasted scaffolding.** Fake gRPC servers and bufconn setup live in the
+  consuming package's `fakes_test.go`; reuse that fake instead of hand-rolling
+  a second one (§6.3).
 - **One-test-per-case sprawl.** `TestFoo_Bar1`, `TestFoo_Bar2`, ... differing
   in one input → one table-driven `TestFoo_Bar`.
 - **Non-deterministic tests.** No `time.Sleep` to "wait for" anything in unit
@@ -185,23 +177,24 @@ repository and been flagged; don't reintroduce them:
   `TestTransfer_RoundTrip`. Bug-regression tests reference the issue number:
   `TestIssue42_...`.
 
-### 6.3 Test infrastructure: `internal/testutil`
+### 6.3 Test infrastructure: in-memory gRPC fakes
 
 All gRPC-facing unit tests use an in-memory `bufconn` server, never a live
-node. The connection plumbing lives in `internal/testutil` and is mandatory:
+node. The fake lives in the package it serves, as `fakes_test.go`, and the
+client is built with rpc's test-only dialer:
 
 ```go
-fake := &fakeWalletServer{GetAccountFunc: ...}       // per-package fake (below)
-lis := testutil.NewBufconnServer(t, fake)           // listener + t.Cleanup
-conn := testutil.DialBufconn(t, lis)                // *grpc.ClientConn + t.Cleanup
+fake := &testWalletServer{Handlers: ...}                    // package-local fake
+lis := bufconn.Listen(bufSize)
+srv := grpc.NewServer()
+api.RegisterWalletServer(srv, fake)
+go srv.Serve(lis)                                           // t.Cleanup closes srv/lis
+cli, _ := rpc.NewClientWithDialer("passthrough:///bufnet", lis.Dial)
 ```
 
-- `testutil.NewBufconnServer(t, impl)` — creates the bufconn listener,
-  registers the gRPC server, and cleans up via `t.Cleanup`.
-- `testutil.DialBufconn(t, lis)` — returns a `*grpc.ClientConn` wired to the
-  listener, closed via `t.Cleanup`.
+`rpc.NewClientWithDialer` is stripped from release builds (`//go:build !release`).
 
-Remaining scaffolding is per-package but follows one shape:
+The scaffolding is per-package but follows one shape:
 
 - **Fake wallet servers** embed `api.UnimplementedWalletServer` and override
   behaviour via optional function fields (`TransferAsset2Func`,
@@ -214,27 +207,24 @@ Remaining scaffolding is per-package but follows one shape:
 
 Rules:
 
-- New tests use `testutil.NewBufconnServer` / `testutil.DialBufconn`. A new
-  test file that hand-rolls its own `bufconn.Listen(...)` will be asked to
-  move it. The four remaining legacy copies
-  (`client`, `trc20`, `voting`, `account` test fakes) are being migrated;
-  if you touch one, migrate it in the same PR.
+- New tests reuse the package's existing `fakes_test.go` fake. A test that
+  hand-rolls its own server-side fake alongside an existing one will be asked
+  to reuse it. Shared fakes move up only when a second package genuinely needs
+  them.
 - Fakes return **programmed errors** (`status.Error(codes.X, ...)`) to
   exercise error mapping — they never simulate failure by returning Go `nil`
   protobufs, because real gRPC never does.
 
 ### 6.4 Live-network and integration tests
 
-- Default `go test ./pkg/...` must be **hermetic**: no network, no disk writes
+- Default `go test ./...` must be **hermetic**: no network, no disk writes
   outside `t.TempDir()`. CI runs with `-short`.
-- Anything needing a real node lives in `integration_test/` behind the
-  `integration` build tag, configured via `integration_test/test.env`
-  (Nile testnet only). See `integration_test/TESTING_GUIDE.md`.
-- `example/` programs are `package main`, so they are invisible to
-  `go test ./pkg/...`. CI therefore also runs `go build ./...` and
-  `go test -short ./example/...`: an example that stops compiling fails the
-  build, and pure logic inside an example (amount scaling, note selection,
-  ABI encoding) is expected to carry hermetic tests where it exists.
+- Live checks against a real node are explicit and manual, read-only by
+  default: use `go run ./cmd/tip491probe` (Nile testnet) and record the
+  evidence in `docs/verification.md`. Never point a unit test at a node.
+- `cmd/` probes are `package main` and are exercised by `go build ./...`;
+  their pure logic (parsing, replay assembly) carries hermetic tests where it
+  exists.
 - Example functions (`example_test.go`) that dial a live node must early-return
   under `testing.Short()`:
   ```go
@@ -249,30 +239,28 @@ Rules:
 
 ### 6.5 Coverage policy
 
-- **CI enforces a hard floor of 80%** total statement coverage on
-  `./pkg/...` (`go tool cover -func` total, `-short` mode). A PR that drops
-  the repo below 80% fails; Codecov's per-flag status remains informational.
+- **CI enforces a hard floor of 80%** total statement coverage on the module
+  (`go tool cover -func` total, `-short` mode), with generated `pb/` excluded
+  from the denominator. A PR that drops the repo below 80% fails; Codecov's
+  per-flag status remains informational.
 - Coverage is a floor, not a target. Do not write tests *for* coverage: a PR
   described as "increase coverage" must still state which behaviours it
   verifies.
 - Error paths count. A package whose error branches are untested is not done.
-- `pkg/client/lowlevel/**` is ignored by Codecov (`codecov.yml`), as is generated
-  code. The **CI floor is not**: it is `go tool cover -func` over
-  `-coverpkg=./pkg/...`, so lowlevel's statements count toward the 80% and the
-  two numbers will not agree. Treat the CI number as the gate and the Codecov
-  flags as colour.
+- Generated protobuf code (`pb/**`) is excluded from both the CI coverage run
+  and Codecov (`codecov.yml`); it carries no tests.
 
 ## 7. Documentation
 
 - Every exported symbol has a doc comment. Package-level comments go in
-  `doc.go` when they exceed a few lines (see `pkg/types/doc.go`).
+  `doc.go` when they exceed a few lines (see `rpc/doc.go`).
 - Doc comments for I/O-performing functions say so: "Balance queries the
   network".
 - Runnable examples in `example_test.go` beat prose. They must compile —
   `go test` runs them; broken examples fail CI.
 - `docs/<package>.md` documents workflows and design notes; keep it in sync
-  when public behaviour changes. README quickstart snippets are tested via
-  `example/readme_*`.
+  when public behaviour changes. README quickstart snippets mirror
+  `example_test.go`, which `go test` compiles.
 - Comments explain *why*, code explains *what*. Delete commented-out code and
   stale TODOs; an actionable TODO references an issue number.
 
@@ -281,13 +269,12 @@ Rules:
 - **Never log, serialize, or echo private keys, mnemonics, or signed raw
   transactions** in library code, examples, tests, or error messages.
 - Error messages include txids and addresses (public data), never secrets.
-- `integration_test/test.env` may contain **throwaway Nile testnet keys only**
-  (already the case). Mainnet keys or personal keys must never be committed;
-  `.env` is gitignored.
+- Test keys must be **throwaway Nile testnet keys only**. Mainnet keys or
+  personal keys must never be committed; `.env` is gitignored.
 - **Test fixtures:** `*_test.go` files may hardcode clearly-labeled throwaway
   keys for deterministic signature vectors (comment them "test-only, no
-  value"). `example/` and `cmd/` programs must take keys from environment
-  variables or flags — never hardcode them, even testnet keys.
+  value"). `cmd/` programs must take keys from environment variables or flags
+  — never hardcode them, even testnet keys.
 - Anything parsing external input (ABI JSON, event logs, API responses) fails
   closed: malformed input returns an error, never a best-effort zero value.
 
@@ -296,10 +283,10 @@ Rules:
 ## Quick checklist (what a reviewer will look for)
 
 1. `gofmt`/`goimports` clean, `.golangci.yml` passes — CI enforces.
-2. Errors: sentinels in `pkg/types`, wrapped with `%w`, matched with
+2. Errors: sentinels in `tron`, wrapped with `%w`, matched with
    `errors.Is`/`As`.
-3. Tests: table-driven, hermetic, meaningful assertions, use
-   `internal/testutil`, no coverage-bump padding.
+3. Tests: table-driven, hermetic, meaningful assertions, use the package's
+   bufconn fake, no coverage-bump padding.
 4. New/changed public API documented, examples compile, deprecations marked.
 5. No secrets in code, logs, or test fixtures.
 6. Coverage floor 80% maintained; PR explains what the tests verify.

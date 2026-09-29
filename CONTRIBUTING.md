@@ -6,7 +6,7 @@ an issue to getting a PR merged.
 - 📜 **Coding standards:** read [CODING_STANDARDS.md](CODING_STANDARDS.md)
   before writing code — it defines what review will ask of you.
 - 📖 **Package docs:** [docs/](docs/) for design notes and workflows.
-- 🧪 **Live-network testing:** [integration_test/TESTING_GUIDE.md](integration_test/TESTING_GUIDE.md).
+- 🧪 **Live-network checks:** [`docs/verification.md`](docs/verification.md).
 - ❓ **Questions:** open a [Discussion](https://github.com/kslamph/tronlib/discussions),
   not an issue.
 
@@ -31,12 +31,13 @@ an issue to getting a PR merged.
 git clone https://github.com/<your-fork>/tronlib
 cd tronlib
 go build ./...
-go test ./pkg/...          # hermetic unit tests, no network needed
+go test -short ./...       # hermetic unit tests, no network needed
 golangci-lint run          # must pass clean
 ```
 
 No environment variables or testnet accounts are required for unit tests.
-Live-network integration tests are opt-in (`integration_test/TESTING_GUIDE.md`).
+Live-network checks are explicit and manual (`go run ./cmd/tip491probe`);
+see [`docs/verification.md`](docs/verification.md).
 
 ## Reporting issues
 
@@ -76,13 +77,13 @@ Issue rules:
 
 ### 1. Branch
 
-Fork, then branch from `main`:
+Fork, then branch from the default branch:
 
 ```bash
-git checkout -b feat/trc20-allowance-query     # feature
-git checkout -b fix/eventdecoder-bool-topic    # bug fix
-git checkout -b test/trc10-table-tests         # test-only change
-git checkout -b docs/trc20-page                # documentation
+git checkout -b feat/token-allowance-query     # feature
+git checkout -b fix/event-bool-topic           # bug fix
+git checkout -b test/token-decimals-table      # test-only change
+git checkout -b docs/token-page                # documentation
 ```
 
 Branch names: `type/short-slug`. Keep one branch per issue.
@@ -98,8 +99,8 @@ Branch names: `type/short-slug`. Keep one branch per issue.
 
 - **type**: `feat` | `fix` | `test` | `docs` | `refactor` | `perf` |
   `build` | `ci` | `chore`
-- **scope**: the package or area — `trc20`, `client`, `eventdecoder`,
-  `types`, `coverage`, `gate` ...
+- **scope**: the package or area — `token`, `rpc`, `event`, `tx`, `key`,
+  `contract`, `coverage` ...
 - Summary in the imperative: "add", not "added"/"adds".
 - Reference the issue in the footer (`Fixes #123`) so the issue auto-closes on
   merge.
@@ -107,25 +108,25 @@ Branch names: `type/short-slug`. Keep one branch per issue.
 Examples from this repo's history:
 
 ```text
-test(smartcontract): increase coverage from 75.6% to 95.9%
-gate: add testing.Short() guard to live examples, update CI workflow
-fix(utils): use Keccak256 for method signature encoding
+test(token): cover decimal-scale edge cases
+fix(event): keep unknown event signatures in decoded logs
+refactor(tx): share the bandwidth-cost path
 ```
 
 ### 3. Test
 
 ```bash
-go test ./pkg/... -short          # what CI runs
-go test ./pkg/trc20/... -v        # the package you touched
+go test -short ./...              # what CI runs
+go test ./token/... -v            # the package you touched
 golangci-lint run
 ```
 
 Expectations (details in [CODING_STANDARDS.md](CODING_STANDARDS.md) §6):
 
 - New behaviour ships with tests in the same PR — table-driven, hermetic,
-  using `internal/testutil` for fake gRPC servers.
-- **CI enforces an 80% total coverage floor** on `./pkg/...`; a PR that drops
-  below it fails.
+  using the package's bufconn fake (`fakes_test.go`).
+- **CI enforces an 80% total coverage floor** on the module (generated `pb/`
+  excluded); a PR that drops below it fails.
 - Bug fixes include a regression test named after the behaviour or the issue
   (`TestIssue42_...`), and the PR footer references the issue.
 
@@ -133,9 +134,9 @@ Expectations (details in [CODING_STANDARDS.md](CODING_STANDARDS.md) §6):
 
 Fill in the [PR template](.github/PULL_REQUEST_TEMPLATE.md). The checklist:
 
-- [ ] `go build ./...`, `go test ./pkg/... -short`, `golangci-lint run` all pass
+- [ ] `go build ./...`, `go test -short ./...`, `golangci-lint run` all pass
 - [ ] Tests added/updated; they assert behaviour, not just execution
-- [ ] Conventional Commit title (`feat(trc20): ...`) — PRs are squash-merged,
+- [ ] Conventional Commit title (`feat(token): ...`) — PRs are squash-merged,
       so the PR title becomes the commit
 - [ ] Public API changes documented; deprecations marked `// Deprecated:`
 - [ ] No secrets, keys, or mnemonics anywhere in the diff
@@ -149,15 +150,15 @@ Review expectations:
   into `.golangci.yml` rules instead of review chatter.
 - Respond to every comment, even if just with an emoji — silence reads as
   disagreement.
-- Maintainers squash-merge onto `main` once CI is green and review is
+- Maintainers squash-merge onto the default branch once CI is green and review is
   approved.
 
-### 5. Integration tests (maintainers / network-touching changes)
+### 5. Live-network checks (network-touching changes)
 
 If your change affects signing, broadcasting, or ABI encoding, run the Nile
-testnet integration suite per
-[integration_test/TESTING_GUIDE.md](integration_test/TESTING_GUIDE.md) before
-requesting review, and note the result in the PR.
+testnet probe (`go run ./cmd/tip491probe ...`) or the read-only replays in
+[`docs/verification.md`](docs/verification.md) before requesting review, and
+note the result in the PR. Unit tests never touch a node.
 
 ## Licensing
 

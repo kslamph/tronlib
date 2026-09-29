@@ -8,7 +8,7 @@
 // It performs constant calls only — it NEVER signs or broadcasts, and needs no
 // funded key. Usage:
 //
-//	go -C v2 run ./cmd/tip491probe -contract <addr> -data <hex> [-key <hex> | -owner <addr> | -random-owner] [-endpoint <url>]
+//	go run ./cmd/tip491probe -contract <addr> -data <hex> [-key <hex> | -owner <addr> | -random-owner] [-endpoint <url>]
 //
 // Exit codes (factor mode): 0 = factor observed live with all cross-checks
 // agreeing; 1 = inconclusive (zero factor) or cross-check mismatch;
@@ -16,7 +16,7 @@
 //
 // A second mode replays an already-broadcast transaction exactly:
 //
-//	go -C v2 run ./cmd/tip491probe -replay <txid-hex> [-endpoint <url>]
+//	go run ./cmd/tip491probe -replay <txid-hex> [-endpoint <url>]
 //
 // It fetches the transaction and its receipt, re-simulates the identical
 // calldata, and asserts EXACT equality of energy and penalty (no

@@ -31,10 +31,10 @@ Package list and exported-symbol counts (via `go doc -all`):
 
 All checks run at closeout on branch `v2` (Go toolchain, `-count=1`, `-race`):
 
-- `go -C v2 build ./...` — OK.
-- `go -C v2 test ./... -count=1 -race` — all 10 packages `ok`
+- `go build ./...` — OK.
+- `go test ./... -count=1 -race` — all 10 packages `ok`
   (root, cmd/docgen, contract, event, internal/compilecheck, key, rpc, token, tron, tx).
-- `go -C v2 vet ./...` — clean.
+- `go vet ./...` — clean.
 - `gofmt -l v2/` — only the known `cmd/docgen/testdata/brokenpkg/broken.go` fixture.
 - Coverage (`-coverprofile`, `go tool cover -func`): total **86.9%** of statements
   (floor ≥ 80%). Per-package: root 93.3%, docgen 76.3%, contract 89.8%, event 91.2%,
@@ -43,9 +43,9 @@ All checks run at closeout on branch `v2` (Go toolchain, `-count=1`, `-race`):
   `v2/tron/codes_gen.go` (fixed-point OK); `sync-docs -check` over
   `docs/errors.md` + `docs/examples.md` passes (no drift).
 - CI shape (`.github/workflows/test-coverage.yml`): both modules built and tested
-  (v1 `./pkg/...` coverage, v2 `go -C v2 build/test ./...`), and the
+  (v1 `./pkg/...` coverage, v2 `go build/test ./...`), and the
   `docgen drift check (v2)` step runs
-  `go -C v2 run ./cmd/docgen sync-docs -pkg ./tron -docs ./docs/errors.md -docs ./docs/examples.md -check`.
+  `go run ./cmd/docgen sync-docs -pkg ./tron -docs ./docs/errors.md -docs ./docs/examples.md -check`.
 
 ## Deferred to Phase 2.1 / tag cycle
 

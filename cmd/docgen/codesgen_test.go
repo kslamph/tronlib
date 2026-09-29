@@ -88,5 +88,5 @@ func TestGeneratedCodesAreAFixedPoint(t *testing.T) {
 	want, err := generateCodes(realTronDir(t))
 	require.NoError(t, err, "the real tron package must satisfy parity and generate")
 	assert.Equal(t, string(committed), want,
-		"codes_gen.go is stale; run: go -C v2 run ./cmd/docgen generate-codes -pkg ./tron -out ./tron/codes_gen.go")
+		"codes_gen.go is stale; run: go run ./cmd/docgen generate-codes -pkg ./tron -out ./tron/codes_gen.go")
 }

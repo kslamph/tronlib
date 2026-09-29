@@ -21,7 +21,7 @@ Energy/bandwidth replays for **any** txid below need no key and no spend —
 one command re-verifies both resources (see §4):
 
 ```sh
-go -C v2 run ./cmd/tip491probe -endpoint $GRPC -replay $TXID
+go run ./cmd/tip491probe -endpoint $GRPC -replay $TXID
 ```
 
 ## 1. Broadcast evidence (spend transactions)
@@ -99,7 +99,7 @@ Funded run: fresh key `TFajiYgytkFiBpustBNQSFEDsiHBoAFrBo` received
 ### R1 — TIP-491 factor live on mainnet USDT (2026-09-28)
 
 ```sh
-go -C v2 run ./cmd/tip491probe -endpoint $GRPC_MAIN \
+go run ./cmd/tip491probe -endpoint $GRPC_MAIN \
   -contract TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t \
   -owner TLibQrqpdqPyg11VBJR97Q4H2714xa9GT1 \
   -data a9059cbb00000000000000000000000075e5d9f6ffa84694803e32e07aadf1b5d89528cf
@@ -148,7 +148,7 @@ the success path is now live-verified (R5 below).
 ### R6–R8 — §7.5 live-verification closeout (2026-09-29, Nile, funded keys)
 
 Run on branch `v2` via a throwaway `go run` harness using the repo's
-committed throwaway Nile keys (`integration_test/test.env`, key1 =
+committed throwaway Nile keys (key1 =
 `TLibQrqpdqPyg11VBJR97Q4H2714xa9GT1`, key2 = `TLibCZ2i2dFp6a9KZeKriSms5peeXSibks`).
 These close the three "NOT proven" items below.
 
