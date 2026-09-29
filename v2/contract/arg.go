@@ -98,6 +98,18 @@ var (
 	abiInt256Max  = new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 255), big.NewInt(1))
 )
 
+// evmAddress validates that a is TRON's 21-byte 0x41-prefixed form and
+// strips the prefix to the 20-byte address geth's ABI packer requires — the
+// encode half of the 0x41 rule, shared by the scalar and slice constructors
+// so the rule lives in exactly one place.
+func evmAddress(a tron.Address) (eCommon.Address, error) {
+	b := a.Bytes()
+	if len(b) != 21 || b[0] != 0x41 {
+		return eCommon.Address{}, fmt.Errorf("address is not 0x41-prefixed 21-byte form")
+	}
+	return eCommon.BytesToAddress(b[1:]), nil
+}
+
 // toEVMValue converts a sealed Arg into the Go value geth's packer expects
 // for the method's declared ABI type (the declared type itself is checked
 // by encodeArgs). This is the 0x41 rule's encode half.
@@ -119,21 +131,17 @@ func toEVMValue(a Arg) (any, error) {
 		}
 		return v.v, nil
 	case addressArg:
-		b := v.v.Bytes() // 21 bytes, 0x41-prefixed
-		if len(b) != 21 || b[0] != 0x41 {
-			return nil, fmt.Errorf("address is not 0x41-prefixed 21-byte form")
-		}
-		return eCommon.BytesToAddress(b[1:]), nil
+		return evmAddress(v.v)
 	case uint64Arg:
 		return uint64(v), nil
 	case addressSliceArg:
 		out := make([]eCommon.Address, len(v))
 		for idx, a := range v {
-			b := a.Bytes()
-			if len(b) != 21 || b[0] != 0x41 {
-				return nil, fmt.Errorf("address[%d] is not 0x41-prefixed 21-byte form", idx)
+			addr, err := evmAddress(a)
+			if err != nil {
+				return nil, fmt.Errorf("address[%d]: %w", idx, err)
 			}
-			out[idx] = eCommon.BytesToAddress(b[1:])
+			out[idx] = addr
 		}
 		return out, nil
 	case bytesArg:

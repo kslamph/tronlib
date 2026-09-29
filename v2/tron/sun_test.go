@@ -34,8 +34,16 @@ func TestParseTRX(t *testing.T) {
 	}{
 		{"1.6", 1_600_000, ""}, {"0.1", 100_000, ""}, {"100.000001", 100_000_001, ""},
 		{"1e-6", 1, ""}, {"0.300000", 300_000, ""},
+		{"-1.6", -1_600_000, ""}, {"-0.000001", -1, ""}, {"-1e-6", -1, ""},
+		// The negative band is bounded by -(MaxInt64) sun, not MinInt64:
+		// ParseTRX rejects any |value| > MaxInt64, so the most negative
+		// representable TRX string is -9223372036854.775807.
+		{"-9223372036854.775807", SUN(math.MinInt64 + 1), ""},
+		{"-9223372036854.775808", 0, CodeAmountOverflow},
 		{"1.6666666", 0, CodeAmountTooManyDecimals},
+		{"-1.6666666", 0, CodeAmountTooManyDecimals},
 		{"1e-7", 0, CodeAmountTooManyDecimals},
+		{"-1e-7", 0, CodeAmountTooManyDecimals},
 		{"+1.6", 0, CodeAmountInvalid},
 		{"1,234", 0, CodeAmountInvalid},
 		{"", 0, CodeAmountInvalid},
@@ -94,7 +102,28 @@ func TestSUNMulOverflowChecked(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, SUN(0), got)
 
+	// Negative multipliers: every sign combination is checked arithmetic,
+	// not a wrap.
+	for _, tc := range []struct {
+		s    SUN
+		n    int64
+		want SUN
+	}{
+		{5, -2, -10},
+		{-5, 2, -10},
+		{-5, -2, 10},
+		{math.MaxInt64, -1, SUN(-math.MaxInt64)},
+	} {
+		v, err := tc.s.Mul(tc.n)
+		require.NoError(t, err, "%d * %d", tc.s, tc.n)
+		assert.Equal(t, tc.want, v, "%d * %d", tc.s, tc.n)
+	}
+
 	_, err = SUN(math.MaxInt64).Mul(2)
+	assert.True(t, HasCode(err, CodeAmountOverflow))
+	_, err = SUN(math.MaxInt64).Mul(-2)
+	assert.True(t, HasCode(err, CodeAmountOverflow))
+	_, err = SUN(math.MinInt64).Mul(2)
 	assert.True(t, HasCode(err, CodeAmountOverflow))
 	// MinInt64 * -1 = 2^63, one above MaxInt64: the wrap case the naive
 	// prod/n != n check misses (MinInt64/-1 division overflows back to MinInt64).

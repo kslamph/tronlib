@@ -365,6 +365,17 @@ func checkParity(path string, consts []codeConst, all []string, action, doc map[
 		declared[c.Name] = true
 	}
 	var problems []string
+	// Value uniqueness: two names for one value makes the rendered table
+	// ambiguous and the mapping non-invertible, and is invisible to the
+	// name-based bijection checks above.
+	seenValue := make(map[string]string, len(consts))
+	for _, c := range consts {
+		if first, ok := seenValue[c.Value]; ok && first != c.Name {
+			problems = append(problems, fmt.Sprintf("constants %s and %s share the value %q; every code must have a distinct value", first, c.Name, c.Value))
+			continue
+		}
+		seenValue[c.Value] = c.Name
+	}
 	for _, name := range all {
 		if !declared[name] {
 			problems = append(problems, fmt.Sprintf("AllCodes entry %s is not a declared Code constant", name))

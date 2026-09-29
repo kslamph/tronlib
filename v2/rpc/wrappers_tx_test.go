@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -90,7 +91,7 @@ func TestTxCallMapsNodeReturnCodes(t *testing.T) {
 			if te.Op != "create transaction2" {
 				t.Fatalf("Op = %q, want create transaction2", te.Op)
 			}
-			if te.Cause == nil || !containsSub(te.Cause.Error(), "node says no") {
+			if te.Cause == nil || !strings.Contains(te.Cause.Error(), "node says no") {
 				t.Fatalf("Cause = %v, want the node's message", te.Cause)
 			}
 			// errors.As recovery of the typed node-return cause: the numeric
@@ -140,15 +141,4 @@ func TestNodeReturnCodeRecovery(t *testing.T) {
 			t.Fatalf("NodeReturnCode = (%v, %v), want (%v, true)", got, ok, api.Return_DUP_TRANSACTION_ERROR)
 		}
 	})
-}
-
-func containsSub(s, sub string) bool {
-	return len(s) >= len(sub) && (func() bool {
-		for i := 0; i+len(sub) <= len(s); i++ {
-			if s[i:i+len(sub)] == sub {
-				return true
-			}
-		}
-		return false
-	})()
 }

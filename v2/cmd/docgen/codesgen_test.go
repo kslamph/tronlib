@@ -42,6 +42,14 @@ func TestGenerateCodesDuplicateAllCodesEntry(t *testing.T) {
 	assert.Contains(t, err.Error(), "CodeAlpha", "the error must name the constant")
 }
 
+func TestGenerateCodesDuplicateValue(t *testing.T) {
+	_, err := generateCodes("testdata/codespkg-dupvalue")
+	require.Error(t, err, "two Code constants sharing a value must fail generation")
+	assert.Contains(t, err.Error(), "CodeAlpha", "the error must name the first constant")
+	assert.Contains(t, err.Error(), "CodeBravo", "the error must name the second constant")
+	assert.Contains(t, err.Error(), "same.value", "the error must name the shared value")
+}
+
 func TestGenerateCodesUnknownEntryInAllCodes(t *testing.T) {
 	_, err := generateCodes("testdata/codespkg-unknown")
 	require.Error(t, err, "an AllCodes entry with no declared constant must fail generation")
