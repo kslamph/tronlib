@@ -111,6 +111,29 @@ the first call. If you declared a network with `WithNetwork`, call
   (multi-signature surcharge, permission-update fee), read live from the
   chain parameters.
 
+## Examples
+
+The examples live in [`example_test.go`](example_test.go) and are rendered into
+[compiled examples](docs/examples.md). Each one is a whole task rather than a
+single API call — a contract call is simulated, priced and its logs decoded in
+the same example — and `go test` compiles every one, so they cannot drift from
+the code.
+
+| Example | Covers |
+| --- | --- |
+| `Example` | Quickstart: dial, read the balance, transfer TRX, price it, sign, broadcast, wait for solidification. Hex key, one signer. |
+| `ExampleClient_Account` | Account and resource state: balance, Energy/Bandwidth, TRON Power, stake/unstake/delegation summary, and an all-in cost preview before spending. |
+| `ExampleClient_Contract` | One contract interaction end to end: view call, `Invoke`, `Simulate`, `CostPreview`, broadcast, and event decoding from the receipt. |
+| `ExampleClient_Token` | TRC-20 through the decimal-aware handle: symbol/name/decimals/totalSupply, balance and allowance reads, `Approve`, `transferFrom`, `Transfer`. Mnemonic key. |
+| `ExampleResources_Stake` | Staking lifecycle and delegation: stake, unstake into the cooldown, harvest, delegate with a block-based lock, track the delegation index. |
+| `ExamplePermissions_Current` | Permission configuration: read the whole set, add an operations-bitmap-scoped active permission, submit the complete replacement and its fee. |
+| `ExamplePermissions_SignWeight` | Offline multi-signature: portable envelope between two machines and two key forms, node-verified sign weight, plus the `SignHash`/`AttachSignature` path for a remote signer. |
+
+They carry no `// Output:` comment, so they compile without contacting a node
+(CODING_STANDARDS.md §6.4). To run one against Nile, copy its body into a
+`main` and set the environment it reads: `TRON_PRIVATE_KEY` (hex, 64
+characters), `TRON_MNEMONIC`, `TRON_SIGNER_A_KEY`, `TRON_SIGNER_B_MNEMONIC`.
+
 ## Documentation
 
 - [Error reference](docs/errors.md)

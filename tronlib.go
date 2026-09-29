@@ -109,6 +109,11 @@ const (
 // because a type alias cannot carry a function.
 func OperationsBitmap(types ...ContractType) ([]byte, error) { return tx.OperationsBitmap(types...) }
 
+// OperationsList decodes an active-permission bitmap back into the contract
+// types it allows, in ascending order (tx.OperationsList) — the read side of
+// OperationsBitmap, for showing what a permission actually grants.
+func OperationsList(bitmap []byte) ([]ContractType, error) { return tx.OperationsList(bitmap) }
+
 // Encode renders a transaction as a portable, versioned envelope that carries
 // the declared kind and every signature attached so far (tx.Encode). It is the
 // interchange format for offline multi-signing: persist it, or hand it to the

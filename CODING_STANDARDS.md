@@ -272,7 +272,7 @@ Rules:
   builds the happy path — including `Dial`, `Sign`, and `Broadcast` against the
   real surface — without ever contacting a node:
   ```go
-  func ExampleClient_trx() { /* dials Nile, prints balance; no // Output: */ }
+  func ExampleClient_Account() { /* dials Nile, reads state; no // Output: */ }
   ```
   An example that *does* carry `// Output:` must be hermetic (`tron`'s parse and
   error examples). Never point a test or an executed example at a node.
