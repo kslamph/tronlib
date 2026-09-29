@@ -4,10 +4,11 @@ package tronlib_test
 //
 // These examples deliberately carry NO // Output: comment: go test compiles
 // them but never executes them, so the happy path is proven to build
-// against the real surface without dialing a real node. They are also not
-// synced into v2/docs/examples.md: docgen's sync-docs is hardwired to the
-// tron package (Task 9 report, D3), and facade markers in the docs file
-// would fail the CI -check.
+// against the real surface without dialing a real node. docgen sync-docs
+// DOES extract them: the CI drift gate passes this directory as
+// -example-pkg ., docs/examples.md carries the tronlib.* markers, and every
+// Example here must have one — so an edit to a body must be followed by a
+// docgen sync of that file or the gate fails.
 
 import (
 	"context"
@@ -102,7 +103,10 @@ func ExampleClient_trx() {
 }
 
 // ExampleClient_token reads a TRC-20 balance through the facade's Token
-// handle; amounts minted by the Handle carry the token's decimals.
+// handle; amounts minted by the Handle carry the token's decimals. The token
+// address must be a contract: Client.Token builds a token.Handle, which
+// calls decimals() eagerly, so an EOA address fails in that call instead of
+// returning a handle. `owner` is the account whose balance is read.
 func ExampleClient_token() {
 	ctx := context.Background()
 
@@ -118,7 +122,8 @@ func ExampleClient_token() {
 		fmt.Println("address:", err)
 		return
 	}
-	usdt, err := tronlib.ParseAddress("TBkfmcE7pM8cwxEhATtkMFwAf1FeQcwY9x")
+	// Nile's official USDT contract (docs/verification.md, address appendix).
+	usdt, err := tronlib.ParseAddress("TXLAQ63Xg1NAzckPwKHvzw7CSEmLMEqcdj")
 	if err != nil {
 		fmt.Println("address:", err)
 		return
