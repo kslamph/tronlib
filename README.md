@@ -9,8 +9,13 @@ explicit subpackages when you need the full surface.
 
 ## Install
 
+v2 is pre-release — no `v2.x` tag exists yet. Go requires a `/v2` module path
+to be served by a `v2.0.0` or later tag, so an un-pinned `go get` cannot
+resolve until release; pin a commit in the meantime.
+
 ```bash
-go get github.com/kslamph/tronlib/v2@v2.0.0
+go get github.com/kslamph/tronlib/v2@<commit-sha>  # interim: replace with a full commit SHA
+go get github.com/kslamph/tronlib/v2@v2.0.0        # valid once v2.0.0 is tagged
 ```
 
 ## Quickstart
