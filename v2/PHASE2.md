@@ -321,8 +321,11 @@ Bandwidth is pure size accounting — no simulation. Established from the
   - Transfer 2 — 1 TRX to the now-existing address: predicted
     free-covered (need 273); broadcast `ef1660a5…` → receipt
     NetUsage=273, NetFee=0 EXACT; balance drift 0.
-  - The insufficient_bandwidth rejection stays hermetic-only (needs
-    precise draining; not worth testnet choreography).
+  - The insufficient_bandwidth rejection **live-verified 2026-09-29**
+    (Nile): free bandwidth exhausted + 526,000 SUN balance, a 604-byte
+    TriggerSmartContract → BANDWITH_ERROR / `account.insufficient_bandwidth`
+    (a TransferContract of the same shape fails earlier as
+    CONTRACT_VALIDATE_ERROR). See `docs/verification.md` R7.
 
 ### Deploy estimation (2026-09-28, research + live)
 

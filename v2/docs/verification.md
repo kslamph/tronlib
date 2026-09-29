@@ -143,21 +143,60 @@ Re-check: `wallet/getchainparameters` on either gateway.
 
 `UpdateSetting` / `UpdateEnergyLimit` / `ClearABI` builds return the
 node's deployer-only rejection (not a client error) — wire path proven;
-success needs the deployer key, which exists for no test contract.
+the success path is now live-verified (R5 below).
+
+### R6–R8 — §7.5 live-verification closeout (2026-09-29, Nile, funded keys)
+
+Run on branch `v2` via a throwaway `go run` harness using the repo's
+committed throwaway Nile keys (`integration_test/test.env`, key1 =
+`TLibQrqpdqPyg11VBJR97Q4H2714xa9GT1`, key2 = `TLibCZ2i2dFp6a9KZeKriSms5peeXSibks`).
+These close the three "NOT proven" items below.
+
+- **R6 — staked-energy branch (`max(0, needed − available)`, nonzero
+  availability).** Key1 carries `EnergyLimit=12005` of staked energy. A
+  TLT transfer (`TWRvzd6FQcsyp7hwCtttjZGpU1kfvVEtNK`, 0.1 TLT to key2):
+  `CostPreview` → EnergyNeeded **28569**, EnergyBase 28569, EnergyPenalty 0,
+  EnergyAvailable **12005** (nonzero, < needed), EnergyToBuy **16564**,
+  TronToBurn **1,656,400 SUN**, SunPerEnergy 100,
+  PricedAt 2026-09-29T15:02:06+08:00. Broadcast
+  `5b1e65f9826dc0c94366f247f716b81718930d11d34faf744764a1e5847e7763`
+  (block **71379452**): receipt `energy_usage` **12005** (exactly the
+  staked energy consumed), `energy_usage_total` **28569**, `energy_fee`
+  **1,656,400**, `net_usage` 345 (free-covered, netFee 0). Raw pb
+  `ResourceReceipt.EnergyFee` = 1,656,400. Predicted burn == actual
+  energyFee, **delta 0** — the stake consumes 12005 and only the 16564
+  shortfall is bought, exactly as `EnergyToBuy` predicted.
+- **R7 — `insufficient_bandwidth` live.** Key2 drained to **526,000 SUN**
+  with free bandwidth exhausted (586/600). A raw
+  `TriggerSmartContract` to TLT with 604 bytes of calldata (a contract
+  call does not pre-validate the bandwidth fee; a `TransferContract` of
+  the same shape fails earlier as `CONTRACT_VALIDATE_ERROR`): broadcast
+  `895e09bd62e84618fe997d6168e8fc1de7d24704482bed3ce97d14d185792594` →
+  nodeCode **BANDWITH_ERROR**, Code **`account.insufficient_bandwidth`**,
+  Revert `Account resource insufficient error.` — the mapped code is
+  exactly `tron.CodeAccountInsufficientBandwidth`.
+- **R8 — `UpdateSetting` success path.** Key2 deployed a minimal 1-byte
+  STOP contract (`6001600c60003960016000f300`):
+  `cda8755bd871b3b4ae0278c5efc30b56d8870be1094c1b9bf86cbf674f05e72b`
+  (block **71379455**, contract **TL8gvgsYyzVDdupcFEUiYmGHdehLySW5P3**,
+  energy 221, energyFee 22,100). `BuildUpdateSetting(percent=42)` →
+  sign → broadcast
+  `260cc2111aaff22a4b263435e3f8856cd12c38e08c9245ba22a7207d1ae6aa4b`
+  (block **71379456**, ok, netFee 0). `GetContractInfo` then reports
+  `consume_user_resource_percent` = **42** (was 0) — the success path a
+  deployer key is required for.
 
 ## 3. Negative records (what is NOT proven)
 
 - **Nile TIP-491**: factor 0 on Nile USDT (usage 7,506 vs 5e9 threshold);
   both independent reads agree at zero — inconclusive by network
   parameters, not by funds. Never cite Nile for penalty behavior.
-- **Staked-energy cost runs**: the 2026-09-01 account held no stake; the
-  `max(0, required − available)` branch with nonzero availability is
-  covered hermetically only.
-- **`insufficient_bandwidth` live**: needs precise balance draining;
-  hermetic-only.
-- **UpdateSetting success path**: needs a deployer key; hermetic-only.
+- ~~**Staked-energy cost runs**~~ — resolved by R6 above (Nile, 2026-09-29).
+- ~~**`insufficient_bandwidth` live**~~ — resolved by R7 above.
+- ~~**UpdateSetting success path**~~ — resolved by R8 above.
 - **Arg constructors** for `address[]`/`bytes`/`bytesN`/`int256` and
-  `Result.Byte` for `uint8`: pre-existing gaps, unrelated to the above.
+  `Result.Byte` for `uint8`: **shipped 2026-09-29** (see `PHASE2.md`
+  Phase 2.1).
 
 ## 4. Reviewer toolbox (no setup)
 
