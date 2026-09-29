@@ -272,6 +272,56 @@ func TestRecoverAddress(t *testing.T) {
 	}
 }
 
+// TestSignMessageV2TronscanInteropVector pins byte-for-byte compatibility with
+// the TronScan "verify-sign" tool (TIP-191 v2 / TronWeb signMessageV2). The
+// signature below is the one that tool produced on 2026-09-29 for this exact
+// message and address, and it is reproducible exactly because both sides use
+// RFC 6979 deterministic ECDSA over the same digest:
+//
+//	keccak256("\x19TRON Signed Message:\n" + len(msg) + msg)
+//
+// Any change to the prefix, the length encoding, the hashing, or the
+// signature layout breaks this test — which is the point: it is the interop
+// contract with TronWeb/TronScan.
+//
+// The key is the repo's public throwaway Nile test key
+// (integration_test/test.env NILE_TEST_KEY1); it must never be funded with
+// anything of value nor used on mainnet.
+func TestSignMessageV2TronscanInteropVector(t *testing.T) {
+	const (
+		nileTestKey = "69004ce41c53bcddab3f74d5d358d0b5099e0d536e72c9b551b1420080296f21"
+		wantAddr    = "TLibQrqpdqPyg11VBJR97Q4H2714xa9GT1"
+		message     = "this is something i signed on https://tronscan.org/tools/verify-sign"
+		wantSig     = "0xebdc82bdcc80a151d1d509e8e11048ce689e0096d80cad6e6126c4ac4af1e7be003d8b3157b378b4db9dd2f3bc60cb601d0c55cc1aca5679c57095d1e2a6a7781c"
+	)
+	s, err := PrivateKeyFromHex(nileTestKey)
+	if err != nil {
+		t.Fatalf("PrivateKeyFromHex: %v", err)
+	}
+	if got := s.Address().String(); got != wantAddr {
+		t.Fatalf("address = %s, want %s", got, wantAddr)
+	}
+
+	got, err := SignMessageV2(s, message)
+	if err != nil {
+		t.Fatalf("SignMessageV2: %v", err)
+	}
+	if got != wantSig {
+		t.Errorf("signature drift vs TronScan:\n got  %s\n want %s", got, wantSig)
+	}
+
+	ok, err := VerifyMessageV2(message, wantSig, s.Address())
+	if err != nil || !ok {
+		t.Errorf("VerifyMessageV2(TronScan sig) = (%v, %v), want (true, nil)", ok, err)
+	}
+
+	// The signature must NOT verify under a perturbed message: proves the
+	// digest binds the exact bytes rather than a prefix.
+	if ok, _ := VerifyMessageV2(message+"\n", wantSig, s.Address()); ok {
+		t.Error("TronScan signature verified against a newline-perturbed message")
+	}
+}
+
 func TestSignProduces65ByteRecoverableSignature(t *testing.T) {
 	s, err := PrivateKeyFromHex(fixtureHexKey)
 	if err != nil {
