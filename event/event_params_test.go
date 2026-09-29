@@ -76,7 +76,7 @@ func TestDecodeEventUnnamedIndexedInputsAreNotDuplicated(t *testing.T) {
 			{Type: "uint256", Indexed: true},
 		},
 	}
-	log, err := decodeEvent(def, [][]byte{placeholderTopic(), u256Topic(1), u256Topic(2)}, nil)
+	log, err := decodeEvent(def, [][]byte{placeholderTopic(), u256Topic(1), u256Topic(2)}, nil, "event.Decode")
 	if err != nil {
 		t.Fatalf("decodeEvent: %v", err)
 	}
@@ -100,7 +100,7 @@ func TestDecodeEventDuplicateNamesKeepDistinctValues(t *testing.T) {
 		},
 	}
 	data := append(u256Topic(2), u256Topic(4)...)
-	log, err := decodeEvent(def, [][]byte{placeholderTopic(), u256Topic(1), u256Topic(3)}, data)
+	log, err := decodeEvent(def, [][]byte{placeholderTopic(), u256Topic(1), u256Topic(3)}, data, "event.Decode")
 	if err != nil {
 		t.Fatalf("decodeEvent: %v", err)
 	}
@@ -128,7 +128,7 @@ func TestDecodeEventUnnamedNonIndexedMixedWithNamed(t *testing.T) {
 	data := append(u256Topic(7), padAddr("2222222222222222222222222222222222222222")...)
 	data = append(data, u256Topic(9)...)
 
-	log, err := decodeEvent(def, [][]byte{placeholderTopic(), padAddr("1111111111111111111111111111111111111111")}, data)
+	log, err := decodeEvent(def, [][]byte{placeholderTopic(), padAddr("1111111111111111111111111111111111111111")}, data, "event.Decode")
 	if err != nil {
 		t.Fatalf("decodeEvent: %v", err)
 	}
@@ -153,7 +153,7 @@ func TestDecodeEventUnnamedOnBothSides(t *testing.T) {
 		},
 	}
 	data := append(u256Topic(20), u256Topic(40)...)
-	log, err := decodeEvent(def, [][]byte{placeholderTopic(), u256Topic(10), u256Topic(30)}, data)
+	log, err := decodeEvent(def, [][]byte{placeholderTopic(), u256Topic(10), u256Topic(30)}, data, "event.Decode")
 	if err != nil {
 		t.Fatalf("decodeEvent: %v", err)
 	}
@@ -184,7 +184,7 @@ func TestDecodeEventNamedInputsKeepDeclaredOrder(t *testing.T) {
 		u256Topic(1),
 		padAddr("3333333333333333333333333333333333333333"),
 		u256Topic(5),
-	}, data)
+	}, data, "event.Decode")
 	if err != nil {
 		t.Fatalf("decodeEvent: %v", err)
 	}
@@ -263,7 +263,7 @@ func TestDecodeEventParameterCountInvariant(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			log, err := decodeEvent(tc.def, tc.topics, tc.data)
+			log, err := decodeEvent(tc.def, tc.topics, tc.data, "event.Decode")
 			if err != nil {
 				t.Fatalf("decodeEvent: %v", err)
 			}
@@ -293,7 +293,7 @@ func TestDecodeEventUnnamedBytes32IndexedDistinct(t *testing.T) {
 			{Type: "bytes32", Indexed: true},
 		},
 	}
-	log, err := decodeEvent(def, [][]byte{placeholderTopic(), mustHex(digestA), mustHex(digestB)}, nil)
+	log, err := decodeEvent(def, [][]byte{placeholderTopic(), mustHex(digestA), mustHex(digestB)}, nil, "event.Decode")
 	if err != nil {
 		t.Fatalf("decodeEvent: %v", err)
 	}
