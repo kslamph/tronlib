@@ -3,12 +3,24 @@ package key
 import (
 	"crypto/ecdsa"
 	"encoding/hex"
+	"runtime"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/kslamph/tronlib/v2/tron"
 )
+
+// zero overwrites b with zeros. Go cannot guarantee a secret is unreachable
+// (the GC may have copied it, and big.Int values cannot be scrubbed), but
+// this removes the explicit secret buffer this package holds;
+// runtime.KeepAlive keeps the write from being elided as dead.
+func zero(b []byte) {
+	for i := range b {
+		b[i] = 0
+	}
+	runtime.KeepAlive(b)
+}
 
 // privateKeySigner implements Signer with a fixed private key.
 type privateKeySigner struct {
@@ -27,6 +39,7 @@ func PrivateKeyFromHex(hexKey string) (Signer, error) {
 	if err != nil {
 		return nil, &tron.Error{Code: tron.CodeKeyInvalid, Op: op, Hint: "pass 64 hex characters (a 32-byte private key), optionally prefixed with 0x", Cause: err}
 	}
+	defer zero(key) // the parsed key is copied into an ecdsa.PrivateKey; drop the raw bytes
 
 	privKey, err := crypto.ToECDSA(key)
 	if err != nil {

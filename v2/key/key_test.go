@@ -1,6 +1,7 @@
 package key
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -57,6 +58,35 @@ func TestPrivateKeyFromHexBadHex(t *testing.T) {
 		}
 		if !tron.HasCode(err, tron.CodeKeyInvalid) {
 			t.Fatalf("%s: HasCode(CodeKeyInvalid) = false, err = %v", name, err)
+		}
+	}
+}
+
+// TestMnemonicNotRetained: the signer must not keep the mnemonic phrase in
+// memory — a heap/core dump would otherwise leak the backup phrase (every
+// derived account), not just one key. Only the derived key + address are kept.
+func TestMnemonicNotRetained(t *testing.T) {
+	const m = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+	s, err := PrivateKeyFromMnemonic(m, "", "m/44'/195'/0'/0/0")
+	if err != nil {
+		t.Fatalf("PrivateKeyFromMnemonic: %v", err)
+	}
+	v := reflect.ValueOf(s).Elem()
+	for i := 0; i < v.NumField(); i++ {
+		f := v.Field(i)
+		if f.Kind() == reflect.String && strings.Contains(f.String(), "abandon") {
+			t.Errorf("signer field %s retains the mnemonic phrase", v.Type().Field(i).Name)
+		}
+	}
+}
+
+// TestZeroBytes pins the scrub helper used on intermediate secret buffers.
+func TestZeroBytes(t *testing.T) {
+	b := []byte{1, 2, 3, 4}
+	zero(b)
+	for i, v := range b {
+		if v != 0 {
+			t.Fatalf("byte %d = %d after zero, want 0", i, v)
 		}
 	}
 }

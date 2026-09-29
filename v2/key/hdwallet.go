@@ -11,12 +11,12 @@ import (
 )
 
 // hdWalletSigner implements Signer with a key derived from a BIP-39 mnemonic
-// along a BIP-32 derivation path.
+// along a BIP-32 derivation path. It deliberately keeps ONLY the derived key
+// and address: the mnemonic phrase is never retained (a heap/core dump would
+// otherwise leak the backup phrase for every derived account).
 type hdWalletSigner struct {
-	mnemonic string
-	path     string
-	privKey  *ecdsa.PrivateKey
-	address  tron.Address
+	privKey *ecdsa.PrivateKey
+	address tron.Address
 }
 
 // PrivateKeyFromMnemonic builds a Signer from a BIP-39 mnemonic, passphrase,
@@ -30,6 +30,7 @@ func PrivateKeyFromMnemonic(mnemonic, passphrase, path string) (Signer, error) {
 	}
 
 	seed := bip39.NewSeed(mnemonic, passphrase)
+	defer zero(seed) // keep the derived key, not the seed it came from
 	masterKey, err := hdwallet.NewMasterKey(seed)
 	if err != nil {
 		return nil, &tron.Error{Code: tron.CodeKeyMnemonicInvalid, Op: op, Hint: "check the mnemonic words and passphrase", Cause: err}
@@ -56,10 +57,8 @@ func PrivateKeyFromMnemonic(mnemonic, passphrase, path string) (Signer, error) {
 	}
 
 	return &hdWalletSigner{
-		mnemonic: mnemonic,
-		path:     path,
-		privKey:  privKey,
-		address:  address,
+		privKey: privKey,
+		address: address,
 	}, nil
 }
 

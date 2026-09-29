@@ -2,8 +2,12 @@ package key
 
 import (
 	"encoding/hex"
+	"math/big"
 	"strings"
 	"testing"
+
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/kslamph/tronlib/v2/tron"
 )
 
 func TestSignMessageV2RoundTrip(t *testing.T) {
@@ -131,6 +135,140 @@ func TestVerifyMessageV2BadSignature(t *testing.T) {
 	badV := "0x" + hex.EncodeToString(make([]byte, 65))
 	if _, err := VerifyMessageV2("Hello Tron!", badV, s.Address()); err == nil {
 		t.Fatal("expected error for invalid recovery id")
+	}
+}
+
+// TestSignMessageV2RejectsMalformedHexMessage: a 0x-prefixed message is a
+// hex-encoded byte string; malformed input (non-hex or odd length) must be a
+// classified error, NOT silently truncated the way go-ethereum's
+// common.FromHex does.
+func TestSignMessageV2RejectsMalformedHexMessage(t *testing.T) {
+	s, err := PrivateKeyFromHex(fixtureHexKey)
+	if err != nil {
+		t.Fatalf("PrivateKeyFromHex: %v", err)
+	}
+	for _, msg := range []string{"0x12zz", "0x123", "0xz", "0xzz"} {
+		if _, err := SignMessageV2(s, msg); !tron.HasCode(err, tron.CodeKeyInvalid) {
+			t.Errorf("SignMessageV2(%q): err = %v, want key.invalid", msg, err)
+		}
+	}
+}
+
+// TestVerifyMessageV2RejectsMalformedHexMessage: the same validation applies
+// on the verify path.
+func TestVerifyMessageV2RejectsMalformedHexMessage(t *testing.T) {
+	s, err := PrivateKeyFromHex(fixtureHexKey)
+	if err != nil {
+		t.Fatalf("PrivateKeyFromHex: %v", err)
+	}
+	sig, err := SignMessageV2(s, "0x48656c6c6f")
+	if err != nil {
+		t.Fatalf("SignMessageV2: %v", err)
+	}
+	if _, err := VerifyMessageV2("0x12zz", sig, s.Address()); !tron.HasCode(err, tron.CodeKeyInvalid) {
+		t.Errorf("VerifyMessageV2(malformed hex): err = %v, want key.invalid", err)
+	}
+}
+
+// TestMessageHexPrefixCaseInsensitive: 0X and 0x both select hex decoding and
+// must sign the same bytes.
+func TestMessageHexPrefixCaseInsensitive(t *testing.T) {
+	s, err := PrivateKeyFromHex(fixtureHexKey)
+	if err != nil {
+		t.Fatalf("PrivateKeyFromHex: %v", err)
+	}
+	lower, err := SignMessageV2(s, "0x48656c6c6f")
+	if err != nil {
+		t.Fatalf("SignMessageV2(0x): %v", err)
+	}
+	upper, err := SignMessageV2(s, "0X48656c6c6f")
+	if err != nil {
+		t.Fatalf("SignMessageV2(0X): %v", err)
+	}
+	if lower != upper {
+		t.Errorf("0x and 0X messages signed different bytes: %s vs %s", lower, upper)
+	}
+}
+
+// TestVerifyMessageV2RejectsHighS: an ECDSA signature is malleable — flipping
+// S to N-S with the recovery id flipped is the same signature. It must be
+// rejected as non-canonical (low-S is the canonical form, the one
+// SignMessageV2 emits).
+func TestVerifyMessageV2RejectsHighS(t *testing.T) {
+	s, err := PrivateKeyFromHex(fixtureHexKey)
+	if err != nil {
+		t.Fatalf("PrivateKeyFromHex: %v", err)
+	}
+	sigHex, err := SignMessageV2(s, "Hello Tron!")
+	if err != nil {
+		t.Fatalf("SignMessageV2: %v", err)
+	}
+	raw, err := hex.DecodeString(strings.TrimPrefix(sigHex, "0x"))
+	if err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	sv := new(big.Int).SetBytes(raw[32:64])
+	highS := new(big.Int).Sub(crypto.S256().Params().N, sv)
+	highS.FillBytes(raw[32:64])
+	switch raw[64] {
+	case 27:
+		raw[64] = 28
+	case 28:
+		raw[64] = 27
+	}
+	high := "0x" + hex.EncodeToString(raw)
+	if _, err := VerifyMessageV2("Hello Tron!", high, s.Address()); !tron.HasCode(err, tron.CodeKeyInvalid) {
+		t.Errorf("high-S signature: err = %v, want key.invalid", err)
+	}
+}
+
+// TestVerifyMessageV2Uppercase0XSignature: 0X is accepted like 0x.
+func TestVerifyMessageV2Uppercase0XSignature(t *testing.T) {
+	s, err := PrivateKeyFromHex(fixtureHexKey)
+	if err != nil {
+		t.Fatalf("PrivateKeyFromHex: %v", err)
+	}
+	sig, err := SignMessageV2(s, "Hello Tron!")
+	if err != nil {
+		t.Fatalf("SignMessageV2: %v", err)
+	}
+	ok, err := VerifyMessageV2("Hello Tron!", "0X"+strings.TrimPrefix(sig, "0x"), s.Address())
+	if err != nil || !ok {
+		t.Errorf("VerifyMessageV2(0X sig) = (%v, %v), want (true, nil)", ok, err)
+	}
+}
+
+// TestRecoverAddress: the exported recovery helper returns the signer's
+// address for a valid signature, accepts the TIP-191 27/28 recovery id, and
+// rejects malformed input.
+func TestRecoverAddress(t *testing.T) {
+	s, err := PrivateKeyFromHex(fixtureHexKey)
+	if err != nil {
+		t.Fatalf("PrivateKeyFromHex: %v", err)
+	}
+	hash := keccak256([]byte("recover me"))
+	sig, err := s.Sign(hash)
+	if err != nil {
+		t.Fatalf("Sign: %v", err)
+	}
+	got, err := RecoverAddress(hash, sig)
+	if err != nil || got != s.Address() {
+		t.Errorf("RecoverAddress = (%s, %v), want %s", got, err, s.Address())
+	}
+
+	// The Ethereum-display V form (27/28) also recovers.
+	sig27 := append([]byte{}, sig...)
+	sig27[64] += 27
+	got, err = RecoverAddress(hash, sig27)
+	if err != nil || got != s.Address() {
+		t.Errorf("RecoverAddress(V+27) = (%s, %v), want %s", got, err, s.Address())
+	}
+
+	if _, err := RecoverAddress(hash, sig[:64]); !tron.HasCode(err, tron.CodeKeyInvalid) {
+		t.Errorf("RecoverAddress(short sig): err = %v, want key.invalid", err)
+	}
+	if _, err := RecoverAddress(hash[:16], sig); !tron.HasCode(err, tron.CodeKeyInvalid) {
+		t.Errorf("RecoverAddress(short hash): err = %v, want key.invalid", err)
 	}
 }
 

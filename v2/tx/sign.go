@@ -54,6 +54,18 @@ func signBase(b *baseTx, signers []key.Signer) (*baseTx, error) {
 				Cause: err,
 			}
 		}
+		// The recorded signer address must be the one the signature actually
+		// belongs to: a custom signer (the interface is public) could return a
+		// signature from key A while claiming address B. This is the load-bearing
+		// check — without it Tx.Signers() would report an unverified address.
+		recovered, rerr := key.RecoverAddress(sum[:], sig)
+		if rerr != nil || recovered != s.Address() {
+			return nil, &tron.Error{
+				Code: tron.CodeKeyInvalid,
+				Op:   "tx.Sign",
+				Hint: "the signer returned a signature that does not recover to its Address(); the signer is inconsistent",
+			}
+		}
 		tx.Signature = append(tx.Signature, sig)
 		c.signers = append(c.signers, s.Address())
 	}

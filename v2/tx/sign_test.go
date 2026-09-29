@@ -1,6 +1,7 @@
 package tx
 
 import (
+	"crypto/ecdsa"
 	"testing"
 
 	"github.com/kslamph/tronlib/v2/key"
@@ -14,6 +15,34 @@ func mustSigner(t *testing.T, hex string) key.Signer {
 		t.Fatalf("PrivateKeyFromHex: %v", err)
 	}
 	return s
+}
+
+// inconsistentSigner signs with its inner key but reports a different
+// Address() — the failure mode Option A must catch (a custom Signer is
+// allowed by the public interface, so a mismatch must not be silently
+// recorded as the signer).
+type inconsistentSigner struct {
+	inner   key.Signer
+	claimed tron.Address
+}
+
+func (s inconsistentSigner) Address() tron.Address         { return s.claimed }
+func (s inconsistentSigner) PublicKey() *ecdsa.PublicKey   { return s.inner.PublicKey() }
+func (s inconsistentSigner) Sign(h []byte) ([]byte, error) { return s.inner.Sign(h) }
+
+func TestSignRejectsInconsistentSigner(t *testing.T) {
+	cp := newTxTestClient(t, &fakeWalletServer{})
+	native, err := BuildTransfer(cp, t.Context(), testFrom, testTo, 1)
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	lying := inconsistentSigner{
+		inner:   mustSigner(t, testKeyHex),
+		claimed: mustSigner(t, testKeyHex2).Address(), // a different, real address
+	}
+	if _, err := native.Sign(lying); !tron.HasCode(err, tron.CodeKeyInvalid) {
+		t.Errorf("Sign(inconsistent signer): err = %v, want key.invalid", err)
+	}
 }
 
 func TestSignReturnsCopyAndAccumulates(t *testing.T) {
