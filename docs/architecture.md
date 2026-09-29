@@ -97,7 +97,7 @@ tron  (no internal deps)
   ├── rpc
   ├── event
   └── tx        (tron, key, rpc, event)
-        ├── contract   (tron, rpc, tx)
+        ├── contract   (tron, rpc, tx, event)
         └── token      (tron, rpc, tx, contract)
               └── tronlib  (all)
 ```
@@ -105,7 +105,9 @@ tron  (no internal deps)
 `tx` depends on `event` for receipt logs only: `Receipt.Logs` is `[]event.Log`,
 and a wire log is decoded through `event.DecodeLenient` (`tx/receipt.go`,
 `tx/logs.go`). It does not depend on `contract` or `token` — that constraint is
-unchanged, see §7.2.
+unchanged, see §7.2. `contract` also depends on `event`:
+`contract.Instance.UseABI` feeds the global event registry so its logs decode
+without a second registration step (`contract/instance.go`).
 
 **Why `tx` is its own package.** `token` and `contract` builders must return the transaction types. Placing them in the root facade creates an import cycle (`token → tronlib → token`); v1 already demonstrates the wall — `(*trc20.TRC20Manager).Transfer` returns the raw `*api.TransactionExtention` precisely because it cannot name the client's transaction type (`pkg/trc20/client.go:316`). Placing them in `rpc` instead would mix a curated model into the raw escape hatch, recreating the v1 `client` package's transport-plus-logic problem. A dedicated `tx` package keeps `rpc` honestly 1:1.
 
