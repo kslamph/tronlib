@@ -15,7 +15,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v7
       with:
-        go-version: '1.26.6'
+        go-version: '1.27.1'
     
     - name: Install dependencies
       run: go mod download
@@ -93,7 +93,7 @@ jobs:
       run: go -C v2 run ./cmd/migrate -check
 
     # Vulnerability gate: fail on any advisory REACHABLE from the v2 module.
-    # The Go patch version is pinned above (1.26.6) because the crypto/tls,
+    # The Go patch version is pinned above (1.27.1) because the crypto/tls,
     # x509, asn1 and net/textproto advisories are only fixed in the toolchain.
     # The root v1 module is scanned separately/scheduled (its go.mod is a
     # published release) — do not add it here until it is bumped too.

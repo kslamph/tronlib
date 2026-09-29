@@ -1,8 +1,6 @@
 module github.com/kslamph/tronlib/v2
 
-go 1.26.0
-
-toolchain go1.26.6
+go 1.27.1
 
 require (
 	github.com/ethereum/go-ethereum v1.17.0
