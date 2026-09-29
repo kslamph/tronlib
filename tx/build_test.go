@@ -18,7 +18,7 @@ import (
 
 func TestBuildTransferHappyPath(t *testing.T) {
 	cp := newTxTestClient(t, &fakeWalletServer{})
-	ntx, err := BuildTransfer(cp, t.Context(), testFrom, testTo, 1_000_000)
+	ntx, err := BuildTransfer(t.Context(), cp, testFrom, testTo, 1_000_000)
 	if err != nil {
 		t.Fatalf("BuildTransfer: %v", err)
 	}
@@ -57,7 +57,7 @@ func TestBuildTransferRejectsBadInputs(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			// No client: validation must reject before any I/O.
-			_, err := BuildTransfer(nil, t.Context(), tc.from, tc.to, tc.amt)
+			_, err := BuildTransfer(t.Context(), nil, tc.from, tc.to, tc.amt)
 			if !tron.HasCode(err, tc.want) {
 				t.Fatalf("err = %v, want %v", err, tc.want)
 			}
@@ -66,13 +66,13 @@ func TestBuildTransferRejectsBadInputs(t *testing.T) {
 }
 
 func TestBuildTriggerSmartContractRejectsBadInputs(t *testing.T) {
-	if _, err := BuildTriggerSmartContract(nil, t.Context(), tron.Address{}, testTo, nil, 0); !tron.HasCode(err, tron.CodeAddressInvalid) {
+	if _, err := BuildTriggerSmartContract(t.Context(), nil, tron.Address{}, testTo, nil, 0); !tron.HasCode(err, tron.CodeAddressInvalid) {
 		t.Errorf("zero owner: err = %v, want address.invalid", err)
 	}
-	if _, err := BuildTriggerSmartContract(nil, t.Context(), testFrom, tron.Address{}, nil, 0); !tron.HasCode(err, tron.CodeAddressInvalid) {
+	if _, err := BuildTriggerSmartContract(t.Context(), nil, testFrom, tron.Address{}, nil, 0); !tron.HasCode(err, tron.CodeAddressInvalid) {
 		t.Errorf("zero contract: err = %v, want address.invalid", err)
 	}
-	if _, err := BuildTriggerSmartContract(nil, t.Context(), testFrom, testTo, nil, -1); !tron.HasCode(err, tron.CodeAmountNegative) {
+	if _, err := BuildTriggerSmartContract(t.Context(), nil, testFrom, testTo, nil, -1); !tron.HasCode(err, tron.CodeAmountNegative) {
 		t.Errorf("negative call value: err = %v, want amount.negative", err)
 	}
 }
@@ -92,37 +92,37 @@ func TestBuildDeployValidatesParams(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := BuildDeploy(nil, t.Context(), testFrom, tc.p)
+			_, err := BuildDeploy(t.Context(), nil, testFrom, tc.p)
 			if !tron.HasCode(err, tc.want) {
 				t.Fatalf("err = %v, want %v", err, tc.want)
 			}
 		})
 	}
 	// zero owner
-	if _, err := BuildDeploy(nil, t.Context(), tron.Address{}, DeployParams{Bytecode: []byte{0x60}}); !tron.HasCode(err, tron.CodeAddressInvalid) {
+	if _, err := BuildDeploy(t.Context(), nil, tron.Address{}, DeployParams{Bytecode: []byte{0x60}}); !tron.HasCode(err, tron.CodeAddressInvalid) {
 		t.Errorf("zero owner: err = %v, want address.invalid", err)
 	}
 	// empty name is allowed (v1 semantics)
 	cp := newTxTestClient(t, &fakeWalletServer{})
-	if _, err := BuildDeploy(cp, t.Context(), testFrom, DeployParams{Bytecode: []byte{0x60}, Name: ""}); err != nil {
+	if _, err := BuildDeploy(t.Context(), cp, testFrom, DeployParams{Bytecode: []byte{0x60}, Name: ""}); err != nil {
 		t.Errorf("empty name rejected: %v", err)
 	}
 }
 
 func TestBuildAssetTransferValidatesParams(t *testing.T) {
-	if _, err := BuildAssetTransfer(nil, t.Context(), testFrom, testTo, "", 1); !tron.HasCode(err, tron.CodeTxInvalidArgument) {
+	if _, err := BuildAssetTransfer(t.Context(), nil, testFrom, testTo, "", 1); !tron.HasCode(err, tron.CodeTxInvalidArgument) {
 		t.Errorf("empty asset name: err = %v, want tx.invalid_argument", err)
 	}
-	if _, err := BuildAssetTransfer(nil, t.Context(), testFrom, testTo, "1000001", -1); !tron.HasCode(err, tron.CodeAmountNegative) {
+	if _, err := BuildAssetTransfer(t.Context(), nil, testFrom, testTo, "1000001", -1); !tron.HasCode(err, tron.CodeAmountNegative) {
 		t.Errorf("negative qty: err = %v, want amount.negative", err)
 	}
-	if _, err := BuildAssetTransfer(nil, t.Context(), testFrom, testTo, "1000001", 0); !tron.HasCode(err, tron.CodeAmountInvalid) {
+	if _, err := BuildAssetTransfer(t.Context(), nil, testFrom, testTo, "1000001", 0); !tron.HasCode(err, tron.CodeAmountInvalid) {
 		t.Errorf("zero qty: err = %v, want amount.invalid", err)
 	}
-	if _, err := BuildAssetTransfer(nil, t.Context(), testFrom, testFrom, "1000001", 1); !tron.HasCode(err, tron.CodeTxInvalidArgument) {
+	if _, err := BuildAssetTransfer(t.Context(), nil, testFrom, testFrom, "1000001", 1); !tron.HasCode(err, tron.CodeTxInvalidArgument) {
 		t.Errorf("self transfer: err = %v, want tx.invalid_argument", err)
 	}
-	if _, err := BuildAssetTransfer(nil, t.Context(), tron.Address{}, testTo, "1000001", 1); !tron.HasCode(err, tron.CodeAddressInvalid) {
+	if _, err := BuildAssetTransfer(t.Context(), nil, tron.Address{}, testTo, "1000001", 1); !tron.HasCode(err, tron.CodeAddressInvalid) {
 		t.Errorf("zero from: err = %v, want address.invalid", err)
 	}
 }
@@ -134,7 +134,7 @@ func TestBuildTransferNodeErrorMapped(t *testing.T) {
 		},
 	}
 	cp := newTxTestClient(t, f)
-	_, err := BuildTransfer(cp, t.Context(), testFrom, testTo, 1)
+	_, err := BuildTransfer(t.Context(), cp, testFrom, testTo, 1)
 	if !tron.HasCode(err, tron.CodeTxTaposInvalid) {
 		t.Fatalf("err = %v, want tx.tapos_invalid", err)
 	}
@@ -145,7 +145,7 @@ func TestBuildTransferNodeErrorMapped(t *testing.T) {
 		},
 	}
 	cp2 := newTxTestClient(t, f2)
-	_, err = BuildTransfer(cp2, t.Context(), testFrom, testTo, 1)
+	_, err = BuildTransfer(t.Context(), cp2, testFrom, testTo, 1)
 	if !tron.HasCode(err, tron.CodeChainTimeout) {
 		t.Fatalf("err = %v, want chain.timeout", err)
 	}
@@ -158,7 +158,7 @@ func TestBuildResponseWithoutRawDataRejected(t *testing.T) {
 		},
 	}
 	cp := newTxTestClient(t, f)
-	_, err := BuildTransfer(cp, t.Context(), testFrom, testTo, 1)
+	_, err := BuildTransfer(t.Context(), cp, testFrom, testTo, 1)
 	if !tron.HasCode(err, tron.CodeRPCMethodFailed) {
 		t.Fatalf("err = %v, want rpc.method_failed (raw-data precondition)", err)
 	}
@@ -166,7 +166,7 @@ func TestBuildResponseWithoutRawDataRejected(t *testing.T) {
 
 func TestWithFeeLimitCopyOnWrite(t *testing.T) {
 	cp := newTxTestClient(t, &fakeWalletServer{})
-	contract, err := BuildTriggerSmartContract(cp, t.Context(), testFrom, testTo, []byte{0x01}, 0)
+	contract, err := BuildTriggerSmartContract(t.Context(), cp, testFrom, testTo, []byte{0x01}, 0)
 	if err != nil {
 		t.Fatalf("build: %v", err)
 	}
@@ -189,9 +189,9 @@ func TestWithFeeLimitCopyOnWrite(t *testing.T) {
 
 func TestWithExpirationAndPermissionIDCopyOnWrite(t *testing.T) {
 	cp := newTxTestClient(t, &fakeWalletServer{})
-	native, _ := BuildTransfer(cp, t.Context(), testFrom, testTo, 1)
-	asset, _ := BuildAssetTransfer(cp, t.Context(), testFrom, testTo, "1000001", 1)
-	deploy, _ := BuildDeploy(cp, t.Context(), testFrom, DeployParams{Bytecode: []byte{0x60}})
+	native, _ := BuildTransfer(t.Context(), cp, testFrom, testTo, 1)
+	asset, _ := BuildAssetTransfer(t.Context(), cp, testFrom, testTo, "1000001", 1)
+	deploy, _ := BuildDeploy(t.Context(), cp, testFrom, DeployParams{Bytecode: []byte{0x60}})
 
 	future := time.Now().Add(10 * time.Minute).UnixMilli()
 	n2 := native.WithExpiration(10 * time.Minute)
@@ -217,7 +217,7 @@ func TestWithExpirationAndPermissionIDCopyOnWrite(t *testing.T) {
 
 func TestDeployParamMutationsCopyOnWrite(t *testing.T) {
 	cp := newTxTestClient(t, &fakeWalletServer{})
-	deploy, err := BuildDeploy(cp, t.Context(), testFrom, DeployParams{Bytecode: []byte{0x60}, OriginEnergyLimit: 1, ConsumeUserResourcePercent: 10})
+	deploy, err := BuildDeploy(t.Context(), cp, testFrom, DeployParams{Bytecode: []byte{0x60}, OriginEnergyLimit: 1, ConsumeUserResourcePercent: 10})
 	if err != nil {
 		t.Fatalf("build: %v", err)
 	}

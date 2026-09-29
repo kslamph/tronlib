@@ -33,7 +33,7 @@ func previewFixture(t *testing.T, prices string) (*ContractTx, *rpc.Client) {
 	t.Helper()
 	f := &fakeWalletServer{EnergyPrices: pricePrices(prices)}
 	cp := newTxTestClient(t, f)
-	ctxTx, err := BuildTriggerSmartContract(cp, t.Context(), testFrom, testTo, nil, 0)
+	ctxTx, err := BuildTriggerSmartContract(t.Context(), cp, testFrom, testTo, nil, 0)
 	if err != nil {
 		t.Fatalf("BuildTriggerSmartContract: %v", err)
 	}
@@ -44,7 +44,7 @@ func previewFixture(t *testing.T, prices string) (*ContractTx, *rpc.Client) {
 // the last entry in the list, and both fields carry the winning entry's values.
 func TestEnergyPriceOfLatestWins(t *testing.T) {
 	f := &fakeWalletServer{EnergyPrices: pricePrices("1691500000000:420,1691400000000:410")}
-	p, err := EnergyPriceOf(newTxTestClient(t, f), t.Context())
+	p, err := EnergyPriceOf(t.Context(), newTxTestClient(t, f))
 	if err != nil {
 		t.Fatalf("EnergyPriceOf: %v", err)
 	}
@@ -64,7 +64,7 @@ func TestEnergyPriceOfLatestWins(t *testing.T) {
 // governance vote, so a re-vote at the same millisecond is the newer price).
 func TestEnergyPriceOfTieKeepsLast(t *testing.T) {
 	f := &fakeWalletServer{EnergyPrices: pricePrices("1691500000000:420,1691500000000:430")}
-	p, err := EnergyPriceOf(newTxTestClient(t, f), t.Context())
+	p, err := EnergyPriceOf(t.Context(), newTxTestClient(t, f))
 	if err != nil {
 		t.Fatalf("EnergyPriceOf: %v", err)
 	}
@@ -80,7 +80,7 @@ func TestEnergyPriceOfTieKeepsLast(t *testing.T) {
 // hours by Client.EnergyPrice.
 func TestEnergyPriceOfSeparatorOnlyIsBadMetadata(t *testing.T) {
 	f := &fakeWalletServer{EnergyPrices: pricePrices(",,")}
-	_, err := EnergyPriceOf(newTxTestClient(t, f), t.Context())
+	_, err := EnergyPriceOf(t.Context(), newTxTestClient(t, f))
 	if !tron.HasCode(err, tron.CodeContractBadMetadata) {
 		t.Fatalf(`prices ",,": want contract.bad_metadata, got %v`, err)
 	}
@@ -90,7 +90,7 @@ func TestEnergyPriceOfSeparatorOnlyIsBadMetadata(t *testing.T) {
 // " " has length 1, so it was not "empty", and its single entry was skipped.
 func TestEnergyPriceOfWhitespaceOnlyIsBadMetadata(t *testing.T) {
 	f := &fakeWalletServer{EnergyPrices: pricePrices(" ")}
-	_, err := EnergyPriceOf(newTxTestClient(t, f), t.Context())
+	_, err := EnergyPriceOf(t.Context(), newTxTestClient(t, f))
 	if !tron.HasCode(err, tron.CodeContractBadMetadata) {
 		t.Fatalf(`prices " ": want contract.bad_metadata, got %v`, err)
 	}
@@ -100,7 +100,7 @@ func TestEnergyPriceOfWhitespaceOnlyIsBadMetadata(t *testing.T) {
 // launder a blank list either.
 func TestEnergyPriceOfPaddedBlankEntriesIsBadMetadata(t *testing.T) {
 	f := &fakeWalletServer{EnergyPrices: pricePrices(" , , ")}
-	_, err := EnergyPriceOf(newTxTestClient(t, f), t.Context())
+	_, err := EnergyPriceOf(t.Context(), newTxTestClient(t, f))
 	if !tron.HasCode(err, tron.CodeContractBadMetadata) {
 		t.Fatalf(`prices " , , ": want contract.bad_metadata, got %v`, err)
 	}
@@ -112,7 +112,7 @@ func TestEnergyPriceOfPaddedBlankEntriesIsBadMetadata(t *testing.T) {
 // TronToBurn that passes every fee-limit floor check.
 func TestEnergyPriceOfNegativePriceIsBadMetadata(t *testing.T) {
 	f := &fakeWalletServer{EnergyPrices: pricePrices("1691400000000:410,1691500000000:-5")}
-	_, err := EnergyPriceOf(newTxTestClient(t, f), t.Context())
+	_, err := EnergyPriceOf(t.Context(), newTxTestClient(t, f))
 	if !tron.HasCode(err, tron.CodeContractBadMetadata) {
 		t.Fatalf("negative winning price: want contract.bad_metadata, got %v", err)
 	}
@@ -124,7 +124,7 @@ func TestEnergyPriceOfNegativePriceIsBadMetadata(t *testing.T) {
 // all-negative list would otherwise select nothing and return price 0.
 func TestEnergyPriceOfNegativeTimestampIsBadMetadata(t *testing.T) {
 	f := &fakeWalletServer{EnergyPrices: pricePrices("-1:420")}
-	_, err := EnergyPriceOf(newTxTestClient(t, f), t.Context())
+	_, err := EnergyPriceOf(t.Context(), newTxTestClient(t, f))
 	if !tron.HasCode(err, tron.CodeContractBadMetadata) {
 		t.Fatalf("negative timestamp: want contract.bad_metadata, got %v", err)
 	}
@@ -136,7 +136,7 @@ func TestEnergyPriceOfNegativeTimestampIsBadMetadata(t *testing.T) {
 // unparseable values are bad_metadata.
 func TestEnergyPriceOfZeroPriceAllowed(t *testing.T) {
 	f := &fakeWalletServer{EnergyPrices: pricePrices("0:0")}
-	p, err := EnergyPriceOf(newTxTestClient(t, f), t.Context())
+	p, err := EnergyPriceOf(t.Context(), newTxTestClient(t, f))
 	if err != nil {
 		t.Fatalf("EnergyPriceOf(0:0): %v", err)
 	}
@@ -149,7 +149,7 @@ func TestEnergyPriceOfZeroPriceAllowed(t *testing.T) {
 // malformed, as long as at least one real entry parses.
 func TestEnergyPriceOfTrailingSeparatorAllowed(t *testing.T) {
 	f := &fakeWalletServer{EnergyPrices: pricePrices("1691400000000:410,1691500000000:420,")}
-	p, err := EnergyPriceOf(newTxTestClient(t, f), t.Context())
+	p, err := EnergyPriceOf(t.Context(), newTxTestClient(t, f))
 	if err != nil {
 		t.Fatalf("EnergyPriceOf with trailing separator: %v", err)
 	}
@@ -163,7 +163,7 @@ func TestEnergyPriceOfTrailingSeparatorAllowed(t *testing.T) {
 func TestEnergyPriceOfMalformedStillBadMetadata(t *testing.T) {
 	for _, prices := range []string{"", "no-colon", "abc:def", "1691500000000:"} {
 		f := &fakeWalletServer{EnergyPrices: pricePrices(prices)}
-		_, err := EnergyPriceOf(newTxTestClient(t, f), t.Context())
+		_, err := EnergyPriceOf(t.Context(), newTxTestClient(t, f))
 		if !tron.HasCode(err, tron.CodeContractBadMetadata) {
 			t.Fatalf("prices %q: want contract.bad_metadata, got %v", prices, err)
 		}
@@ -175,7 +175,7 @@ func TestEnergyPriceOfMalformedStillBadMetadata(t *testing.T) {
 // TronToBurn 0 now fails the preview outright.
 func TestPreviewCostSeparatorOnlyPricesIsBadMetadata(t *testing.T) {
 	ctxTx, cp := previewFixture(t, ",,")
-	_, err := PreviewCost(cp, t.Context(), ctxTx, testFrom)
+	_, err := PreviewCost(t.Context(), cp, ctxTx, testFrom)
 	if !tron.HasCode(err, tron.CodeContractBadMetadata) {
 		t.Fatalf(`preview with prices ",,": want contract.bad_metadata, got %v`, err)
 	}
@@ -185,7 +185,7 @@ func TestPreviewCostSeparatorOnlyPricesIsBadMetadata(t *testing.T) {
 // as a negative TronToBurn that clears the §6.4 floor check vacuously.
 func TestPreviewCostNegativePriceIsBadMetadata(t *testing.T) {
 	ctxTx, cp := previewFixture(t, "1691500000000:-5")
-	_, err := PreviewCost(cp, t.Context(), ctxTx, testFrom)
+	_, err := PreviewCost(t.Context(), cp, ctxTx, testFrom)
 	if !tron.HasCode(err, tron.CodeContractBadMetadata) {
 		t.Fatalf("preview with negative price: want contract.bad_metadata, got %v", err)
 	}

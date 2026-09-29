@@ -20,7 +20,7 @@ import (
 // the contract's consume_user_resource_percent (0..100): the deployer's
 // share of every call's energy cost (0 = deployer pays all, 100 =
 // caller pays all). Out of range is tx.invalid_argument.
-func BuildUpdateSetting(cp rpc.ConnProvider, ctx context.Context, owner, contract tron.Address, percent int64) (*NativeTx, error) {
+func BuildUpdateSetting(ctx context.Context, cp rpc.ConnProvider, owner, contract tron.Address, percent int64) (*NativeTx, error) {
 	const op = "tx.BuildUpdateSetting"
 	if err := validateAddress(op, "owner", owner); err != nil {
 		return nil, err
@@ -50,7 +50,7 @@ func BuildUpdateSetting(cp rpc.ConnProvider, ctx context.Context, owner, contrac
 // setting the contract's origin_energy_limit: the cap on energy the
 // contract itself may spend per call. Negative is tx.invalid_argument
 // (v1 parity); zero is accepted — the node interprets it.
-func BuildUpdateEnergyLimit(cp rpc.ConnProvider, ctx context.Context, owner, contract tron.Address, limit int64) (*NativeTx, error) {
+func BuildUpdateEnergyLimit(ctx context.Context, cp rpc.ConnProvider, owner, contract tron.Address, limit int64) (*NativeTx, error) {
 	const op = "tx.BuildUpdateEnergyLimit"
 	if err := validateAddress(op, "owner", owner); err != nil {
 		return nil, err
@@ -79,7 +79,7 @@ func BuildUpdateEnergyLimit(cp rpc.ConnProvider, ctx context.Context, owner, con
 // BuildClearABI builds a ClearABIContract transaction removing the
 // contract's published ABI. The contract keeps running — only its
 // on-chain interface description is dropped.
-func BuildClearABI(cp rpc.ConnProvider, ctx context.Context, owner, contract tron.Address) (*NativeTx, error) {
+func BuildClearABI(ctx context.Context, cp rpc.ConnProvider, owner, contract tron.Address) (*NativeTx, error) {
 	const op = "tx.BuildClearABI"
 	if err := validateAddress(op, "owner", owner); err != nil {
 		return nil, err

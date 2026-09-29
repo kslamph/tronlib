@@ -59,7 +59,7 @@ type Handle struct {
 // address as contract.not_found, no ABI as contract.no_abi, and a
 // decimals value outside the uint8 range (0..255) — e.g. a non-standard
 // contract packing decimals as a wide integer — as contract.bad_metadata.
-func New(cp rpc.ConnProvider, ctx context.Context, address tron.Address) (*Handle, error) {
+func New(ctx context.Context, cp rpc.ConnProvider, address tron.Address) (*Handle, error) {
 	const op = "token.New"
 	if cp == nil {
 		return nil, &tron.Error{Code: tron.CodeChainConnection, Op: op, Hint: "cp is nil; pass a connected *rpc.Client"}

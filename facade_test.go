@@ -567,7 +567,7 @@ func TestCostPreviewDelegatesToPreviewCost(t *testing.T) {
 		return ext, nil
 	}
 	c := newFacadeTestClient(t, f)
-	txr, err := tx.BuildTriggerSmartContract(c.Raw(), context.Background(), facadeFrom, facadeTo, nil, 0)
+	txr, err := tx.BuildTriggerSmartContract(context.Background(), c.Raw(), facadeFrom, facadeTo, nil, 0)
 	if err != nil {
 		t.Fatalf("BuildTriggerSmartContract: %v", err)
 	}

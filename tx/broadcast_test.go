@@ -18,7 +18,7 @@ import (
 func signedNative(t *testing.T, f *fakeWalletServer) (*NativeTx, string) {
 	t.Helper()
 	cp := newTxTestClient(t, f)
-	ntx, err := BuildTransfer(cp, t.Context(), testFrom, testTo, 1)
+	ntx, err := BuildTransfer(t.Context(), cp, testFrom, testTo, 1)
 	if err != nil {
 		t.Fatalf("build: %v", err)
 	}
@@ -32,7 +32,7 @@ func signedNative(t *testing.T, f *fakeWalletServer) (*NativeTx, string) {
 func TestBroadcastSuccessReceipt(t *testing.T) {
 	f := &fakeWalletServer{}
 	ntx, txid := signedNative(t, f)
-	r, err := Broadcast(newTxTestClient(t, f), t.Context(), ntx)
+	r, err := Broadcast(t.Context(), newTxTestClient(t, f), ntx)
 	if err != nil {
 		t.Fatalf("Broadcast: %v", err)
 	}
@@ -62,7 +62,7 @@ func TestBroadcastNodeRejectIsAReturnNotAnError(t *testing.T) {
 		},
 	}
 	ntx, _ := signedNative(t, f)
-	r, err := Broadcast(newTxTestClient(t, f), t.Context(), ntx)
+	r, err := Broadcast(t.Context(), newTxTestClient(t, f), ntx)
 	if err != nil {
 		t.Fatalf("Broadcast: %v (a node rejection is an answer, not an error)", err)
 	}
@@ -81,27 +81,27 @@ func TestBroadcastPreflightChecks(t *testing.T) {
 	cp := newTxTestClient(t, &fakeWalletServer{})
 	ctx := t.Context()
 
-	if _, err := Broadcast(cp, ctx, nil); !tron.HasCode(err, tron.CodeTxInvalidArgument) {
+	if _, err := Broadcast(ctx, cp, nil); !tron.HasCode(err, tron.CodeTxInvalidArgument) {
 		t.Errorf("nil tx: err = %v, want tx.invalid_argument", err)
 	}
 
-	unsigned, _ := BuildTransfer(cp, ctx, testFrom, testTo, 1)
-	if _, err := Broadcast(cp, ctx, unsigned); !tron.HasCode(err, tron.CodeTxNoSigner) {
+	unsigned, _ := BuildTransfer(ctx, cp, testFrom, testTo, 1)
+	if _, err := Broadcast(ctx, cp, unsigned); !tron.HasCode(err, tron.CodeTxNoSigner) {
 		t.Errorf("unsigned: err = %v, want tx.no_signer", err)
 	}
 
 	// expiration is checked before signer: mutate raw_data via the escape
 	// hatch and keep the tx unsigned.
-	expired, _ := BuildTransfer(cp, ctx, testFrom, testTo, 1)
+	expired, _ := BuildTransfer(ctx, cp, testFrom, testTo, 1)
 	expired.Transaction().GetRawData().Expiration = time.Now().Add(-time.Minute).UnixMilli()
-	if _, err := Broadcast(cp, ctx, expired); !tron.HasCode(err, tron.CodeTxExpired) {
+	if _, err := Broadcast(ctx, cp, expired); !tron.HasCode(err, tron.CodeTxExpired) {
 		t.Errorf("expired: err = %v, want tx.expired", err)
 	}
 
 	// a transaction stripped of its contract message is rejected
-	contractless, _ := BuildTransfer(cp, ctx, testFrom, testTo, 1)
+	contractless, _ := BuildTransfer(ctx, cp, testFrom, testTo, 1)
 	contractless.Transaction().GetRawData().Contract = nil
-	if _, err := Broadcast(cp, ctx, contractless); !tron.HasCode(err, tron.CodeTxInvalidArgument) {
+	if _, err := Broadcast(ctx, cp, contractless); !tron.HasCode(err, tron.CodeTxInvalidArgument) {
 		t.Errorf("no contract message: err = %v, want tx.invalid_argument", err)
 	}
 }
@@ -123,7 +123,7 @@ func TestBroadcastTimeoutThenFoundReturnsReceipt(t *testing.T) {
 		},
 	}
 	ntx, txid := signedNative(t, f)
-	r, err := Broadcast(newTxTestClient(t, f), t.Context(), ntx)
+	r, err := Broadcast(t.Context(), newTxTestClient(t, f), ntx)
 	if err != nil {
 		t.Fatalf("Broadcast after timeout+found: %v", err)
 	}
@@ -150,7 +150,7 @@ func TestBroadcastTimeoutThenNotFoundUnconfirmed(t *testing.T) {
 		// TxInfo nil -> default handler returns empty info = not found
 	}
 	ntx, txid := signedNative(t, f)
-	_, err := Broadcast(newTxTestClient(t, f), t.Context(), ntx)
+	_, err := Broadcast(t.Context(), newTxTestClient(t, f), ntx)
 	if !tron.HasCode(err, tron.CodeChainUnconfirmed) {
 		t.Fatalf("err = %v, want chain.unconfirmed (the double-spend-fix answer)", err)
 	}
@@ -176,11 +176,11 @@ func TestBroadcastTimeoutThenNotFoundUnconfirmed(t *testing.T) {
 func TestWaitReturnsFullNodeReceipt(t *testing.T) {
 	f := &fakeWalletServer{}
 	cp := newTxTestClient(t, f)
-	ntx, _ := BuildTransfer(cp, t.Context(), testFrom, testTo, 1)
+	ntx, _ := BuildTransfer(t.Context(), cp, testFrom, testTo, 1)
 	f.TxInfo = func(ctx context.Context, in *api.BytesMessage) (*core.TransactionInfo, error) {
 		return foundInfo(in.Value), nil
 	}
-	r, err := Wait(cp, t.Context(), ntx.ID())
+	r, err := Wait(t.Context(), cp, ntx.ID())
 	if err != nil {
 		t.Fatalf("Wait: %v", err)
 	}
@@ -195,11 +195,11 @@ func TestWaitReturnsFullNodeReceipt(t *testing.T) {
 func TestWaitForSolidUsesSolidityEndpoint(t *testing.T) {
 	f := &fakeWalletServer{}
 	cp := newTxTestClient(t, f)
-	ntx, _ := BuildTransfer(cp, t.Context(), testFrom, testTo, 1)
+	ntx, _ := BuildTransfer(t.Context(), cp, testFrom, testTo, 1)
 	f.TxInfoSolidity = func(ctx context.Context, in *api.BytesMessage) (*core.TransactionInfo, error) {
 		return foundInfo(in.Value), nil
 	}
-	r, err := WaitForSolid(cp, t.Context(), ntx.ID())
+	r, err := WaitForSolid(t.Context(), cp, ntx.ID())
 	if err != nil {
 		t.Fatalf("WaitForSolid: %v", err)
 	}
@@ -214,7 +214,7 @@ func TestWaitForSolidUsesSolidityEndpoint(t *testing.T) {
 func TestWaitPollsUntilFound(t *testing.T) {
 	f := &fakeWalletServer{}
 	cp := newTxTestClient(t, f)
-	ntx, _ := BuildTransfer(cp, t.Context(), testFrom, testTo, 1)
+	ntx, _ := BuildTransfer(t.Context(), cp, testFrom, testTo, 1)
 	var polls int
 	f.TxInfo = func(ctx context.Context, in *api.BytesMessage) (*core.TransactionInfo, error) {
 		polls++
@@ -223,7 +223,7 @@ func TestWaitPollsUntilFound(t *testing.T) {
 		}
 		return foundInfo(in.Value), nil
 	}
-	r, err := Wait(cp, t.Context(), ntx.ID())
+	r, err := Wait(t.Context(), cp, ntx.ID())
 	if err != nil {
 		t.Fatalf("Wait: %v", err)
 	}
@@ -237,10 +237,10 @@ func TestWaitPollsUntilFound(t *testing.T) {
 
 func TestWaitInvalidTxid(t *testing.T) {
 	cp := newTxTestClient(t, &fakeWalletServer{})
-	if _, err := Wait(cp, t.Context(), "not-hex"); !tron.HasCode(err, tron.CodeTxInvalidArgument) {
+	if _, err := Wait(t.Context(), cp, "not-hex"); !tron.HasCode(err, tron.CodeTxInvalidArgument) {
 		t.Errorf("err = %v, want tx.invalid_argument", err)
 	}
-	if _, err := Wait(cp, t.Context(), ""); !tron.HasCode(err, tron.CodeTxInvalidArgument) {
+	if _, err := Wait(t.Context(), cp, ""); !tron.HasCode(err, tron.CodeTxInvalidArgument) {
 		t.Errorf("empty txid: err = %v, want tx.invalid_argument", err)
 	}
 }
@@ -250,7 +250,7 @@ func TestWaitContextTimeout(t *testing.T) {
 	cp := newTxTestClient(t, f)
 	ctx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
 	defer cancel()
-	_, err := Wait(cp, ctx, hex.EncodeToString(repeat(0xAB, 32)))
+	_, err := Wait(ctx, cp, hex.EncodeToString(repeat(0xAB, 32)))
 	if !tron.HasCode(err, tron.CodeChainTimeout) {
 		t.Fatalf("err = %v, want chain.timeout", err)
 	}

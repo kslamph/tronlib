@@ -42,7 +42,7 @@ func stringHandle(t *testing.T, values map[string][]byte) (*Handle, *fakeTRC20Wa
 			return ext, nil
 		},
 	}
-	h, err := New(newTokenTestClient(t, f), context.Background(), testContract)
+	h, err := New(context.Background(), newTokenTestClient(t, f), testContract)
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}

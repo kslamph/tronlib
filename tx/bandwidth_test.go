@@ -47,7 +47,7 @@ func TestBandwidthSizeCountsSignedBytesPlusOverhead(t *testing.T) {
 
 func TestBandwidthSizeRejectsUnsigned(t *testing.T) {
 	cp := newTxTestClient(t, &fakeWalletServer{})
-	ntx, err := BuildTransfer(cp, t.Context(), testFrom, testTo, 1)
+	ntx, err := BuildTransfer(t.Context(), cp, testFrom, testTo, 1)
 	if err != nil {
 		t.Fatalf("build: %v", err)
 	}
@@ -65,7 +65,7 @@ func TestBandwidthPriceOfLatestWins(t *testing.T) {
 			return &api.PricesResponseMessage{Prices: "0:10,1627279200000:1000"}, nil
 		},
 	}
-	p, err := BandwidthPriceOf(newTxTestClient(t, f), t.Context())
+	p, err := BandwidthPriceOf(t.Context(), newTxTestClient(t, f))
 	if err != nil {
 		t.Fatalf("BandwidthPriceOf: %v", err)
 	}
@@ -81,7 +81,7 @@ func TestBandwidthPriceOfMalformed(t *testing.T) {
 				return &api.PricesResponseMessage{Prices: prices}, nil
 			},
 		}
-		if _, err := BandwidthPriceOf(newTxTestClient(t, f), t.Context()); !tron.HasCode(err, tron.CodeContractBadMetadata) {
+		if _, err := BandwidthPriceOf(t.Context(), newTxTestClient(t, f)); !tron.HasCode(err, tron.CodeContractBadMetadata) {
 			t.Fatalf("prices %q: want contract.bad_metadata, got %v", prices, err)
 		}
 	}
@@ -98,7 +98,7 @@ func TestBandwidthPriceOfNegativeRejected(t *testing.T) {
 				return &api.PricesResponseMessage{Prices: prices}, nil
 			},
 		}
-		if _, err := BandwidthPriceOf(newTxTestClient(t, f), t.Context()); !tron.HasCode(err, tron.CodeContractBadMetadata) {
+		if _, err := BandwidthPriceOf(t.Context(), newTxTestClient(t, f)); !tron.HasCode(err, tron.CodeContractBadMetadata) {
 			t.Fatalf("prices %q: want contract.bad_metadata, got %v", prices, err)
 		}
 	}
@@ -111,7 +111,7 @@ func TestBandwidthPriceOfTieKeepsLast(t *testing.T) {
 			return &api.PricesResponseMessage{Prices: "1627279200000:1000,1627279200000:1100"}, nil
 		},
 	}
-	p, err := BandwidthPriceOf(newTxTestClient(t, f), t.Context())
+	p, err := BandwidthPriceOf(t.Context(), newTxTestClient(t, f))
 	if err != nil {
 		t.Fatalf("BandwidthPriceOf: %v", err)
 	}
@@ -132,7 +132,7 @@ func richResource(stakedLimit, stakedUsed, freeLimit, freeUsed int64) func(ctx c
 func TestBandwidthCostCoveredByStake(t *testing.T) {
 	f := &fakeWalletServer{AccountResource: richResource(100000, 100, 600, 600)}
 	ntx := mustSignedTransfer(t, f)
-	cost, err := BandwidthCostOf(newTxTestClient(t, f), t.Context(), ntx, testFrom)
+	cost, err := BandwidthCostOf(t.Context(), newTxTestClient(t, f), ntx, testFrom)
 	if err != nil {
 		t.Fatalf("BandwidthCostOf: %v", err)
 	}
@@ -150,7 +150,7 @@ func TestBandwidthCostCoveredByStake(t *testing.T) {
 func TestBandwidthCostCoveredByFree(t *testing.T) {
 	f := &fakeWalletServer{AccountResource: richResource(0, 0, 600, 0)}
 	ntx := mustSignedTransfer(t, f)
-	cost, err := BandwidthCostOf(newTxTestClient(t, f), t.Context(), ntx, testFrom)
+	cost, err := BandwidthCostOf(t.Context(), newTxTestClient(t, f), ntx, testFrom)
 	if err != nil {
 		t.Fatalf("BandwidthCostOf: %v", err)
 	}
@@ -174,7 +174,7 @@ func TestBandwidthCostBurnsShortfall(t *testing.T) {
 		},
 	}
 	ntx := mustSignedTransfer(t, f)
-	cost, err := BandwidthCostOf(newTxTestClient(t, f), t.Context(), ntx, testFrom)
+	cost, err := BandwidthCostOf(t.Context(), newTxTestClient(t, f), ntx, testFrom)
 	if err != nil {
 		t.Fatalf("BandwidthCostOf: %v", err)
 	}
@@ -197,7 +197,7 @@ func TestBandwidthCostInsufficientBalance(t *testing.T) {
 		},
 	}
 	ntx := mustSignedTransfer(t, f)
-	_, err := BandwidthCostOf(newTxTestClient(t, f), t.Context(), ntx, testFrom)
+	_, err := BandwidthCostOf(t.Context(), newTxTestClient(t, f), ntx, testFrom)
 	if !tron.HasCode(err, tron.CodeAccountInsufficientBandwidth) {
 		t.Fatalf("want account.insufficient_bandwidth, got %v", err)
 	}
@@ -233,7 +233,7 @@ func TestBandwidthCostCreationCoveredByStake(t *testing.T) {
 	}
 	missingRecipient(f, 50_000_000)
 	ntx := mustSignedTransfer(t, f)
-	cost, err := BandwidthCostOf(newTxTestClient(t, f), t.Context(), ntx, testFrom)
+	cost, err := BandwidthCostOf(t.Context(), newTxTestClient(t, f), ntx, testFrom)
 	if err != nil {
 		t.Fatalf("BandwidthCostOf: %v", err)
 	}
@@ -258,7 +258,7 @@ func TestBandwidthCostCreationFeeBranch(t *testing.T) {
 	}
 	missingRecipient(f, 50_000_000)
 	ntx := mustSignedTransfer(t, f)
-	cost, err := BandwidthCostOf(newTxTestClient(t, f), t.Context(), ntx, testFrom)
+	cost, err := BandwidthCostOf(t.Context(), newTxTestClient(t, f), ntx, testFrom)
 	if err != nil {
 		t.Fatalf("BandwidthCostOf: %v", err)
 	}
@@ -280,7 +280,7 @@ func TestBandwidthCostCreationShortBalance(t *testing.T) {
 	}
 	missingRecipient(f, 500_000) // covers the 100k fee but not the 1M creation
 	ntx := mustSignedTransfer(t, f)
-	if _, err := BandwidthCostOf(newTxTestClient(t, f), t.Context(), ntx, testFrom); !tron.HasCode(err, tron.CodeAccountInsufficientBandwidth) {
+	if _, err := BandwidthCostOf(t.Context(), newTxTestClient(t, f), ntx, testFrom); !tron.HasCode(err, tron.CodeAccountInsufficientBandwidth) {
 		t.Fatalf("want account.insufficient_bandwidth, got %v", err)
 	}
 }
@@ -290,7 +290,7 @@ func TestTransferRecipientShapes(t *testing.T) {
 	cp := newTxTestClient(t, f)
 	ctx := t.Context()
 
-	ntx, err := BuildTransfer(cp, ctx, testFrom, testTo, 1)
+	ntx, err := BuildTransfer(ctx, cp, testFrom, testTo, 1)
 	if err != nil {
 		t.Fatalf("build: %v", err)
 	}

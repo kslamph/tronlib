@@ -32,7 +32,7 @@ func (s inconsistentSigner) Sign(h []byte) ([]byte, error) { return s.inner.Sign
 
 func TestSignRejectsInconsistentSigner(t *testing.T) {
 	cp := newTxTestClient(t, &fakeWalletServer{})
-	native, err := BuildTransfer(cp, t.Context(), testFrom, testTo, 1)
+	native, err := BuildTransfer(t.Context(), cp, testFrom, testTo, 1)
 	if err != nil {
 		t.Fatalf("build: %v", err)
 	}
@@ -47,7 +47,7 @@ func TestSignRejectsInconsistentSigner(t *testing.T) {
 
 func TestSignReturnsCopyAndAccumulates(t *testing.T) {
 	cp := newTxTestClient(t, &fakeWalletServer{})
-	native, err := BuildTransfer(cp, t.Context(), testFrom, testTo, 1)
+	native, err := BuildTransfer(t.Context(), cp, testFrom, testTo, 1)
 	if err != nil {
 		t.Fatalf("build: %v", err)
 	}
@@ -103,9 +103,9 @@ func TestSignAllKinds(t *testing.T) {
 	cp := newTxTestClient(t, &fakeWalletServer{})
 	s := mustSigner(t, testKeyHex)
 	ctx := t.Context()
-	contract, _ := BuildTriggerSmartContract(cp, ctx, testFrom, testTo, []byte{0x01}, 0)
-	deploy, _ := BuildDeploy(cp, ctx, testFrom, DeployParams{Bytecode: []byte{0x60}})
-	asset, _ := BuildAssetTransfer(cp, ctx, testFrom, testTo, "1000001", 1)
+	contract, _ := BuildTriggerSmartContract(ctx, cp, testFrom, testTo, []byte{0x01}, 0)
+	deploy, _ := BuildDeploy(ctx, cp, testFrom, DeployParams{Bytecode: []byte{0x60}})
+	asset, _ := BuildAssetTransfer(ctx, cp, testFrom, testTo, "1000001", 1)
 	for _, st := range []struct {
 		name string
 		sign func() (Tx, error)
@@ -126,7 +126,7 @@ func TestSignAllKinds(t *testing.T) {
 
 func TestSignErrors(t *testing.T) {
 	cp := newTxTestClient(t, &fakeWalletServer{})
-	native, _ := BuildTransfer(cp, t.Context(), testFrom, testTo, 1)
+	native, _ := BuildTransfer(t.Context(), cp, testFrom, testTo, 1)
 	if _, err := native.Sign(); !tron.HasCode(err, tron.CodeTxNoSigner) {
 		t.Errorf("Sign() with no signers: err = %v, want tx.no_signer", err)
 	}
@@ -137,7 +137,7 @@ func TestSignErrors(t *testing.T) {
 
 func TestWithPermissionIDBeforeSignIsHonored(t *testing.T) {
 	cp := newTxTestClient(t, &fakeWalletServer{})
-	native, _ := BuildTransfer(cp, t.Context(), testFrom, testTo, 1)
+	native, _ := BuildTransfer(t.Context(), cp, testFrom, testTo, 1)
 	s := mustSigner(t, testKeyHex)
 	withPerm, err := native.WithPermissionID(5)
 	if err != nil {

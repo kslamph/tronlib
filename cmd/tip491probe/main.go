@@ -96,7 +96,7 @@ func run() int {
 	printDynamicParams(cli)
 
 	ct, err := withRetry("build", func() (*tx.ContractTx, error) {
-		return tx.BuildTriggerSmartContract(cli.Raw(), ctx, owner, contract, data, 0)
+		return tx.BuildTriggerSmartContract(ctx, cli.Raw(), owner, contract, data, 0)
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "build: %v\n", err)
@@ -112,7 +112,7 @@ func run() int {
 	fmt.Printf("simulate: energy=%d penalty=%d base=%d\n", est.Energy, est.Penalty, est.Energy-est.Penalty)
 
 	dyn, err := withRetry("contract state", func() (*tx.DynamicEnergy, error) {
-		return tx.DynamicEnergyOf(cli.Raw(), ctx, contract)
+		return tx.DynamicEnergyOf(ctx, cli.Raw(), contract)
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "contract state: %v\n", err)

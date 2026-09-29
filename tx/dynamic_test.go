@@ -125,7 +125,7 @@ func TestDynamicEnergyOf(t *testing.T) {
 				}, nil
 			},
 		}
-		got, err := DynamicEnergyOf(newTxTestClient(t, f), ctx, testTo)
+		got, err := DynamicEnergyOf(ctx, newTxTestClient(t, f), testTo)
 		if err != nil {
 			t.Fatalf("DynamicEnergyOf: %v", err)
 		}
@@ -138,7 +138,7 @@ func TestDynamicEnergyOf(t *testing.T) {
 	})
 
 	t.Run("absent state is a fresh contract", func(t *testing.T) {
-		got, err := DynamicEnergyOf(newTxTestClient(t, &fakeWalletServer{}), ctx, testTo)
+		got, err := DynamicEnergyOf(ctx, newTxTestClient(t, &fakeWalletServer{}), testTo)
 		if err != nil {
 			t.Fatalf("DynamicEnergyOf: %v", err)
 		}
@@ -153,19 +153,19 @@ func TestDynamicEnergyOf(t *testing.T) {
 				return nil, nil
 			},
 		}
-		if _, err := DynamicEnergyOf(newTxTestClient(t, f), ctx, testTo); !tron.HasCode(err, tron.CodeContractNotFound) {
+		if _, err := DynamicEnergyOf(ctx, newTxTestClient(t, f), testTo); !tron.HasCode(err, tron.CodeContractNotFound) {
 			t.Fatalf("want contract.not_found, got %v", err)
 		}
 	})
 
 	t.Run("zero address rejected", func(t *testing.T) {
-		if _, err := DynamicEnergyOf(newTxTestClient(t, &fakeWalletServer{}), ctx, tron.Address{}); !tron.HasCode(err, tron.CodeAddressInvalid) {
+		if _, err := DynamicEnergyOf(ctx, newTxTestClient(t, &fakeWalletServer{}), tron.Address{}); !tron.HasCode(err, tron.CodeAddressInvalid) {
 			t.Fatalf("want address.invalid, got %v", err)
 		}
 	})
 
 	t.Run("nil conn rejected", func(t *testing.T) {
-		if _, err := DynamicEnergyOf(nil, ctx, testTo); !tron.HasCode(err, tron.CodeChainConnection) {
+		if _, err := DynamicEnergyOf(ctx, nil, testTo); !tron.HasCode(err, tron.CodeChainConnection) {
 			t.Fatalf("want chain.connection, got %v", err)
 		}
 	})

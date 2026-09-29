@@ -147,7 +147,7 @@ func TestLogsForDecodesByEmittingAddress(t *testing.T) {
 		},
 	}
 	cp := newTxTestClient(t, f)
-	logs, err := LogsFor(cp, t.Context(), hex.EncodeToString(hexID()))
+	logs, err := LogsFor(t.Context(), cp, hex.EncodeToString(hexID()))
 	if err != nil {
 		t.Fatalf("LogsFor: %v", err)
 	}

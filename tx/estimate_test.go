@@ -25,7 +25,7 @@ func TestSimulateDecodesEnergyPenaltyAndResult(t *testing.T) {
 	f.Trigger = func(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error) {
 		return baseExt(contractAny(core.Transaction_Contract_TriggerSmartContract, in), okResult()), nil
 	}
-	ctxTx, err := BuildTriggerSmartContract(cp, ctx, testFrom, testTo, []byte{0xa9, 0x05}, 0)
+	ctxTx, err := BuildTriggerSmartContract(ctx, cp, testFrom, testTo, []byte{0xa9, 0x05}, 0)
 	if err != nil {
 		t.Fatalf("build: %v", err)
 	}
@@ -69,7 +69,7 @@ func TestSimulateNodeRejectReturnsReceiptStyleCode(t *testing.T) {
 	f := &fakeWalletServer{}
 	cp := newTxTestClient(t, f)
 	ctx := t.Context()
-	ctxTx, _ := BuildTriggerSmartContract(cp, ctx, testFrom, testTo, nil, 0)
+	ctxTx, _ := BuildTriggerSmartContract(ctx, cp, testFrom, testTo, nil, 0)
 	f.TriggerConstant = func(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error) {
 		return &api.TransactionExtention{
 			Result: &api.Return{Result: false, Code: api.Return_CONTRACT_VALIDATE_ERROR, Message: []byte("bad contract")},
@@ -91,7 +91,7 @@ func TestSimulateRevertMessageClassifiedReverted(t *testing.T) {
 	f := &fakeWalletServer{}
 	cp := newTxTestClient(t, f)
 	ctx := t.Context()
-	ctxTx, _ := BuildTriggerSmartContract(cp, ctx, testFrom, testTo, nil, 0)
+	ctxTx, _ := BuildTriggerSmartContract(ctx, cp, testFrom, testTo, nil, 0)
 	f.TriggerConstant = func(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error) {
 		return &api.TransactionExtention{
 			Result: &api.Return{Result: false, Code: api.Return_CONTRACT_EXE_ERROR, Message: []byte("REVERT opcode executed")},
@@ -111,7 +111,7 @@ func TestSimulateTransportErrorPropagates(t *testing.T) {
 	cp := newTxTestClient(t, f)
 	ctx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
 	defer cancel()
-	ctxTx, _ := BuildTriggerSmartContract(cp, ctx, testFrom, testTo, nil, 0)
+	ctxTx, _ := BuildTriggerSmartContract(ctx, cp, testFrom, testTo, nil, 0)
 	f.TriggerConstant = func(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error) {
 		// Block until the caller's context dies: an unambiguous transport
 		// failure that Call maps to chain.timeout.
@@ -141,7 +141,7 @@ func TestSimulateRejectsNonTriggerContract(t *testing.T) {
 	f := &fakeWalletServer{}
 	cp := newTxTestClient(t, f)
 	ctx := t.Context()
-	ctxTx, err := BuildTriggerSmartContract(cp, ctx, testFrom, testTo, nil, 0)
+	ctxTx, err := BuildTriggerSmartContract(ctx, cp, testFrom, testTo, nil, 0)
 	if err != nil {
 		t.Fatalf("build: %v", err)
 	}
@@ -179,7 +179,7 @@ func TestEstimateEnergyRejectsNonTriggerContract(t *testing.T) {
 	f := &fakeWalletServer{}
 	cp := newTxTestClient(t, f)
 	ctx := t.Context()
-	ctxTx, err := BuildTriggerSmartContract(cp, ctx, testFrom, testTo, nil, 0)
+	ctxTx, err := BuildTriggerSmartContract(ctx, cp, testFrom, testTo, nil, 0)
 	if err != nil {
 		t.Fatalf("build: %v", err)
 	}
@@ -205,12 +205,12 @@ func TestPreviewCostRejectsNonTriggerContract(t *testing.T) {
 	f := &fakeWalletServer{}
 	cp := newTxTestClient(t, f)
 	ctx := t.Context()
-	ctxTx, err := BuildTriggerSmartContract(cp, ctx, testFrom, testTo, nil, 0)
+	ctxTx, err := BuildTriggerSmartContract(ctx, cp, testFrom, testTo, nil, 0)
 	if err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	swapContractPayload(ctxTx)
-	preview, err := PreviewCost(cp, ctx, ctxTx, testFrom)
+	preview, err := PreviewCost(ctx, cp, ctxTx, testFrom)
 	if err == nil || !tron.HasCode(err, tron.CodeTxInvalidArgument) {
 		t.Fatalf("PreviewCost on a TransferContract payload = %v (preview %+v), want tx.invalid_argument", err, preview)
 	}
@@ -253,7 +253,7 @@ func TestEstimateEnergyReturnsInclusiveTotal(t *testing.T) {
 	f := &fakeWalletServer{}
 	cp := newTxTestClient(t, f)
 	ctx := t.Context()
-	ctxTx, _ := BuildTriggerSmartContract(cp, ctx, testFrom, testTo, nil, 0)
+	ctxTx, _ := BuildTriggerSmartContract(ctx, cp, testFrom, testTo, nil, 0)
 	var gotReq *core.TriggerSmartContract
 	f.EstimateEnerg = func(ctx context.Context, in *core.TriggerSmartContract) (*api.EstimateEnergyMessage, error) {
 		gotReq = in
@@ -275,7 +275,7 @@ func TestEstimateEnergyNodeRejectIsError(t *testing.T) {
 	f := &fakeWalletServer{}
 	cp := newTxTestClient(t, f)
 	ctx := t.Context()
-	ctxTx, _ := BuildTriggerSmartContract(cp, ctx, testFrom, testTo, nil, 0)
+	ctxTx, _ := BuildTriggerSmartContract(ctx, cp, testFrom, testTo, nil, 0)
 	f.EstimateEnerg = func(ctx context.Context, in *core.TriggerSmartContract) (*api.EstimateEnergyMessage, error) {
 		return &api.EstimateEnergyMessage{Result: &api.Return{Result: false, Code: api.Return_CONTRACT_VALIDATE_ERROR}}, nil
 	}
@@ -289,14 +289,14 @@ func TestPreviewCostCarriesBandwidthNote(t *testing.T) {
 	f := &fakeWalletServer{}
 	cp := newTxTestClient(t, f)
 	ctx := t.Context()
-	ctxTx, _ := BuildTriggerSmartContract(cp, ctx, testFrom, testTo, nil, 0)
+	ctxTx, _ := BuildTriggerSmartContract(ctx, cp, testFrom, testTo, nil, 0)
 	f.TriggerConstant = func(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error) {
 		return &api.TransactionExtention{Result: okResult(), EnergyUsed: 5000, EnergyPenalty: 0}, nil
 	}
 	f.AccountResource = func(ctx context.Context, in *core.Account) (*api.AccountResourceMessage, error) {
 		return &api.AccountResourceMessage{}, nil
 	}
-	cp2, err := PreviewCost(cp, ctx, ctxTx, testFrom)
+	cp2, err := PreviewCost(ctx, cp, ctxTx, testFrom)
 	if err != nil {
 		t.Fatalf("CostPreview: %v", err)
 	}
@@ -312,7 +312,7 @@ func TestPreviewCostThreeReadSequence(t *testing.T) {
 	f := &fakeWalletServer{}
 	cp := newTxTestClient(t, f)
 	ctx := t.Context()
-	ctxTx, _ := BuildTriggerSmartContract(cp, ctx, testFrom, testTo, nil, 0)
+	ctxTx, _ := BuildTriggerSmartContract(ctx, cp, testFrom, testTo, nil, 0)
 	// Simulate returns the accurate dry-run energy (the actual VM cost).
 	f.TriggerConstant = func(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error) {
 		return &api.TransactionExtention{
@@ -336,7 +336,7 @@ func TestPreviewCostThreeReadSequence(t *testing.T) {
 	f.EnergyPrices = func(ctx context.Context, in *api.EmptyMessage) (*api.PricesResponseMessage, error) {
 		return &api.PricesResponseMessage{Prices: "1691400000000:410,1691500000000:420"}, nil
 	}
-	cp2, err := PreviewCost(cp, ctx, ctxTx, testFrom)
+	cp2, err := PreviewCost(ctx, cp, ctxTx, testFrom)
 	if err != nil {
 		t.Fatalf("CostPreview: %v", err)
 	}
@@ -399,11 +399,11 @@ func TestPreviewCostSimulateErrorPropagates(t *testing.T) {
 	f := &fakeWalletServer{}
 	cp := newTxTestClient(t, f)
 	ctx := t.Context()
-	ctxTx, _ := BuildTriggerSmartContract(cp, ctx, testFrom, testTo, nil, 0)
+	ctxTx, _ := BuildTriggerSmartContract(ctx, cp, testFrom, testTo, nil, 0)
 	f.TriggerConstant = func(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error) {
 		return nil, status.Error(codes.DeadlineExceeded, "boom")
 	}
-	_, err := PreviewCost(cp, ctx, ctxTx, testFrom)
+	_, err := PreviewCost(ctx, cp, ctxTx, testFrom)
 	if err == nil || !tron.HasCode(err, tron.CodeChainTimeout) {
 		t.Errorf("PreviewCost with failing Simulate = %v, want the Simulate error", err)
 	}
@@ -416,11 +416,11 @@ func TestPreviewCostMalformedPricesIsBadMetadata(t *testing.T) {
 	f := &fakeWalletServer{}
 	cp := newTxTestClient(t, f)
 	ctx := t.Context()
-	ctxTx, _ := BuildTriggerSmartContract(cp, ctx, testFrom, testTo, nil, 0)
+	ctxTx, _ := BuildTriggerSmartContract(ctx, cp, testFrom, testTo, nil, 0)
 	f.EnergyPrices = func(ctx context.Context, in *api.EmptyMessage) (*api.PricesResponseMessage, error) {
 		return &api.PricesResponseMessage{Prices: "not-a-price-list"}, nil
 	}
-	_, err := PreviewCost(cp, ctx, ctxTx, testFrom)
+	_, err := PreviewCost(ctx, cp, ctxTx, testFrom)
 	if err == nil || !tron.HasCode(err, tron.CodeContractBadMetadata) {
 		t.Errorf("PreviewCost with malformed prices = %v, want %q", err, tron.CodeContractBadMetadata)
 	}
@@ -430,11 +430,11 @@ func TestPreviewCostEmptyPricesIsBadMetadata(t *testing.T) {
 	f := &fakeWalletServer{}
 	cp := newTxTestClient(t, f)
 	ctx := t.Context()
-	ctxTx, _ := BuildTriggerSmartContract(cp, ctx, testFrom, testTo, nil, 0)
+	ctxTx, _ := BuildTriggerSmartContract(ctx, cp, testFrom, testTo, nil, 0)
 	f.EnergyPrices = func(ctx context.Context, in *api.EmptyMessage) (*api.PricesResponseMessage, error) {
 		return &api.PricesResponseMessage{}, nil
 	}
-	_, err := PreviewCost(cp, ctx, ctxTx, testFrom)
+	_, err := PreviewCost(ctx, cp, ctxTx, testFrom)
 	if err == nil || !tron.HasCode(err, tron.CodeContractBadMetadata) {
 		t.Errorf("PreviewCost with empty prices = %v, want %q", err, tron.CodeContractBadMetadata)
 	}
@@ -444,7 +444,7 @@ func TestPreviewCostBurnOverflowIsAmountOverflow(t *testing.T) {
 	f := &fakeWalletServer{}
 	cp := newTxTestClient(t, f)
 	ctx := t.Context()
-	ctxTx, _ := BuildTriggerSmartContract(cp, ctx, testFrom, testTo, nil, 0)
+	ctxTx, _ := BuildTriggerSmartContract(ctx, cp, testFrom, testTo, nil, 0)
 	// Simulate returns the accurate energy; use MaxInt64 to trigger overflow.
 	f.TriggerConstant = func(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error) {
 		return &api.TransactionExtention{Result: okResult(), EnergyUsed: math.MaxInt64, EnergyPenalty: 0}, nil
@@ -455,7 +455,7 @@ func TestPreviewCostBurnOverflowIsAmountOverflow(t *testing.T) {
 	f.EnergyPrices = func(ctx context.Context, in *api.EmptyMessage) (*api.PricesResponseMessage, error) {
 		return &api.PricesResponseMessage{Prices: "1691500000000:3"}, nil
 	}
-	_, err := PreviewCost(cp, ctx, ctxTx, testFrom)
+	_, err := PreviewCost(ctx, cp, ctxTx, testFrom)
 	if err == nil || !tron.HasCode(err, tron.CodeAmountOverflow) {
 		t.Errorf("PreviewCost overflow = %v, want %q", err, tron.CodeAmountOverflow)
 	}
@@ -468,7 +468,7 @@ func TestPreviewCostBurnOverflowIsAmountOverflow(t *testing.T) {
 func TestPreviewCostNilTxRejected(t *testing.T) {
 	f := &fakeWalletServer{}
 	cp := newTxTestClient(t, f)
-	_, err := PreviewCost(cp, t.Context(), nil, testFrom)
+	_, err := PreviewCost(t.Context(), cp, nil, testFrom)
 	if err == nil || !tron.HasCode(err, tron.CodeTxInvalidArgument) {
 		t.Errorf("PreviewCost(nil) = %v, want tx.invalid_argument", err)
 	}
@@ -482,7 +482,7 @@ func TestPreviewCostFeeLimitGateTooLow(t *testing.T) {
 	f := &fakeWalletServer{}
 	cp := newTxTestClient(t, f)
 	ctx := t.Context()
-	ctxTx, _ := BuildTriggerSmartContract(cp, ctx, testFrom, testTo, nil, 0)
+	ctxTx, _ := BuildTriggerSmartContract(ctx, cp, testFrom, testTo, nil, 0)
 	// Simulate is the accurate energy source: 5000 needed − 1500 available.
 	f.TriggerConstant = func(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error) {
 		return &api.TransactionExtention{Result: okResult(), EnergyUsed: 5000, EnergyPenalty: 0}, nil
@@ -494,7 +494,7 @@ func TestPreviewCostFeeLimitGateTooLow(t *testing.T) {
 		return &api.PricesResponseMessage{Prices: "1691500000000:420"}, nil
 	}
 	low := ctxTx.WithFeeLimit(tron.TRX(1)) // 1_000_000 SUN < 1_470_000 SUN burn
-	_, err := PreviewCost(cp, ctx, low, testFrom)
+	_, err := PreviewCost(ctx, cp, low, testFrom)
 	if err == nil || !tron.HasCode(err, tron.CodeTxFeeLimitTooLow) {
 		t.Errorf("PreviewCost with 1-TRX fee limit vs 1.47-TRX burn = %v, want %q", err, tron.CodeTxFeeLimitTooLow)
 	}
@@ -517,7 +517,7 @@ func TestPreviewCostFeeLimitGatePasses(t *testing.T) {
 	f := &fakeWalletServer{}
 	cp := newTxTestClient(t, f)
 	ctx := t.Context()
-	ctxTx, _ := BuildTriggerSmartContract(cp, ctx, testFrom, testTo, nil, 0)
+	ctxTx, _ := BuildTriggerSmartContract(ctx, cp, testFrom, testTo, nil, 0)
 	f.TriggerConstant = func(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error) {
 		return &api.TransactionExtention{Result: okResult(), EnergyUsed: 5000, EnergyPenalty: 0}, nil
 	}
@@ -528,7 +528,7 @@ func TestPreviewCostFeeLimitGatePasses(t *testing.T) {
 		return &api.PricesResponseMessage{Prices: "1691500000000:420"}, nil
 	}
 	high := ctxTx.WithFeeLimit(tron.TRX(5)) // 5_000_000 SUN > 1_470_000 SUN burn
-	preview, err := PreviewCost(cp, ctx, high, testFrom)
+	preview, err := PreviewCost(ctx, cp, high, testFrom)
 	if err != nil {
 		t.Fatalf("PreviewCost with 5-TRX fee limit: %v", err)
 	}

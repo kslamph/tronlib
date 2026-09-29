@@ -39,9 +39,9 @@ type EnergyPrice struct {
 // Exported per Task 9 controller ruling (D1): the facade's architecture §10 surface
 // needs the EnergyPrice type, and the reviewed parse in cost.go is exported
 // behind it rather than duplicated.
-func EnergyPriceOf(cp rpc.ConnProvider, ctx context.Context) (*EnergyPrice, error) {
+func EnergyPriceOf(ctx context.Context, cp rpc.ConnProvider) (*EnergyPrice, error) {
 	const op = "tx.EnergyPriceOf"
-	price, ts, err := latestEnergyPrice(cp, ctx, op)
+	price, ts, err := latestEnergyPrice(ctx, cp, op)
 	if err != nil {
 		return nil, err
 	}

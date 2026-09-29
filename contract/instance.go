@@ -61,7 +61,7 @@ func NewInstance(cp rpc.ConnProvider, address tron.Address) (*Instance, error) {
 // contract.not_found. See tx.DynamicEnergy for the factor semantics and
 // tx.DynamicEnergy.PredictPenalty for turning it into a surcharge.
 func (i *Instance) DynamicEnergy(ctx context.Context) (*tx.DynamicEnergy, error) {
-	return tx.DynamicEnergyOf(i.cp, ctx, i.address)
+	return tx.DynamicEnergyOf(ctx, i.cp, i.address)
 }
 
 // UpdateSetting builds an UpdateSettingContract transaction setting this
@@ -69,21 +69,21 @@ func (i *Instance) DynamicEnergy(ctx context.Context) (*tx.DynamicEnergy, error)
 // of every call's energy cost. Only the deployer account may broadcast
 // it. Bandwidth-only (NativeTx) — no energy, no simulation path.
 func (i *Instance) UpdateSetting(ctx context.Context, owner tron.Address, percent int64) (*tx.NativeTx, error) {
-	return tx.BuildUpdateSetting(i.cp, ctx, owner, i.address, percent)
+	return tx.BuildUpdateSetting(ctx, i.cp, owner, i.address, percent)
 }
 
 // UpdateEnergyLimit builds an UpdateEnergyLimitContract transaction
 // setting this contract's origin_energy_limit. Only the deployer account
 // may broadcast it. Bandwidth-only (NativeTx).
 func (i *Instance) UpdateEnergyLimit(ctx context.Context, owner tron.Address, limit int64) (*tx.NativeTx, error) {
-	return tx.BuildUpdateEnergyLimit(i.cp, ctx, owner, i.address, limit)
+	return tx.BuildUpdateEnergyLimit(ctx, i.cp, owner, i.address, limit)
 }
 
 // ClearABI builds a ClearABIContract transaction dropping this contract's
 // published ABI. The contract keeps running. Only the deployer account
 // may broadcast it. Bandwidth-only (NativeTx).
 func (i *Instance) ClearABI(ctx context.Context, owner tron.Address) (*tx.NativeTx, error) {
-	return tx.BuildClearABI(i.cp, ctx, owner, i.address)
+	return tx.BuildClearABI(ctx, i.cp, owner, i.address)
 }
 
 // UseABI loads the contract's ABI from a Solidity JSON string, replacing
@@ -368,7 +368,7 @@ func (i *Instance) Invoke(ctx context.Context, owner tron.Address, value tron.SU
 	if err != nil {
 		return nil, err
 	}
-	return tx.BuildTriggerSmartContract(i.cp, ctx, owner, i.address, data, value)
+	return tx.BuildTriggerSmartContract(ctx, i.cp, owner, i.address, data, value)
 }
 
 // Decode decodes a raw ABI return value for a known method into a typed

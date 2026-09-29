@@ -182,7 +182,7 @@ func newTestHandle(t *testing.T) (*Handle, *fakeTRC20Wallet) {
 			return ext, nil
 		},
 	}
-	h, err := New(newTokenTestClient(t, f), context.Background(), testContract)
+	h, err := New(context.Background(), newTokenTestClient(t, f), testContract)
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}

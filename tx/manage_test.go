@@ -21,7 +21,7 @@ func TestBuildUpdateSetting(t *testing.T) {
 			return manageExt(), nil
 		},
 	}
-	ntx, err := BuildUpdateSetting(newTxTestClient(t, f), t.Context(), testFrom, testTo, 30)
+	ntx, err := BuildUpdateSetting(t.Context(), newTxTestClient(t, f), testFrom, testTo, 30)
 	if err != nil {
 		t.Fatalf("BuildUpdateSetting: %v", err)
 	}
@@ -49,18 +49,18 @@ func TestBuildUpdateSetting(t *testing.T) {
 func TestBuildUpdateSettingValidation(t *testing.T) {
 	cp := newTxTestClient(t, &fakeWalletServer{})
 	for _, percent := range []int64{-1, 101, 1 << 40} {
-		if _, err := BuildUpdateSetting(cp, t.Context(), testFrom, testTo, percent); !tron.HasCode(err, tron.CodeTxInvalidArgument) {
+		if _, err := BuildUpdateSetting(t.Context(), cp, testFrom, testTo, percent); !tron.HasCode(err, tron.CodeTxInvalidArgument) {
 			t.Errorf("percent %d: want tx.invalid_argument, got %v", percent, err)
 		}
 	}
 	// Boundaries are accepted (validation only, no network assertion here —
 	// the fake answers manageExt for any percent in range).
 	for _, percent := range []int64{0, 100} {
-		if _, err := BuildUpdateSetting(cp, t.Context(), testFrom, testTo, percent); err != nil {
+		if _, err := BuildUpdateSetting(t.Context(), cp, testFrom, testTo, percent); err != nil {
 			t.Errorf("percent %d: %v", percent, err)
 		}
 	}
-	if _, err := BuildUpdateSetting(cp, t.Context(), tron.Address{}, testTo, 30); !tron.HasCode(err, tron.CodeAddressInvalid) {
+	if _, err := BuildUpdateSetting(t.Context(), cp, tron.Address{}, testTo, 30); !tron.HasCode(err, tron.CodeAddressInvalid) {
 		t.Errorf("zero owner: want address.invalid, got %v", err)
 	}
 }
@@ -73,7 +73,7 @@ func TestBuildUpdateEnergyLimit(t *testing.T) {
 			return manageExt(), nil
 		},
 	}
-	ntx, err := BuildUpdateEnergyLimit(newTxTestClient(t, f), t.Context(), testFrom, testTo, 1_000_000)
+	ntx, err := BuildUpdateEnergyLimit(t.Context(), newTxTestClient(t, f), testFrom, testTo, 1_000_000)
 	if err != nil {
 		t.Fatalf("BuildUpdateEnergyLimit: %v", err)
 	}
@@ -83,7 +83,7 @@ func TestBuildUpdateEnergyLimit(t *testing.T) {
 	if gotReq.GetOriginEnergyLimit() != 1_000_000 {
 		t.Errorf("limit = %d, want 1000000", gotReq.GetOriginEnergyLimit())
 	}
-	if _, err := BuildUpdateEnergyLimit(newTxTestClient(t, f), t.Context(), testFrom, testTo, -1); !tron.HasCode(err, tron.CodeTxInvalidArgument) {
+	if _, err := BuildUpdateEnergyLimit(t.Context(), newTxTestClient(t, f), testFrom, testTo, -1); !tron.HasCode(err, tron.CodeTxInvalidArgument) {
 		t.Errorf("negative limit: want tx.invalid_argument, got %v", err)
 	}
 }
@@ -96,7 +96,7 @@ func TestBuildClearABI(t *testing.T) {
 			return manageExt(), nil
 		},
 	}
-	ntx, err := BuildClearABI(newTxTestClient(t, f), t.Context(), testFrom, testTo)
+	ntx, err := BuildClearABI(t.Context(), newTxTestClient(t, f), testFrom, testTo)
 	if err != nil {
 		t.Fatalf("BuildClearABI: %v", err)
 	}
@@ -106,7 +106,7 @@ func TestBuildClearABI(t *testing.T) {
 	if string(gotReq.GetContractAddress()) != string(testTo.Bytes()) {
 		t.Errorf("contract = %x, want %x", gotReq.GetContractAddress(), testTo.Bytes())
 	}
-	if _, err := BuildClearABI(newTxTestClient(t, f), t.Context(), testFrom, tron.Address{}); !tron.HasCode(err, tron.CodeAddressInvalid) {
+	if _, err := BuildClearABI(t.Context(), newTxTestClient(t, f), testFrom, tron.Address{}); !tron.HasCode(err, tron.CodeAddressInvalid) {
 		t.Errorf("zero contract: want address.invalid, got %v", err)
 	}
 }

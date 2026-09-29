@@ -116,7 +116,7 @@ func (d *DynamicEnergy) PredictPenalty(base int64) (int64, error) {
 // not-found signal. A deployed contract with no state row yet (fresh
 // contract) carries a SmartContract but no ContractState and reads as the
 // zero DynamicEnergy (factor 0).
-func DynamicEnergyOf(cp rpc.ConnProvider, ctx context.Context, contract tron.Address) (*DynamicEnergy, error) {
+func DynamicEnergyOf(ctx context.Context, cp rpc.ConnProvider, contract tron.Address) (*DynamicEnergy, error) {
 	const op = "tx.DynamicEnergyOf"
 	if cp == nil {
 		return nil, &tron.Error{Code: tron.CodeChainConnection, Op: op, Hint: "cp is nil; pass a connected *rpc.Client"}

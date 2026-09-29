@@ -74,7 +74,7 @@ type BandwidthPrice struct {
 // current price (the latest ts:price entry). A malformed or empty price
 // list is contract.bad_metadata — a silent zero price would zero every
 // burn prediction.
-func BandwidthPriceOf(cp rpc.ConnProvider, ctx context.Context) (*BandwidthPrice, error) {
+func BandwidthPriceOf(ctx context.Context, cp rpc.ConnProvider) (*BandwidthPrice, error) {
 	const op = "tx.BandwidthPriceOf"
 	msg, err := rpc.GetBandwidthPrices(cp, ctx, &api.EmptyMessage{})
 	if err != nil {
@@ -221,7 +221,7 @@ func itoa(n int64) string { return strconv.FormatInt(n, 10) }
 // price, then — only on the creation path — chain parameters and the
 // recipient account, then — only when a burn or fee is predicted — the
 // owner's balance.
-func BandwidthCostOf(cp rpc.ConnProvider, ctx context.Context, t Tx, owner tron.Address) (*BandwidthCost, error) {
+func BandwidthCostOf(ctx context.Context, cp rpc.ConnProvider, t Tx, owner tron.Address) (*BandwidthCost, error) {
 	const op = "tx.BandwidthCostOf"
 	if cp == nil {
 		return nil, &tron.Error{Code: tron.CodeChainConnection, Op: op, Hint: "cp is nil; pass a connected *rpc.Client"}
@@ -240,7 +240,7 @@ func BandwidthCostOf(cp rpc.ConnProvider, ctx context.Context, t Tx, owner tron.
 	if err != nil {
 		return nil, err
 	}
-	price, err := BandwidthPriceOf(cp, ctx)
+	price, err := BandwidthPriceOf(ctx, cp)
 	if err != nil {
 		return nil, err
 	}
@@ -259,12 +259,12 @@ func BandwidthCostOf(cp rpc.ConnProvider, ctx context.Context, t Tx, owner tron.
 
 	// Creation branch: transfers to an address with no account.
 	if to, isTransfer := transferRecipient(t); isTransfer {
-		creates, err := recipientMissing(cp, ctx, to)
+		creates, err := recipientMissing(ctx, cp, to)
 		if err != nil {
 			return nil, err
 		}
 		if creates {
-			return creationCost(cp, ctx, op, cost, owner)
+			return creationCost(ctx, cp, op, cost, owner)
 		}
 	}
 
@@ -280,7 +280,7 @@ func BandwidthCostOf(cp rpc.ConnProvider, ctx context.Context, t Tx, owner tron.
 	}
 	cost.Burn = burn
 	cost.NetUsage = 0 // the node reports NetUsage 0 on the burn path
-	return requireBandwidthBalance(cp, ctx, op, owner, cost, int64(burn))
+	return requireBandwidthBalance(ctx, cp, op, owner, cost, int64(burn))
 }
 
 // transferRecipient returns the recipient of a transfer-shaped transaction
@@ -329,7 +329,7 @@ func transferRecipient(t Tx) (to tron.Address, isTransfer bool) {
 // account arrives as an empty message over gRPC (the node returns null),
 // and every stored account carries its address — so an empty address is
 // the missing signal.
-func recipientMissing(cp rpc.ConnProvider, ctx context.Context, to tron.Address) (bool, error) {
+func recipientMissing(ctx context.Context, cp rpc.ConnProvider, to tron.Address) (bool, error) {
 	acct, err := rpc.GetAccount(cp, ctx, &core.Account{Address: to.Bytes()})
 	if err != nil {
 		return false, err
@@ -341,8 +341,8 @@ func recipientMissing(cp rpc.ConnProvider, ctx context.Context, to tron.Address)
 // staked bandwidth tried with the getCreateNewAccountBandwidthRate
 // multiple, else the flat getCreateAccountFee burns; the
 // getCreateNewAccountFeeInSystemContract fee burns on top in all cases.
-func creationCost(cp rpc.ConnProvider, ctx context.Context, op string, cost *BandwidthCost, owner tron.Address) (*BandwidthCost, error) {
-	params, err := chainParamMap(cp, ctx, op,
+func creationCost(ctx context.Context, cp rpc.ConnProvider, op string, cost *BandwidthCost, owner tron.Address) (*BandwidthCost, error) {
+	params, err := chainParamMap(ctx, cp, op,
 		"getCreateNewAccountFeeInSystemContract", "getCreateAccountFee", "getCreateNewAccountBandwidthRate")
 	if err != nil {
 		return nil, err
@@ -363,13 +363,13 @@ func creationCost(cp rpc.ConnProvider, ctx context.Context, op string, cost *Ban
 	}
 	if scaled <= cost.StakedAvailable {
 		cost.NetUsage = scaled // the receipt reports the ratio-scaled usage
-		return requireBandwidthBalance(cp, ctx, op, owner, cost, 0)
+		return requireBandwidthBalance(ctx, cp, op, owner, cost, 0)
 	}
 	// Fee path: flat creation fee burns as NetFee.
 	cost.ToBurn = 0
 	cost.Burn = tron.SUN(createFee)
 	cost.NetUsage = 0
-	return requireBandwidthBalance(cp, ctx, op, owner, cost, createFee)
+	return requireBandwidthBalance(ctx, cp, op, owner, cost, createFee)
 }
 
 // requireBandwidthBalance checks the owner can cover the predicted SUN
@@ -377,7 +377,7 @@ func creationCost(cp rpc.ConnProvider, ctx context.Context, op string, cost *Ban
 // account.insufficient_bandwidth — the node rejects the transaction, so a
 // bare number would be fiction. The balance is read lazily: covered
 // predictions cost no extra RPC.
-func requireBandwidthBalance(cp rpc.ConnProvider, ctx context.Context, op string, owner tron.Address, cost *BandwidthCost, outlay int64) (*BandwidthCost, error) {
+func requireBandwidthBalance(ctx context.Context, cp rpc.ConnProvider, op string, owner tron.Address, cost *BandwidthCost, outlay int64) (*BandwidthCost, error) {
 	if outlay <= 0 && cost.NewAccountFee <= 0 {
 		return cost, nil
 	}
@@ -399,7 +399,7 @@ func requireBandwidthBalance(cp rpc.ConnProvider, ctx context.Context, op string
 
 // chainParamMap reads the named governance parameters into a map. A missing
 // key is contract.bad_metadata: required parameters the node did not answer.
-func chainParamMap(cp rpc.ConnProvider, ctx context.Context, op string, keys ...string) (map[string]int64, error) {
+func chainParamMap(ctx context.Context, cp rpc.ConnProvider, op string, keys ...string) (map[string]int64, error) {
 	msg, err := rpc.GetChainParameters(cp, ctx, &api.EmptyMessage{})
 	if err != nil {
 		return nil, err

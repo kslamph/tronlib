@@ -13,19 +13,19 @@ func TestKindsAndSealedInterface(t *testing.T) {
 	cp := newTxTestClient(t, &fakeWalletServer{})
 	ctx := t.Context()
 
-	native, err := BuildTransfer(cp, ctx, testFrom, testTo, 1_000_000)
+	native, err := BuildTransfer(ctx, cp, testFrom, testTo, 1_000_000)
 	if err != nil {
 		t.Fatalf("BuildTransfer: %v", err)
 	}
-	contract, err := BuildTriggerSmartContract(cp, ctx, testFrom, testTo, []byte{0x01}, 0)
+	contract, err := BuildTriggerSmartContract(ctx, cp, testFrom, testTo, []byte{0x01}, 0)
 	if err != nil {
 		t.Fatalf("BuildTriggerSmartContract: %v", err)
 	}
-	deploy, err := BuildDeploy(cp, ctx, testFrom, DeployParams{Bytecode: []byte{0x60, 0x80}})
+	deploy, err := BuildDeploy(ctx, cp, testFrom, DeployParams{Bytecode: []byte{0x60, 0x80}})
 	if err != nil {
 		t.Fatalf("BuildDeploy: %v", err)
 	}
-	asset, err := BuildAssetTransfer(cp, ctx, testFrom, testTo, "1000001", 5)
+	asset, err := BuildAssetTransfer(ctx, cp, testFrom, testTo, "1000001", 5)
 	if err != nil {
 		t.Fatalf("BuildAssetTransfer: %v", err)
 	}
@@ -57,7 +57,7 @@ func TestKindStringValues(t *testing.T) {
 
 func TestIDComputedFromRawData(t *testing.T) {
 	cp := newTxTestClient(t, &fakeWalletServer{})
-	native, err := BuildTransfer(cp, t.Context(), testFrom, testTo, 1_000_000)
+	native, err := BuildTransfer(t.Context(), cp, testFrom, testTo, 1_000_000)
 	if err != nil {
 		t.Fatalf("BuildTransfer: %v", err)
 	}
@@ -70,7 +70,7 @@ func TestIDComputedFromRawData(t *testing.T) {
 
 func TestAccessorsReportEffectiveValues(t *testing.T) {
 	cp := newTxTestClient(t, &fakeWalletServer{})
-	contract, err := BuildTriggerSmartContract(cp, t.Context(), testFrom, testTo, []byte{0x01}, 0)
+	contract, err := BuildTriggerSmartContract(t.Context(), cp, testFrom, testTo, []byte{0x01}, 0)
 	if err != nil {
 		t.Fatalf("build: %v", err)
 	}
@@ -93,10 +93,10 @@ func TestAccessorsReportEffectiveValues(t *testing.T) {
 
 func TestAllKindsSatisfyTx(t *testing.T) {
 	cp := newTxTestClient(t, &fakeWalletServer{})
-	native, _ := BuildTransfer(cp, t.Context(), testFrom, testTo, 1_000_000)
-	contract, _ := BuildTriggerSmartContract(cp, t.Context(), testFrom, testTo, []byte{0x01}, 0)
-	deploy, _ := BuildDeploy(cp, t.Context(), testFrom, DeployParams{Bytecode: []byte{0x60}})
-	asset, _ := BuildAssetTransfer(cp, t.Context(), testFrom, testTo, "1000001", 5)
+	native, _ := BuildTransfer(t.Context(), cp, testFrom, testTo, 1_000_000)
+	contract, _ := BuildTriggerSmartContract(t.Context(), cp, testFrom, testTo, []byte{0x01}, 0)
+	deploy, _ := BuildDeploy(t.Context(), cp, testFrom, DeployParams{Bytecode: []byte{0x60}})
+	asset, _ := BuildAssetTransfer(t.Context(), cp, testFrom, testTo, "1000001", 5)
 	var _ Tx = native
 	var _ Tx = contract
 	var _ Tx = deploy

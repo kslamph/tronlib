@@ -170,21 +170,21 @@ type Witness = rpc.Witness
 // The node fills raw_data (TAPOS reference, timestamp, expiration); sign
 // the result with Sign before Broadcast.
 func (c *Client) TransferTRX(ctx context.Context, from, to Address, amt SUN) (*NativeTx, error) {
-	return tx.BuildTransfer(c.inner, ctx, from, to, amt)
+	return tx.BuildTransfer(ctx, c.inner, from, to, amt)
 }
 
 // TransferToken builds a TRC-10 transfer (AssetTx) of qty units of
 // assetName (the token's id or name form as the node expects it) from from
 // to to. TRC-20 tokens go through Token instead.
 func (c *Client) TransferToken(ctx context.Context, from, to Address, assetName string, qty int64) (*tx.AssetTx, error) {
-	return tx.BuildAssetTransfer(c.inner, ctx, from, to, assetName, qty)
+	return tx.BuildAssetTransfer(ctx, c.inner, from, to, assetName, qty)
 }
 
 // Token pins a TRC-20 handle for the token contract at address, fetching
 // its decimals with one eager view call. Amounts minted by the Handle carry
 // that scale.
 func (c *Client) Token(ctx context.Context, address Address) (*token.Handle, error) {
-	return token.New(c.inner, ctx, address)
+	return token.New(ctx, c.inner, address)
 }
 
 // Contract returns a typed view of the deployed contract at addr. The ABI
@@ -197,26 +197,26 @@ func (c *Client) Contract(_ context.Context, addr Address) (*contract.Instance, 
 // the final creation bytecode: constructor arguments already appended
 // (encoding is a contract-layer concern).
 func (c *Client) Deploy(ctx context.Context, owner Address, p tx.DeployParams) (*tx.DeployTx, error) {
-	return tx.BuildDeploy(c.inner, ctx, owner, p)
+	return tx.BuildDeploy(ctx, c.inner, owner, p)
 }
 
 // Broadcast submits a signed transaction to the node and returns a Receipt.
 // A node-level rejection is a Receipt (r.OK() reports it), not an error.
 func (c *Client) Broadcast(ctx context.Context, t Tx) (*Receipt, error) {
-	return tx.Broadcast(c.inner, ctx, t)
+	return tx.Broadcast(ctx, c.inner, t)
 }
 
 // Wait polls until the transaction is included and executed, and returns
 // the parsed Receipt. Inclusion is not finality; use WaitForSolid for
 // custody or deposit-crediting semantics.
 func (c *Client) Wait(ctx context.Context, txid string) (*Receipt, error) {
-	return tx.Wait(c.inner, ctx, txid)
+	return tx.Wait(ctx, c.inner, txid)
 }
 
 // WaitForSolid polls the Solidity endpoint until the transaction appears
 // there — solidified semantics, the finality-aware variant of Wait.
 func (c *Client) WaitForSolid(ctx context.Context, txid string) (*Receipt, error) {
-	return tx.WaitForSolid(c.inner, ctx, txid)
+	return tx.WaitForSolid(ctx, c.inner, txid)
 }
 
 // CostPreview predicts what broadcasting t will cost owner in SUN,
@@ -225,14 +225,14 @@ func (c *Client) WaitForSolid(ctx context.Context, txid string) (*Receipt, error
 // current network price (EnergyPrice.CostOf), and the owner's staked energy
 // (architecture §7.3).
 func (c *Client) CostPreview(ctx context.Context, t *ContractTx, owner Address) (*tx.CostPreview, error) {
-	return tx.PreviewCost(c.inner, ctx, t, owner)
+	return tx.PreviewCost(ctx, c.inner, t, owner)
 }
 
 // EnergyPrice returns the current energy unit price (the latest governance
 // "ts:price" entry). The unit price changes only via governance proposal, so
 // the read is cached for one maintenance period (architecture §7.3, risk G5): the
 // cache is TTL-only, never keyed on the head block. A caller wanting a
-// guaranteed-fresh read calls tx.EnergyPriceOf(c.Raw(), ctx) directly.
+// guaranteed-fresh read calls tx.EnergyPriceOf(ctx, c.Raw()) directly.
 func (c *Client) EnergyPrice(ctx context.Context) (*tx.EnergyPrice, error) {
 	c.priceMu.Lock()
 	defer c.priceMu.Unlock()
@@ -240,7 +240,7 @@ func (c *Client) EnergyPrice(ctx context.Context) (*tx.EnergyPrice, error) {
 		cp := *c.price // defensive copy: the cache stays un-mutable through the handle
 		return &cp, nil
 	}
-	p, err := tx.EnergyPriceOf(c.inner, ctx)
+	p, err := tx.EnergyPriceOf(ctx, c.inner)
 	if err != nil {
 		return nil, err
 	}
@@ -256,5 +256,5 @@ func (c *Client) EnergyPrice(ctx context.Context) (*tx.EnergyPrice, error) {
 // included yields no logs (poll Wait/WaitForSolid first if inclusion is
 // required).
 func (c *Client) Events(ctx context.Context, txid string) ([]Log, error) {
-	return tx.LogsFor(c.inner, ctx, txid)
+	return tx.LogsFor(ctx, c.inner, txid)
 }

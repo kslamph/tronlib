@@ -18,7 +18,7 @@ import (
 func mustSignedContract(t *testing.T, f *fakeWalletServer) *ContractTx {
 	t.Helper()
 	cp := newTxTestClient(t, f)
-	ct, err := BuildTriggerSmartContract(cp, t.Context(), testFrom, testTo, []byte{0xa9, 0x05}, 0)
+	ct, err := BuildTriggerSmartContract(t.Context(), cp, testFrom, testTo, []byte{0xa9, 0x05}, 0)
 	if err != nil {
 		t.Fatalf("build: %v", err)
 	}
@@ -39,7 +39,7 @@ func TestTotalCostContractCombinesBoth(t *testing.T) {
 		AccountResource: richResource(100000, 100, 600, 600),
 	}
 	ct := mustSignedContract(t, f)
-	got, err := TotalCostOf(newTxTestClient(t, f), t.Context(), ct, testFrom)
+	got, err := TotalCostOf(t.Context(), newTxTestClient(t, f), ct, testFrom)
 	if err != nil {
 		t.Fatalf("TotalCostOf: %v", err)
 	}
@@ -69,7 +69,7 @@ func TestTotalCostNativeIsBandwidthOnly(t *testing.T) {
 		},
 	}
 	ntx := mustSignedTransfer(t, f)
-	got, err := TotalCostOf(newTxTestClient(t, f), t.Context(), ntx, testFrom)
+	got, err := TotalCostOf(t.Context(), newTxTestClient(t, f), ntx, testFrom)
 	if err != nil {
 		t.Fatalf("TotalCostOf: %v", err)
 	}
@@ -88,7 +88,7 @@ func TestTotalCostCreationAddsFee(t *testing.T) {
 	}
 	missingRecipient(f, 50_000_000)
 	ntx := mustSignedTransfer(t, f)
-	got, err := TotalCostOf(newTxTestClient(t, f), t.Context(), ntx, testFrom)
+	got, err := TotalCostOf(t.Context(), newTxTestClient(t, f), ntx, testFrom)
 	if err != nil {
 		t.Fatalf("TotalCostOf: %v", err)
 	}
@@ -100,11 +100,11 @@ func TestTotalCostCreationAddsFee(t *testing.T) {
 func TestTotalCostUnsignedFailsBeforeSimulate(t *testing.T) {
 	f := &fakeWalletServer{}
 	cp := newTxTestClient(t, f)
-	ct, err := BuildTriggerSmartContract(cp, t.Context(), testFrom, testTo, []byte{0xa9}, 0)
+	ct, err := BuildTriggerSmartContract(t.Context(), cp, testFrom, testTo, []byte{0xa9}, 0)
 	if err != nil {
 		t.Fatalf("build: %v", err)
 	}
-	if _, err := TotalCostOf(cp, t.Context(), ct, testFrom); !tron.HasCode(err, tron.CodeTxInvalidArgument) {
+	if _, err := TotalCostOf(t.Context(), cp, ct, testFrom); !tron.HasCode(err, tron.CodeTxInvalidArgument) {
 		t.Fatalf("unsigned: want tx.invalid_argument, got %v", err)
 	}
 	if n := f.simulateCalls.Load(); n != 0 {
@@ -115,11 +115,11 @@ func TestTotalCostUnsignedFailsBeforeSimulate(t *testing.T) {
 func TestTotalCostUnsignedHintNamesSize(t *testing.T) {
 	f := &fakeWalletServer{}
 	cp := newTxTestClient(t, f)
-	ntx, err := BuildTransfer(cp, t.Context(), testFrom, testTo, 1)
+	ntx, err := BuildTransfer(t.Context(), cp, testFrom, testTo, 1)
 	if err != nil {
 		t.Fatalf("build: %v", err)
 	}
-	_, err = TotalCostOf(cp, t.Context(), ntx, testFrom)
+	_, err = TotalCostOf(t.Context(), cp, ntx, testFrom)
 	if !tron.HasCode(err, tron.CodeTxInvalidArgument) {
 		t.Fatalf("want tx.invalid_argument, got %v", err)
 	}
@@ -140,13 +140,13 @@ func TestTotalCostValidation(t *testing.T) {
 	f := &fakeWalletServer{}
 	cp := newTxTestClient(t, f)
 	ntx := mustSignedTransfer(t, f)
-	if _, err := TotalCostOf(nil, t.Context(), ntx, testFrom); !tron.HasCode(err, tron.CodeChainConnection) {
+	if _, err := TotalCostOf(t.Context(), nil, ntx, testFrom); !tron.HasCode(err, tron.CodeChainConnection) {
 		t.Errorf("nil cp: want chain.connection, got %v", err)
 	}
-	if _, err := TotalCostOf(cp, t.Context(), nil, testFrom); !tron.HasCode(err, tron.CodeTxInvalidArgument) {
+	if _, err := TotalCostOf(t.Context(), cp, nil, testFrom); !tron.HasCode(err, tron.CodeTxInvalidArgument) {
 		t.Errorf("nil tx: want tx.invalid_argument, got %v", err)
 	}
-	if _, err := TotalCostOf(cp, t.Context(), ntx, tron.Address{}); !tron.HasCode(err, tron.CodeAddressInvalid) {
+	if _, err := TotalCostOf(t.Context(), cp, ntx, tron.Address{}); !tron.HasCode(err, tron.CodeAddressInvalid) {
 		t.Errorf("zero owner: want address.invalid, got %v", err)
 	}
 }

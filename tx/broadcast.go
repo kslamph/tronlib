@@ -37,7 +37,7 @@ const pollInterval = 500 * time.Millisecond
 // poll Wait(txid); do NOT rebuild and resign — resending identical bytes is
 // deduplicated (a txid is a pure function of raw_data), but rebuilding gets
 // a new TAPOS reference and a new txid, and THAT spends twice.
-func Broadcast(cp rpc.ConnProvider, ctx context.Context, t Tx) (*Receipt, error) {
+func Broadcast(ctx context.Context, cp rpc.ConnProvider, t Tx) (*Receipt, error) {
 	const op = "tx.Broadcast"
 	if t == nil {
 		return nil, &tron.Error{Code: tron.CodeTxInvalidArgument, Op: op, Hint: "transaction is nil"}
@@ -70,7 +70,7 @@ func Broadcast(cp rpc.ConnProvider, ctx context.Context, t Tx) (*Receipt, error)
 		if tron.HasCode(err, tron.CodeChainTimeout) {
 			// Ambiguous: the broadcast may or may not have landed. One
 			// reconciliation poll, then the wait-and-do-not-resend answer.
-			return reconcileAfterBroadcast(cp, ctx, op, txid)
+			return reconcileAfterBroadcast(ctx, cp, op, txid)
 		}
 		return nil, err
 	}
@@ -89,7 +89,7 @@ func Broadcast(cp rpc.ConnProvider, ctx context.Context, t Tx) (*Receipt, error)
 
 // reconcileAfterBroadcast is Broadcast's single reconciliation poll after an
 // ambiguous timeout (architecture §6.4).
-func reconcileAfterBroadcast(cp rpc.ConnProvider, ctx context.Context, op, txid string) (*Receipt, error) {
+func reconcileAfterBroadcast(ctx context.Context, cp rpc.ConnProvider, op, txid string) (*Receipt, error) {
 	id, _ := hex.DecodeString(txid)
 	info, err := rpc.GetTransactionInfoById(cp, ctx, &api.BytesMessage{Value: id})
 	if err == nil && len(info.GetId()) > 0 {
@@ -112,20 +112,20 @@ func reconcileAfterBroadcast(cp rpc.ConnProvider, ctx context.Context, op, txid 
 //
 // Poll errors are transient (v1 semantics): a failed poll is retried until
 // the context is done, which surfaces as chain.timeout.
-func Wait(cp rpc.ConnProvider, ctx context.Context, txid string) (*Receipt, error) {
-	return pollReceipt(cp, ctx, "tx.Wait", txid, false)
+func Wait(ctx context.Context, cp rpc.ConnProvider, txid string) (*Receipt, error) {
+	return pollReceipt(ctx, cp, "tx.Wait", txid, false)
 }
 
 // WaitForSolid polls the Solidity endpoint (GetTransactionInfoById on
 // WalletSolidity) until the transaction appears there — solidified
 // semantics, the finality-aware variant of Wait. A receipt from the solidity
 // node reports Solidified() == true.
-func WaitForSolid(cp rpc.ConnProvider, ctx context.Context, txid string) (*Receipt, error) {
-	return pollReceipt(cp, ctx, "tx.WaitForSolid", txid, true)
+func WaitForSolid(ctx context.Context, cp rpc.ConnProvider, txid string) (*Receipt, error) {
+	return pollReceipt(ctx, cp, "tx.WaitForSolid", txid, true)
 }
 
 // pollReceipt is the shared polling loop of Wait/WaitForSolid.
-func pollReceipt(cp rpc.ConnProvider, ctx context.Context, op, txid string, solid bool) (*Receipt, error) {
+func pollReceipt(ctx context.Context, cp rpc.ConnProvider, op, txid string, solid bool) (*Receipt, error) {
 	id, err := hex.DecodeString(txid)
 	if err != nil || len(id) == 0 {
 		return nil, &tron.Error{
@@ -137,7 +137,7 @@ func pollReceipt(cp rpc.ConnProvider, ctx context.Context, op, txid string, soli
 	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
 	for {
-		info, err := getTxInfo(cp, ctx, solid, id)
+		info, err := getTxInfo(ctx, cp, solid, id)
 		if err == nil && len(info.GetId()) > 0 {
 			return receiptFromInfo(info, solid), nil
 		}
@@ -151,7 +151,7 @@ func pollReceipt(cp rpc.ConnProvider, ctx context.Context, op, txid string, soli
 
 // getTxInfo fetches the transaction info from the FullNode or Solidity
 // endpoint depending on solid.
-func getTxInfo(cp rpc.ConnProvider, ctx context.Context, solid bool, id []byte) (*core.TransactionInfo, error) {
+func getTxInfo(ctx context.Context, cp rpc.ConnProvider, solid bool, id []byte) (*core.TransactionInfo, error) {
 	req := &api.BytesMessage{Value: id}
 	if solid {
 		return rpc.GetTransactionInfoByIdSolidity(cp, ctx, req)

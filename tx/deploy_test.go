@@ -20,7 +20,7 @@ import (
 
 func mustDeployTx(t *testing.T, f *fakeWalletServer) *DeployTx {
 	t.Helper()
-	dtx, err := BuildDeploy(newTxTestClient(t, f), t.Context(),
+	dtx, err := BuildDeploy(t.Context(), newTxTestClient(t, f),
 		testFrom, DeployParams{Bytecode: []byte{0x60, 0x80}})
 	if err != nil {
 		t.Fatalf("build: %v", err)
@@ -173,7 +173,7 @@ func TestDeployMutateRejectsEmptyContractList(t *testing.T) {
 // non-deploy kinds: PermissionID indexes contract[0] directly.
 func TestWithPermissionIDRejectsEmptyContractList(t *testing.T) {
 	cp := newTxTestClient(t, &fakeWalletServer{})
-	native, err := BuildTransfer(cp, t.Context(), testFrom, testTo, 1)
+	native, err := BuildTransfer(t.Context(), cp, testFrom, testTo, 1)
 	if err != nil {
 		t.Fatalf("BuildTransfer: %v", err)
 	}

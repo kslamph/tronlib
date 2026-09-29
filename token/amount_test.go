@@ -128,7 +128,7 @@ func TestWholeOverflow(t *testing.T) {
 				return ext, nil
 			},
 		}
-		h, err := New(newTokenTestClient(t, f), context.Background(), testContract)
+		h, err := New(context.Background(), newTokenTestClient(t, f), testContract)
 		if err != nil {
 			t.Fatalf("New with decimals=%d: %v", d, err)
 		}
@@ -205,7 +205,7 @@ func TestAmountAcceptsMaxDecimals(t *testing.T) {
 			return ext, nil
 		},
 	}
-	h, err := New(newTokenTestClient(t, f), context.Background(), testContract)
+	h, err := New(context.Background(), newTokenTestClient(t, f), testContract)
 	if err != nil {
 		t.Fatalf("New with decimals=255: %v", err)
 	}

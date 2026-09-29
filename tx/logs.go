@@ -21,7 +21,7 @@ import (
 // Exported per Task 9 controller ruling (D3 precedent, D1 class): the
 // facade's architecture §10 Events surface delegates to the reviewed decode in
 // receipt.go rather than duplicating it.
-func LogsFor(cp rpc.ConnProvider, ctx context.Context, txid string) ([]event.Log, error) {
+func LogsFor(ctx context.Context, cp rpc.ConnProvider, txid string) ([]event.Log, error) {
 	const op = "tx.LogsFor"
 	id, err := hex.DecodeString(txid)
 	if err != nil || len(id) == 0 {

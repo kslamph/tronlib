@@ -51,7 +51,7 @@ func (c *TotalCost) String() string {
 // kind gets bandwidth only (plus the creation fee where it applies). The
 // bandwidth half runs first, so an unsigned transaction fails fast with
 // tx.invalid_argument before any simulation RPC is spent.
-func TotalCostOf(cp rpc.ConnProvider, ctx context.Context, t Tx, owner tron.Address) (*TotalCost, error) {
+func TotalCostOf(ctx context.Context, cp rpc.ConnProvider, t Tx, owner tron.Address) (*TotalCost, error) {
 	const op = "tx.TotalCostOf"
 	if cp == nil {
 		return nil, &tron.Error{Code: tron.CodeChainConnection, Op: op, Hint: "cp is nil; pass a connected *rpc.Client"}
@@ -64,7 +64,7 @@ func TotalCostOf(cp rpc.ConnProvider, ctx context.Context, t Tx, owner tron.Addr
 	}
 	// Bandwidth first: it rejects unsigned transactions before the
 	// simulation RPCs run.
-	bw, err := BandwidthCostOf(cp, ctx, t, owner)
+	bw, err := BandwidthCostOf(ctx, cp, t, owner)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +79,7 @@ func TotalCostOf(cp rpc.ConnProvider, ctx context.Context, t Tx, owner tron.Addr
 	if !ok {
 		return out, nil // non-contract kinds consume no energy
 	}
-	energy, err := PreviewCost(cp, ctx, ct, owner)
+	energy, err := PreviewCost(ctx, cp, ct, owner)
 	if err != nil {
 		return nil, err
 	}

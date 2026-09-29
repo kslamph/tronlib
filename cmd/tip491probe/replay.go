@@ -118,7 +118,7 @@ func runReplay(ctx context.Context, cli *tronlib.Client, txidHex string) int {
 	}
 
 	ct, err := withRetry("build", func() (*tx.ContractTx, error) {
-		return tx.BuildTriggerSmartContract(cp, ctx, owner, contract, req.GetData(), tron.SUN(req.GetCallValue()))
+		return tx.BuildTriggerSmartContract(ctx, cp, owner, contract, req.GetData(), tron.SUN(req.GetCallValue()))
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "replay build: %v\n", err)
@@ -175,7 +175,7 @@ func replayBandwidth(ctx context.Context, cli *tronlib.Client, btx *core.Transac
 	if err != nil {
 		return fmt.Sprintf("bandwidth size: %v", err), false
 	}
-	price, err := tx.BandwidthPriceOf(cli.Raw(), ctx)
+	price, err := tx.BandwidthPriceOf(ctx, cli.Raw())
 	if err != nil {
 		return fmt.Sprintf("bandwidth price: %v", err), false
 	}

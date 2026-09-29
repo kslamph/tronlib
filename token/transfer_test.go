@@ -50,7 +50,7 @@ func TestNewMalformedDecimals(t *testing.T) {
 				return ext, nil
 			},
 		}
-		h, err := New(newTokenTestClient(t, f), context.Background(), testContract)
+		h, err := New(context.Background(), newTokenTestClient(t, f), testContract)
 		if h != nil {
 			t.Errorf("New with decimals=%d returned a Handle; must fail", v)
 		}
@@ -77,7 +77,7 @@ func TestNewContractMissing(t *testing.T) {
 	f.TriggerConstant = func(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error) {
 		return &api.TransactionExtention{Result: &api.Return{Result: false, Code: api.Return_CONTRACT_VALIDATE_ERROR, Message: []byte("no contract")}}, nil
 	}
-	_, err := New(newTokenTestClient(t, f), context.Background(), testContract)
+	_, err := New(context.Background(), newTokenTestClient(t, f), testContract)
 	if err == nil {
 		t.Fatal("New against a failing node: err = nil, want an error")
 	}
@@ -89,7 +89,7 @@ func TestNewContractMissing(t *testing.T) {
 
 // TestNewNilProvider: a nil ConnProvider is chain.connection before I/O.
 func TestNewNilProvider(t *testing.T) {
-	_, err := New(nil, context.Background(), testContract)
+	_, err := New(context.Background(), nil, testContract)
 	var te *tron.Error
 	if !asTronError(err, &te) || te.Code != tron.CodeChainConnection {
 		t.Errorf("New(nil): err = %v, want chain.connection", err)
@@ -213,7 +213,7 @@ func TestTransferZeroOwner(t *testing.T) {
 // newTestHandleWith is newTestHandle against a caller-supplied fake.
 func newTestHandleWith(t *testing.T, f *fakeTRC20Wallet) (*Handle, *fakeTRC20Wallet) {
 	t.Helper()
-	h, err := New(newTokenTestClient(t, f), context.Background(), testContract)
+	h, err := New(context.Background(), newTokenTestClient(t, f), testContract)
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}

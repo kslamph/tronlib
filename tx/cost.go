@@ -111,7 +111,7 @@ func (c *CostPreview) String() string {
 // of the same name cannot exist in Go; PreviewCost is that function.
 // t must have been built by BuildTriggerSmartContract; owner is the account
 // whose staked energy is counted.
-func PreviewCost(cp rpc.ConnProvider, ctx context.Context, t *ContractTx, owner tron.Address) (*CostPreview, error) {
+func PreviewCost(ctx context.Context, cp rpc.ConnProvider, t *ContractTx, owner tron.Address) (*CostPreview, error) {
 	const op = "tx.CostPreview"
 	if t == nil {
 		return nil, &tron.Error{Code: tron.CodeTxInvalidArgument, Op: op, Hint: "transaction is nil"}
@@ -130,7 +130,7 @@ func PreviewCost(cp rpc.ConnProvider, ctx context.Context, t *ContractTx, owner 
 	}
 	// Read 3: the energy→SUN burn ratio (network governance parameter,
 	// independent of the contract or transaction).
-	price, err := EnergyPriceOf(cp, ctx)
+	price, err := EnergyPriceOf(ctx, cp)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +180,7 @@ func PreviewCost(cp rpc.ConnProvider, ctx context.Context, t *ContractTx, owner 
 // negative price or timestamp). Either would otherwise return the zero
 // baseline as a real price — see EnergyPriceOf's promise that a silent zero
 // price is not acceptable.
-func latestEnergyPrice(cp rpc.ConnProvider, ctx context.Context, op string) (int64, int64, error) {
+func latestEnergyPrice(ctx context.Context, cp rpc.ConnProvider, op string) (int64, int64, error) {
 	msg, err := rpc.GetEnergyPrices(cp, ctx, &api.EmptyMessage{})
 	if err != nil {
 		return 0, 0, err

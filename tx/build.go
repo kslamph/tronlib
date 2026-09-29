@@ -86,7 +86,7 @@ func wrapBuildResult[T any](mk func(*baseTx) T, ext *api.TransactionExtention, k
 // BuildTransfer builds a TRX transfer (NativeTx) via the node's
 // CreateTransaction2 — the node fills raw_data (TAPOS reference, timestamp,
 // expiration); I/O is real.
-func BuildTransfer(cp rpc.ConnProvider, ctx context.Context, from, to tron.Address, amt tron.SUN) (*NativeTx, error) {
+func BuildTransfer(ctx context.Context, cp rpc.ConnProvider, from, to tron.Address, amt tron.SUN) (*NativeTx, error) {
 	const op = "tx.BuildTransfer"
 	if err := validateAddress(op, "from", from); err != nil {
 		return nil, err
@@ -116,7 +116,7 @@ func BuildTransfer(cp rpc.ConnProvider, ctx context.Context, from, to tron.Addre
 // (ContractTx) via the node's TriggerContract build RPC. data is the ABI
 // encoded selector + arguments (contract-layer concern, architecture §3); callValue
 // is the SUN sent with the call and may be zero.
-func BuildTriggerSmartContract(cp rpc.ConnProvider, ctx context.Context, owner, contract tron.Address, data []byte, callValue tron.SUN) (*ContractTx, error) {
+func BuildTriggerSmartContract(ctx context.Context, cp rpc.ConnProvider, owner, contract tron.Address, data []byte, callValue tron.SUN) (*ContractTx, error) {
 	const op = "tx.BuildTriggerSmartContract"
 	if err := validateAddress(op, "owner", owner); err != nil {
 		return nil, err
@@ -150,7 +150,7 @@ func BuildTriggerSmartContract(cp rpc.ConnProvider, ctx context.Context, owner, 
 // contract name). ABI parsing is a contract-layer concern: p.ABI is the
 // already-parsed pb ABI, and p.Bytecode is the final bytecode (constructor
 // arguments already appended).
-func BuildDeploy(cp rpc.ConnProvider, ctx context.Context, owner tron.Address, p DeployParams) (*DeployTx, error) {
+func BuildDeploy(ctx context.Context, cp rpc.ConnProvider, owner tron.Address, p DeployParams) (*DeployTx, error) {
 	const op = "tx.BuildDeploy"
 	if err := validateAddress(op, "owner", owner); err != nil {
 		return nil, err
@@ -205,7 +205,7 @@ func BuildDeploy(cp rpc.ConnProvider, ctx context.Context, owner tron.Address, p
 // identifier (its id or name form as the node expects it) and must be
 // non-empty; qty must be positive; a self-transfer is rejected like v1's
 // TransferAsset2 does.
-func BuildAssetTransfer(cp rpc.ConnProvider, ctx context.Context, from, to tron.Address, assetName string, qty int64) (*AssetTx, error) {
+func BuildAssetTransfer(ctx context.Context, cp rpc.ConnProvider, from, to tron.Address, assetName string, qty int64) (*AssetTx, error) {
 	const op = "tx.BuildAssetTransfer"
 	if err := validateAddress(op, "from", from); err != nil {
 		return nil, err

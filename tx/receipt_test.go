@@ -19,7 +19,7 @@ func waitReceipt(t *testing.T, info *core.TransactionInfo) *Receipt {
 		},
 	}
 	cp := newTxTestClient(t, f)
-	r, err := Wait(cp, t.Context(), hex.EncodeToString(hexID()))
+	r, err := Wait(t.Context(), cp, hex.EncodeToString(hexID()))
 	if err != nil {
 		t.Fatalf("Wait: %v", err)
 	}
