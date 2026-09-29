@@ -130,9 +130,18 @@ func mutateDeployParam(raw *core.TransactionRaw, fn func(*core.CreateSmartContra
 }
 
 // deployParam decodes raw's contract parameter as a CreateSmartContract.
+// The contract TYPE is checked first: a one-field payload (e.g.
+// WithdrawBalanceContract{owner}) decodes cleanly as a CreateSmartContract
+// because field 1 is the same owner_address, and the re-encode that follows
+// would then silently rewrite the caller's transaction into deploy fields
+// while the contract Type still names the original operation.
 func deployParam(raw *core.TransactionRaw) *core.CreateSmartContract {
+	c := raw.GetContract()[0]
+	if c.GetType() != core.Transaction_Contract_CreateSmartContract {
+		panic("tx: the wrapped contract is not a CreateSmartContract; the builder always sets it — was the extention replaced via Extension()?")
+	}
 	p := new(core.CreateSmartContract)
-	if err := proto.Unmarshal(raw.GetContract()[0].GetParameter().GetValue(), p); err != nil {
+	if err := proto.Unmarshal(c.GetParameter().GetValue(), p); err != nil {
 		panic("tx: deploy parameter does not decode as CreateSmartContract; the builder always sets it — was the extention replaced via Extension()?")
 	}
 	return p
