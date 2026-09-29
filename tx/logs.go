@@ -10,12 +10,14 @@ import (
 	"github.com/kslamph/tronlib/v2/tron"
 )
 
-// LogsFor fetches the transaction's logs, decoded leniently — unknown
-// signatures materialize with EventName empty and raw bytes preserved; never
-// dropped. It performs ONE non-polling GetTransactionInfoById fetch on the
-// FullNode endpoint: a transaction that is not yet included yields no logs
-// (poll with Wait/WaitForSolid first if inclusion is required). It is the
-// free-function entry point the facade's Client.Events delegates to.
+// LogsFor fetches the transaction's logs, decoded against the definitions
+// registered for each log's emitting contract (global registry as the
+// fallback) — unknown or ambiguous signatures materialize with EventName empty
+// and raw bytes preserved; never dropped. It performs ONE non-polling
+// GetTransactionInfoById fetch on the FullNode endpoint: a transaction that is
+// not yet included yields no logs (poll with Wait/WaitForSolid first if
+// inclusion is required). It is the free-function entry point the facade's
+// Client.Events delegates to.
 // Exported per Task 9 controller ruling (D3 precedent, D1 class): the
 // facade's architecture §10 Events surface delegates to the reviewed decode in
 // receipt.go rather than duplicating it.
