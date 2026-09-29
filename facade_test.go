@@ -1,6 +1,6 @@
 package tronlib
 
-// Facade delegation tests. The facade is one-line delegations (spec D7), so
+// Facade delegation tests. The facade is one-line delegations (architecture D7), so
 // every test proves exactly that: the Client method returns what the owning
 // subpackage function produces through the same wire path.
 //

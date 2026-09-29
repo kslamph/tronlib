@@ -8,7 +8,7 @@ import (
 )
 
 // all four kinds are produced with the right Kind and satisfy the sealed Tx
-// interface (spec §6.1).
+// interface (architecture §6.1).
 func TestKindsAndSealedInterface(t *testing.T) {
 	cp := newTxTestClient(t, &fakeWalletServer{})
 	ctx := t.Context()

@@ -194,7 +194,7 @@ func (i *Instance) ABI() string {
 	return i.abiJSON
 }
 
-// Methods returns the loaded ABI's function names, sorted (spec §7.6:
+// Methods returns the loaded ABI's function names, sorted (architecture §7.6:
 // valid method values are enumerable). Empty until an ABI is loaded
 // (UseABI, or the lazy fetch triggered by the first Call/Invoke/Decode).
 // It performs no I/O.
@@ -281,7 +281,7 @@ func inputTypeNames(m *eABI.Method) []string {
 
 // nullOwner is the owner_address Call sends: the node's
 // triggerconstantcontract RPC requires the field, view calls spend
-// nothing, and spec §9's Call signature has no owner. See the package doc.
+// nothing, and architecture §9's Call signature has no owner. See the package doc.
 var nullOwner = func() tron.Address {
 	b := make([]byte, 21) // 20 zero bytes
 	b[0] = 0x41           // the network prefix — the 0x41-prefixed null address
@@ -293,7 +293,7 @@ var nullOwner = func() tron.Address {
 }()
 
 // Call executes a view (constant) method end to end and returns the
-// decoded result (spec §9, review G2: one step, not four). It is the
+// decoded result (architecture §9, review G2: one step, not four). It is the
 // v1 Instance.Call shape: triggerconstantcontract, then decode the
 // ConstantResult against the method's declared outputs. The call value is
 // always 0 — a read cannot spend.
@@ -302,7 +302,7 @@ var nullOwner = func() tron.Address {
 // node-level rejection (including a contract revert) surfaces as a
 // *tron.Error classified through rpc's Return table; tx.Simulate's
 // in-band Code shape is a transaction-layer concern and is not repeated
-// here. live-verified: pending (spec §7.5).
+// here. live-verified: pending (architecture §7.5).
 func (i *Instance) Call(ctx context.Context, method string, args ...Arg) (*Result, error) {
 	const op = "contract.Instance.Call"
 	data, err := i.encodeCall(ctx, method, args)
@@ -331,7 +331,7 @@ func (i *Instance) Call(ctx context.Context, method string, args ...Arg) (*Resul
 	return i.decodeResult(ctx, method, blob)
 }
 
-// CallAtBlock is the block-anchored read (spec §9). The v4.8.2 Wallet API
+// CallAtBlock is the block-anchored read (architecture §9). The v4.8.2 Wallet API
 // has NO block anchor on triggerconstantcontract — the pb
 // TriggerSmartContract message carries owner/contract/value/data/token
 // fields only — so v2 refuses instead of silently calling at head, which
@@ -347,9 +347,9 @@ func (i *Instance) CallAtBlock(ctx context.Context, block uint64, method string,
 	}
 }
 
-// Invoke builds a state-changing call transaction (spec §9): encode, then
+// Invoke builds a state-changing call transaction (architecture §9): encode, then
 // the tx builder's TriggerSmartContract. Returns *tx.ContractTx — the DAG
-// direction contract → tx (spec §3). The ABI is loaded (and its events
+// direction contract → tx (architecture §3). The ABI is loaded (and its events
 // registered with the event package) before encoding, so the
 // transaction's eventual receipt decodes this contract's events.
 func (i *Instance) Invoke(ctx context.Context, owner tron.Address, value tron.SUN, method string, args ...Arg) (*tx.ContractTx, error) {
@@ -365,7 +365,7 @@ func (i *Instance) Invoke(ctx context.Context, owner tron.Address, value tron.SU
 }
 
 // Decode decodes a raw ABI return value for a known method into a typed
-// Result — the partner of tx.Estimate.ConstantResult (spec §9), which tx
+// Result — the partner of tx.Estimate.ConstantResult (architecture §9), which tx
 // cannot decode itself (the DAG direction contract → tx forbids it).
 // If no ABI is loaded yet, the lazy network fetch runs against a
 // background context; use DecodeContext to bound that fetch, or load the

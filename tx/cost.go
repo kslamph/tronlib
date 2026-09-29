@@ -14,13 +14,13 @@ import (
 )
 
 // CostPreview predicts what broadcasting a ContractTx will cost the owner in
-// SUN, combining three read-only node answers (spec §7.3):
+// SUN, combining three read-only node answers (architecture §7.3):
 //
 //  1. ContractTx.Simulate — the accurate ENERGY ESTIMATOR
 //     (TriggerConstantContract.EnergyUsed) AND the revert check.
 //     Simulate.Energy (Estimate.Energy) is the energy the call actually
 //     consumes during a deterministic dry run — live-verified to match the
-//     post-broadcast ResourceReceipt.EnergyUsageTotal exactly (spec §7.5).
+//     post-broadcast ResourceReceipt.EnergyUsageTotal exactly (architecture §7.5).
 //     If Simulate errors, CostPreview returns the error: a cost prediction
 //     for a call that cannot run would be noise.
 //     Simulate.Penalty supplies the TIP-491 penalty split (when > 0).
@@ -52,7 +52,7 @@ import (
 // ceiling: the price is a governance parameter and energy prices only ever
 // move in the caller's favor at the margins between preview and broadcast.
 //
-// Fee-limit floor-check (spec §6.4): PreviewCost returns tx.fee_limit_too_low
+// Fee-limit floor-check (architecture §6.4): PreviewCost returns tx.fee_limit_too_low
 // when TronToBurn exceeds the transaction's fee_limit — the 150-TRX default
 // is a floor that is checked, not trusted.
 //
@@ -82,13 +82,13 @@ type CostPreview struct {
 	PricedAt time.Time
 	// BandwidthNote states what the preview does not cover. The energy-only
 	// preview is a FLOOR: a live run measured a 345,000 SUN NetFee delta the
-	// preview never mentioned (spec §7.3 limitation 1).
+	// preview never mentioned (architecture §7.3 limitation 1).
 	BandwidthNote string
 }
 
 // BandwidthNotModelled is the CostPreview.BandwidthNote value: the preview
 // prices energy only, and RecipientActivation is a separate unmodelled cost
-// (spec §7.3 limitations 1 and 2).
+// (architecture §7.3 limitations 1 and 2).
 const BandwidthNotModelled = "bandwidth (NetFee) and recipient activation are not included"
 
 // String renders the preview as one line, including the bandwidth note so a

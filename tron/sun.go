@@ -25,7 +25,7 @@ const MaxSUN = math.MaxInt64
 
 // Whole admits the predeclared signed integer types and nothing else.
 //
-// Two deliberate exclusions, both verified by execution (spec §5.1):
+// Two deliberate exclusions, both verified by execution (architecture §5.1):
 //   - no tilde: with ~int64, SUN's own underlying type satisfies the
 //     constraint, so TRX(someSUN) compiles and re-scales an already-scaled
 //     value, turning 1 TRX into 1,000,000 TRX while the overflow guard passes.

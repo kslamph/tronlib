@@ -13,7 +13,7 @@ import (
 // Sealing is deliberate: without txInternal the interface would be
 // satisfiable by any caller-supplied type, and Broadcast would accept a
 // hand-rolled Tx that bypasses the builders which set fee_limit, expiration
-// and permission id (spec §6.1). The same technique seals contract.Arg.
+// and permission id (architecture §6.1). The same technique seals contract.Arg.
 type Tx interface {
 	// txInternal seals the set: only the four kinds in this package can
 	// implement Tx.

@@ -1,6 +1,6 @@
 // Package tx is the v2 transaction pipeline: build → optionally simulate →
 // sign → broadcast, expressed as types so each stage's output is the next
-// stage's input and illegal transitions do not compile (spec §6).
+// stage's input and illegal transitions do not compile (architecture §6).
 //
 // # The four kinds
 //
@@ -30,7 +30,7 @@
 // shared by accident. Note that changing options after signing invalidates
 // the signature (the signature covers raw_data); set options first.
 //
-// # Defaults (spec §6.4, stated so they are testable)
+// # Defaults (architecture §6.4, stated so they are testable)
 //
 //   - fee_limit: 150_000_000 SUN (150 TRX) — v1's DefaultBroadcastOptions
 //     value, applied by every builder at build time unless a later WithFeeLimit
@@ -57,7 +57,7 @@
 // stays valid after signing, but post-sign callers should prefer the
 // single all-in call.
 //
-// # The double-spend fix (spec §6.4/§6.5)
+// # The double-spend fix (architecture §6.4/§6.5)
 //
 // Broadcast performs one reconciliation poll on an ambiguous timeout. A
 // timeout after the broadcast has landed returns chain.unconfirmed with the
@@ -67,11 +67,11 @@
 // txid — that is what spends twice. Never rebuild-and-resign until the
 // original txid's receipt is confirmed absent or failed.
 //
-// # Deviations from spec §7.2/§7.3 (adjudicated)
+// # Deviations from architecture §7.2/§7.3 (adjudicated)
 //
 //   - EnergyEstimate carries only Energy: the EstimateEnergy RPC
 //     (api.EstimateEnergyMessage) exposes only the penalty-inclusive total, so
-//     the spec's Base/Penalty split would be fabricated (spec §7.1 says the
+//     the architecture doc's Base/Penalty split would be fabricated (architecture §7.1 says the
 //     node already applies the penalty). Use ContractTx.Simulate (Estimate
 //     .Energy/.Penalty) when the split matters.
 //   - EstimateEnergy is the node's CONSERVATIVE fee-limit calculator, not the

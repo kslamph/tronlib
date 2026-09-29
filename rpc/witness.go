@@ -86,7 +86,7 @@ func GetPaginatedNowWitnessListSolidity(cp ConnProvider, ctx context.Context, re
 
 // Witnesses returns one page of the current witness list (the
 // GetPaginatedNowWitnessList wrapper, decoded onto the value shape the
-// facade's spec §10.1 Witness declares: address, vote count, isJobs).
+// facade's architecture §10.1 Witness declares: address, vote count, isJobs).
 // offset/limit pass through to the node's PaginatedMessage unchanged;
 // limit 0 means the node's rpc default, never "all".
 // Facade-facing convenience; added for Task 9.
@@ -108,7 +108,7 @@ func Witnesses(cp ConnProvider, ctx context.Context, offset, limit int64) ([]Wit
 }
 
 // Witness is one super-representative candidate as the facade's Witnesses
-// page returns it (spec §10.1 shape; a decoded view of core.Witness).
+// page returns it (architecture §10.1 shape; a decoded view of core.Witness).
 type Witness struct {
 	// Address is the witness's TRON address.
 	Address tron.Address

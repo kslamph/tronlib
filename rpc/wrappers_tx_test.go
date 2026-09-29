@@ -42,7 +42,7 @@ func TestTxWrappers(t *testing.T) {
 }
 
 // TestTxCallMapsNodeReturnCodes pins the api.Return_* -> tron.Code mapping
-// table (spec §8.5) through TxCall: the node reports Result=false with a
+// table (architecture §8.5) through TxCall: the node reports Result=false with a
 // Return_* code and TxCall must surface the mapped v2 code with the node's
 // numeric code preserved in Cause.
 func TestTxCallMapsNodeReturnCodes(t *testing.T) {

@@ -8,7 +8,7 @@
 // grpcs://host:port for TLS) and returns a *Client. Dial is lazy like v1's
 // NewClient: it constructs the gRPC connection factory without network I/O,
 // so a dead node is discovered on the first call (as chain.connection), not
-// at dial time. (The spec's reachability round trip at Dial time is the root
+// at dial time. (The architecture doc's reachability round trip at Dial time is the root
 // facade's concern and lands with the facade task, not here.)
 //
 // # Connection pool

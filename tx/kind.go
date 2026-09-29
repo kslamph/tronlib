@@ -3,7 +3,7 @@ package tx
 // Kind reports which TRON contract a built transaction wraps. It is decided
 // statically by the builder that constructed the transaction and is
 // informational only — safety comes from the distinct Go types, not from
-// this value (spec §6.1). Open enum: a further kind is a new type, not a
+// this value (architecture §6.1). Open enum: a further kind is a new type, not a
 // change here.
 type Kind int
 

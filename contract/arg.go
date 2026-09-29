@@ -10,7 +10,7 @@ import (
 	"github.com/kslamph/tronlib/v2/tron"
 )
 
-// Arg is one ABI-encoded call argument. It is SEALED (spec §9): the only
+// Arg is one ABI-encoded call argument. It is SEALED (architecture §9): the only
 // method is unexported, so types outside this package cannot implement it
 // and callers cannot smuggle arbitrary values into call data — every
 // argument enters through a named constructor whose encoding is reviewed.
@@ -52,12 +52,12 @@ func StringArg(v string) Arg { return stringArg(v) }
 // BigIntArg encodes a *big.Int as uint256 — the type of every integer
 // return and argument of ERC-20/TRC-20 ABIs. A nil v yields an Arg whose
 // encoding FAILS at Call/Invoke/encode time with contract.arg_mismatch
-// (a constructor cannot return an error without changing the spec's
+// (a constructor cannot return an error without changing the architecture doc's
 // signature; failing late keeps the failure classified and explicit).
 func BigIntArg(v *big.Int) Arg { return bigIntArg{v: v} }
 
 // AddressArg encodes a tron.Address. Per the normative 0x41 rule
-// (spec §9.1) the 21-byte TRON form is stripped to the 20-byte ABI form
+// (architecture §9.1) the 21-byte TRON form is stripped to the 20-byte ABI form
 // before packing — geth's address packer requires exactly 20 bytes, so the
 // strip happens here, once, at the only place arguments become bytes.
 func AddressArg(v tron.Address) Arg { return addressArg{v: v} }

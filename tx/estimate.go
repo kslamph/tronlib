@@ -11,7 +11,7 @@ import (
 )
 
 // Estimate is the result of a read-only dry run of a ContractTx against the
-// node (spec §7.2). It deliberately has NO TxID field (the B5 fix): a
+// node (architecture §7.2). It deliberately has NO TxID field (the B5 fix): a
 // simulation never becomes a transaction, so any id it could carry would be
 // fabricated.
 //
@@ -41,7 +41,7 @@ type Estimate struct {
 	Code tron.Code
 }
 
-// EnergyEstimate is the result of the node's EstimateEnergy RPC (spec §7.1):
+// EnergyEstimate is the result of the node's EstimateEnergy RPC (architecture §7.1):
 // the penalty-INCLUSIVE total energy the call is expected to consume. It has
 // a single field because that is all the RPC exposes
 // (api.EstimateEnergyMessage.EnergyRequired) — a Base/Penalty split here
@@ -61,7 +61,7 @@ type EnergyEstimate struct {
 }
 
 // HasResult reports whether the simulated call returned any ABI values. It
-// replaces the `len(e.ConstantResult) > 0` idiom (spec §7.2) and is nil-safe.
+// replaces the `len(e.ConstantResult) > 0` idiom (architecture §7.2) and is nil-safe.
 func (e *Estimate) HasResult() bool { return e != nil && len(e.ConstantResult) > 0 }
 
 // DeployEstimate is the result of a read-only dry run of a DeployTx
@@ -92,7 +92,7 @@ type DeployEstimate struct {
 
 // Estimate dry-runs the deployment read-only via the node's deploy
 // estimation path and returns the full energy the broadcast will consume
-// (research 2026-09-28 — the "no simulation path" premise in spec §6.1
+// (research 2026-09-28 — the "no simulation path" premise in architecture §6.1
 // is superseded: the path exists, it just takes bytecode instead of a
 // built call). It exists ONLY on *DeployTx. The request reuses the built
 // transaction's own owner, bytecode and call value, so what is estimated
@@ -180,7 +180,7 @@ func (e *Estimate) EffectiveFactor() (factor int64, ok bool) {
 // Simulate dry-runs the contract call read-only via the node's
 // TriggerConstantContract (no fee_limit is spent, nothing is broadcast) and
 // returns the decoded constant results, the energy/penalty split and any
-// revert message (spec §7.2). It exists ONLY on *ContractTx (the F1 fix) —
+// revert message (architecture §7.2). It exists ONLY on *ContractTx (the F1 fix) —
 // calling it on any other kind is a compile error, pinned in
 // v2/internal/compilecheck. A node-level rejection is returned in
 // Estimate.Code/Revert, not as an error; transport failures are *tron.Error.
@@ -217,7 +217,7 @@ func (t *ContractTx) Simulate(ctx context.Context) (*Estimate, error) {
 }
 
 // EstimateEnergy asks the node's EstimateEnergy RPC for the penalty-inclusive
-// total energy of the call (spec §7.1). Like Simulate it exists ONLY on
+// total energy of the call (architecture §7.1). Like Simulate it exists ONLY on
 // *ContractTx. A node-level rejection surfaces as a *tron.Error (the RPC's
 // Return mapped through the v2 table), unlike Simulate's in-band Code.
 //

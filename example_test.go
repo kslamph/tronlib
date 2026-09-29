@@ -1,6 +1,6 @@
 package tronlib_test
 
-// Compile-only examples for the root facade (spec §10's program shape).
+// Compile-only examples for the root facade (architecture §10's program shape).
 //
 // These examples deliberately carry NO // Output: comment: go test compiles
 // them but never executes them, so the happy path is proven to build
@@ -18,7 +18,7 @@ import (
 	"github.com/kslamph/tronlib/v2"
 )
 
-// Example is the spec §10 happy path: one import, dial, sign, broadcast.
+// Example is the architecture §10 happy path: one import, dial, sign, broadcast.
 func Example() {
 	ctx := context.Background()
 

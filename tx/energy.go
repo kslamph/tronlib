@@ -9,19 +9,19 @@ import (
 )
 
 // MaintenancePeriod is TRON's maintenance interval: the window over which the
-// dynamic-energy consumption factor is recomputed (spec §7.1/§7.3). The unit
+// dynamic-energy consumption factor is recomputed (architecture §7.1/§7.3). The unit
 // energy price changes only via governance proposal, so a cached price is
 // refetched once this much time has passed.
 const MaintenancePeriod = 6 * time.Hour
 
 // EnergyPrice is the current energy unit price read from the node's
-// governance price history (spec §7.1): the entry with the greatest
+// governance price history (architecture §7.1): the entry with the greatest
 // timestamp in rpc.GetEnergyPrices' "timestamp:price" comma-list.
 // SunPerEnergy is SUN per unit of energy; EffectiveAt timestamps the chosen
 // entry — the price is a governance parameter and energy prices only ever
 // move in the caller's favor at the margins, so a read is a floor, not a
 // ceiling (CostPreview.PricedAt carries the same rule for previews).
-// live-verified: pending (spec §7.5).
+// live-verified: pending (architecture §7.5).
 type EnergyPrice struct {
 	// SunPerEnergy is the latest unit price in SUN per energy.
 	SunPerEnergy int64
@@ -36,7 +36,7 @@ type EnergyPrice struct {
 // the facade's Client.EnergyPrice delegates to. A malformed or empty price
 // list is contract.bad_metadata: the node answered, but not in the
 // documented shape — a silent zero price would understate every cost.
-// Exported per Task 9 controller ruling (D1): the facade's spec §10 surface
+// Exported per Task 9 controller ruling (D1): the facade's architecture §10 surface
 // needs the EnergyPrice type, and the reviewed parse in cost.go is exported
 // behind it rather than duplicated.
 func EnergyPriceOf(cp rpc.ConnProvider, ctx context.Context) (*EnergyPrice, error) {

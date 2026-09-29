@@ -28,7 +28,7 @@ func waitReceipt(t *testing.T, info *core.TransactionInfo) *Receipt {
 
 func hexID() []byte { return repeat(0xCD, 32) }
 
-// resourceReceipt is the fake post-execution cost (spec §7.4).
+// resourceReceipt is the fake post-execution cost (architecture §7.4).
 func resourceReceipt(vm core.Transaction_ResultContractResult) *core.ResourceReceipt {
 	return &core.ResourceReceipt{
 		EnergyFee:          42_000,

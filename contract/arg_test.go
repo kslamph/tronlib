@@ -48,7 +48,7 @@ func TestArgABITypeStrings(t *testing.T) {
 }
 
 // TestAddressArgStrips041 is the encode half of the normative 0x41 rule
-// (spec §9.1): AddressArg must produce a 20-byte EVM address, NOT the
+// (architecture §9.1): AddressArg must produce a 20-byte EVM address, NOT the
 // 21-byte TRON form (sending 0x41-prefixed + padding is the classic TRON
 // ABI bug — it encodes cleanly and reads the wrong slot).
 func TestAddressArgStrips041(t *testing.T) {

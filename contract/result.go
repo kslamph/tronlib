@@ -8,7 +8,7 @@ import (
 	"github.com/kslamph/tronlib/v2/tron"
 )
 
-// Result is one decoded ABI return value with typed accessors (spec §9).
+// Result is one decoded ABI return value with typed accessors (architecture §9).
 // A mistaken accessor is a classified error (contract.result_type_mismatch)
 // rather than a zero value or a panic, so an agent reading the wrong field
 // learns the actual ABI type from the Hint instead of silently reading a
@@ -80,7 +80,7 @@ func (r *Result) BigInt() (*big.Int, error) {
 	return v, nil
 }
 
-// Address reads an address return. The 0x41 rule's decode half (spec
+// Address reads an address return. The 0x41 rule's decode half (architecture
 // §9.1, normative): the 20-byte ABI form is re-prepended with TRON's 0x41,
 // so the returned Address round-trips against AddressArg.
 func (r *Result) Address() (tron.Address, error) {

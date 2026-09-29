@@ -429,7 +429,7 @@ func TestInvokeValidation(t *testing.T) {
 	}
 }
 
-// TestDecodeRoundTrip (spec §14 step 8's partner): encode via the Invoke
+// TestDecodeRoundTrip (architecture §14 step 8's partner): encode via the Invoke
 // path's encoder, hand the data to Decode, and get the values back.
 // Decode targets OUTPUTS, so this drives Decode(method, outputBytes)
 // against canned ConstantResult blobs — the same blob Call decodes.

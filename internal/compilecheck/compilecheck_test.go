@@ -130,7 +130,7 @@ func (s stubImporter) Import(path string) (*types.Package, error) {
 	return nil, fmt.Errorf("unexpected import %q", path)
 }
 
-// --- tx.Tx sealing fixtures (Task 6, spec §6.1) ---
+// --- tx.Tx sealing fixtures (Task 6, architecture §6.1) ---
 //
 // tx.Tx is sealed with the unexported txInternal method, so a foreign type
 // implementing every exported Tx method is still NOT a Tx — a hand-rolled
@@ -190,7 +190,7 @@ func simulateContractTx(c *tx.ContractTx, ctx context.Context) {
 `
 
 // txF1NegativeFixture: Simulate and EstimateEnergy exist ONLY on
-// *ContractTx (spec §6.2). Calling them on a *NativeTx is a compile error —
+// *ContractTx (architecture §6.2). Calling them on a *NativeTx is a compile error —
 // the static kind replaces the runtime dispatch v1 could forget. One fixture
 // exercises both methods; either alone would fail to type-check.
 const txF1NegativeFixture = `package p
@@ -284,7 +284,7 @@ func (g graphImporter) Import(path string) (*types.Package, error) {
 	return nil, fmt.Errorf("unexpected import %q", path)
 }
 
-// --- contract.Arg sealing fixtures (Task 7, spec §9) ---
+// --- contract.Arg sealing fixtures (Task 7, architecture §9) ---
 //
 // contract.Arg is sealed with the unexported argABI() method, so no type
 // outside the contract package can implement it — every argument enters

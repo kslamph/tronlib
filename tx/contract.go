@@ -9,7 +9,7 @@ import (
 
 // ContractTx is a TriggerSmartContract transaction — contract calls and all
 // TRC-20 operations. It is the only kind carrying Simulate and EstimateEnergy
-// (the F1 fix, spec §6.2): the read-only paths take a TriggerSmartContract,
+// (the F1 fix, architecture §6.2): the read-only paths take a TriggerSmartContract,
 // which no other kind wraps.
 type ContractTx struct{ baseTx }
 

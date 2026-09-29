@@ -3,8 +3,8 @@
 - Date: 2026-09-29
 - Status: Awaiting review (rev 3 — supersedes rev 2; rev 1 assumed a
   suffix-less path + `v1.4.0` tag)
-- Supersedes (layout only): the nested `v2/` module introduced in
-  `docs/superpowers/specs/2026-08-31-tronlib-v2-design.md`
+- Supersedes (layout only): the nested `v2/` module described in
+  [`docs/architecture.md`](../architecture.md)
 
 ## 1. Context
 

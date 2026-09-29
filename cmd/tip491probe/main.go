@@ -1,4 +1,4 @@
-// Command tip491probe is a manual harness for spec §7.5 item 6: it checks
+// Command tip491probe is a manual harness for architecture §7.5 item 6: it checks
 // whether a node's simulated energy estimate already includes the TIP-491
 // dynamic-energy penalty, and cross-checks the node's two independent
 // factor reports (GetContractInfo's stored factor vs the factor derived
@@ -128,7 +128,7 @@ func run() int {
 	}
 	switch {
 	case v.pass:
-		fmt.Printf("PASS: %s (spec §7.5 item 6)\n", v.detail)
+		fmt.Printf("PASS: %s (architecture §7.5 item 6)\n", v.detail)
 		return 0
 	case v.live:
 		fmt.Fprintf(os.Stderr, "MISMATCH (not verified): %s\n", v.detail)

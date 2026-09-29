@@ -17,7 +17,7 @@ import (
 // (poll with Wait/WaitForSolid first if inclusion is required). It is the
 // free-function entry point the facade's Client.Events delegates to.
 // Exported per Task 9 controller ruling (D3 precedent, D1 class): the
-// facade's spec §10 Events surface delegates to the reviewed decode in
+// facade's architecture §10 Events surface delegates to the reviewed decode in
 // receipt.go rather than duplicating it.
 func LogsFor(cp rpc.ConnProvider, ctx context.Context, txid string) ([]event.Log, error) {
 	const op = "tx.LogsFor"

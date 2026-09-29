@@ -6,3 +6,5 @@ coverage.txt
 /docgen
 /docgen.exe
 .superpowers/
+.pi/
+.agents/

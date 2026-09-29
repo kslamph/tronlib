@@ -14,7 +14,7 @@ import (
 // over deliberately rather than invented). A transaction broadcast with
 // fee_limit 0 cannot purchase energy and fails; the default is a floor, and
 // CostPreview compares it against the energy estimate before broadcast
-// (spec §6.4).
+// (architecture §6.4).
 const DefaultFeeLimit = tron.SUN(150_000_000)
 
 // validateAddress errors on the unset (zero) address — v2's value-type
@@ -52,7 +52,7 @@ func validateAmount(op string, amt tron.SUN) error {
 	return nil
 }
 
-// applyBuildDefaults enforces the documented default (spec §6.4: "every
+// applyBuildDefaults enforces the documented default (architecture §6.4: "every
 // builder applies a documented default") on a fresh build response: the
 // node's CreateTransaction2-family responses may report fee_limit 0, which
 // cannot purchase energy, so the builder floors it at DefaultFeeLimit
@@ -114,7 +114,7 @@ func BuildTransfer(cp rpc.ConnProvider, ctx context.Context, from, to tron.Addre
 
 // BuildTriggerSmartContract builds a TriggerSmartContract transaction
 // (ContractTx) via the node's TriggerContract build RPC. data is the ABI
-// encoded selector + arguments (contract-layer concern, spec §3); callValue
+// encoded selector + arguments (contract-layer concern, architecture §3); callValue
 // is the SUN sent with the call and may be zero.
 func BuildTriggerSmartContract(cp rpc.ConnProvider, ctx context.Context, owner, contract tron.Address, data []byte, callValue tron.SUN) (*ContractTx, error) {
 	const op = "tx.BuildTriggerSmartContract"

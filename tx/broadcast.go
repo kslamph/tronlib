@@ -26,10 +26,10 @@ const pollInterval = 500 * time.Millisecond
 // The node's broadcast Return is preserved as a Receipt, not an error: a
 // node-level rejection (SIGERROR, DUP_TRANSACTION_ERROR, …) is an answer
 // about the transaction, mapped onto the v2 code with the raw api.Return_*
-// name in NodeCode (spec §7.4 — the three codes have different remedies).
+// name in NodeCode (architecture §7.4 — the three codes have different remedies).
 // r.OK() reports success. Transport failures still return *tron.Error.
 //
-// THE DOUBLE-SPEND FIX (spec §6.4/§6.5): on an ambiguous chain.timeout from
+// THE DOUBLE-SPEND FIX (architecture §6.4/§6.5): on an ambiguous chain.timeout from
 // the broadcast, Broadcast performs ONE reconciliation poll
 // (GetTransactionInfoById). If the transaction was found, the real receipt is
 // returned. If not, the error is chain.unconfirmed with the txid populated
@@ -88,7 +88,7 @@ func Broadcast(cp rpc.ConnProvider, ctx context.Context, t Tx) (*Receipt, error)
 }
 
 // reconcileAfterBroadcast is Broadcast's single reconciliation poll after an
-// ambiguous timeout (spec §6.4).
+// ambiguous timeout (architecture §6.4).
 func reconcileAfterBroadcast(cp rpc.ConnProvider, ctx context.Context, op, txid string) (*Receipt, error) {
 	id, _ := hex.DecodeString(txid)
 	info, err := rpc.GetTransactionInfoById(cp, ctx, &api.BytesMessage{Value: id})

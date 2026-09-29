@@ -1,9 +1,17 @@
-# tronlib v2 — API Design Specification
+# tronlib v2 — Architecture
 
-**Status:** Revised after review (`docs/reviews/2026-08-31-tronlib-v2-design-review.md`); see §16 for the disposition of every finding. Awaiting user review.
-**Date:** 2026-08-31
-**Scope:** Core API redesign. Breaking changes permitted; no v1 compatibility work.
-**Provenance:** Derived from a two-model adversarial design process (oracle draft + three independent attack lanes) with every P0 finding independently re-verified by execution. Evidence citations refer to the v1 tree at `/Users/kslam/goproj/tronlib`.
+**Status:** Adopted. This is the architecture reference for the shipped v2 API; the
+`(architecture §X)` references in code comments point here. §16 records the
+disposition of the original design review's findings.
+**Date:** 2026-08-31 (module-layout amendment: 2026-09-29)
+**Scope:** Core API redesign.
+**Provenance:** Derived from a two-model adversarial design process (oracle draft + three independent attack lanes) with every P0 finding independently re-verified by execution.
+
+> **Layout amendment (2026-09-29).** The module now lives at the repository root
+> as a single module, `github.com/kslamph/tronlib/v2`, released as `v2.0.0`; v1 is
+> retired (frozen at `v1.3.0`). C1 and §14 below described an earlier nested-module
+> plan in which v1 remained installable — that part is superseded. Everything else
+> in this document is the current architecture.
 
 ---
 
@@ -13,7 +21,7 @@ These are owner-fixed and not subject to revision within this spec.
 
 | ID | Constraint |
 |---|---|
-| **C1** | Ships as `github.com/kslamph/tronlib/v2`. Separate major module path. v1 remains installable and untouched. |
+| **C1** | Ships as `github.com/kslamph/tronlib/v2`, a single module at the repository root. v1 is retired (frozen at `v1.3.0`). |
 | **C2** | When human ergonomics and LLM-agent ergonomics conflict, **LLM agents win**. |
 | **C3** | Core API only. Shielded/Sapling, TRC-10 asset issuance, and `cmd/` CLI tools are **out of scope**. |
 | **C4** | Clean-room. Free to merge, split, rename, delete. **No `Deprecated:` shims** carried into v2.0. |
@@ -881,7 +889,7 @@ v2 explicitly does **not**:
 
 ## 14. Migration
 
-C4 clean-room: no shims. v1 remains installable at `github.com/kslamph/tronlib` indefinitely (C1).
+C4 clean-room: no shims. v1 is retired and frozen at `v1.3.0`; v2 replaces it (C1).
 
 Build in DAG order (§3). Each step is independently shippable on the v2 branch and leaves v1 untouched.
 
@@ -922,7 +930,7 @@ Step 4 precedes all API work deliberately: `docgen` is the mechanism that keeps 
 
 ## 16. Review disposition
 
-Every finding in `docs/reviews/2026-08-31-tronlib-v2-design-review.md`, with its verification status. Load-bearing claims were re-checked against source or the live protocol before being accepted; one review claim was found to be wrong.
+Every finding from the original design review, with its verification status. Load-bearing claims were re-checked against source or the live protocol before being accepted; one review claim was found to be wrong.
 
 | ID | Finding | Status | Action |
 |---|---|---|---|
