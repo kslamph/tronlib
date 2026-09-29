@@ -124,7 +124,8 @@ func DecodeEventSignature(sig []byte) (string, bool) {
 
 // decodeEvent decodes a matched event definition against raw topics/data.
 // Ported from v1 decodeEventInternal, with decoded ABI values instead of
-// display strings.
+// display strings. Parameters are merged positionally rather than by name as
+// in v1 — a v2 fix, see the combine step below.
 func decodeEvent(def *EventDef, topics [][]byte, data []byte) (*Log, error) {
 	var indexedParams, nonIndexedParams []ParamDef
 	for _, input := range def.Inputs {
@@ -162,23 +163,25 @@ func decodeEvent(def *EventDef, topics [][]byte, data []byte) (*Log, error) {
 		nonIndexedValues = decoded
 	}
 
-	// Combine all parameters in original declared order.
+	// Combine all parameters in original declared order. indexedValues and
+	// nonIndexedValues are built above by walking def.Inputs in declared
+	// order and appending one value per input, so each slice is already
+	// positionally aligned with the indexed / non-indexed subset of Inputs.
+	// Two cursors therefore reassemble the exact values without needing a
+	// key. Matching by name (inherited from v1) is not a valid key: Solidity
+	// emits "" for unnamed parameters, the parse path does not validate
+	// names, and duplicate names are legal ABI JSON — first-match semantics
+	// then return the same value for every repeated name and silently drop
+	// the values after it.
 	allParams := make([]Param, 0, len(def.Inputs))
+	var nextIndexed, nextNonIndexed int
 	for _, input := range def.Inputs {
 		if input.Indexed {
-			for _, p := range indexedValues {
-				if p.Name == input.Name {
-					allParams = append(allParams, p)
-					break
-				}
-			}
+			allParams = append(allParams, indexedValues[nextIndexed])
+			nextIndexed++
 		} else {
-			for _, p := range nonIndexedValues {
-				if p.Name == input.Name {
-					allParams = append(allParams, p)
-					break
-				}
-			}
+			allParams = append(allParams, nonIndexedValues[nextNonIndexed])
+			nextNonIndexed++
 		}
 	}
 
