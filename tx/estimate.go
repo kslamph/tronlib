@@ -245,6 +245,11 @@ func (t *ContractTx) EstimateEnergy(ctx context.Context) (*EnergyEstimate, error
 
 // triggerParam decodes the wrapped contract message of a ContractTx as the
 // TriggerSmartContract request shape Simulate and EstimateEnergy re-submit.
+// The contract TYPE is checked before the decode: TransferContract
+// {1 owner, 2 to, 3 amount} is wire-compatible with TriggerSmartContract
+// {1 owner, 2 contract_address, 3 call_value}, so an unchecked decode turns a
+// transfer swapped in via Extension() into a plausible-looking constant call
+// against the recipient — silently describing a different operation.
 func triggerParam(b *baseTx, op string) (*core.TriggerSmartContract, error) {
 	raw := b.raw()
 	if raw == nil {
@@ -252,6 +257,10 @@ func triggerParam(b *baseTx, op string) (*core.TriggerSmartContract, error) {
 	}
 	if err := requireOneContract(raw, op); err != nil {
 		return nil, err
+	}
+	if c := raw.GetContract()[0]; c.GetType() != core.Transaction_Contract_TriggerSmartContract {
+		return nil, &tron.Error{Code: tron.CodeTxInvalidArgument, Op: op,
+			Hint: "the wrapped contract is not a TriggerSmartContract; was the extention replaced via Extension()?"}
 	}
 	req := new(core.TriggerSmartContract)
 	if err := proto.Unmarshal(raw.GetContract()[0].GetParameter().GetValue(), req); err != nil {

@@ -123,6 +123,102 @@ func TestSimulateTransportErrorPropagates(t *testing.T) {
 	}
 }
 
+// swapContractPayload replaces a built ContractTx's wrapped contract with the
+// canned TransferContract extention — the shape a caller reaches through the
+// documented Extension()/Transaction() escape hatch. TransferContract is
+// WIRE-COMPATIBLE with TriggerSmartContract (1: owner, 2: recipient ↔
+// contract_address, 3: amount ↔ call_value), so a parameter decode without a
+// contract-type check silently describes a transfer as a contract call.
+func swapContractPayload(c *ContractTx) {
+	c.baseTx.ext = transferExt()
+}
+
+// TestSimulateRejectsNonTriggerContract is the P1 regression: Simulate must
+// check the contract TYPE before re-decoding the parameter, and must reject
+// without submitting any RPC.
+func TestSimulateRejectsNonTriggerContract(t *testing.T) {
+	f := &fakeWalletServer{}
+	cp := newTxTestClient(t, f)
+	ctx := t.Context()
+	ctxTx, err := BuildTriggerSmartContract(cp, ctx, testFrom, testTo, nil, 0)
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	var gotReq *core.TriggerSmartContract
+	f.TriggerConstant = func(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error) {
+		gotReq = in
+		return &api.TransactionExtention{Result: okResult(), EnergyUsed: 1}, nil
+	}
+	swapContractPayload(ctxTx)
+	est, err := ctxTx.Simulate(ctx)
+	if err == nil || !tron.HasCode(err, tron.CodeTxInvalidArgument) {
+		t.Fatalf("Simulate on a TransferContract payload = %v (est %+v), want tx.invalid_argument; misdecoded request %+v", err, est, gotReq)
+	}
+	if est != nil {
+		t.Errorf("Estimate = %v, want nil alongside the error", est)
+	}
+	if gotReq != nil || f.simulateCalls.Load() != 0 {
+		t.Errorf("TriggerConstantContract called with %+v, want no RPC at all", gotReq)
+	}
+	var te *tron.Error
+	if !errors.As(err, &te) {
+		t.Fatalf("want a *tron.Error, got %T", err)
+	}
+	if te.Op != "tx.Simulate" {
+		t.Errorf("Op = %q, want tx.Simulate", te.Op)
+	}
+	if !strings.Contains(te.Hint, "not a TriggerSmartContract") || !strings.Contains(te.Hint, "Extension()") {
+		t.Errorf("Hint = %q, want it to name the expected contract type and the Extension() escape hatch", te.Hint)
+	}
+}
+
+// TestEstimateEnergyRejectsNonTriggerContract is the same regression on the
+// EstimateEnergy entry point.
+func TestEstimateEnergyRejectsNonTriggerContract(t *testing.T) {
+	f := &fakeWalletServer{}
+	cp := newTxTestClient(t, f)
+	ctx := t.Context()
+	ctxTx, err := BuildTriggerSmartContract(cp, ctx, testFrom, testTo, nil, 0)
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	var gotReq *core.TriggerSmartContract
+	f.EstimateEnerg = func(ctx context.Context, in *core.TriggerSmartContract) (*api.EstimateEnergyMessage, error) {
+		gotReq = in
+		return &api.EstimateEnergyMessage{Result: okResult(), EnergyRequired: 1}, nil
+	}
+	swapContractPayload(ctxTx)
+	est, err := ctxTx.EstimateEnergy(ctx)
+	if err == nil || !tron.HasCode(err, tron.CodeTxInvalidArgument) {
+		t.Fatalf("EstimateEnergy on a TransferContract payload = %v (est %+v), want tx.invalid_argument; misdecoded request %+v", err, est, gotReq)
+	}
+	if gotReq != nil || f.estimateCalls.Load() != 0 {
+		t.Errorf("EstimateEnergy called with %+v, want no RPC at all", gotReq)
+	}
+}
+
+// TestPreviewCostRejectsNonTriggerContract pins that the third affected
+// surface — CostPreview — cannot report a cost for an operation it never
+// described correctly.
+func TestPreviewCostRejectsNonTriggerContract(t *testing.T) {
+	f := &fakeWalletServer{}
+	cp := newTxTestClient(t, f)
+	ctx := t.Context()
+	ctxTx, err := BuildTriggerSmartContract(cp, ctx, testFrom, testTo, nil, 0)
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	swapContractPayload(ctxTx)
+	preview, err := PreviewCost(cp, ctx, ctxTx, testFrom)
+	if err == nil || !tron.HasCode(err, tron.CodeTxInvalidArgument) {
+		t.Fatalf("PreviewCost on a TransferContract payload = %v (preview %+v), want tx.invalid_argument", err, preview)
+	}
+	if f.simulateCalls.Load() != 0 || f.accountResourceCalls.Load() != 0 || f.energyPricesCalls.Load() != 0 {
+		t.Errorf("PreviewCost ran node reads (simulate=%d resource=%d prices=%d), want none",
+			f.simulateCalls.Load(), f.accountResourceCalls.Load(), f.energyPricesCalls.Load())
+	}
+}
+
 func TestEnergyPriceCostOfBurnsAtCurrentRate(t *testing.T) {
 	p := &EnergyPrice{SunPerEnergy: 100}
 	cost, err := p.CostOf(13569) // the live-run energy: 13569 × 100 = 1,356,900 SUN
