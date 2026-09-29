@@ -180,14 +180,15 @@ Single module — remove all `go -C v2` usage and the v1 steps:
 | Deleting the nested module changes the git tag shape | New plain tag `v2.0.0` at the repo root; no subdir prefix. |
 | Consumers need Go ≥ 1.27.1 | Stated in README; `GOTOOLCHAIN=auto` downloads it transparently. |
 | Loss of the v1→v2 migration guide | Accepted (v1 abandoned); tool + doc deleted. |
-| Coverage denominator grows (pb now in-module) | pb has no tests and no `-coverpkg`, so it is not in the profile; floor unchanged. |
+| Coverage denominator collapses because `pb` (generated, thousands of statements) is now in-module | Exclude `/pb/` package paths from the test list before building the profile; measured coverage stays ~82%. |
 | A stale `github.com/kslamph/tronlib/pb` import survives the rewrite | Verification greps for it and fails if any remain. |
 
 ## 12. Verification plan
 
 - `go build ./...` and `go vet ./...` clean.
 - `go test -short ./... -count=1` and `-race` — all packages pass (12 today).
-- coverage ≥ 80%.
+- coverage ≥ 80% with `pb/` excluded from the profile
+  (`go test $(go list ./... | grep -v '/pb/')`).
 - `go run ./cmd/docgen sync-docs ... -check` green.
 - `govulncheck ./...` → 0 reachable.
 - `grep -rn '"github.com/kslamph/tronlib/pb/' --include=*.go .` returns nothing.

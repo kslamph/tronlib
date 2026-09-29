@@ -11,97 +11,50 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v7
-    
+
     - name: Set up Go
       uses: actions/setup-go@v7
       with:
         go-version: '1.27.1'
-    
+
     - name: Install dependencies
       run: go mod download
 
-    - name: Install v2 dependencies
-      run: go -C v2 mod download
-
-    - name: Build everything (examples and cmd included)
+    - name: Build everything (cmd included)
       run: go build ./...
 
-    - name: Run example tests (hermetic)
-      run: go test -short ./example/...
-
-    - name: Run unit tests with coverage (parallel)
-      run: go test -short -coverprofile=unit_coverage.txt -coverpkg=./pkg/... -covermode=atomic ./pkg/...
+    - name: Run tests with coverage (parallel)
+      run: |
+        # pb/ is generated protobuf code with no tests; keep it out of the
+        # coverage denominator (mirrors the .golangci.yml pb exclusion).
+        pkgs=$(go list ./... | grep -v '/pb/')
+        go test -short -coverprofile=coverage.txt -covermode=atomic $pkgs
 
     - name: Enforce coverage floor (80%)
       run: |
-        total=$(go tool cover -func=unit_coverage.txt | grep '^total:' | awk '{print substr($NF, 1, length($NF)-1)}')
+        total=$(go tool cover -func=coverage.txt | grep '^total:' | awk '{print substr($NF, 1, length($NF)-1)}')
         echo "Total statement coverage: ${total}%"
         awk -v c="$total" 'BEGIN { exit !(c >= 80) }' || {
           echo "::error::Total coverage ${total}% is below the 80% floor (CODING_STANDARDS.md §6.5)"
           exit 1
         }
 
-    # v2 is a separate Go module (v2/go.mod), so the root module cannot see it:
-    # `./v2/...` from the repo root fails with "directory prefix v2 does not
-    # contain main module". Every v2 command therefore runs as `go -C v2 ...`.
-    - name: Build v2 module
-      run: go -C v2 build ./...
+    # Docs drift gate: re-render docs/errors.md and docs/examples.md from the
+    # tron package source (plus the root facade's examples, via -example-pkg .)
+    # and byte-compare. Any hand-edit between the go:errors / go:example
+    # markers, or an Example function without a marker (or vice versa), fails
+    # the build. Fix with:
+    #   go run ./cmd/docgen sync-docs -pkg ./tron -example-pkg . -docs ./docs/errors.md -docs ./docs/examples.md
+    - name: docgen drift check
+      run: go run ./cmd/docgen sync-docs -pkg ./tron -example-pkg . -docs ./docs/errors.md -docs ./docs/examples.md -check
 
-    - name: Run v2 tests with coverage
-      run: go -C v2 test -short -coverprofile=v2_coverage.txt -covermode=atomic ./...
-
-    - name: Enforce v2 coverage floor (80%)
-      run: |
-        # `go -C v2` resolves -coverprofile relative to v2/, so the profile lands
-        # at v2/v2_coverage.txt, and `go tool cover` needs the v2 module context
-        # to read v2 package paths (from the root module it fails with
-        # "no required module provides package github.com/kslamph/tronlib/v2").
-        #
-        # Before any v2 test exists the profile holds only its `mode:` header,
-        # which `go tool cover` reports as a numeric 0.0% (not "no statements"),
-        # so the floor is skipped until the module has coverable statements.
-        if [ ! -s v2/v2_coverage.txt ] || ! grep -qv '^mode:' v2/v2_coverage.txt; then
-          echo "v2 coverage: no statements yet"
-          exit 0
-        fi
-        total=$(go -C v2 tool cover -func=v2_coverage.txt | grep '^total:' | awk '{print substr($NF, 1, length($NF)-1)}')
-        case "$total" in
-          ''|*[!0-9.]*)
-            echo "v2 coverage: no statements yet"
-            exit 0
-            ;;
-        esac
-        echo "v2 statement coverage: ${total}%"
-        awk -v c="$total" 'BEGIN { exit !(c >= 80) }' || {
-          echo "::error::v2 coverage ${total}% is below the 80% floor"
-          exit 1
-        }
-
-    # Docs drift gate: re-render v2/docs/errors.md and v2/docs/examples.md
-    # from the v2/tron package source (plus the root facade's examples, via
-    # -example-pkg .) and byte-compare. Any hand-edit between the go:errors /
-    # go:example markers, or an Example function without a marker (or vice
-    # versa), fails the build. Fix with:
-    #   go -C v2 run ./cmd/docgen sync-docs -pkg ./tron -example-pkg . -docs ./docs/errors.md -docs ./docs/examples.md
-    - name: docgen drift check (v2)
-      run: go -C v2 run ./cmd/docgen sync-docs -pkg ./tron -example-pkg . -docs ./docs/errors.md -docs ./docs/examples.md -check
-
-    # Migration-guide drift gate: re-render v2/docs/migration.md from an AST
-    # diff of v1's pkg/ surface against v2's, and byte-compare. Fix with:
-    #   go -C v2 run ./cmd/migrate -v1 ../pkg -v2-root . -out docs/migration.md
-    - name: migration guide drift check (v2)
-      run: go -C v2 run ./cmd/migrate -check
-
-    # Vulnerability gate: fail on any advisory REACHABLE from the v2 module.
+    # Vulnerability gate: fail on any advisory REACHABLE from the module.
     # The Go patch version is pinned above (1.27.1) because the crypto/tls,
     # x509, asn1 and net/textproto advisories are only fixed in the toolchain.
-    # The root v1 module is scanned separately/scheduled (its go.mod is a
-    # published release) — do not add it here until it is bumped too.
     - name: Install govulncheck
       run: go install golang.org/x/vuln/cmd/govulncheck@latest
 
-    - name: govulncheck (v2)
-      working-directory: v2
+    - name: govulncheck
       run: govulncheck ./...
 
     - name: Upload coverage to Codecov

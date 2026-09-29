@@ -116,16 +116,19 @@ git commit -m "refactor: single root module .../v2 (remove v1, repoint pb)"
 
 One module: drop all `go -C v2`, the `/pkg` + `/example` steps, the migrate
 gate, and `working-directory: v2`. Keep: setup-go 1.27.1, `go mod download`,
-`go build ./...`, `go test -short -coverprofile=coverage.txt -covermode=atomic ./...`,
-80% floor, docgen `-check`, govulncheck `./...`, codecov upload.
+`go build ./...`, a coverage run over `go list ./... | grep -v '/pb/'` (pb is
+generated and must not enter the coverage denominator), 80% floor, docgen
+`-check`, govulncheck `./...`, codecov upload.
 
 - [ ] **Step 2: Verify locally (the same commands CI runs)**
 
 ```bash
 go run ./cmd/docgen sync-docs -pkg ./tron -example-pkg . -docs ./docs/errors.md -docs ./docs/examples.md -check
-go test -short -coverprofile=coverage.txt -covermode=atomic ./...
+pkgs=$(go list ./... | grep -v '/pb/')
+go test -short -coverprofile=coverage.txt -covermode=atomic $pkgs
+go tool cover -func=coverage.txt | tail -1
 ```
-Expected: docgen `-check` exits 0; tests pass.
+Expected: docgen `-check` exits 0; tests pass; total coverage ≥ 80%.
 
 - [ ] **Step 3: Commit**
 
