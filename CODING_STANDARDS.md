@@ -5,8 +5,11 @@ that contributors, reviewers, and automated tooling apply the same rules.
 
 **Two kinds of rules:**
 
-- **Enforced** — checked by tooling (`golangci-lint`, CI, `gofmt`). Fix these
-  locally before opening a PR; a reviewer will not debate them.
+- **Enforced by tooling** — `gofmt`/`goimports` and the `.golangci.yml` linters
+  run locally (`golangci-lint run`); CI runs `go build ./...`, `-short` tests
+  against an 80% coverage floor, the `docgen` drift check, and `govulncheck`
+  (see `.github/workflows/test-coverage.yml`). The linter is *not* a CI step,
+  so clearing it locally is your job; a reviewer will not debate it.
 - **Review-enforced** — judgement calls applied in code review. Where this
   document states a rule, follow it; deviations need a stated reason in the PR
   description.
@@ -21,13 +24,13 @@ Anything not covered here falls back to the official Go style:
 
 ```
 */                   the public library (facade package at the repo root)
-  contract/          ABI-driven contract calls and deploys
+  contract/          ABI-driven contract calls against a deployed contract
   event/             transaction log / event decoding
   key/               signers (private key, mnemonic) and message signing
   rpc/               gRPC client, connection pool, 1:1 wrappers
-  token/             TRC-20/TRC-10 token handles
+  token/             TRC-20 token handles and amounts
   tron/              core types: addresses, SUN, coded errors
-  tx/                transaction builders, signing, broadcast, receipts
+  tx/                transaction builders (incl. deploy), signing, broadcast, receipts
 pb/                  GENERATED protobuf code — do not hand-edit (regenerate)
 protos/              protobuf sources for pb/ (git submodule)
 internal/format/     private formatting helpers
@@ -53,7 +56,8 @@ Rules:
 
 ## 2. Go style
 
-**Enforced by tooling** (`.golangci.yml`): `gofmt`/`goimports` formatting with
+**Enforced by tooling** when you run `golangci-lint run` locally (config:
+`.golangci.yml`; CI does not run the linter): `gofmt`/`goimports` formatting with
 local prefix `github.com/kslamph/tronlib` (std → external → `tronlib` import
 groups), `govet`, `errcheck`, `staticcheck`, `unused`, `revive`, `gocyclo`
 (min-complexity 15), `gosec`.
@@ -96,61 +100,90 @@ tronlib's error contract is part of its public API.
 - **Errors are values.** Return them; do not log-and-continue inside the
   library, do not panic on user input, do not swallow (`_ =`) except for
   explicitly best-effort cleanup calls.
-- **Must\* carve-out:** `types.MustNewAddressFrom*` follow the stdlib
-  `MustXxx` idiom — they panic by documented contract and are acceptable.
-  Non-`Must` exported methods must not panic on any input, including nil
-  receivers (`Address.EVMAddress`'s current nil panic is a known deviation;
-  fix to return the zero address or an error — don't add more like it).
+- **Must\* carve-out:** `tron.MustAddress` and `tron.MustTRX` (re-exported at
+  the root as `tronlib.MustAddress` / `tronlib.MustTRX`) follow the stdlib
+  `MustXxx` idiom — they panic by documented contract and are acceptable, for
+  package-level literals in tests and examples only; user input goes through
+  `tron.ParseAddress` / `tron.ParseTRX`. `tron.TRX` panics too, but only on an
+  integer literal past the supply bound (architecture §5). Non-`Must` exported
+  methods must not panic on any input, including nil receivers. The remaining
+  panics are internal-invariant violations reached only through the
+  `Extension()` / `Transaction()` escape hatches (`tx/deploy.go`) or in a
+  package-level initializer (`contract`'s null owner) — don't add more like
+  those.
 - Callers match with `errors.Is` / `errors.As`. Never compare error strings.
+  For v2's classification the sanctioned verb is
+  `tron.HasCode(err, tron.Code…)`; `errors.Is(err, &tron.Error{Code: …})` works
+  too, but `errors.Is(err, tron.CodeAddressInvalid)` does not compile — `Code`
+  is a plain string type with no `Error()` method, so a bare code can never be
+  silently `false` (it is a type error).
 - Methods on gRPC results must distinguish transport errors (return them
-  wrapped) from on-chain rejections (map to the appropriate `types` sentinel or
-  a typed error with txid).
+  wrapped) from on-chain rejections (map the node's `api.Return_*` code to a
+  `*tron.Error` carrying the matching `tron.Code`, with `TxID` populated when a
+  transaction id is known — see `rpc.TxCall` and architecture §8.5).
 
 ## 4. Dependencies
 
 - The public dependency set is deliberately small (go-ethereum, grpc, protobuf,
   testify, base58, decimal, bip39-hdwallet). Adding a new module dependency is
   a design decision — open an issue first.
-- `go.mod` pins the minimum Go version; CI tests that version. Don't raise it
-  casually.
+- `go.mod` pins the minimum Go version (1.27.1 today); CI sets up exactly that
+  toolchain (`go-version: '1.27.1'`). Don't raise it casually.
 - Generated code (`pb/`) changes only via `scripts/proto-gen.sh`. Never
   hand-edit `pb/`; regenerate and commit the result separately from logic
   changes.
 
 ## 5. Public API stability
 
-- Breaking changes to exported identifiers require a deprecation cycle: keep
-  the old symbol with a `// Deprecated:` comment for at least one minor
-  release, and note the migration in the changelog / release notes.
+- v2 is a clean-room module that carries no v1 compatibility shims
+  (architecture C1/C4), so "breaking change to an exported identifier" means a
+  **module version** change: under Go's module rules, deleting, renaming, or
+  changing the signature of an exported symbol lands in the next *major*
+  version (`v3.0.0`), never in a minor or patch release.
+- Inside a major version, retire a symbol by adding a `// Deprecated:` comment
+  and keep it working until the next major; note the migration in the release
+  notes. Don't delete a symbol in the same major it was deprecated in, and don't
+  carry a `Deprecated:` shim across a major boundary.
 - Don't export something you're not prepared to support. Unexport until needed.
 - New exported functions that do I/O over a live network are documented as
-  such, and any *example* calling them is guarded with `testing.Short()` (see
-  §6).
+  such, and any *example* calling them stays compile-only — no `// Output:`
+  comment, so `go test` builds it without dialing a node (see §6.4 and
+  architecture §12).
 
 ## 6. Testing standards
 
-Tests are first-class code. They are reviewed with the same care as `pkg/`.
+Tests are first-class code. They are reviewed with the same care as the library
+packages.
 
 ### 6.1 What to test
 
-- Every exported function gets at least: one happy path, each sentinel-error
+- Every exported function gets at least: one happy path, each classified-error
   path, and each boundary condition. Table-driven tests are the default shape:
   ```go
-  func TestSetFeeLimit(t *testing.T) {
-      tests := []struct {
-          name    string
-          fee     int64
-          wantErr error
+  func TestParseTRX(t *testing.T) {
+      cases := []struct {
+          in      string
+          want    SUN
+          errCode Code
       }{
-          {"zero", 0, types.ErrInvalidAmount},
-          {"negative", -1, types.ErrInvalidAmount},
-          {"typical", 1_000_000, nil},
+          {"1.6", 1_600_000, ""},
+          {"1.6666666", 0, CodeAmountTooManyDecimals},
+          {"+1.6", 0, CodeAmountInvalid},
       }
-      for _, tt := range tests {
-          t.Run(tt.name, func(t *testing.T) { ... })
+      for _, tc := range cases {
+          got, err := ParseTRX(tc.in)
+          if tc.errCode == "" {
+              require.NoError(t, err, tc.in)
+              assert.Equal(t, tc.want, got, tc.in)
+          } else {
+              assert.True(t, HasCode(err, tc.errCode), "%s: got %v", tc.in, err)
+          }
       }
   }
   ```
+  (This is the real shape in `tron/sun_test.go`; the error column is a
+  `tron.Code` matched with `tron.HasCode`, not an `error` value compared
+  directly.)
 - Use `testify` `require` for preconditions that make the rest of the test
   meaningless, `assert` for the behaviour under test.
 
@@ -189,28 +222,37 @@ lis := bufconn.Listen(bufSize)
 srv := grpc.NewServer()
 api.RegisterWalletServer(srv, fake)
 go srv.Serve(lis)                                           // t.Cleanup closes srv/lis
-cli, _ := rpc.NewClientWithDialer("passthrough:///bufnet", lis.Dial)
+cli, _ := rpc.NewClientWithDialer("passthrough:///bufnet",
+    func(ctx context.Context, _ string) (net.Conn, error) { return lis.DialContext(ctx) },
+    rpc.WithTimeout(5*time.Second), rpc.WithPool(1, 2))
 ```
 
 `rpc.NewClientWithDialer` is stripped from release builds (`//go:build !release`).
+The same shape is used outside `rpc` (`tx/fakes_test.go`, `contract/fakes_test.go`,
+`token/handle_test.go`, the root `facade_test.go`): a real `*rpc.Client` dialed
+over bufconn satisfies `rpc.ConnProvider`, so builders and wrappers are tested
+against it directly.
 
 The scaffolding is per-package but follows one shape:
 
 - **Fake wallet servers** embed `api.UnimplementedWalletServer` and override
-  behaviour via optional function fields (`TransferAsset2Func`,
-  `GetAccountFunc`, ...). Defaults return minimal valid responses. A fake
-  that grows beyond ~8 function-field overrides is really a scenario — give
-  it a named constructor, and promote shared ones into `testutil`.
-- **`mockConnProvider`** — the fake for the connection pool interface. When a
-  second package needs the same fake, move it to `testutil` rather than
-  copying it again.
+  behaviour via optional function fields — method-keyed
+  (`rpc/fakes_test.go`: `Handlers map[string]func(ctx, in any) (any, error)`),
+  typed per RPC (`tx/fakes_test.go`: `TriggerConstant`, `EstimateEnerg`,
+  `EnergyPrices`; `contract/fakes_test.go`: `GetContractInfoFn`, `ClearABIFn`).
+  Defaults return minimal valid responses. A fake that grows beyond ~8
+  function-field overrides is really a scenario — give it a named constructor.
+- **`rpc.ConnProvider`** (`rpc/client.go`) is the seam the builders take. Tests
+  satisfy it with a real `*rpc.Client` over bufconn rather than a hand-written
+  stub of the pool interface.
 
 Rules:
 
 - New tests reuse the package's existing `fakes_test.go` fake. A test that
   hand-rolls its own server-side fake alongside an existing one will be asked
-  to reuse it. Shared fakes move up only when a second package genuinely needs
-  them.
+  to reuse it. Shared fakes move up into a shared internal package (e.g. a
+  future `internal/testutil`) only when a second package genuinely needs them —
+  no such package exists today, so don't import one.
 - Fakes return **programmed errors** (`status.Error(codes.X, ...)`) to
   exercise error mapping — they never simulate failure by returning Go `nil`
   protobufs, because real gRPC never does.
@@ -225,17 +267,15 @@ Rules:
 - `cmd/` probes are `package main` and are exercised by `go build ./...`;
   their pure logic (parsing, replay assembly) carries hermetic tests where it
   exists.
-- Example functions (`example_test.go`) that dial a live node must early-return
-  under `testing.Short()`:
+- Examples must **compile**, not run: the root facade's examples
+  (`example_test.go`) deliberately carry no `// Output:` comment, so `go test`
+  builds the happy path — including `Dial`, `Sign`, and `Broadcast` against the
+  real surface — without ever contacting a node:
   ```go
-  func ExampleManager_Balance() {
-      if testing.Short() {
-          fmt.Println("skipped in -short mode")
-          return
-      }
-      ...
-  }
+  func ExampleClient_trx() { /* dials Nile, prints balance; no // Output: */ }
   ```
+  An example that *does* carry `// Output:` must be hermetic (`tron`'s parse and
+  error examples). Never point a test or an executed example at a node.
 
 ### 6.5 Coverage policy
 
@@ -256,11 +296,15 @@ Rules:
   `doc.go` when they exceed a few lines (see `rpc/doc.go`).
 - Doc comments for I/O-performing functions say so: "Balance queries the
   network".
-- Runnable examples in `example_test.go` beat prose. They must compile —
-  `go test` runs them; broken examples fail CI.
+- Examples beat prose. They must compile — `go test` builds them; a broken
+  example fails CI. Root-facade examples and the `tron` examples are mirrored
+  into `docs/examples.md` by `cmd/docgen` (provenance markers, not hand-copied
+  code) and the CI drift check fails if the two diverge.
 - `docs/<package>.md` documents workflows and design notes; keep it in sync
-  when public behaviour changes. README quickstart snippets mirror
-  `example_test.go`, which `go test` compiles.
+  when public behaviour changes. `docs/errors.md` is generated from
+  `tron/codes.go` by the same `docgen` run. README quickstart snippets are
+  hand-mirrored from `example_test.go`, which `go test` compiles, so they need
+  manual upkeep whenever an example changes.
 - Comments explain *why*, code explains *what*. Delete commented-out code and
   stale TODOs; an actionable TODO references an issue number.
 
@@ -282,11 +326,14 @@ Rules:
 
 ## Quick checklist (what a reviewer will look for)
 
-1. `gofmt`/`goimports` clean, `.golangci.yml` passes — CI enforces.
-2. Errors: sentinels in `tron`, wrapped with `%w`, matched with
-   `errors.Is`/`As`.
+1. `gofmt`/`goimports` clean and `golangci-lint run` passes — both are local
+   gates; CI gates build, tests + coverage, docgen drift, and govulncheck.
+2. Errors: `*tron.Error` carrying a `tron.Code` (`tron/codes.go`) as the
+   classification, wrapped with `%w`, matched with `errors.Is`/`As` or
+   `tron.HasCode`.
 3. Tests: table-driven, hermetic, meaningful assertions, use the package's
    bufconn fake, no coverage-bump padding.
-4. New/changed public API documented, examples compile, deprecations marked.
+4. New/changed public API documented, examples compile, breaking changes
+   deferred to the next major version (§5).
 5. No secrets in code, logs, or test fixtures.
 6. Coverage floor 80% maintained; PR explains what the tests verify.
