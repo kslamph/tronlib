@@ -7,7 +7,7 @@
 package api
 
 import (
-	core "github.com/kslamph/tronlib/pb/core"
+	core "github.com/kslamph/tronlib/v2/pb/core"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
