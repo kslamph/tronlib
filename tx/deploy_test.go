@@ -9,14 +9,13 @@ package tx
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"strings"
 	"testing"
 
 	"github.com/kslamph/tronlib/v2/pb/api"
 	"github.com/kslamph/tronlib/v2/pb/core"
 	"github.com/kslamph/tronlib/v2/tron"
-	"google.golang.org/protobuf/proto"
 )
 
 func mustDeployTx(t *testing.T, f *fakeWalletServer) *DeployTx {
@@ -95,14 +94,14 @@ func TestDeployEstimateWrongKind(t *testing.T) {
 // on the post-build parameter mutations (deployParam decodes the wrapped
 // parameter without a contract-type check). A one-field payload such as
 // WithdrawBalanceContract{owner} decodes CLEANLY as a CreateSmartContract —
-// field 1 is the same owner_address — so deployParam's decode guard never
-// fires and With* re-encodes a deploy-shaped parameter over the withdrawal:
-// a silently corrupted transaction whose contract Type still says
-// WithdrawBalanceContract.
+// field 1 is the same owner_address — so a decode-only guard never fires and
+// With* would re-encode a deploy-shaped parameter over the withdrawal: a
+// silently corrupted transaction whose contract Type still says
+// WithdrawBalanceContract. The mutators return tx.invalid_argument instead.
 func TestDeployMutateRejectsNonCreatePayload(t *testing.T) {
-	mutations := map[string]func(*DeployTx) *DeployTx{
-		"WithOriginEnergyLimit": func(d *DeployTx) *DeployTx { return d.WithOriginEnergyLimit(1_000) },
-		"WithResourcePercent":   func(d *DeployTx) *DeployTx { return d.WithResourcePercent(50) },
+	mutations := map[string]func(*DeployTx) (*DeployTx, error){
+		"WithOriginEnergyLimit": func(d *DeployTx) (*DeployTx, error) { return d.WithOriginEnergyLimit(1_000) },
+		"WithResourcePercent":   func(d *DeployTx) (*DeployTx, error) { return d.WithResourcePercent(50) },
 	}
 	for name, mutate := range mutations {
 		t.Run(name, func(t *testing.T) {
@@ -111,23 +110,16 @@ func TestDeployMutateRejectsNonCreatePayload(t *testing.T) {
 			// cleanly as CreateSmartContract.
 			dtx.baseTx.ext = baseExt(contractAny(core.Transaction_Contract_WithdrawBalanceContract,
 				&core.WithdrawBalanceContract{OwnerAddress: testFrom.Bytes()}), okResult())
-			var recovered any
-			var rewritten string
-			func() {
-				defer func() { recovered = recover() }()
-				out := mutate(dtx)
-				b := out.raw().GetContract()[0].GetParameter().GetValue()
-				var back core.CreateSmartContract
-				err := proto.Unmarshal(b, &back)
-				rewritten = fmt.Sprintf("type=%v paramLen=%d decodesAsCreate(err=%v, originEnergyLimit=%d, consumePercent=%d)",
-					out.raw().GetContract()[0].GetType(), len(b), err,
-					back.GetNewContract().GetOriginEnergyLimit(), back.GetNewContract().GetConsumeUserResourcePercent())
-			}()
-			if recovered == nil {
-				t.Fatalf("%s on a non-CreateSmartContract payload: want the loud panic deployParam already uses for undecodable parameters, got a silent parameter rewrite (%s)", name, rewritten)
+			out, err := mutate(dtx)
+			if !tron.HasCode(err, tron.CodeTxInvalidArgument) {
+				t.Fatalf("%s on a non-CreateSmartContract payload: err = %v, want tx.invalid_argument (never a silent rewrite)", name, err)
 			}
-			if s := fmt.Sprint(recovered); !strings.Contains(s, "CreateSmartContract") || !strings.Contains(s, "Extension()") {
-				t.Errorf("panic = %q, want it to name CreateSmartContract and the Extension() escape hatch", s)
+			if out != nil {
+				t.Fatalf("%s: want nil transaction alongside the error, got %v", name, out)
+			}
+			var te *tron.Error
+			if !errors.As(err, &te) || !strings.Contains(te.Hint, "CreateSmartContract") || !strings.Contains(te.Hint, "Extension()") {
+				t.Errorf("err = %v, want a hint naming CreateSmartContract and the Extension() escape hatch", err)
 			}
 		})
 	}
@@ -136,19 +128,61 @@ func TestDeployMutateRejectsNonCreatePayload(t *testing.T) {
 // TestDeployMutateWrongTypeOutrunsDecodeGuard pins the ordering: a
 // TransferContract payload fails the strict decode by accident (its 21-byte
 // recipient does not parse as the nested SmartContract), so the old diagnosis
-// blamed the parameter instead of the type. The enum check must name the type.
+// blamed the parameter instead of the type. The error must name the type.
 func TestDeployMutateWrongTypeOutrunsDecodeGuard(t *testing.T) {
 	dtx := mustDeployTx(t, &fakeWalletServer{})
 	dtx.baseTx.ext = transferExt() // wire-incompatible non-Create payload
-	var recovered any
-	func() {
-		defer func() { recovered = recover() }()
-		dtx.WithOriginEnergyLimit(1_000)
-	}()
-	if recovered == nil {
-		t.Fatal("want a panic on a TransferContract payload")
+	_, err := dtx.WithOriginEnergyLimit(1_000)
+	if !tron.HasCode(err, tron.CodeTxInvalidArgument) {
+		t.Fatalf("TransferContract payload: err = %v, want tx.invalid_argument", err)
 	}
-	if s := fmt.Sprint(recovered); !strings.Contains(s, "not a CreateSmartContract") {
-		t.Errorf("panic = %q, want the contract-type diagnosis, not a decode complaint", s)
+	var te *tron.Error
+	if !errors.As(err, &te) || !strings.Contains(te.Hint, "not a CreateSmartContract") {
+		t.Errorf("err = %v, want the contract-type diagnosis, not a decode complaint", err)
+	}
+}
+
+// TestDeployMutateRejectsEmptyContractList is the zero-contract regression:
+// deployParam indexed GetContract()[0] unguarded, so an Extension()-swapped
+// extention with no contract message panicked with a raw index-out-of-range
+// instead of a diagnosable error.
+func TestDeployMutateRejectsEmptyContractList(t *testing.T) {
+	dtx := mustDeployTx(t, &fakeWalletServer{})
+	dtx.baseTx.ext = &api.TransactionExtention{
+		Result:      okResult(),
+		Transaction: &core.Transaction{RawData: &core.TransactionRaw{}}, // no contracts
+	}
+	for name, mutate := range map[string]func(*DeployTx) (*DeployTx, error){
+		"WithOriginEnergyLimit": func(d *DeployTx) (*DeployTx, error) { return d.WithOriginEnergyLimit(1_000) },
+		"WithResourcePercent":   func(d *DeployTx) (*DeployTx, error) { return d.WithResourcePercent(50) },
+		"WithPermissionID":      func(d *DeployTx) (*DeployTx, error) { return d.WithPermissionID(2) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			out, err := mutate(dtx)
+			if !tron.HasCode(err, tron.CodeTxInvalidArgument) {
+				t.Fatalf("%s on an empty contract list: err = %v, want tx.invalid_argument (not a panic)", name, err)
+			}
+			if out != nil {
+				t.Fatalf("%s: want nil transaction alongside the error", name)
+			}
+		})
+	}
+}
+
+// TestWithPermissionIDRejectsEmptyContractList pins the same guard on the
+// non-deploy kinds: PermissionID indexes contract[0] directly.
+func TestWithPermissionIDRejectsEmptyContractList(t *testing.T) {
+	cp := newTxTestClient(t, &fakeWalletServer{})
+	native, err := BuildTransfer(cp, t.Context(), testFrom, testTo, 1)
+	if err != nil {
+		t.Fatalf("BuildTransfer: %v", err)
+	}
+	native.Transaction().RawData.Contract = nil
+	out, err := native.WithPermissionID(5)
+	if !tron.HasCode(err, tron.CodeTxInvalidArgument) {
+		t.Fatalf("WithPermissionID on empty contract list: err = %v, want tx.invalid_argument (not a panic)", err)
+	}
+	if out != nil {
+		t.Fatal("want nil transaction alongside the error")
 	}
 }

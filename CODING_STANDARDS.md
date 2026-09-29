@@ -106,11 +106,11 @@ tronlib's error contract is part of its public API.
   package-level literals in tests and examples only; user input goes through
   `tron.ParseAddress` / `tron.ParseTRX`. `tron.TRX` panics too, but only on an
   integer literal past the supply bound (architecture §5). Non-`Must` exported
-  methods must not panic on any input, including nil receivers. The remaining
-  panics are internal-invariant violations reached only through the
-  `Extension()` / `Transaction()` escape hatches (`tx/deploy.go`) or in a
-  package-level initializer (`contract`'s null owner) — don't add more like
-  those.
+  methods must not panic on any input, including nil receivers; the
+  `tx.With*` mutators that decode the wrapped contract message return
+  `tx.invalid_argument` for `Extension()`-swapped transactions rather than
+  panicking. The one remaining panic class is a package-level initializer
+  (`contract`'s null owner) — don't add more like it.
 - Callers match with `errors.Is` / `errors.As`. Never compare error strings.
   For v2's classification the sanctioned verb is
   `tron.HasCode(err, tron.Code…)`; `errors.Is(err, &tron.Error{Code: …})` works

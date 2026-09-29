@@ -69,12 +69,17 @@ func (t *DeployTx) WithExpiration(d time.Duration) *DeployTx {
 }
 
 // WithPermissionID returns a COPY of t with Permission_id set on the wrapped
-// contract message. Call it before Sign.
+// contract message. Call it before Sign. It returns an error (not a panic)
+// when the wrapped transaction carries no contract message — reachable only
+// by replacing the node's build response through the Extension()/Transaction()
+// escape hatch.
 // Note: setting options after signing invalidates any signature (raw_data changes; the node rejects with SIGERROR).
-func (t *DeployTx) WithPermissionID(id int32) *DeployTx {
+func (t *DeployTx) WithPermissionID(id int32) (*DeployTx, error) {
 	c := t.clone()
-	setPermissionID(c.raw(), id)
-	return c
+	if err := setPermissionID(c.raw(), "tx.DeployTx.WithPermissionID", id); err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 // WithOriginEnergyLimit returns a COPY of t with Origin_energy_limit set on
@@ -84,15 +89,17 @@ func (t *DeployTx) WithPermissionID(id int32) *DeployTx {
 // Note: setting options after signing invalidates any signature (raw_data changes; the node rejects with SIGERROR).
 // 0-floor is enforced here: the node is the authority for post-build
 // mutations.
-func (t *DeployTx) WithOriginEnergyLimit(n int64) *DeployTx {
+func (t *DeployTx) WithOriginEnergyLimit(n int64) (*DeployTx, error) {
 	c := t.clone()
-	mutateDeployParam(c.raw(), func(p *core.CreateSmartContract) {
+	if err := mutateDeployParam(c.raw(), "tx.DeployTx.WithOriginEnergyLimit", func(p *core.CreateSmartContract) {
 		if p.NewContract == nil {
 			p.NewContract = &core.SmartContract{}
 		}
 		p.NewContract.OriginEnergyLimit = n
-	})
-	return c
+	}); err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 // WithResourcePercent returns a COPY of t with Consume_user_resource_percent
@@ -100,15 +107,17 @@ func (t *DeployTx) WithOriginEnergyLimit(n int64) *DeployTx {
 // 0–100 range is not enforced here: the node is the authority for post-build
 // mutations. Call it before Sign.
 // Note: setting options after signing invalidates any signature (raw_data changes; the node rejects with SIGERROR).
-func (t *DeployTx) WithResourcePercent(p int64) *DeployTx {
+func (t *DeployTx) WithResourcePercent(p int64) (*DeployTx, error) {
 	c := t.clone()
-	mutateDeployParam(c.raw(), func(m *core.CreateSmartContract) {
+	if err := mutateDeployParam(c.raw(), "tx.DeployTx.WithResourcePercent", func(m *core.CreateSmartContract) {
 		if m.NewContract == nil {
 			m.NewContract = &core.SmartContract{}
 		}
 		m.NewContract.ConsumeUserResourcePercent = p
-	})
-	return c
+	}); err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 // Sign returns a COPY of t with a signature from each signer appended to the
@@ -123,10 +132,14 @@ func (t *DeployTx) Sign(signers ...key.Signer) (*DeployTx, error) {
 
 // mutateDeployParam decodes the wrapped contract parameter as a
 // CreateSmartContract, applies fn, and re-encodes it in place on raw.
-func mutateDeployParam(raw *core.TransactionRaw, fn func(*core.CreateSmartContract)) {
-	param := deployParam(raw)
+// Escape-hatch corruption surfaces as tx.invalid_argument, not a panic.
+func mutateDeployParam(raw *core.TransactionRaw, op string, fn func(*core.CreateSmartContract)) error {
+	param, err := deployParam(raw, op)
+	if err != nil {
+		return err
+	}
 	fn(param)
-	reencodeParam(raw, param)
+	return reencodeParam(raw, op, param)
 }
 
 // deployParam decodes raw's contract parameter as a CreateSmartContract.
@@ -134,26 +147,35 @@ func mutateDeployParam(raw *core.TransactionRaw, fn func(*core.CreateSmartContra
 // WithdrawBalanceContract{owner}) decodes cleanly as a CreateSmartContract
 // because field 1 is the same owner_address, and the re-encode that follows
 // would then silently rewrite the caller's transaction into deploy fields
-// while the contract Type still names the original operation.
-func deployParam(raw *core.TransactionRaw) *core.CreateSmartContract {
-	c := raw.GetContract()[0]
-	if c.GetType() != core.Transaction_Contract_CreateSmartContract {
-		panic("tx: the wrapped contract is not a CreateSmartContract; the builder always sets it — was the extention replaced via Extension()?")
+// while the contract Type still names the original operation. An empty
+// contract list is the same escape-hatch corruption class.
+func deployParam(raw *core.TransactionRaw, op string) (*core.CreateSmartContract, error) {
+	contracts := raw.GetContract()
+	if len(contracts) == 0 {
+		return nil, &tron.Error{Code: tron.CodeTxInvalidArgument, Op: op,
+			Hint: "the wrapped transaction has no contract message; the builder always sets one — was the extention replaced via Extension()?"}
+	}
+	if contracts[0].GetType() != core.Transaction_Contract_CreateSmartContract {
+		return nil, &tron.Error{Code: tron.CodeTxInvalidArgument, Op: op,
+			Hint: "the wrapped contract is not a CreateSmartContract; the builder always sets it — was the extention replaced via Extension()?"}
 	}
 	p := new(core.CreateSmartContract)
-	if err := proto.Unmarshal(c.GetParameter().GetValue(), p); err != nil {
-		panic("tx: deploy parameter does not decode as CreateSmartContract; the builder always sets it — was the extention replaced via Extension()?")
+	if err := proto.Unmarshal(contracts[0].GetParameter().GetValue(), p); err != nil {
+		return nil, &tron.Error{Code: tron.CodeTxInvalidArgument, Op: op,
+			Hint: "the wrapped contract parameter does not decode as CreateSmartContract; was the extention replaced via Extension()?", Cause: err}
 	}
-	return p
+	return p, nil
 }
 
 // reencodeParam re-encodes msg as the wrapped contract parameter.
-func reencodeParam(raw *core.TransactionRaw, msg proto.Message) {
+func reencodeParam(raw *core.TransactionRaw, op string, msg proto.Message) error {
 	newAny, err := anypb.New(msg)
 	if err != nil {
-		panic("tx: re-encoding a contract parameter failed: " + err.Error())
+		return &tron.Error{Code: tron.CodeTxInvalidArgument, Op: op,
+			Hint: "re-encoding the contract parameter failed", Cause: err}
 	}
 	raw.GetContract()[0].Parameter = newAny
+	return nil
 }
 
 // setExpiration moves raw_data.expiration to now+d (milliseconds) — the
@@ -165,10 +187,14 @@ func setExpiration(raw *core.TransactionRaw, d time.Duration) {
 
 // setPermissionID sets Permission_id on the wrapped contract message —
 // v1's utils.SetPermissionID mutation (raw_data.contract[0].PermissionId).
-func setPermissionID(raw *core.TransactionRaw, id int32) {
+// An empty contract list (escape-hatch corruption) is tx.invalid_argument,
+// not a panic.
+func setPermissionID(raw *core.TransactionRaw, op string, id int32) error {
 	c := raw.GetContract()
 	if len(c) == 0 {
-		panic("tx: WithPermissionID on a transaction without a contract message; the builder always sets one — was the extention replaced via Extension()?")
+		return &tron.Error{Code: tron.CodeTxInvalidArgument, Op: op,
+			Hint: "the wrapped transaction has no contract message; the builder always sets one — was the extention replaced via Extension()?"}
 	}
 	c[0].PermissionId = id
+	return nil
 }

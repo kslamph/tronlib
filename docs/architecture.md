@@ -370,23 +370,30 @@ These are **not** optional in the protocol sense, and their absence was a blocki
 // Contract-shaped transactions: fee limit, expiration and permission id.
 func (t *ContractTx) WithFeeLimit(s tron.SUN) *ContractTx
 func (t *ContractTx) WithExpiration(d time.Duration) *ContractTx
-func (t *ContractTx) WithPermissionID(id int32) *ContractTx
+func (t *ContractTx) WithPermissionID(id int32) (*ContractTx, error)
 
 // Native and asset transfers: expiration and permission id only — they
 // consume no energy, so a fee limit is meaningless and is not offered.
 func (t *NativeTx) WithExpiration(d time.Duration) *NativeTx
-func (t *NativeTx) WithPermissionID(id int32) *NativeTx
+func (t *NativeTx) WithPermissionID(id int32) (*NativeTx, error)
 func (t *AssetTx)  WithExpiration(d time.Duration) *AssetTx
-func (t *AssetTx)  WithPermissionID(id int32) *AssetTx
+func (t *AssetTx)  WithPermissionID(id int32) (*AssetTx, error)
 
 // Deploy adds two fields no other kind carries.
 func (t *DeployTx) WithFeeLimit(s tron.SUN) *DeployTx
 func (t *DeployTx) WithExpiration(d time.Duration) *DeployTx
-func (t *DeployTx) WithOriginEnergyLimit(n int64) *DeployTx
-func (t *DeployTx) WithResourcePercent(p int64) *DeployTx
+func (t *DeployTx) WithOriginEnergyLimit(n int64) (*DeployTx, error)
+func (t *DeployTx) WithResourcePercent(p int64) (*DeployTx, error)
 ```
 
-`With*` returns a copy, matching `Sign`'s copy-on-write discipline, so options compose: `ct.WithFeeLimit(tron.TRX(5)).WithPermissionID(3).Sign(a).Sign(b)`.
+`With*` returns a copy, matching `Sign`'s copy-on-write discipline, so options
+compose. The raw-field mutators (`WithFeeLimit`, `WithExpiration`) cannot fail
+and stay chainable: `ct.WithFeeLimit(tron.TRX(5)).WithExpiration(d)`. The
+mutators that decode or index the wrapped contract message
+(`WithPermissionID`, `WithOriginEnergyLimit`, `WithResourcePercent`) return an
+error instead: they are the one `With*` class that can observe an
+`Extension()`-swapped transaction, and a typed `tx.invalid_argument` beats a
+panic on the library's no-panic rule — `p, err := ct.WithPermissionID(3)`.
 
 **Defaults, stated so they are testable:**
 

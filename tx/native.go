@@ -35,10 +35,12 @@ func (t *NativeTx) WithExpiration(d time.Duration) *NativeTx {
 // contract message (2–9 for multi-sig under active permissions). Call it
 // before Sign.
 // Note: setting options after signing invalidates any signature (raw_data changes; the node rejects with SIGERROR).
-func (t *NativeTx) WithPermissionID(id int32) *NativeTx {
+func (t *NativeTx) WithPermissionID(id int32) (*NativeTx, error) {
 	c := t.clone()
-	setPermissionID(c.raw(), id)
-	return c
+	if err := setPermissionID(c.raw(), "tx.NativeTx.WithPermissionID", id); err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 // Sign returns a COPY of t with a signature from each signer appended to the

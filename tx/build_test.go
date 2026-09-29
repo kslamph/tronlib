@@ -200,7 +200,11 @@ func TestWithExpirationAndPermissionIDCopyOnWrite(t *testing.T) {
 	if native.Expiration().UnixMilli() > future-9*time.Minute.Milliseconds() {
 		t.Errorf("ORIGINAL Expiration = %d; WithExpiration mutated the receiver", native.Expiration().UnixMilli())
 	}
-	if a2 := asset.WithPermissionID(3); a2.PermissionID() != 3 {
+	a2, err := asset.WithPermissionID(3)
+	if err != nil {
+		t.Fatalf("asset.WithPermissionID: %v", err)
+	}
+	if a2.PermissionID() != 3 {
 		t.Errorf("asset copy PermissionID = %d, want 3", a2.PermissionID())
 	} else if asset.PermissionID() != 0 {
 		t.Errorf("asset ORIGINAL PermissionID = %d, want 0", asset.PermissionID())
@@ -217,8 +221,14 @@ func TestDeployParamMutationsCopyOnWrite(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 	before := deploy.ID()
-	d2 := deploy.WithOriginEnergyLimit(777)
-	d3 := deploy.WithResourcePercent(42)
+	d2, err := deploy.WithOriginEnergyLimit(777)
+	if err != nil {
+		t.Fatalf("WithOriginEnergyLimit: %v", err)
+	}
+	d3, err := deploy.WithResourcePercent(42)
+	if err != nil {
+		t.Fatalf("WithResourcePercent: %v", err)
+	}
 	if deploy.ID() != before {
 		t.Fatal("receiver mutated by WithOriginEnergyLimit/WithResourcePercent")
 	}

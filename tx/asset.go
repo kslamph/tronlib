@@ -29,10 +29,12 @@ func (t *AssetTx) WithExpiration(d time.Duration) *AssetTx {
 // WithPermissionID returns a COPY of t with Permission_id set on the wrapped
 // contract message. Call it before Sign.
 // Note: setting options after signing invalidates any signature (raw_data changes; the node rejects with SIGERROR).
-func (t *AssetTx) WithPermissionID(id int32) *AssetTx {
+func (t *AssetTx) WithPermissionID(id int32) (*AssetTx, error) {
 	c := t.clone()
-	setPermissionID(c.raw(), id)
-	return c
+	if err := setPermissionID(c.raw(), "tx.AssetTx.WithPermissionID", id); err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 // Sign returns a COPY of t with a signature from each signer appended to the

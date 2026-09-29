@@ -139,7 +139,11 @@ func TestWithPermissionIDBeforeSignIsHonored(t *testing.T) {
 	cp := newTxTestClient(t, &fakeWalletServer{})
 	native, _ := BuildTransfer(cp, t.Context(), testFrom, testTo, 1)
 	s := mustSigner(t, testKeyHex)
-	signed, err := native.WithPermissionID(5).Sign(s)
+	withPerm, err := native.WithPermissionID(5)
+	if err != nil {
+		t.Fatalf("WithPermissionID: %v", err)
+	}
+	signed, err := withPerm.Sign(s)
 	if err != nil {
 		t.Fatalf("Sign: %v", err)
 	}
