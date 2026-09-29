@@ -34,7 +34,7 @@ Every error returned by tronlib v2 is `*tron.Error` carrying a `Code` (machine-r
 | `contract.no_abi` | `fix_call` | no ABI was provided for the contract |
 | `contract.not_found` | `fix_call` | no contract exists at the given address |
 | `contract.result_type_mismatch` | `fix_call` | the result accessor does not match the ABI return type |
-| `event.unknown` | `fix_call` | no registered event definition matches this log's signature; register the emitting contract's ABI before decoding |
+| `event.unknown` | `fix_call` | no registered event definition matches this log's signature, or two conflicting layouts are registered for it; register the emitting contract's ABI (event.RegisterABIJSONForAddress) before decoding |
 | `key.invalid` | `fix_call` | the private key is not a valid secp256k1 key |
 | `key.mnemonic_invalid` | `fix_call` | the mnemonic phrase is invalid |
 | `receipt.failed` | `fix_transaction` | the transaction was processed but failed |

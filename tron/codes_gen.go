@@ -189,7 +189,7 @@ func (c Code) Doc() string {
 	case CodeRPCMethodFailed: // rpc.method_failed
 		return `the node rejected or failed an rpc; retry with backoff, and if the error repeats identically switch node or method rather than looping`
 	case CodeEventUnknown: // event.unknown
-		return `no registered event definition matches this log's signature; register the emitting contract's ABI before decoding`
+		return `no registered event definition matches this log's signature, or two conflicting layouts are registered for it; register the emitting contract's ABI (event.RegisterABIJSONForAddress) before decoding`
 	default:
 		return "unknown code: " + string(c)
 	}
