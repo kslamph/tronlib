@@ -87,10 +87,13 @@ func (i *Instance) ClearABI(ctx context.Context, owner tron.Address) (*tx.Native
 
 // UseABI loads the contract's ABI from a Solidity JSON string, replacing
 // any previously loaded ABI. Loading parses the JSON (contract.bad_abi on
-// failure) and registers the ABI's event definitions with the event
-// package's registry, so event.Decode works for this contract's events.
+// failure) and registers the ABI's event definitions for THIS contract's
+// address (event.RegisterABIJSONForAddress), so logs emitted by this
+// contract decode with their correct layout — receipts and event.DecodeFor
+// see them — without feeding the global registry, where another contract's
+// conflicting layout for the same signature could not coexist.
 func (i *Instance) UseABI(abiJSON string) error {
-	parsed, err := parseAndRegisterABI(abiJSON, "contract.UseABI")
+	parsed, err := parseAndRegisterABI(i.address, abiJSON, "contract.UseABI")
 	if err != nil {
 		return err
 	}
@@ -106,7 +109,9 @@ func (i *Instance) UseABI(abiJSON string) error {
 // instance lock (the lazy load path calls it while i.mu is already held;
 // locking here would deadlock). op is the operation to report in errors, so
 // the lazy load path (contract.loadABI) is not mislabelled as UseABI.
-func parseAndRegisterABI(abiJSON, op string) (*eABI.ABI, error) {
+// Event definitions land in addr's per-address scope: NewInstance rejects
+// the unset address, so the scope is always a real contract's.
+func parseAndRegisterABI(addr tron.Address, abiJSON, op string) (*eABI.ABI, error) {
 	if strings.TrimSpace(abiJSON) == "" {
 		return nil, &tron.Error{Code: tron.CodeContractBadABI, Op: op, Hint: "ABI JSON is empty; pass the contract's Solidity ABI JSON"}
 	}
@@ -117,9 +122,10 @@ func parseAndRegisterABI(abiJSON, op string) (*eABI.ABI, error) {
 	if len(parsed.Methods) == 0 && len(parsed.Events) == 0 {
 		return nil, &tron.Error{Code: tron.CodeContractBadABI, Op: op, Hint: "the ABI JSON carries no functions or events"}
 	}
-	// Feed the event registry so Decode/DecodeLenient resolve this
-	// contract's events without a second registration step.
-	if err := event.RegisterABIJSON(abiJSON); err != nil {
+	// Feed this contract's scope so its logs decode with their own layout —
+	// receipts and DecodeFor consult the address scope first, and the global
+	// registry is not polluted (two contracts may disagree about a layout).
+	if err := event.RegisterABIJSONForAddress(addr, abiJSON); err != nil {
 		return nil, &tron.Error{Code: tron.CodeContractBadABI, Op: op, Hint: "the ABI JSON's event entries do not parse", Cause: err}
 	}
 	return parsed, nil
@@ -154,7 +160,7 @@ func (i *Instance) loadABI(ctx context.Context) error {
 	}
 	abiJSON, err := pbABIToJSON(sc.GetAbi())
 	if err == nil {
-		parsed, perr := parseAndRegisterABI(abiJSON, op)
+		parsed, perr := parseAndRegisterABI(i.address, abiJSON, op)
 		if perr == nil {
 			// i.mu is already held by ensureABI — set the fields directly.
 			i.abiJSON = abiJSON
