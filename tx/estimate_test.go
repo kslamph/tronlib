@@ -493,8 +493,11 @@ func TestPreviewCostFeeLimitGateTooLow(t *testing.T) {
 	f.EnergyPrices = func(ctx context.Context, in *api.EmptyMessage) (*api.PricesResponseMessage, error) {
 		return &api.PricesResponseMessage{Prices: "1691500000000:420"}, nil
 	}
-	low := ctxTx.WithFeeLimit(tron.TRX(1)) // 1_000_000 SUN < 1_470_000 SUN burn
-	_, err := PreviewCost(ctx, cp, low, testFrom)
+	low, err := ctxTx.WithFeeLimit(tron.TRX(1)) // 1_000_000 SUN < 1_470_000 SUN burn
+	if err != nil {
+		t.Fatalf("WithFeeLimit: %v", err)
+	}
+	_, err = PreviewCost(ctx, cp, low, testFrom)
 	if err == nil || !tron.HasCode(err, tron.CodeTxFeeLimitTooLow) {
 		t.Errorf("PreviewCost with 1-TRX fee limit vs 1.47-TRX burn = %v, want %q", err, tron.CodeTxFeeLimitTooLow)
 	}
@@ -527,7 +530,10 @@ func TestPreviewCostFeeLimitGatePasses(t *testing.T) {
 	f.EnergyPrices = func(ctx context.Context, in *api.EmptyMessage) (*api.PricesResponseMessage, error) {
 		return &api.PricesResponseMessage{Prices: "1691500000000:420"}, nil
 	}
-	high := ctxTx.WithFeeLimit(tron.TRX(5)) // 5_000_000 SUN > 1_470_000 SUN burn
+	high, err := ctxTx.WithFeeLimit(tron.TRX(5)) // 5_000_000 SUN > 1_470_000 SUN burn
+	if err != nil {
+		t.Fatalf("WithFeeLimit: %v", err)
+	}
 	preview, err := PreviewCost(ctx, cp, high, testFrom)
 	if err != nil {
 		t.Fatalf("PreviewCost with 5-TRX fee limit: %v", err)

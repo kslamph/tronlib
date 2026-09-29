@@ -107,6 +107,9 @@ func (t *DeployTx) Estimate(ctx context.Context) (*DeployEstimate, error) {
 	if t == nil {
 		return nil, &tron.Error{Code: tron.CodeTxInvalidArgument, Op: op, Hint: "transaction is nil"}
 	}
+	if t.cp == nil {
+		return nil, noConnection(op)
+	}
 	raw := t.raw()
 	if err := requireOneContract(raw, op); err != nil {
 		return nil, err
@@ -252,6 +255,9 @@ func (t *ContractTx) EstimateEnergy(ctx context.Context) (*EnergyEstimate, error
 // transfer swapped in via Extension() into a plausible-looking constant call
 // against the recipient — silently describing a different operation.
 func triggerParam(b *baseTx, op string) (*core.TriggerSmartContract, error) {
+	if b.cp == nil {
+		return nil, noConnection(op)
+	}
 	raw := b.raw()
 	if raw == nil {
 		return nil, &tron.Error{Code: tron.CodeTxInvalidArgument, Op: op, Hint: "transaction has no raw data; build it with the tx.Build* functions"}

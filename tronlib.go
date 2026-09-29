@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kslamph/tronlib/v2/account"
 	"github.com/kslamph/tronlib/v2/contract"
 	"github.com/kslamph/tronlib/v2/event"
 	"github.com/kslamph/tronlib/v2/key"
@@ -38,7 +39,113 @@ type (
 	ContractTx = tx.ContractTx
 	Receipt    = tx.Receipt
 	Log        = event.Log
+
+	// Account-scoped handles, reached through Client.Account(owner).
+	Account     = account.Handle
+	Resources   = account.Resources
+	Permissions = account.Permissions
+	Voting      = account.Voting
+
+	// Account-scoped values.
+	AccountState   = account.State
+	Stake          = account.Stake
+	Unstake        = account.Unstake
+	ResourceState  = tx.ResourceState
+	SignatureState = account.SignatureStatus
+	Resource       = tx.Resource
+	DelegateParams = tx.DelegateOptions
+	Vote           = tx.Vote
+	Permission     = tx.Permission
+	PermissionSet  = tx.PermissionSet
+	PermissionKey  = tx.PermissionKey
+	ContractType   = tx.ContractType
+	ChainParams    = tx.ChainParams
+	Delegation     = tx.Delegation
+	DelegationList = tx.DelegationIndex
+	TotalCost      = tx.TotalCost
 )
+
+// Resource names a stakeable/delegatable resource. TRON Power is
+// deliberately absent: it is not delegatable, and staking grants it under the
+// current Mainnet resource model.
+const (
+	Energy    = tx.ResourceEnergy
+	Bandwidth = tx.ResourceBandwidth
+)
+
+// Contract types for an active permission's operations bitmap
+// (tx.OperationsBitmap). These are the operations this SDK can build; the
+// bitmap itself accepts any protocol id through ContractType.
+const (
+	TypeAccountCreate           = tx.TypeAccountCreate
+	TypeTransfer                = tx.TypeTransfer
+	TypeTransferAsset           = tx.TypeTransferAsset
+	TypeVoteWitness             = tx.TypeVoteWitness
+	TypeCreateWitness           = tx.TypeCreateWitness
+	TypeUpdateWitness           = tx.TypeUpdateWitness
+	TypeFreezeBalance           = tx.TypeFreezeBalance
+	TypeUnfreezeBalance         = tx.TypeUnfreezeBalance
+	TypeWithdrawBalance         = tx.TypeWithdrawBalance
+	TypeProposalCreate          = tx.TypeProposalCreate
+	TypeProposalApprove         = tx.TypeProposalApprove
+	TypeProposalDelete          = tx.TypeProposalDelete
+	TypeCreateSmartContract     = tx.TypeCreateSmartContract
+	TypeTriggerSmartContract    = tx.TypeTriggerSmartContract
+	TypeUpdateSetting           = tx.TypeUpdateSetting
+	TypeUpdateEnergyLimit       = tx.TypeUpdateEnergyLimit
+	TypeAccountPermissionUpdate = tx.TypeAccountPermissionUpdate
+	TypeClearABI                = tx.TypeClearABI
+	TypeUpdateBrokerage         = tx.TypeUpdateBrokerage
+	TypeFreezeBalanceV2         = tx.TypeFreezeBalanceV2
+	TypeUnfreezeBalanceV2       = tx.TypeUnfreezeBalanceV2
+	TypeWithdrawExpireUnfreeze  = tx.TypeWithdrawExpireUnfreeze
+	TypeDelegateResource        = tx.TypeDelegateResource
+	TypeUnDelegateResource      = tx.TypeUnDelegateResource
+	TypeCancelAllUnfreezeV2     = tx.TypeCancelAllUnfreezeV2
+)
+
+// OperationsBitmap builds the 32-byte active-permission bitmap for the given
+// contract types (tx.OperationsBitmap). Re-exported as a one-line wrapper
+// because a type alias cannot carry a function.
+func OperationsBitmap(types ...ContractType) ([]byte, error) { return tx.OperationsBitmap(types...) }
+
+// Encode renders a transaction as a portable, versioned envelope that carries
+// the declared kind and every signature attached so far (tx.Encode). It is the
+// interchange format for offline multi-signing: persist it, or hand it to the
+// next signer on another machine.
+func Encode(t Tx) ([]byte, error) { return tx.Encode(t) }
+
+// Decode rebuilds a transaction from an Encode envelope, restoring the
+// concrete kind and any partial signatures, and rejecting an envelope whose
+// declared kind contradicts the contract it wraps (tx.Decode).
+func Decode(data []byte) (Tx, error) { return tx.Decode(data) }
+
+// Sign adds a signature from each signer to t and returns the same concrete
+// kind (tx.Sign). It is the entry point for a transaction recovered by Decode,
+// whose static type is Tx rather than a named kind, and it rejects a signer
+// that is already present (a duplicate signature invalidates the transaction).
+func Sign(t Tx, signers ...Signer) (Tx, error) { return tx.Sign(t, signers...) }
+
+// SignHash returns the 32-byte digest a signature must cover for t
+// (tx.SignHash): sha256 of raw_data. A hardware wallet or remote signer signs
+// it, and AttachSignature attaches the result — the private key never enters
+// this process.
+func SignHash(t Tx) ([]byte, error) { return tx.SignHash(t) }
+
+// AttachSignature returns a copy of t with the raw 65-byte [R || S || V]
+// signature attached for addr, rejecting a signature that does not recover to
+// that address and a duplicate signer (tx.AttachSignature).
+func AttachSignature(t Tx, addr Address, sig []byte) (Tx, error) {
+	return tx.AttachSignature(t, addr, sig)
+}
+
+// ChainParamsOf reads the governance parameters that price and bound
+// transactions: the permission-update and multi-signature fees, the unstake
+// cooldown, and the maximum delegation lock (tx.ChainParamsOf). They are live
+// values, not constants.
+func ChainParamsOf(ctx context.Context, cp *rpc.Client) (*ChainParams, error) {
+	return tx.ChainParamsOf(ctx, cp)
+}
 
 // TRX converts a whole-number TRX literal to SUN. It panics on overflow and
 // is for literals and constants only; dynamic input must use ParseTRX.
@@ -141,9 +248,17 @@ func (c *Client) ChainTip(ctx context.Context) (uint64, error) {
 	return rpc.ChainTip(c.inner, ctx)
 }
 
-// TronBalance returns the account's TRX balance in SUN.
-func (c *Client) TronBalance(ctx context.Context, a Address) (SUN, error) {
-	return rpc.TronBalance(c.inner, ctx, a)
+// Account returns the account-scoped handle for owner: transfers, deployment,
+// staking and delegation, permissions and voting, plus the account-shaped
+// reads. It performs no I/O and stores no key material — the account being
+// operated on is not the key that signs, which is what makes multi-signature
+// work.
+//
+// The shared pipeline is unchanged: every state-changing method returns an
+// unsigned transaction, and signing and broadcasting stay on the transaction
+// and on Client.
+func (c *Client) Account(owner Address) *account.Handle {
+	return account.New(c.inner, owner)
 }
 
 // Witnesses returns one page of the current witness list. page.Offset and
@@ -166,20 +281,6 @@ type Page struct {
 // node's core.Witness: address, vote count, isJobs).
 type Witness = rpc.Witness
 
-// TransferTRX builds a TRX transfer (NativeTx) from from to to for amt.
-// The node fills raw_data (TAPOS reference, timestamp, expiration); sign
-// the result with Sign before Broadcast.
-func (c *Client) TransferTRX(ctx context.Context, from, to Address, amt SUN) (*NativeTx, error) {
-	return tx.BuildTransfer(ctx, c.inner, from, to, amt)
-}
-
-// TransferToken builds a TRC-10 transfer (AssetTx) of qty units of
-// assetName (the token's id or name form as the node expects it) from from
-// to to. TRC-20 tokens go through Token instead.
-func (c *Client) TransferToken(ctx context.Context, from, to Address, assetName string, qty int64) (*tx.AssetTx, error) {
-	return tx.BuildAssetTransfer(ctx, c.inner, from, to, assetName, qty)
-}
-
 // Token pins a TRC-20 handle for the token contract at address, fetching
 // its decimals with one eager view call. Amounts minted by the Handle carry
 // that scale.
@@ -191,13 +292,6 @@ func (c *Client) Token(ctx context.Context, address Address) (*token.Handle, err
 // loads lazily on first use unless the instance is given one with UseABI.
 func (c *Client) Contract(_ context.Context, addr Address) (*contract.Instance, error) {
 	return contract.NewInstance(c.inner, addr)
-}
-
-// Deploy builds a CreateSmartContract transaction (DeployTx). p.Bytecode is
-// the final creation bytecode: constructor arguments already appended
-// (encoding is a contract-layer concern).
-func (c *Client) Deploy(ctx context.Context, owner Address, p tx.DeployParams) (*tx.DeployTx, error) {
-	return tx.BuildDeploy(ctx, c.inner, owner, p)
 }
 
 // Broadcast submits a signed transaction to the node and returns a Receipt.
@@ -217,15 +311,6 @@ func (c *Client) Wait(ctx context.Context, txid string) (*Receipt, error) {
 // there — solidified semantics, the finality-aware variant of Wait.
 func (c *Client) WaitForSolid(ctx context.Context, txid string) (*Receipt, error) {
 	return tx.WaitForSolid(ctx, c.inner, txid)
-}
-
-// CostPreview predicts what broadcasting t will cost owner in SUN,
-// combining the accurate simulated energy (the estimator: Simulate.Energy,
-// live-verified to match the execution cost), the energy→SUN burn at the
-// current network price (EnergyPrice.CostOf), and the owner's staked energy
-// (architecture §7.3).
-func (c *Client) CostPreview(ctx context.Context, t *ContractTx, owner Address) (*tx.CostPreview, error) {
-	return tx.PreviewCost(ctx, c.inner, t, owner)
 }
 
 // EnergyPrice returns the current energy unit price (the latest governance

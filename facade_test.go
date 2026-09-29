@@ -370,6 +370,10 @@ func TestConstructorsDelegateToSubpackages(t *testing.T) {
 	if err != nil || signer.Address() != wantSigner.Address() {
 		t.Fatalf("KeyFromHex: %v/%v", signer, err)
 	}
+	wantBitmap, _ := tx.OperationsBitmap(tx.TypeTransfer)
+	if got, err := OperationsBitmap(TypeTransfer); err != nil || string(got) != string(wantBitmap) {
+		t.Fatalf("OperationsBitmap does not delegate: %v/%v", got, err)
+	}
 	const mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
 	hd, err := KeyFromMnemonic(mnemonic, "", "m/44'/195'/0'/0/0")
 	wantHD, _ := key.PrivateKeyFromMnemonic(mnemonic, "", "m/44'/195'/0'/0/0")
@@ -419,11 +423,11 @@ func TestChainTipDelegatesToGetNowBlock2(t *testing.T) {
 	}
 }
 
-func TestTronBalanceDelegatesToGetAccount(t *testing.T) {
+func TestAccountBalanceDelegatesToGetAccount(t *testing.T) {
 	c := newFacadeTestClient(t, &fakeFacadeServer{})
-	bal, err := c.TronBalance(context.Background(), facadeFrom)
+	bal, err := c.Account(facadeFrom).Balance(context.Background())
 	if err != nil || bal != SUN(1_500_000) {
-		t.Fatalf("TronBalance: %d/%v", bal, err)
+		t.Fatalf("Account.Balance: %d/%v", bal, err)
 	}
 }
 
@@ -457,9 +461,9 @@ func TestTransferTRXDelegatesToBuildTransfer(t *testing.T) {
 		return facadeTransferExt(), nil
 	}
 	c := newFacadeTestClient(t, f)
-	native, err := c.TransferTRX(context.Background(), facadeFrom, facadeTo, TRX(1))
+	native, err := c.Account(facadeFrom).TransferTRX(context.Background(), facadeTo, TRX(1))
 	if err != nil {
-		t.Fatalf("TransferTRX: %v", err)
+		t.Fatalf("Account.TransferTRX: %v", err)
 	}
 	if gotReq.GetOwnerAddress() == nil || string(gotReq.GetToAddress()) != string(facadeTo.Bytes()) || gotReq.GetAmount() != 1_000_000 {
 		t.Fatalf("request did not reach BuildTransfer's RPC: %+v", gotReq)
@@ -477,9 +481,9 @@ func TestTransferTokenDelegatesToBuildAssetTransfer(t *testing.T) {
 		return facadeAssetExt(), nil
 	}
 	c := newFacadeTestClient(t, f)
-	asset, err := c.TransferToken(context.Background(), facadeFrom, facadeTo, "1000001", 5)
+	asset, err := c.Account(facadeFrom).TransferToken(context.Background(), facadeTo, "1000001", 5)
 	if err != nil {
-		t.Fatalf("TransferToken: %v", err)
+		t.Fatalf("Account.TransferToken: %v", err)
 	}
 	if string(gotReq.GetAssetName()) != "1000001" || gotReq.GetAmount() != 5 {
 		t.Fatalf("request did not reach BuildAssetTransfer's RPC: %+v", gotReq)
@@ -497,7 +501,7 @@ func TestDeployDelegatesToBuildDeploy(t *testing.T) {
 		return facadeDeployExt(), nil
 	}
 	c := newFacadeTestClient(t, f)
-	dep, err := c.Deploy(context.Background(), facadeFrom, tx.DeployParams{Bytecode: []byte{0x60, 0x80}, OriginEnergyLimit: 1, ConsumeUserResourcePercent: 10})
+	dep, err := c.Account(facadeFrom).Deploy(context.Background(), tx.DeployParams{Bytecode: []byte{0x60, 0x80}, OriginEnergyLimit: 1, ConsumeUserResourcePercent: 10})
 	if err != nil {
 		t.Fatalf("Deploy: %v", err)
 	}
@@ -518,9 +522,9 @@ func TestBroadcastAndWaitDelegateThroughFacade(t *testing.T) {
 	if err != nil {
 		t.Fatalf("KeyFromHex: %v", err)
 	}
-	native, err := c.TransferTRX(context.Background(), facadeFrom, facadeTo, TRX(1))
+	native, err := c.Account(facadeFrom).TransferTRX(context.Background(), facadeTo, TRX(1))
 	if err != nil {
-		t.Fatalf("TransferTRX: %v", err)
+		t.Fatalf("Account.TransferTRX: %v", err)
 	}
 	signed, err := native.Sign(signer)
 	if err != nil {
@@ -571,7 +575,7 @@ func TestCostPreviewDelegatesToPreviewCost(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BuildTriggerSmartContract: %v", err)
 	}
-	pv, err := c.CostPreview(context.Background(), txr, facadeFrom)
+	pv, err := c.Account(facadeFrom).CostPreview(context.Background(), txr)
 	if err != nil {
 		t.Fatalf("CostPreview: %v", err)
 	}

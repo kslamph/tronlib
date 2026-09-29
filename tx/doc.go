@@ -27,14 +27,27 @@
 // Every With* option and every Sign call returns a copy and leaves the
 // receiver untouched, so multi-signature flows compose as
 // tx = tx.Sign(a).Sign(b) and a partially-signed transaction can never be
-// shared by accident. Note that changing options after signing invalidates
-// the signature (the signature covers raw_data); set options first.
+// shared by accident. Options are part of raw_data, so every With* returns an
+// error and rejects an already-signed transaction with tx.already_signed:
+// mutating a signed transaction would detach its signatures from the bytes
+// they authorize. Set options first, then sign.
+//
+// # Portable transactions (offline multi-signing)
+//
+// tx.Encode writes a versioned, self-describing envelope and tx.Decode
+// rebuilds the correct concrete kind, carrying partial signatures; Sign and
+// AttachSignature add more. Decode cross-checks the declared kind against the
+// wrapped contract type, so an importer's type assertion is always sound, and
+// refuses duplicate or unrecoverable signatures. SignHash plus
+// AttachSignature let a remote or hardware signer produce the signature
+// without the private key entering this process.
 //
 // # Defaults (architecture §6.4, stated so they are testable)
 //
 //   - fee_limit: 150_000_000 SUN (150 TRX) — v1's DefaultBroadcastOptions
-//     value, applied by every builder at build time unless a later WithFeeLimit
-//     overrides it (a node response with fee_limit 0 cannot purchase energy)
+//     value, applied by every builder at build time unless a later
+//     ContractTx.WithFeeLimit overrides it (a node response with fee_limit 0
+//     cannot purchase energy)
 //   - expiration: head + 60 s — set server-side by the build RPC; WithExpiration
 //     mutates raw_data.expiration post-build for long multi-signer circulation
 //   - permission_id: 0 (owner); multi-sig under active permissions needs 2–9

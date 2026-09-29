@@ -171,7 +171,10 @@ func TestWithFeeLimitCopyOnWrite(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 	before := contract.ID()
-	copied := contract.WithFeeLimit(500_000)
+	copied, err := contract.WithFeeLimit(500_000)
+	if err != nil {
+		t.Fatalf("WithFeeLimit: %v", err)
+	}
 	if got := copied.FeeLimit(); got != 500_000 {
 		t.Errorf("copy FeeLimit = %d, want 500_000", got)
 	}
@@ -194,7 +197,10 @@ func TestWithExpirationAndPermissionIDCopyOnWrite(t *testing.T) {
 	deploy, _ := BuildDeploy(t.Context(), cp, testFrom, DeployParams{Bytecode: []byte{0x60}})
 
 	future := time.Now().Add(10 * time.Minute).UnixMilli()
-	n2 := native.WithExpiration(10 * time.Minute)
+	n2, err := native.WithExpiration(10 * time.Minute)
+	if err != nil {
+		t.Fatalf("native.WithExpiration: %v", err)
+	}
 	if got := n2.Expiration().UnixMilli(); got < future-1000 || got > future+1000 {
 		t.Errorf("copy Expiration = %d, want ~now+10m", got)
 	}
@@ -210,7 +216,11 @@ func TestWithExpirationAndPermissionIDCopyOnWrite(t *testing.T) {
 	} else if asset.PermissionID() != 0 {
 		t.Errorf("asset ORIGINAL PermissionID = %d, want 0", asset.PermissionID())
 	}
-	if d2 := deploy.WithExpiration(5 * time.Minute); d2.Expiration().IsZero() || d2.Expiration().UnixMilli() < future-5*time.Minute.Milliseconds() {
+	d2, err := deploy.WithExpiration(5 * time.Minute)
+	if err != nil {
+		t.Fatalf("deploy.WithExpiration: %v", err)
+	}
+	if d2.Expiration().IsZero() || d2.Expiration().UnixMilli() < future-5*time.Minute.Milliseconds() {
 		t.Errorf("deploy copy Expiration = %v, want ~now+5m", d2.Expiration())
 	}
 }

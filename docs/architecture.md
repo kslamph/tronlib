@@ -79,11 +79,13 @@ Each item was verified against source. `P` numbers are carried from the audit fo
 
 ```
 github.com/kslamph/tronlib/v2
-├── tronlib      root facade: Dial, Client, aliases, amount constructors, CostPreview
+├── tronlib      root facade: Dial, Client, aliases, amount constructors, Account
 ├── tron         vocabulary: Address, SUN, Error, Code, Action, constants
 ├── key          Signer, PrivateKey, HDWallet, SignMessage, VerifyMessage
 ├── rpc          transport, connection pool, ~106 1:1 gRPC wrappers
-├── tx           NativeTx, ContractTx, DeployTx, AssetTx, Receipt, Estimate, EnergyEstimate, CostPreview
+├── tx           NativeTx, ContractTx, DeployTx, AssetTx, Receipt, Estimate,
+│                EnergyEstimate, CostPreview, portable Encode/Decode
+├── account      Handle, Resources, Permissions, Voting, State (§17)
 ├── contract     Instance, Result, Arg
 ├── token        Handle, Amount
 └── event        Log, Definition, Decode
@@ -97,6 +99,7 @@ tron  (no internal deps)
   ├── rpc
   ├── event
   └── tx        (tron, key, rpc, event)
+        ├── account    (tron, rpc, tx)          §17 — account-scoped handles
         ├── contract   (tron, rpc, tx, event)
         └── token      (tron, rpc, tx, contract)
               └── tronlib  (all)
@@ -368,32 +371,38 @@ These are **not** optional in the protocol sense, and their absence was a blocki
 
 ```go
 // Contract-shaped transactions: fee limit, expiration and permission id.
-func (t *ContractTx) WithFeeLimit(s tron.SUN) *ContractTx
-func (t *ContractTx) WithExpiration(d time.Duration) *ContractTx
+func (t *ContractTx) WithFeeLimit(s tron.SUN) (*ContractTx, error)
+func (t *ContractTx) WithExpiration(d time.Duration) (*ContractTx, error)
 func (t *ContractTx) WithPermissionID(id int32) (*ContractTx, error)
 
 // Native and asset transfers: expiration and permission id only — they
 // consume no energy, so a fee limit is meaningless and is not offered.
-func (t *NativeTx) WithExpiration(d time.Duration) *NativeTx
+func (t *NativeTx) WithExpiration(d time.Duration) (*NativeTx, error)
 func (t *NativeTx) WithPermissionID(id int32) (*NativeTx, error)
-func (t *AssetTx)  WithExpiration(d time.Duration) *AssetTx
+func (t *AssetTx)  WithExpiration(d time.Duration) (*AssetTx, error)
 func (t *AssetTx)  WithPermissionID(id int32) (*AssetTx, error)
 
 // Deploy adds two fields no other kind carries.
-func (t *DeployTx) WithFeeLimit(s tron.SUN) *DeployTx
-func (t *DeployTx) WithExpiration(d time.Duration) *DeployTx
+func (t *DeployTx) WithFeeLimit(s tron.SUN) (*DeployTx, error)
+func (t *DeployTx) WithExpiration(d time.Duration) (*DeployTx, error)
 func (t *DeployTx) WithOriginEnergyLimit(n int64) (*DeployTx, error)
 func (t *DeployTx) WithResourcePercent(p int64) (*DeployTx, error)
 ```
 
 `With*` returns a copy, matching `Sign`'s copy-on-write discipline, so options
-compose. The raw-field mutators (`WithFeeLimit`, `WithExpiration`) cannot fail
-and stay chainable: `ct.WithFeeLimit(tron.TRX(5)).WithExpiration(d)`. The
-mutators that decode or index the wrapped contract message
-(`WithPermissionID`, `WithOriginEnergyLimit`, `WithResourcePercent`) return an
-error instead: they are the one `With*` class that can observe an
-`Extension()`-swapped transaction, and a typed `tx.invalid_argument` beats a
-panic on the library's no-panic rule — `p, err := ct.WithPermissionID(3)`.
+compose without mutating the receiver.
+
+**Reversed in §17.2.** This section originally split the family: the raw-field
+mutators could not fail and stayed chainable, while the decoding mutators
+returned an error. That split was wrong about the failure mode that matters.
+Every one of these fields lives inside `raw_data`, and every signature covers
+`raw_data`'s hash, so mutating a signed transaction detaches its signatures
+from the bytes they authorize — the node then rejects the broadcast with
+`SIGERROR`. The original text treated that as a documented precondition
+("must be called before Sign"), but a documented precondition an API can check
+is a bug, not a contract. All `With*` methods therefore return an error and
+reject an already-signed transaction with `tx.already_signed`, and the decode
+failures keep their `tx.invalid_argument` treatment.
 
 **Defaults, stated so they are testable:**
 
@@ -759,16 +768,13 @@ func (c *Client) Endpoint() string
 func (c *Client) Network() Network                                  // configured value, no I/O — see §10.1
 func (c *Client) VerifyNetwork(ctx context.Context) error           // genesis fingerprint, heuristic
 func (c *Client) ChainTip(ctx context.Context) (uint64, error)
-func (c *Client) TronBalance(ctx context.Context, a Address) (tron.SUN, error)
+func (c *Client) Account(owner Address) *account.Handle                   // §17 — account-scoped entry point
 func (c *Client) Witnesses(ctx context.Context, page Page) ([]Witness, error)   // paginated, §3
-func (c *Client) TransferTRX(ctx, from, to Address, amt tron.SUN) (*tx.NativeTx, error)
-func (c *Client) Deploy(ctx, owner Address, p tx.DeployParams) (*tx.DeployTx, error)
 func (c *Client) Token(ctx, tokenAddr Address) (*token.Handle, error)
 func (c *Client) Contract(ctx, contractAddr Address) (*contract.Instance, error)
 func (c *Client) Broadcast(ctx, t tx.Tx) (*tx.Receipt, error)
 func (c *Client) Wait(ctx, txid string) (*tx.Receipt, error)
 func (c *Client) WaitForSolid(ctx, txid string) (*tx.Receipt, error)
-func (c *Client) CostPreview(ctx, t *tx.ContractTx, owner Address) (*tx.CostPreview, error)
 func (c *Client) EnergyPrice(ctx) (*tx.EnergyPrice, error)
 func (c *Client) Events(ctx, txid string) ([]event.Log, error)
 ```
@@ -834,7 +840,7 @@ defer cli.Close()
 signer, err := tronlib.KeyFromHex(os.Getenv("TRON_PRIVATE_KEY"))
 to, err := tronlib.ParseAddress("TBkfmcE7pM8cwxEhATtkMFwAf1FeQcwY9x")
 
-transfer, err := cli.TransferTRX(ctx, signer.Address(), to, tronlib.TRX(1))
+transfer, err := cli.Account(signer.Address()).TransferTRX(ctx, to, tronlib.TRX(1))
 signed, err := transfer.Sign(signer)
 rec, err := cli.Broadcast(ctx, signed)
 ```
@@ -967,3 +973,172 @@ Every finding from the original design review, with its verification status. Loa
 | **P2.7** | `Network` type undefined | **Accepted** | §10 defines it |
 
 **Net effect on the design's spine:** none. The package DAG, the amount model, the error taxonomy, the four-kind F1 fix and docgen-before-API all survived review unchanged. Every accepted finding was a last-mile gap — a mechanism promised in one section and not defined in another, or a protocol fact stated from recollection. That is the same failure mode as P11, appearing in a document written to eliminate P11, which is worth noting as the real lesson here: **a spec that polices unverified claims still has to make them, and every one needs a source.**
+
+---
+
+## 17. Revision (2026-09-30): the account-scoped facade
+
+**Status:** Adopted and implemented; supersedes the parts of §6.4, §7.3, §10 and
+§11 it names below. Written while producing the v2 quickstart, when it became
+clear that several ordinary account workflows could not be completed through
+the curated API at all.
+
+### 17.1 What the quickstart review found
+
+The curated layer covered transfers, deployment, contract calls and cost
+preview, and `rpc` carried a 1:1 wrapper for essentially everything else. What
+was missing was not node support but **workflows**: the compositions of rpc +
+tx + sign + broadcast that a user actually performs. The inventory:
+
+| Workflow | Before this revision |
+|---|---|
+| TRX / TRC-10 / TRC-20 transfers, calls, deploy | Curated path existed |
+| Stake 2.0: stake, unstake, withdraw matured, cancel unstake | Raw `rpc` calls only; no builders, no facade |
+| Delegate / undelegate, delegation reads | Raw `rpc` calls only |
+| Multi-signature | `Sign(signers...)` and `WithPermissionID` existed; configuring permissions, checking weight and **moving a partial transaction between machines** did not |
+| Voting and reward claiming | `Witnesses` was curated; everything else was raw |
+| Account state (stake, unstake, votes, delegation totals) | Protobuf reads only, except `TronBalance` |
+
+Two structural consequences made this more than a naming gap:
+
+1. `Client.Broadcast` accepts the sealed `tx.Tx` interface, so a transaction
+   returned by a raw `rpc` build call **cannot** enter the curated signing
+   pipeline. A user following the quickstart could not stake without
+   dropping to protobufs.
+2. Multi-signature was only demonstrated within one process. There was no safe
+   way to hand a partially signed transaction to another signer.
+
+### 17.2 Reversed decisions
+
+Recorded explicitly, because each was previously *stated as correct* in this
+document and is now wrong.
+
+| ID | Was | Is | Why |
+|---|---|---|---|
+| **V1** | §6.4: `WithFeeLimit`/`WithExpiration` cannot fail and stay chainable; only the decoding mutators return errors | **All** `With*` return `(T, error)` and reject a signed transaction with `tx.already_signed` | Every option lives in `raw_data` and every signature covers `raw_data`'s hash. A post-sign mutation silently detaches the signatures; the node then answers `SIGERROR`, which names the symptom, not the cause. Uniformity also removes a rule the user had to memorise |
+| **V2** | §7.3/§6.6: `TotalCostOf` is "all-in" | It is all-in **only with governance fees included**, which it now reads live: the multi-signature surcharge (`getMultiSignFee`, 1 TRX on Mainnet) and the permission-update fee (`getUpdateAccountPermissionFee`, 100 TRX) | The two fees can be two orders of magnitude larger than the bandwidth cost of the transaction that triggers them. Omitting them made the "all-in" label false in the direction that hurts. A node that will not report them fails the prediction with `contract.bad_metadata` rather than pricing them as zero |
+| **V3** | §10: owner-specific methods live flat on `Client` (`TronBalance`, `TransferTRX`, `TransferToken`, `Deploy`, `CostPreview`) | They moved to `Client.Account(owner)` | §11's 20-method budget, and more importantly discoverability: a flat surface gives no signal about which operations act on an account versus the chain. Two routes to the same operation is the §4 "redundant routes" defect (P3) returning through a new door |
+| **V4** | §6.3: signatures are recorded in memory at `Sign` time | `Signers()` recovers them from the attached bytes | Required for V5; also removes a state field that could disagree with the protobuf it describes |
+
+### 17.3 The `account` package
+
+`account` owns the account-scoped concept; the root facade reaches it through
+one method.
+
+```go
+func (c *Client) Account(owner tron.Address) *account.Handle
+
+type account.Handle struct{ /* connection + owner address; never a key */ }
+func (h *Handle) Address() tron.Address
+func (h *Handle) State(ctx) (*State, error)          // decoded: balance, stakes, unstakes, votes, delegation
+func (h *Handle) Balance(ctx) (tron.SUN, error)
+func (h *Handle) TransferTRX(ctx, to tron.Address, amt tron.SUN) (*tx.NativeTx, error)
+func (h *Handle) TransferToken(ctx, to tron.Address, asset string, qty int64) (*tx.AssetTx, error)
+func (h *Handle) Deploy(ctx, p tx.DeployParams) (*tx.DeployTx, error)
+func (h *Handle) CostPreview(ctx, t *tx.ContractTx) (*tx.CostPreview, error)
+func (h *Handle) TotalCost(ctx, t tx.Tx) (*tx.TotalCost, error)
+func (h *Handle) Resources() *account.Resources
+func (h *Handle) Permissions() *account.Permissions
+func (h *Handle) Voting() *account.Voting
+```
+
+`Resources` covers the Stake 2.0 lifecycle (`Stake`, `Unstake`,
+`WithdrawUnstaked`, `CancelUnstake`), delegation (`Delegate`, `Undelegate`,
+`Delegatable`) and the reads that answer the questions a staking UI asks
+(`State`, `Withdrawable`, `UnstakeSlots`, `DelegationIndex`, `Summary`).
+`Permissions` covers the permission configuration (`Current`, `Update`) and the
+node-side verification of collected signatures (`SignWeight`, `Approvals`).
+`Voting` covers `SetVotes`, `Votes`, `Rewards`, `ClaimRewards` and `NextTally`.
+
+**The handle never holds a key and never signs.** TRON separates the account
+being operated on from the key that authorizes it — in a multi-signature setup
+they are different addresses by construction. A handle that signed implicitly
+would erase that distinction; instead every state-changing method returns an
+unsigned transaction and the existing pipeline applies:
+
+```go
+acct := cli.Account(owner)
+req, err := acct.Resources().Stake(ctx, tronlib.Energy, tronlib.TRX(100))
+signed, err := req.Sign(signer)      // signer may be a different address
+rec, err  := cli.Broadcast(ctx, signed)
+```
+
+All builders live in `tx` (they must: only `tx` can construct the sealed
+kinds); `account` composes them and owns the decoded reads. `tx` gained the
+Stake 2.0, delegation, voting and permission builders plus their typed option
+and validation rules.
+
+### 17.4 Portable transactions (offline multi-signing)
+
+Multi-signature is only real if a partially signed transaction can travel
+between signers. The protobuf transaction alone is not a safe interchange
+format: it does not record which Go kind produced it, and
+`TransferContract{1,2,3}` is wire-compatible with `TriggerSmartContract{1,2,3}`
+— the F1 defect, in the importer's hands.
+
+```go
+func tx.Encode(t Tx) ([]byte, error)   // magic "TLTX" + version + kind + proto
+func tx.Decode(data []byte) (Tx, error)
+func tx.Sign(t Tx, signers ...key.Signer) (Tx, error)
+func tx.SignHash(t Tx) ([]byte, error)          // sha256(raw_data): what a signature covers
+func tx.AttachSignature(t Tx, addr, sig) (Tx, error)
+```
+
+Rules the format enforces:
+
+- **The declared kind must agree with the wrapped contract type.** Decode
+  rejects a mismatch, so the importer's concrete-type assertion is always
+  sound and `*NativeTx.Simulate` cannot be reached via a crafted envelope.
+- **Signatures are verified at import**: every attached signature must be a
+  well-formed tuple that recovers to *an* address. (Which address is
+  *intended* is not recoverable from the bytes alone — that is the node's
+  `SignWeight` job, exposed as `Permissions.SignWeight`.)
+- **A duplicate signer is rejected**, whether it arrives in one call, in a
+  later call, or across processes. TRON rejects the whole transaction when the
+  same key signs twice, so the check cannot be advisory.
+- **`SignHash` + `AttachSignature`** let a hardware wallet or remote signer
+  produce the signature without the private key entering the process.
+
+### 17.5 Naming decisions
+
+- `Unstake` **starts** the cooldown; it does not return TRX. `WithdrawUnstaked`
+  claims matured TRX. Two different states, two different verbs.
+- `ClaimRewards` is voting rewards (`WithdrawBalanceContract`) and is never
+  "withdraw" — `WithdrawUnstaked` and `ClaimRewards` touch different balances
+  and must not be confused.
+- `SetVotes` names the whole-list replacement semantics; `Vote` would suggest
+  an additive operation that does not exist.
+- `tx.BuildWithdrawRewards` maps to `WithdrawBalanceContract`; the builder
+  names the effect, and its doc records the protocol name.
+- Amounts in `Resources` are **TRX in SUN** throughout, never Energy or
+  Bandwidth quantities. The chain-configured delay is never rendered as a
+  literal: `ChainParamsOf` reports `UnfreezeDelayDays`, which differs between
+  networks (14 on Mainnet, 1 on Nile).
+- Lock periods are **blocks** (`DelegateOptions.LockBlocks`), matching the
+  protocol; the doc states the ~3 s block time so a caller does not
+  silently pass a duration.
+
+### 17.6 Deliberately deferred
+
+Out of scope for v2.0, still reachable through `rpc`:
+
+- Stake 1.0 (`FreezeBalanceContract`/`UnfreezeBalanceContract`) and
+  unstaking legacy positions. New staking is Stake 2.0 only.
+- The `TRON_POWER` resource type and the new resource model
+  (`getAllowNewResourceModel`); `Resource` rejects anything but Energy and
+  Bandwidth rather than silently mapping TRON Power onto one of them.
+- Shielded/Sapling operations, TRC-10 issuance and the CLI remain excluded
+  (§13, C3).
+- Governance proposals and witness administration. `tx` exports the contract
+  types for the permission bitmap, but the proposal flows stay raw.
+- A `Client`-level `GetChainParameters` shape beyond `tx.ChainParamsOf`'s
+  priced subset.
+
+### 17.7 Migration (pre-tag, no shims)
+
+`v2.0.0` is the first tag, so V3 moved rather than deprecated the flat
+methods. The v1→v2 guide's shape is unchanged; a caller of
+`cli.TransferTRX(ctx, from, to, amt)` writes
+`cli.Account(from).TransferTRX(ctx, to, amt)`, and
+`cli.TronBalance(ctx, a)` becomes `cli.Account(a).Balance(ctx)`.
+

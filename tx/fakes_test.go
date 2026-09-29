@@ -78,6 +78,27 @@ type fakeWalletServer struct {
 	UpdateEnergyFn  func(ctx context.Context, in *core.UpdateEnergyLimitContract) (*api.TransactionExtention, error)
 	ClearABIFn      func(ctx context.Context, in *core.ClearABIContract) (*api.TransactionExtention, error)
 
+	// Stake 2.0, delegation, voting and permission RPCs (native operations).
+	FreezeV2        func(ctx context.Context, in *core.FreezeBalanceV2Contract) (*api.TransactionExtention, error)
+	UnfreezeV2      func(ctx context.Context, in *core.UnfreezeBalanceV2Contract) (*api.TransactionExtention, error)
+	DelegateFn      func(ctx context.Context, in *core.DelegateResourceContract) (*api.TransactionExtention, error)
+	UnDelegateFn    func(ctx context.Context, in *core.UnDelegateResourceContract) (*api.TransactionExtention, error)
+	CancelUnfreeze  func(ctx context.Context, in *core.CancelAllUnfreezeV2Contract) (*api.TransactionExtention, error)
+	WithdrawUnfreez func(ctx context.Context, in *core.WithdrawExpireUnfreezeContract) (*api.TransactionExtention, error)
+	VoteWitnessFn   func(ctx context.Context, in *core.VoteWitnessContract) (*api.TransactionExtention, error)
+	WithdrawBalFn   func(ctx context.Context, in *core.WithdrawBalanceContract) (*api.TransactionExtention, error)
+	PermissionUpd   func(ctx context.Context, in *core.AccountPermissionUpdateContract) (*api.TransactionExtention, error)
+
+	// Native reads.
+	CanDelegateMax  func(ctx context.Context, in *api.CanDelegatedMaxSizeRequestMessage) (*api.CanDelegatedMaxSizeResponseMessage, error)
+	UnfreezeCount   func(ctx context.Context, in *api.GetAvailableUnfreezeCountRequestMessage) (*api.GetAvailableUnfreezeCountResponseMessage, error)
+	CanWithdraw     func(ctx context.Context, in *api.CanWithdrawUnfreezeAmountRequestMessage) (*api.CanWithdrawUnfreezeAmountResponseMessage, error)
+	DelegatedRes    func(ctx context.Context, in *api.DelegatedResourceMessage) (*api.DelegatedResourceList, error)
+	DelegationIndex func(ctx context.Context, in *api.BytesMessage) (*core.DelegatedResourceAccountIndex, error)
+	RewardInfo      func(ctx context.Context, in *api.BytesMessage) (*api.NumberMessage, error)
+	SignWeight      func(ctx context.Context, in *core.Transaction) (*api.TransactionSignWeight, error)
+	ApprovedList    func(ctx context.Context, in *core.Transaction) (*api.TransactionApprovedList, error)
+
 	// simulateCalls / estimateCalls / accountResourceCalls / energyPricesCalls
 	// count invocations, for asserting the CostPreview read sequence.
 	simulateCalls        atomic.Int32
@@ -230,6 +251,132 @@ func (f *fakeWalletServer) ClearContractABI(ctx context.Context, in *core.ClearA
 		return f.ClearABIFn(ctx, in)
 	}
 	return manageExt(), nil
+}
+
+// nativeOpExt is the canned build response for a native (non-contract)
+// operation: it wraps the request message so the contract type is the real
+// one — portable round-trips and contract-type checks depend on it.
+func nativeOpExt(t core.Transaction_Contract_ContractType, msg proto.Message) *api.TransactionExtention {
+	return baseExt(contractAny(t, msg), okResult())
+}
+
+func (f *fakeWalletServer) FreezeBalanceV2(ctx context.Context, in *core.FreezeBalanceV2Contract) (*api.TransactionExtention, error) {
+	if f.FreezeV2 != nil {
+		return f.FreezeV2(ctx, in)
+	}
+	return nativeOpExt(core.Transaction_Contract_FreezeBalanceV2Contract, in), nil
+}
+
+func (f *fakeWalletServer) UnfreezeBalanceV2(ctx context.Context, in *core.UnfreezeBalanceV2Contract) (*api.TransactionExtention, error) {
+	if f.UnfreezeV2 != nil {
+		return f.UnfreezeV2(ctx, in)
+	}
+	return nativeOpExt(core.Transaction_Contract_UnfreezeBalanceV2Contract, in), nil
+}
+
+func (f *fakeWalletServer) DelegateResource(ctx context.Context, in *core.DelegateResourceContract) (*api.TransactionExtention, error) {
+	if f.DelegateFn != nil {
+		return f.DelegateFn(ctx, in)
+	}
+	return nativeOpExt(core.Transaction_Contract_DelegateResourceContract, in), nil
+}
+
+func (f *fakeWalletServer) UnDelegateResource(ctx context.Context, in *core.UnDelegateResourceContract) (*api.TransactionExtention, error) {
+	if f.UnDelegateFn != nil {
+		return f.UnDelegateFn(ctx, in)
+	}
+	return nativeOpExt(core.Transaction_Contract_UnDelegateResourceContract, in), nil
+}
+
+func (f *fakeWalletServer) CancelAllUnfreezeV2(ctx context.Context, in *core.CancelAllUnfreezeV2Contract) (*api.TransactionExtention, error) {
+	if f.CancelUnfreeze != nil {
+		return f.CancelUnfreeze(ctx, in)
+	}
+	return nativeOpExt(core.Transaction_Contract_CancelAllUnfreezeV2Contract, in), nil
+}
+
+func (f *fakeWalletServer) WithdrawExpireUnfreeze(ctx context.Context, in *core.WithdrawExpireUnfreezeContract) (*api.TransactionExtention, error) {
+	if f.WithdrawUnfreez != nil {
+		return f.WithdrawUnfreez(ctx, in)
+	}
+	return nativeOpExt(core.Transaction_Contract_WithdrawExpireUnfreezeContract, in), nil
+}
+
+func (f *fakeWalletServer) VoteWitnessAccount2(ctx context.Context, in *core.VoteWitnessContract) (*api.TransactionExtention, error) {
+	if f.VoteWitnessFn != nil {
+		return f.VoteWitnessFn(ctx, in)
+	}
+	return nativeOpExt(core.Transaction_Contract_VoteWitnessContract, in), nil
+}
+
+func (f *fakeWalletServer) WithdrawBalance2(ctx context.Context, in *core.WithdrawBalanceContract) (*api.TransactionExtention, error) {
+	if f.WithdrawBalFn != nil {
+		return f.WithdrawBalFn(ctx, in)
+	}
+	return nativeOpExt(core.Transaction_Contract_WithdrawBalanceContract, in), nil
+}
+
+func (f *fakeWalletServer) AccountPermissionUpdate(ctx context.Context, in *core.AccountPermissionUpdateContract) (*api.TransactionExtention, error) {
+	if f.PermissionUpd != nil {
+		return f.PermissionUpd(ctx, in)
+	}
+	return nativeOpExt(core.Transaction_Contract_AccountPermissionUpdateContract, in), nil
+}
+
+func (f *fakeWalletServer) GetCanDelegatedMaxSize(ctx context.Context, in *api.CanDelegatedMaxSizeRequestMessage) (*api.CanDelegatedMaxSizeResponseMessage, error) {
+	if f.CanDelegateMax != nil {
+		return f.CanDelegateMax(ctx, in)
+	}
+	return &api.CanDelegatedMaxSizeResponseMessage{MaxSize: 0}, nil
+}
+
+func (f *fakeWalletServer) GetAvailableUnfreezeCount(ctx context.Context, in *api.GetAvailableUnfreezeCountRequestMessage) (*api.GetAvailableUnfreezeCountResponseMessage, error) {
+	if f.UnfreezeCount != nil {
+		return f.UnfreezeCount(ctx, in)
+	}
+	return &api.GetAvailableUnfreezeCountResponseMessage{Count: 32}, nil
+}
+
+func (f *fakeWalletServer) GetCanWithdrawUnfreezeAmount(ctx context.Context, in *api.CanWithdrawUnfreezeAmountRequestMessage) (*api.CanWithdrawUnfreezeAmountResponseMessage, error) {
+	if f.CanWithdraw != nil {
+		return f.CanWithdraw(ctx, in)
+	}
+	return &api.CanWithdrawUnfreezeAmountResponseMessage{}, nil
+}
+
+func (f *fakeWalletServer) GetDelegatedResourceV2(ctx context.Context, in *api.DelegatedResourceMessage) (*api.DelegatedResourceList, error) {
+	if f.DelegatedRes != nil {
+		return f.DelegatedRes(ctx, in)
+	}
+	return &api.DelegatedResourceList{}, nil
+}
+
+func (f *fakeWalletServer) GetDelegatedResourceAccountIndexV2(ctx context.Context, in *api.BytesMessage) (*core.DelegatedResourceAccountIndex, error) {
+	if f.DelegationIndex != nil {
+		return f.DelegationIndex(ctx, in)
+	}
+	return &core.DelegatedResourceAccountIndex{}, nil
+}
+
+func (f *fakeWalletServer) GetRewardInfo(ctx context.Context, in *api.BytesMessage) (*api.NumberMessage, error) {
+	if f.RewardInfo != nil {
+		return f.RewardInfo(ctx, in)
+	}
+	return &api.NumberMessage{Num: 0}, nil
+}
+
+func (f *fakeWalletServer) GetTransactionSignWeight(ctx context.Context, in *core.Transaction) (*api.TransactionSignWeight, error) {
+	if f.SignWeight != nil {
+		return f.SignWeight(ctx, in)
+	}
+	return &api.TransactionSignWeight{}, nil
+}
+
+func (f *fakeWalletServer) GetTransactionApprovedList(ctx context.Context, in *core.Transaction) (*api.TransactionApprovedList, error) {
+	if f.ApprovedList != nil {
+		return f.ApprovedList(ctx, in)
+	}
+	return &api.TransactionApprovedList{}, nil
 }
 
 // fakeSolidityServer serves the WalletSolidity service on the same bufconn

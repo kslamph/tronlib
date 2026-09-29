@@ -106,7 +106,7 @@ func (c *CostPreview) String() string {
 // for the read sequence). It returns tx.fee_limit_too_low when the computed
 // burn exceeds the transaction's fee limit — the §6.4 floor-check.
 // It is the free-function entry point the facade's
-// Client.CostPreview wraps — the spec (§7.3) names the RESULT type
+// account.Handle.CostPreview wraps — the spec (§7.3) names the RESULT type
 // CostPreview and the Client method CostPreview, so a package-level function
 // of the same name cannot exist in Go; PreviewCost is that function.
 // t must have been built by BuildTriggerSmartContract; owner is the account

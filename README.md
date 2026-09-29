@@ -9,13 +9,8 @@ explicit subpackages when you need the full surface.
 
 ## Install
 
-v2 is pre-release — no `v2.x` tag exists yet. Go requires a `/v2` module path
-to be served by a `v2.0.0` or later tag, so an un-pinned `go get` cannot
-resolve until release; pin a commit in the meantime.
-
 ```bash
-go get github.com/kslamph/tronlib/v2@<commit-sha>  # interim: replace with a full commit SHA
-go get github.com/kslamph/tronlib/v2@v2.0.0        # valid once v2.0.0 is tagged
+go get github.com/kslamph/tronlib/v2@v2.0.0
 ```
 
 ## Quickstart
@@ -45,7 +40,7 @@ func main() {
 	}
 	to := tronlib.MustAddress("TBkfmcE7pM8cwxEhATtkMFwAf1FeQcwY9x")
 
-	transfer, err := cli.TransferTRX(ctx, signer.Address(), to, tronlib.TRX(1))
+	transfer, err := cli.Account(signer.Address()).TransferTRX(ctx, to, tronlib.TRX(1))
 	if err != nil {
 		panic(err)
 	}
@@ -77,7 +72,8 @@ the first call. If you declared a network with `WithNetwork`, call
 
 | Package | Purpose |
 | --- | --- |
-| `github.com/kslamph/tronlib/v2` | Facade: dial, happy-path client, type aliases. |
+| `github.com/kslamph/tronlib/v2` | Facade: dial, chain client, account handles, type aliases. |
+| `.../v2/account` | Account-scoped handle: state, staking and delegation, permissions (multi-sig), voting. |
 | `.../v2/key` | Signers (private key, mnemonic) and message signing. |
 | `.../v2/rpc` | Full 1:1 gRPC wrapper surface. |
 | `.../v2/tx` | Transaction builders, signing, broadcast, receipts, cost preview. |
@@ -88,12 +84,32 @@ the first call. If you declared a network with `WithNetwork`, call
 
 ## Notes
 
+- `Client` is the chain handle (dial, broadcast, wait, contract and token
+  reads). Everything bound to one address lives on
+  `cli.Account(owner)`; the handle holds no key and never signs, which is what
+  lets a multi-signature signer authorize someone else's account.
 - Amounts are integer **SUN**. Use `tronlib.TRX` only for literals and
   constants; dynamic decimal input must go through `tronlib.ParseTRX`.
+- Staking amounts are TRX in SUN, never Energy or Bandwidth quantities, and
+  `Unstake` starts the chain's cooldown rather than returning TRX —
+  `WithdrawUnstaked` claims the matured balance. `ClaimRewards` is voting
+  rewards, a different balance again.
 - `Client.Broadcast` returns a `Receipt` for node-level rejections —
   `rec.OK()` reports them; they are not Go errors.
 - `Client.Wait` reports inclusion; use `WaitForSolid` for custody or
   deposit-crediting semantics.
+- Multi-signature transactions can travel between signers:
+  `tronlib.Encode` / `tronlib.Decode` carry a partially signed transaction,
+  `tronlib.Sign` adds a signature, and `Account(owner).Permissions().SignWeight`
+  asks the node whether the collected weight meets the threshold before
+  broadcast.
+- `tx.With*` options are part of `raw_data`, so they are set **before**
+  signing: every option mutator rejects an already-signed transaction with
+  `tx.already_signed` rather than producing a transaction the node rejects
+  with `SIGERROR`.
+- `TotalCostOf` includes the governance fees a transaction triggers
+  (multi-signature surcharge, permission-update fee), read live from the
+  chain parameters.
 
 ## Documentation
 

@@ -80,6 +80,9 @@ func mapCallError(operation string, err error) error {
 // the error-code mapping.
 func Call[T any](cp ConnProvider, ctx context.Context, operation string, call func(client api.WalletClient, ctx context.Context) (T, error), validateFunc ...ValidationFunc[T]) (T, error) {
 	var zero T
+	if cp == nil {
+		return zero, &tron.Error{Code: tron.CodeChainConnection, Op: operation, Hint: "connection provider is nil; dial a node with rpc.Dial"}
+	}
 
 	conn, err := cp.GetConnection(ctx)
 	if err != nil {
@@ -249,6 +252,13 @@ func Dial(ctx context.Context, endpoint string, opts ...DialOption) (*Client, er
 // to give it back — or Call, which does both. After Close this fails with
 // chain.closed.
 func (c *Client) GetConnection(ctx context.Context) (*grpc.ClientConn, error) {
+	if c == nil {
+		return nil, &tron.Error{
+			Code: tron.CodeChainConnection,
+			Op:   "rpc.GetConnection",
+			Hint: "client is nil; create one with rpc.Dial",
+		}
+	}
 	if atomic.LoadInt32(&c.closed) == 1 {
 		return nil, &tron.Error{
 			Code: tron.CodeChainClosed,
@@ -292,7 +302,7 @@ func (c *Client) GetConnection(ctx context.Context) (*grpc.ClientConn, error) {
 // ReturnConnection safely returns a connection to the pool. It is a no-op on
 // a closed client and safe to call with nil.
 func (c *Client) ReturnConnection(conn *grpc.ClientConn) {
-	if atomic.LoadInt32(&c.closed) == 1 {
+	if c == nil || atomic.LoadInt32(&c.closed) == 1 {
 		return
 	}
 	if c.pool != nil {
@@ -314,6 +324,9 @@ func (c *Client) Close() error {
 // GetTimeout returns the client's configured timeout, applied to operations
 // whose context has no deadline.
 func (c *Client) GetTimeout() time.Duration {
+	if c == nil {
+		return 30 * time.Second
+	}
 	return c.timeout
 }
 

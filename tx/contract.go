@@ -22,30 +22,41 @@ func (t *ContractTx) clone() *ContractTx { return &ContractTx{baseTx: *t.cloneBa
 // WithFeeLimit returns a COPY of t with raw_data.fee_limit set to s, the
 // maximum SUN the node may burn for it. The builder already applied the
 // documented default (150_000_000); this overrides it. It must be called
-// before Sign (the signature covers raw_data).
-// Note: setting options after signing invalidates any signature (raw_data changes; the node rejects with SIGERROR).
-func (t *ContractTx) WithFeeLimit(s tron.SUN) *ContractTx {
+// before Sign — options are part of raw_data and a post-sign mutation would
+// detach the signatures from the bytes they authorize, so signing first is
+// tx.already_signed here rather than a SIGERROR at broadcast.
+func (t *ContractTx) WithFeeLimit(s tron.SUN) (*ContractTx, error) {
+	if err := ensureUnsigned(t.IsSigned(), "tx.ContractTx.WithFeeLimit"); err != nil {
+		return nil, err
+	}
 	c := t.clone()
 	c.raw().FeeLimit = int64(s)
-	return c
+	return c, nil
 }
 
 // WithExpiration returns a COPY of t whose raw_data.expiration is moved to
 // now+d (milliseconds), the exact mutation of v1's utils.SetExpiration. Use
 // it to circulate an unsigned transaction between signers for longer than the
-// node's head+60s build default. Call it before Sign.
-// Note: setting options after signing invalidates any signature (raw_data changes; the node rejects with SIGERROR).
-func (t *ContractTx) WithExpiration(d time.Duration) *ContractTx {
+// node's head+60s build default. Call it before Sign (tx.already_signed
+// otherwise).
+func (t *ContractTx) WithExpiration(d time.Duration) (*ContractTx, error) {
+	if err := ensureUnsigned(t.IsSigned(), "tx.ContractTx.WithExpiration"); err != nil {
+		return nil, err
+	}
 	c := t.clone()
 	setExpiration(c.raw(), d)
-	return c
+	return c, nil
 }
 
 // WithPermissionID returns a COPY of t with Permission_id set on the wrapped
 // contract message (2–9 for multi-sig under active permissions). Call it
-// before Sign.
-// Note: setting options after signing invalidates any signature (raw_data changes; the node rejects with SIGERROR).
+// before Sign. It returns an error when the transaction is already signed, or
+// when the wrapped contract message is missing (reachable only by replacing
+// the node's build response through the Extension() escape hatch).
 func (t *ContractTx) WithPermissionID(id int32) (*ContractTx, error) {
+	if err := ensureUnsigned(t.IsSigned(), "tx.ContractTx.WithPermissionID"); err != nil {
+		return nil, err
+	}
 	c := t.clone()
 	if err := setPermissionID(c.raw(), "tx.ContractTx.WithPermissionID", id); err != nil {
 		return nil, err

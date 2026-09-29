@@ -83,8 +83,8 @@ func GetBlockBalanceTrace(cp ConnProvider, ctx context.Context, req *core.BlockB
 // TronBalance returns the account's TRX balance in SUN (the GetAccount
 // wrapper's Balance field, already the atomic unit). An account the node
 // does not know — never funded — reports balance 0 with no error.
-// Facade-facing convenience over GetAccount; added for Task 9 (architecture §10
-// Client.TronBalance delegates here).
+// Facade-facing convenience over GetAccount (account.Handle.Balance
+// delegates here through tx/account pipelines).
 func TronBalance(cp ConnProvider, ctx context.Context, addr tron.Address) (tron.SUN, error) {
 	acc, err := GetAccount(cp, ctx, &core.Account{Address: addr.Bytes()})
 	if err != nil {

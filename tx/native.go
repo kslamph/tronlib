@@ -22,20 +22,24 @@ func (t *NativeTx) clone() *NativeTx { return &NativeTx{baseTx: *t.cloneBase()} 
 // now+d (milliseconds), the exact mutation of v1's utils.SetExpiration. Use
 // it to circulate an unsigned transaction between signers for longer than the
 // node's head+60s build default. It must be called BEFORE Sign: the signature
-// covers raw_data. It panics if raw data is missing, which is unreachable for
-// builder-produced transactions (see package doc).
-// Note: setting options after signing invalidates any signature (raw_data changes; the node rejects with SIGERROR).
-func (t *NativeTx) WithExpiration(d time.Duration) *NativeTx {
+// covers raw_data, so signing first is tx.already_signed here rather than a
+// SIGERROR at broadcast.
+func (t *NativeTx) WithExpiration(d time.Duration) (*NativeTx, error) {
+	if err := ensureUnsigned(t.IsSigned(), "tx.NativeTx.WithExpiration"); err != nil {
+		return nil, err
+	}
 	c := t.clone()
 	setExpiration(c.raw(), d)
-	return c
+	return c, nil
 }
 
 // WithPermissionID returns a COPY of t with Permission_id set on the wrapped
 // contract message (2–9 for multi-sig under active permissions). Call it
-// before Sign.
-// Note: setting options after signing invalidates any signature (raw_data changes; the node rejects with SIGERROR).
+// before Sign (tx.already_signed otherwise).
 func (t *NativeTx) WithPermissionID(id int32) (*NativeTx, error) {
+	if err := ensureUnsigned(t.IsSigned(), "tx.NativeTx.WithPermissionID"); err != nil {
+		return nil, err
+	}
 	c := t.clone()
 	if err := setPermissionID(c.raw(), "tx.NativeTx.WithPermissionID", id); err != nil {
 		return nil, err

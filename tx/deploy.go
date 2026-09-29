@@ -52,30 +52,36 @@ func (t *DeployTx) clone() *DeployTx { return &DeployTx{baseTx: *t.cloneBase()} 
 
 // WithFeeLimit returns a COPY of t with raw_data.fee_limit set to s. Deploy
 // is the most expensive call a user makes; the builder default is
-// 150_000_000 SUN. Call it before Sign.
-// Note: setting options after signing invalidates any signature (raw_data changes; the node rejects with SIGERROR).
-func (t *DeployTx) WithFeeLimit(s tron.SUN) *DeployTx {
+// 150_000_000 SUN. Call it before Sign (tx.already_signed otherwise).
+func (t *DeployTx) WithFeeLimit(s tron.SUN) (*DeployTx, error) {
+	if err := ensureUnsigned(t.IsSigned(), "tx.DeployTx.WithFeeLimit"); err != nil {
+		return nil, err
+	}
 	c := t.clone()
 	c.raw().FeeLimit = int64(s)
-	return c
+	return c, nil
 }
 
 // WithExpiration returns a COPY of t whose raw_data.expiration is moved to
-// now+d (milliseconds). Call it before Sign.
-// Note: setting options after signing invalidates any signature (raw_data changes; the node rejects with SIGERROR).
-func (t *DeployTx) WithExpiration(d time.Duration) *DeployTx {
+// now+d (milliseconds). Call it before Sign (tx.already_signed otherwise).
+func (t *DeployTx) WithExpiration(d time.Duration) (*DeployTx, error) {
+	if err := ensureUnsigned(t.IsSigned(), "tx.DeployTx.WithExpiration"); err != nil {
+		return nil, err
+	}
 	c := t.clone()
 	setExpiration(c.raw(), d)
-	return c
+	return c, nil
 }
 
 // WithPermissionID returns a COPY of t with Permission_id set on the wrapped
-// contract message. Call it before Sign. It returns an error (not a panic)
-// when the wrapped transaction carries no contract message — reachable only
-// by replacing the node's build response through the Extension()/Transaction()
-// escape hatch.
-// Note: setting options after signing invalidates any signature (raw_data changes; the node rejects with SIGERROR).
+// contract message. Call it before Sign. It returns an error when the
+// transaction is already signed, or when the wrapped transaction carries no
+// contract message — reachable only by replacing the node's build response
+// through the Extension()/Transaction() escape hatch.
 func (t *DeployTx) WithPermissionID(id int32) (*DeployTx, error) {
+	if err := ensureUnsigned(t.IsSigned(), "tx.DeployTx.WithPermissionID"); err != nil {
+		return nil, err
+	}
 	c := t.clone()
 	if err := setPermissionID(c.raw(), "tx.DeployTx.WithPermissionID", id); err != nil {
 		return nil, err
@@ -87,10 +93,12 @@ func (t *DeployTx) WithPermissionID(id int32) (*DeployTx, error) {
 // the decoded CreateSmartContract parameter (the value lives inside the
 // contract parameter, not in raw_data, so the parameter is decoded, mutated
 // and re-encoded — it must be called before Sign). Unlike the builder, no
-// Note: setting options after signing invalidates any signature (raw_data changes; the node rejects with SIGERROR).
 // 0-floor is enforced here: the node is the authority for post-build
-// mutations.
+// mutations. A signed transaction is tx.already_signed.
 func (t *DeployTx) WithOriginEnergyLimit(n int64) (*DeployTx, error) {
+	if err := ensureUnsigned(t.IsSigned(), "tx.DeployTx.WithOriginEnergyLimit"); err != nil {
+		return nil, err
+	}
 	c := t.clone()
 	if err := mutateDeployParam(c.raw(), "tx.DeployTx.WithOriginEnergyLimit", func(p *core.CreateSmartContract) {
 		if p.NewContract == nil {
@@ -106,9 +114,11 @@ func (t *DeployTx) WithOriginEnergyLimit(n int64) (*DeployTx, error) {
 // WithResourcePercent returns a COPY of t with Consume_user_resource_percent
 // set on the decoded CreateSmartContract parameter. Unlike the builder, the
 // 0–100 range is not enforced here: the node is the authority for post-build
-// mutations. Call it before Sign.
-// Note: setting options after signing invalidates any signature (raw_data changes; the node rejects with SIGERROR).
+// mutations. Call it before Sign (tx.already_signed otherwise).
 func (t *DeployTx) WithResourcePercent(p int64) (*DeployTx, error) {
+	if err := ensureUnsigned(t.IsSigned(), "tx.DeployTx.WithResourcePercent"); err != nil {
+		return nil, err
+	}
 	c := t.clone()
 	if err := mutateDeployParam(c.raw(), "tx.DeployTx.WithResourcePercent", func(m *core.CreateSmartContract) {
 		if m.NewContract == nil {

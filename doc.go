@@ -23,7 +23,7 @@
 //	signer, err := tronlib.KeyFromHex(os.Getenv("TRON_PRIVATE_KEY"))
 //	to, err := tronlib.ParseAddress("TBkfmcE7pM8cwxEhATtkMFwAf1FeQcwY9x")
 //
-//	transfer, err := cli.TransferTRX(ctx, signer.Address(), to, tronlib.TRX(1))
+//	transfer, err := cli.Account(signer.Address()).TransferTRX(ctx, to, tronlib.TRX(1))
 //	signed, err := transfer.Sign(signer)
 //	rec, err := cli.Broadcast(ctx, signed)
 //

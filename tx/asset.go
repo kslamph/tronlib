@@ -18,18 +18,22 @@ func (*AssetTx) txInternal() {}
 func (t *AssetTx) clone() *AssetTx { return &AssetTx{baseTx: *t.cloneBase()} }
 
 // WithExpiration returns a COPY of t whose raw_data.expiration is moved to
-// now+d (milliseconds). Call it before Sign.
-// Note: setting options after signing invalidates any signature (raw_data changes; the node rejects with SIGERROR).
-func (t *AssetTx) WithExpiration(d time.Duration) *AssetTx {
+// now+d (milliseconds). Call it before Sign (tx.already_signed otherwise).
+func (t *AssetTx) WithExpiration(d time.Duration) (*AssetTx, error) {
+	if err := ensureUnsigned(t.IsSigned(), "tx.AssetTx.WithExpiration"); err != nil {
+		return nil, err
+	}
 	c := t.clone()
 	setExpiration(c.raw(), d)
-	return c
+	return c, nil
 }
 
 // WithPermissionID returns a COPY of t with Permission_id set on the wrapped
-// contract message. Call it before Sign.
-// Note: setting options after signing invalidates any signature (raw_data changes; the node rejects with SIGERROR).
+// contract message. Call it before Sign (tx.already_signed otherwise).
 func (t *AssetTx) WithPermissionID(id int32) (*AssetTx, error) {
+	if err := ensureUnsigned(t.IsSigned(), "tx.AssetTx.WithPermissionID"); err != nil {
+		return nil, err
+	}
 	c := t.clone()
 	if err := setPermissionID(c.raw(), "tx.AssetTx.WithPermissionID", id); err != nil {
 		return nil, err

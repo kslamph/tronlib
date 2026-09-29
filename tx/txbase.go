@@ -18,10 +18,9 @@ import (
 // below can assume ext carries a transaction with raw data (the builders
 // enforce that with requireRaw).
 type baseTx struct {
-	ext     *api.TransactionExtention
-	kind    Kind
-	cp      rpc.ConnProvider // needed by the contract-only Simulate/EstimateEnergy
-	signers []tron.Address   // addresses of the signers appended by Sign
+	ext  *api.TransactionExtention
+	kind Kind
+	cp   rpc.ConnProvider // needed by the contract-only Simulate/EstimateEnergy
 }
 
 // tx returns the wrapped pb transaction.
@@ -30,21 +29,31 @@ func (b *baseTx) tx() *core.Transaction { return b.ext.GetTransaction() }
 // raw returns the wrapped raw_data.
 func (b *baseTx) raw() *core.TransactionRaw { return b.tx().GetRawData() }
 
+// rawDigest returns sha256(proto.Marshal(raw)) — the bytes a TRON signature
+// covers and the preimage of the transaction id. nil raw data yields (nil,
+// nil): callers report the missing-raw-data error themselves.
+func rawDigest(raw *core.TransactionRaw) ([]byte, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	data, err := proto.Marshal(raw)
+	if err != nil {
+		return nil, err
+	}
+	sum := sha256.Sum256(data)
+	return sum[:], nil
+}
+
 // ID returns the hex transaction id. It is computed live from raw_data (a
 // TRON txid is a pure function of raw_data) so it stays correct after a
 // copy-on-write option mutated the raw data post-build — unlike ext.Txid,
 // which is a stale build-time snapshot in that case.
 func (b *baseTx) ID() string {
-	raw := b.raw()
-	if raw == nil {
+	digest, err := rawDigest(b.raw())
+	if err != nil || digest == nil {
 		return ""
 	}
-	data, err := proto.Marshal(raw)
-	if err != nil {
-		return ""
-	}
-	sum := sha256.Sum256(data)
-	return hex.EncodeToString(sum[:])
+	return hex.EncodeToString(digest)
 }
 
 // Kind reports the statically-decided kind.
@@ -59,11 +68,14 @@ func (b *baseTx) Transaction() *core.Transaction { return b.tx() }
 // IsSigned reports whether at least one signature is attached.
 func (b *baseTx) IsSigned() bool { return len(b.tx().GetSignature()) > 0 }
 
-// Signers returns a copy of the signer addresses recorded by Sign.
+// Signers recovers the signer addresses from the attached signatures, in
+// signature order. Deriving them from the bytes (rather than recording them
+// at Sign time) is what makes a decoded portable transaction report the same
+// signers as the one that was encoded, and it re-verifies every signature it
+// reports: a signature that does not recover is key.invalid, never a silently
+// skipped entry.
 func (b *baseTx) Signers() ([]tron.Address, error) {
-	out := make([]tron.Address, len(b.signers))
-	copy(out, b.signers)
-	return out, nil
+	return recoverSigners(b.raw(), b.tx().GetSignature(), "tx.Signers")
 }
 
 // FeeLimit reports the effective fee limit in SUN. The builders apply the
@@ -98,9 +110,8 @@ func (b *baseTx) PermissionID() int32 {
 // stay valid).
 func (b *baseTx) cloneBase() *baseTx {
 	nb := &baseTx{
-		kind:    b.kind,
-		cp:      b.cp,
-		signers: append([]tron.Address(nil), b.signers...),
+		kind: b.kind,
+		cp:   b.cp,
 	}
 	if b.ext != nil {
 		nb.ext = proto.Clone(b.ext).(*api.TransactionExtention)
@@ -120,6 +131,37 @@ func requireRaw(ext *api.TransactionExtention, op string) error {
 		}
 	}
 	return nil
+}
+
+// ensureUnsigned rejects an option mutation on an already-signed transaction.
+// Every option (fee limit, expiration, permission id, resource percent) lives
+// inside raw_data, and every attached signature covers raw_data's hash, so a
+// post-sign mutation silently detaches the signatures from the bytes they
+// authorize; the node then rejects the broadcast with SIGERROR. Failing here
+// names the cause while the caller can still fix it, and it makes the rule
+// uniform: options are set before Sign, never after.
+func ensureUnsigned(signed bool, op string) error {
+	if signed {
+		return &tron.Error{
+			Code: tron.CodeTxAlreadySigned,
+			Op:   op,
+			Hint: "options are part of raw_data and change the signed hash; call With* before Sign, or rebuild the transaction",
+		}
+	}
+	return nil
+}
+
+// noConnection reports an operation that needs the node but was called on a
+// transaction that carries no connection — a value reconstructed by Decode,
+// whose baseTx has no rpc.ConnProvider. Simulation and estimation are the
+// only such operations; they fail loudly here instead of dereferencing a nil
+// provider.
+func noConnection(op string) *tron.Error {
+	return &tron.Error{
+		Code: tron.CodeChainConnection,
+		Op:   op,
+		Hint: "this transaction carries no connection; simulation and estimation need a transaction returned by the builders — rebuild it against a client",
+	}
 }
 
 // requireOneContract errors unless the transaction wraps exactly one contract
