@@ -174,13 +174,19 @@ func PreviewCost(cp rpc.ConnProvider, ctx context.Context, t *ContractTx, owner 
 // latestEnergyPrice fetches the energy price history and returns the price
 // and timestamp of the entry with the greatest timestamp. Malformed entries
 // are contract.bad_metadata: the node answered, but not in the documented
-// "timestamp:price" comma-list shape.
+// "timestamp:price" comma-list shape. Two shapes need an explicit rule because
+// they parse without error yet resolve to a meaningless answer: a list holding
+// no parsable entry (",,") and an entry outside the documented range (a
+// negative price or timestamp). Either would otherwise return the zero
+// baseline as a real price — see EnergyPriceOf's promise that a silent zero
+// price is not acceptable.
 func latestEnergyPrice(cp rpc.ConnProvider, ctx context.Context, op string) (int64, int64, error) {
 	msg, err := rpc.GetEnergyPrices(cp, ctx, &api.EmptyMessage{})
 	if err != nil {
 		return 0, 0, err
 	}
 	var bestTs, bestPrice int64
+	parsed := 0
 	for _, entry := range strings.Split(msg.GetPrices(), ",") {
 		entry = strings.TrimSpace(entry)
 		if entry == "" {
@@ -195,12 +201,23 @@ func latestEnergyPrice(cp rpc.ConnProvider, ctx context.Context, op string) (int
 		if err1 != nil || err2 != nil {
 			return 0, 0, badPriceMetadata(op, msg.GetPrices())
 		}
+		// Governance prices and their timestamps are nonnegative; a negative
+		// price inverts every cost, and a negative timestamp can never win the
+		// comparison below (the baseline is 0), so both shapes must be refused
+		// rather than parsed.
+		if ts < 0 || price < 0 {
+			return 0, 0, badPriceMetadata(op, msg.GetPrices())
+		}
+		parsed++
 		if ts >= bestTs { // latest timestamp wins; ties keep the last entry
 			bestTs, bestPrice = ts, price
 		}
 	}
-	if len(msg.GetPrices()) == 0 {
-		return 0, 0, badPriceMetadata(op, "")
+	// Count the entries that PARSED, not the length of the raw string: ",," and
+	// " " have length but contain nothing, and the zero baseline would then be
+	// handed back as a price of 0 SUN per energy.
+	if parsed == 0 {
+		return 0, 0, badPriceMetadata(op, msg.GetPrices())
 	}
 	return bestPrice, bestTs, nil
 }

@@ -94,11 +94,21 @@ func BandwidthPriceOf(cp rpc.ConnProvider, ctx context.Context) (*BandwidthPrice
 		if err1 != nil || err2 != nil {
 			return nil, badBandwidthMetadata(op, msg.GetPrices())
 		}
+		// Same rule as the energy history: governance prices and their
+		// timestamps are nonnegative. A negative price inverts every burn
+		// prediction, and a negative timestamp can never win the comparison
+		// below, so both shapes are refused rather than parsed.
+		if ts < 0 || price < 0 {
+			return nil, badBandwidthMetadata(op, msg.GetPrices())
+		}
 		if !found || ts >= bestTs { // latest timestamp wins; ties keep the last entry
 			bestTs, bestPrice = ts, price
 			found = true
 		}
 	}
+	// found is set only by an entry that parsed and passed the range check, so
+	// a list of nothing but separators is refused instead of pricing every
+	// burn at the zero baseline.
 	if !found {
 		return nil, badBandwidthMetadata(op, msg.GetPrices())
 	}
