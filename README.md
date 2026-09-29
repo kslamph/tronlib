@@ -77,7 +77,7 @@ the first call. If you declared a network with `WithNetwork`, call
 | `.../v2/rpc` | Full 1:1 gRPC wrapper surface. |
 | `.../v2/tx` | Transaction builders, signing, broadcast, receipts, cost preview. |
 | `.../v2/contract` | ABI-driven contract calls and deploys. |
-| `.../v2/token` | TRC-20/TRC-10 token handles with decimal-aware amounts. |
+| `.../v2/token` | TRC-20 token handle with decimal-aware amounts (TRC-10 transfers go through `Client.TransferToken`). |
 | `.../v2/event` | Log and event decoding. |
 | `.../v2/tron` | Core types: addresses, amounts (SUN), errors. |
 
