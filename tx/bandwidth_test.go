@@ -74,7 +74,7 @@ func TestBandwidthPriceOfLatestWins(t *testing.T) {
 }
 
 func TestBandwidthPriceOfMalformed(t *testing.T) {
-	for _, prices := range []string{"no-colon", "", "abc:def"} {
+	for _, prices := range []string{"no-colon", "", "abc:def", ",,", " ", " , , "} {
 		f := &fakeWalletServer{
 			BandwidthPrices: func(ctx context.Context, in *api.EmptyMessage) (*api.PricesResponseMessage, error) {
 				return &api.PricesResponseMessage{Prices: prices}, nil
@@ -83,6 +83,39 @@ func TestBandwidthPriceOfMalformed(t *testing.T) {
 		if _, err := BandwidthPriceOf(newTxTestClient(t, f), t.Context()); !tron.HasCode(err, tron.CodeContractBadMetadata) {
 			t.Fatalf("prices %q: want contract.bad_metadata, got %v", prices, err)
 		}
+	}
+}
+
+// TestBandwidthPriceOfNegativeRejected pins the same two validations the energy
+// price parse applies: a negative price would zero out every burn prediction as a
+// negative number, and a negative timestamp would lose the greatest-timestamp
+// comparison and silently return price 0.
+func TestBandwidthPriceOfNegativeRejected(t *testing.T) {
+	for _, prices := range []string{"1627279200000:-5", "-1:1000"} {
+		f := &fakeWalletServer{
+			BandwidthPrices: func(ctx context.Context, in *api.EmptyMessage) (*api.PricesResponseMessage, error) {
+				return &api.PricesResponseMessage{Prices: prices}, nil
+			},
+		}
+		if _, err := BandwidthPriceOf(newTxTestClient(t, f), t.Context()); !tron.HasCode(err, tron.CodeContractBadMetadata) {
+			t.Fatalf("prices %q: want contract.bad_metadata, got %v", prices, err)
+		}
+	}
+}
+
+// TestBandwidthPriceOfTieKeepsLast pins the ordering rule shared with energy.
+func TestBandwidthPriceOfTieKeepsLast(t *testing.T) {
+	f := &fakeWalletServer{
+		BandwidthPrices: func(ctx context.Context, in *api.EmptyMessage) (*api.PricesResponseMessage, error) {
+			return &api.PricesResponseMessage{Prices: "1627279200000:1000,1627279200000:1100"}, nil
+		},
+	}
+	p, err := BandwidthPriceOf(newTxTestClient(t, f), t.Context())
+	if err != nil {
+		t.Fatalf("BandwidthPriceOf: %v", err)
+	}
+	if p.SunPerByte != 1100 {
+		t.Fatalf("SunPerByte = %d, want 1100 (ties keep the last entry)", p.SunPerByte)
 	}
 }
 
