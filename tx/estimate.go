@@ -4,10 +4,11 @@ import (
 	"context"
 	"math"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/kslamph/tronlib/v2/pb/core"
 	"github.com/kslamph/tronlib/v2/rpc"
 	"github.com/kslamph/tronlib/v2/tron"
-	"google.golang.org/protobuf/proto"
 )
 
 // Estimate is the result of a read-only dry run of a ContractTx against the

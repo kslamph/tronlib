@@ -4,10 +4,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kslamph/tronlib/v2/pb/core"
-	"github.com/kslamph/tronlib/v2/tx"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+
+	"github.com/kslamph/tronlib/v2/pb/core"
+	"github.com/kslamph/tronlib/v2/tx"
 )
 
 func mustTriggerTx(t *testing.T, typ core.Transaction_Contract_ContractType, param []byte) *core.Transaction {

@@ -9,15 +9,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kslamph/tronlib/v2/pb/api"
-	"github.com/kslamph/tronlib/v2/pb/core"
-	"github.com/kslamph/tronlib/v2/rpc"
-	"github.com/kslamph/tronlib/v2/tron"
 	"golang.org/x/crypto/sha3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+
+	"github.com/kslamph/tronlib/v2/pb/api"
+	"github.com/kslamph/tronlib/v2/pb/core"
+	"github.com/kslamph/tronlib/v2/rpc"
+	"github.com/kslamph/tronlib/v2/tron"
 )
 
 // --- the bufconn fake: a TRC-20-shaped wallet server ---

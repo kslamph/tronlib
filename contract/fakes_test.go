@@ -17,14 +17,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kslamph/tronlib/v2/pb/api"
-	"github.com/kslamph/tronlib/v2/pb/core"
-	"github.com/kslamph/tronlib/v2/rpc"
-	"github.com/kslamph/tronlib/v2/tron"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+
+	"github.com/kslamph/tronlib/v2/pb/api"
+	"github.com/kslamph/tronlib/v2/pb/core"
+	"github.com/kslamph/tronlib/v2/rpc"
+	"github.com/kslamph/tronlib/v2/tron"
 )
 
 // testABI is the small contract the instance tests run against:

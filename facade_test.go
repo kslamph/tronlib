@@ -18,6 +18,11 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/test/bufconn"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
+
 	"github.com/kslamph/tronlib/v2/event"
 	"github.com/kslamph/tronlib/v2/key"
 	"github.com/kslamph/tronlib/v2/pb/api"
@@ -25,10 +30,6 @@ import (
 	"github.com/kslamph/tronlib/v2/rpc"
 	"github.com/kslamph/tronlib/v2/tron"
 	"github.com/kslamph/tronlib/v2/tx"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/test/bufconn"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/anypb"
 )
 
 // facadeAddresses: two distinct, valid 0x41-prefixed 21-byte addresses.

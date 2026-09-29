@@ -14,10 +14,11 @@ import (
 	"errors"
 	"testing"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/kslamph/tronlib/v2/pb/api"
 	"github.com/kslamph/tronlib/v2/pb/core"
 	"github.com/kslamph/tronlib/v2/tron"
-	"google.golang.org/protobuf/proto"
 )
 
 func mustSignedTransfer(t *testing.T, f *fakeWalletServer) *NativeTx {

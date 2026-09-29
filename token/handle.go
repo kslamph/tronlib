@@ -86,6 +86,7 @@ func New(cp rpc.ConnProvider, ctx context.Context, address tron.Address) (*Handl
 		return nil, &tron.Error{Code: tron.CodeContractBadMetadata, Op: op,
 			Hint: fmt.Sprintf("decimals() returned %s; a token's decimals must fit the uint8 range 0..255 — the metadata is malformed (a standard TRC-20 encodes uint8, and wide-packed non-standard metadata is rejected rather than mis-scaled)", raw)}
 	}
+	//nolint:gosec // G115: guarded by the IsUint64 + >255 rejection directly above
 	return &Handle{contract: address, instance: inst, decimals: uint8(raw.Uint64())}, nil
 }
 

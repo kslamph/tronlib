@@ -5,11 +5,11 @@ that contributors, reviewers, and automated tooling apply the same rules.
 
 **Two kinds of rules:**
 
-- **Enforced by tooling** — `gofmt`/`goimports` and the `.golangci.yml` linters
-  run locally (`golangci-lint run`); CI runs `go build ./...`, `-short` tests
-  against an 80% coverage floor, the `docgen` drift check, and `govulncheck`
-  (see `.github/workflows/test-coverage.yml`). The linter is *not* a CI step,
-  so clearing it locally is your job; a reviewer will not debate it.
+- **Enforced by tooling** — `golangci-lint run` (the `.golangci.yml` v2
+  config) is both the local and the CI gate: CI runs `go build ./...`, the
+  linter, `-short` tests against an 80% coverage floor, the `docgen` drift
+  check, and `govulncheck` (see `.github/workflows/test-coverage.yml`).
+  A tooling failure is not debatable in review; fix it before the PR.
 - **Review-enforced** — judgement calls applied in code review. Where this
   document states a rule, follow it; deviations need a stated reason in the PR
   description.
@@ -56,8 +56,8 @@ Rules:
 
 ## 2. Go style
 
-**Enforced by tooling** when you run `golangci-lint run` locally (config:
-`.golangci.yml`; CI does not run the linter): `gofmt`/`goimports` formatting with
+**Enforced by tooling**: `golangci-lint run` (config `.golangci.yml` — v2
+format, run both locally and in CI): `gofmt`/`goimports` formatting with
 local prefix `github.com/kslamph/tronlib` (std → external → `tronlib` import
 groups), `govet`, `errcheck`, `staticcheck`, `unused`, `revive`, `gocyclo`
 (min-complexity 15), `gosec`.

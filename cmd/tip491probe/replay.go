@@ -23,13 +23,14 @@ import (
 	"os"
 	"strings"
 
+	"google.golang.org/protobuf/proto"
+
 	tronlib "github.com/kslamph/tronlib/v2"
 	"github.com/kslamph/tronlib/v2/pb/api"
 	"github.com/kslamph/tronlib/v2/pb/core"
 	"github.com/kslamph/tronlib/v2/rpc"
 	"github.com/kslamph/tronlib/v2/tron"
 	"github.com/kslamph/tronlib/v2/tx"
-	"google.golang.org/protobuf/proto"
 )
 
 // extractTrigger pulls the TriggerSmartContract message out of a broadcast

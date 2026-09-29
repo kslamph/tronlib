@@ -5,11 +5,12 @@ import (
 	"encoding/hex"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/kslamph/tronlib/v2/pb/api"
 	"github.com/kslamph/tronlib/v2/pb/core"
 	"github.com/kslamph/tronlib/v2/rpc"
 	"github.com/kslamph/tronlib/v2/tron"
-	"google.golang.org/protobuf/proto"
 )
 
 // baseTx is the shared state of the four transaction kinds. Each exported

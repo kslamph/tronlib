@@ -20,14 +20,14 @@ Fixes #
 ## Checklist
 
 - [ ] `go build ./...` passes
-- [ ] `go test ./pkg/... -short` passes (what CI runs)
-- [ ] `golangci-lint run` is clean
+- [ ] `go test ./... -short` passes (what CI runs)
+- [ ] `golangci-lint run` is clean (CI enforces)
 - [ ] Tests added or updated — table-driven, hermetic (no live network), meaningful assertions
-- [ ] Test scaffolding uses `internal/testutil` (no new hand-rolled bufconn servers)
+- [ ] Reuse an existing bufconn fake (tx/fakes_test.go, contract/fakes_test.go, rpc's) where one fits; only hand-roll a new server when the shape genuinely differs
 - [ ] Total coverage stays ≥ 80% (CI enforces)
 - [ ] Bug fixes include a regression test
-- [ ] Public API changes are documented; removals go through a `// Deprecated:` cycle
-- [ ] Runnable examples still compile (`go test` runs them)
+- [ ] Public API changes are documented; breaking changes are next-major material (v2 carries no shims — CODING_STANDARDS §5)
+- [ ] Runnable examples still compile (`go test` builds them; docgen drift check regenerates docs/examples.md)
 - [ ] No private keys, mnemonics, or funded addresses in this diff
 - [ ] Commit title follows Conventional Commits
 

@@ -2,16 +2,18 @@ package tx
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"strconv"
 	"strings"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/kslamph/tronlib/v2/pb/api"
 	"github.com/kslamph/tronlib/v2/pb/core"
 	"github.com/kslamph/tronlib/v2/rpc"
 	"github.com/kslamph/tronlib/v2/tron"
-	"google.golang.org/protobuf/proto"
 )
 
 // ResultSizePerContract mirrors java-tron's Constant.MAX_RESULT_SIZE_IN_TX
@@ -135,9 +137,10 @@ func (p *BandwidthPrice) CostOf(bytes int64) (tron.SUN, error) {
 
 func badBandwidthMetadata(op, raw string) *tron.Error {
 	return &tron.Error{
-		Code: tron.CodeContractBadMetadata,
-		Op:   op,
-		Hint: `GetBandwidthPrices returned a malformed "timestamp:price" list; cannot price bandwidth`,
+		Code:  tron.CodeContractBadMetadata,
+		Op:    op,
+		Hint:  `GetBandwidthPrices returned a malformed "timestamp:price" list; cannot price bandwidth`,
+		Cause: fmt.Errorf("bandwidth prices: %q", raw),
 	}
 }
 
@@ -256,7 +259,7 @@ func BandwidthCostOf(cp rpc.ConnProvider, ctx context.Context, t Tx, owner tron.
 
 	// Creation branch: transfers to an address with no account.
 	if to, isTransfer := transferRecipient(t); isTransfer {
-		creates, err := recipientMissing(cp, ctx, op, to)
+		creates, err := recipientMissing(cp, ctx, to)
 		if err != nil {
 			return nil, err
 		}
@@ -326,7 +329,7 @@ func transferRecipient(t Tx) (to tron.Address, isTransfer bool) {
 // account arrives as an empty message over gRPC (the node returns null),
 // and every stored account carries its address — so an empty address is
 // the missing signal.
-func recipientMissing(cp rpc.ConnProvider, ctx context.Context, op string, to tron.Address) (bool, error) {
+func recipientMissing(cp rpc.ConnProvider, ctx context.Context, to tron.Address) (bool, error) {
 	acct, err := rpc.GetAccount(cp, ctx, &core.Account{Address: to.Bytes()})
 	if err != nil {
 		return false, err

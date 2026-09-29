@@ -6,11 +6,12 @@ import (
 	"math/big"
 	"testing"
 
+	"golang.org/x/crypto/sha3"
+
 	"github.com/kslamph/tronlib/v2/pb/api"
 	"github.com/kslamph/tronlib/v2/pb/core"
 	"github.com/kslamph/tronlib/v2/tron"
 	"github.com/kslamph/tronlib/v2/tx"
-	"golang.org/x/crypto/sha3"
 )
 
 // mustSelector computes keccak256(sig)[:4] — the call selector the fake's

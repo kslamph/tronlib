@@ -30,6 +30,16 @@ jobs:
         pkgs=$(go list ./... | grep -v '/pb/')
         go test -short -coverprofile=coverage.txt -covermode=atomic $pkgs
 
+    # Lint gate. golangci-lint is installed from source rather than via a
+    # prebuilt release: the module targets go 1.27.1 and prebuilt binaries
+    # lag the toolchain (the 2.5.0 stock binary cannot even parse go1.27
+    # export data). v2.14.0 is the pinned, verified-working version — bump
+    # it deliberately, together with the Go version.
+    - name: Lint (golangci-lint)
+      run: |
+        go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
+        golangci-lint run
+
     - name: Enforce coverage floor (80%)
       run: |
         total=$(go tool cover -func=coverage.txt | grep '^total:' | awk '{print substr($NF, 1, length($NF)-1)}')

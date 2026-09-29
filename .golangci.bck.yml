@@ -1,0 +1,27 @@
+linters:
+  enable:
+    - govet
+    - errcheck
+    - staticcheck
+    - unused
+    - goimports
+    - revive
+    - gocyclo
+    - gosec
+  
+
+linters-settings:
+  goimports:
+    local-prefixes: github.com/kslamph/tronlib
+  gocyclo:
+    min-complexity: 15
+
+issues:
+  exclude-dirs:
+    - pb
+    - protos
+    - tmp
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - errcheck

@@ -11,6 +11,7 @@ import (
 
 	eABI "github.com/ethereum/go-ethereum/accounts/abi"
 	eCommon "github.com/ethereum/go-ethereum/common"
+
 	"github.com/kslamph/tronlib/v2/event"
 	"github.com/kslamph/tronlib/v2/pb/api"
 	"github.com/kslamph/tronlib/v2/pb/core"
@@ -343,7 +344,7 @@ func (i *Instance) Call(ctx context.Context, method string, args ...Arg) (*Resul
 // fields only — so v2 refuses instead of silently calling at head, which
 // would return the wrong block's state with no signal. Archive-node reads
 // need an upstream API addition.
-func (i *Instance) CallAtBlock(ctx context.Context, block uint64, method string, args ...Arg) (*Result, error) {
+func (i *Instance) CallAtBlock(ctx context.Context, block uint64, method string, args ...Arg) (*Result, error) { //nolint:revive // unused-parameter: unimplemented stub — ctx belongs to the archive-node RPC this reserves a signature for
 	const op = "contract.Instance.CallAtBlock"
 	return nil, &tron.Error{
 		Code:  tron.CodeRPCMethodFailed,
@@ -479,7 +480,7 @@ func convertOne(v any, paramType string) any {
 func bytesFromUintArray(rv reflect.Value) []byte {
 	out := make([]byte, rv.Len())
 	for i := range out {
-		out[i] = byte(rv.Index(i).Uint())
+		out[i] = byte(rv.Index(i).Uint()) //nolint:gosec // G115: reflect Kind is Uint8 (a []byte value), so Uint() holds 0..255
 	}
 	return out
 }

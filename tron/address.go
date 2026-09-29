@@ -148,7 +148,7 @@ func base58Decode(s string) ([]byte, error) {
 		carry := int64(b58Index[s[i]])
 		for j := len(num) - 1; j >= 0; j-- {
 			carry += int64(num[j]) * 58
-			num[j] = byte(carry % 256)
+			num[j] = byte(carry % 256) //nolint:gosec // G115: carry%256 is 0..255 by construction
 			carry /= 256
 		}
 		for carry > 0 {
@@ -195,10 +195,10 @@ func base58Encode(b []byte) string {
 			d := acc / 58
 			rem = acc % 58
 			if len(out) > 0 || d != 0 {
-				out = append(out, byte(d))
+				out = append(out, byte(d)) //nolint:gosec // G115: d is a base-58 digit, 0..57
 			}
 		}
-		digits = append(digits, byte(rem))
+		digits = append(digits, byte(rem)) //nolint:gosec // G115: rem is acc%58, 0..57
 		num = out
 	}
 	buf := make([]byte, 0, zeros+len(digits))

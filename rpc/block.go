@@ -131,5 +131,6 @@ func ChainTip(cp ConnProvider, ctx context.Context) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
+	//nolint:gosec // G115: proto block numbers are non-negative by protocol; rpc is the 1:1 projection layer
 	return uint64(b.GetBlockHeader().GetRawData().GetNumber()), nil
 }

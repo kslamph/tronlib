@@ -83,7 +83,7 @@ type ActualCost struct {
 func receiptFromInfo(info *core.TransactionInfo, solid bool) *Receipt {
 	r := &Receipt{
 		TxID:      hex.EncodeToString(info.GetId()),
-		BlockNum:  uint64(info.GetBlockNumber()),
+		BlockNum:  uint64(info.GetBlockNumber()), //nolint:gosec // G115: inclusion block numbers are non-negative by protocol
 		BlockTime: time.UnixMilli(info.GetBlockTimeStamp()),
 		Revert:    string(info.GetResMessage()),
 		solid:     solid,

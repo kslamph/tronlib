@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	eABI "github.com/ethereum/go-ethereum/accounts/abi"
+
 	"github.com/kslamph/tronlib/v2/pb/core"
 )
 

@@ -189,7 +189,7 @@ func (c *Client) Token(ctx context.Context, address Address) (*token.Handle, err
 
 // Contract returns a typed view of the deployed contract at addr. The ABI
 // loads lazily on first use unless the instance is given one with UseABI.
-func (c *Client) Contract(ctx context.Context, addr Address) (*contract.Instance, error) {
+func (c *Client) Contract(_ context.Context, addr Address) (*contract.Instance, error) {
 	return contract.NewInstance(c.inner, addr)
 }
 

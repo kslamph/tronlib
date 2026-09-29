@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	eCommon "github.com/ethereum/go-ethereum/common"
+
 	"github.com/kslamph/tronlib/v2/tron"
 )
 
@@ -113,7 +114,7 @@ func evmAddress(a tron.Address) (eCommon.Address, error) {
 // toEVMValue converts a sealed Arg into the Go value geth's packer expects
 // for the method's declared ABI type (the declared type itself is checked
 // by encodeArgs). This is the 0x41 rule's encode half.
-func toEVMValue(a Arg) (any, error) {
+func toEVMValue(a Arg) (any, error) { //nolint:gocyclo // one flat type switch over the ABI value space; splitting it would scatter the conversion table
 	switch v := a.(type) {
 	case boolArg:
 		return bool(v), nil

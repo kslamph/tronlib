@@ -4,9 +4,10 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/shopspring/decimal"
+
 	"github.com/kslamph/tronlib/v2/internal/format"
 	"github.com/kslamph/tronlib/v2/tron"
-	"github.com/shopspring/decimal"
 )
 
 // Amount is an exact token amount in the token's atomic unit: raw counts

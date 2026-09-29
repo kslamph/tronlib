@@ -7,8 +7,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kslamph/tronlib/v2/internal/format"
 	"github.com/shopspring/decimal"
+
+	"github.com/kslamph/tronlib/v2/internal/format"
 )
 
 // sunPerTRX is the atomic scale of TRX: 1 TRX = 1_000_000 SUN.
@@ -118,7 +119,7 @@ func ParseSUN(s string) (SUN, error) {
 // no trailing zeros. It round-trips with ParseTRX. Value receiver.
 func (s SUN) String() string {
 	neg := s < 0
-	u := uint64(s)
+	u := uint64(s) //nolint:gosec // G115: deliberate two's-complement negate in unsigned space (see comment below)
 	if neg {
 		u = -u // two's-complement negate in unsigned space: exact for MinInt64
 	}

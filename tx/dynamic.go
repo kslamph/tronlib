@@ -100,6 +100,7 @@ func (d *DynamicEnergy) PredictPenalty(base int64) (int64, error) {
 	// < MaxInt64: the conversion cannot overflow. mult >= FactorDecimal,
 	// so total >= base and the penalty is non-negative.
 	total := lo / FactorDecimal
+	//nolint:gosec // G115: total derives from int64 node fields divided by FactorDecimal; it cannot exceed MaxInt64
 	return int64(total) - base, nil
 }
 

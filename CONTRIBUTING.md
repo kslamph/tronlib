@@ -22,7 +22,7 @@ an issue to getting a PR merged.
 | Tool | Version |
 |---|---|
 | Go | 1.27.1+ (`go.mod` requires 1.27.1, and CI runs exactly 1.27.1) |
-| golangci-lint | v1.x — `.golangci.yml` is v1-format and a v2 binary refuses it (`unsupported version of the configuration`); `go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest` still resolves to the last v1 (v1.64.8). Local gate only — CI has no lint step |
+| golangci-lint | v2.14.0 (pinned in CI) — install with `go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0`; the module targets go 1.27.1 and prebuilt release binaries lag the toolchain, so build it from source with your local Go |
 | protoc + plugins | only if changing `protos/` (see `scripts/proto-gen.sh`) |
 
 ## Setup
@@ -32,7 +32,7 @@ git clone https://github.com/<your-fork>/tronlib
 cd tronlib
 go build ./...
 go test -short ./...       # hermetic unit tests, no network needed
-golangci-lint run          # local gate; CI has no lint step
+golangci-lint run          # same gate CI runs
 ```
 
 No environment variables or testnet accounts are required for unit tests.
@@ -118,7 +118,7 @@ refactor(tx): share the bandwidth-cost path
 ```bash
 go test -short ./...              # what CI runs (minus generated `pb/`)
 go test ./token/... -v            # the package you touched
-golangci-lint run                 # local only — see the CI list below
+golangci-lint run                 # the CI lint gate, run locally first
 ```
 
 Expectations (details in [CODING_STANDARDS.md](CODING_STANDARDS.md) §6):
@@ -129,10 +129,9 @@ Expectations (details in [CODING_STANDARDS.md](CODING_STANDARDS.md) §6):
   excluded); a PR that drops below it fails.
 - What CI actually runs
   ([`.github/workflows/test-coverage.yml`](.github/workflows/test-coverage.yml)):
-  `go build ./...`, `go test -short` with the coverage floor, the `docgen`
+  `go build ./...`, `go test -short` with the coverage floor, `golangci-lint
+  run` (v2.14.0, built from source with the repo toolchain), the `docgen`
   drift check on `docs/errors.md` and `docs/examples.md`, and `govulncheck`.
-  There is **no lint step in CI** — `golangci-lint run` is a local expectation
-  carried by the PR checklist.
 - Bug fixes include a regression test named after the behaviour or the issue
   (`TestIssue42_...`), and the PR footer references the issue.
 
@@ -141,7 +140,7 @@ Expectations (details in [CODING_STANDARDS.md](CODING_STANDARDS.md) §6):
 Fill in the [PR template](.github/PULL_REQUEST_TEMPLATE.md). The checklist:
 
 - [ ] `go build ./...`, `go test -short ./...`, `golangci-lint run` all pass
-      (the last one locally — CI does not run the linter)
+      (all three are CI gates)
 - [ ] Tests added/updated; they assert behaviour, not just execution
 - [ ] Conventional Commit title (`feat(token): ...`) — PRs are squash-merged,
       so the PR title becomes the commit

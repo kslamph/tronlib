@@ -3,9 +3,10 @@ package tx
 import (
 	"crypto/sha256"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/kslamph/tronlib/v2/key"
 	"github.com/kslamph/tronlib/v2/tron"
-	"google.golang.org/protobuf/proto"
 )
 
 // signBase is the shared Sign mutation for all four kinds. It returns a

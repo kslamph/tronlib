@@ -7,6 +7,7 @@ import (
 
 	eABI "github.com/ethereum/go-ethereum/accounts/abi"
 	eCommon "github.com/ethereum/go-ethereum/common"
+
 	"github.com/kslamph/tronlib/v2/tron"
 )
 
@@ -262,8 +263,10 @@ func decodeTopicValue(topic []byte, paramType string) any {
 		// two's-complement of the magnitude in that case.
 		v := new(big.Int).SetBytes(topic)
 		if len(topic) > 0 && topic[0]&0x80 != 0 {
-			max := new(big.Int).Lsh(big.NewInt(1), uint(len(topic)*8))
-			v.Sub(v, max)
+			// twoPowWidth is 2^(8·len(topic)); naming it anything but max
+			// keeps the builtin visible in this scope.
+			twoPowWidth := new(big.Int).Lsh(big.NewInt(1), uint(len(topic)*8))
+			v.Sub(v, twoPowWidth)
 		}
 		return v
 	case "bool":

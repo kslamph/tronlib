@@ -10,10 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kslamph/tronlib/v2/pb/api"
-	"github.com/kslamph/tronlib/v2/pb/core"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
+
+	"github.com/kslamph/tronlib/v2/pb/api"
+	"github.com/kslamph/tronlib/v2/pb/core"
 )
 
 const bufSize = 1024 * 1024

@@ -1,29 +1,87 @@
+version: "2"
+
+# Migrated from the v1-format config (golangci-lint 2.5.0+ refuses v1
+# configs). Policy lines beyond the mechanical migration, each mirroring a
+# stated project rule:
+#   - staticcheck drops QF* (quickfix suggestions) and ST* (style): SA
+#     correctness and S1 simplification checks stay on.
+#   - revive is scoped off rpc/ and _test.go: rpc's identifiers are a
+#     mechanical projection of the TRON gRPC service (architecture §4 N3 —
+#     renaming would destroy the 1:1 property), and test fakes implement
+#     those same interfaces, so their parameter and method names are fixed
+#     by the mirrored API.
+#   - gocyclo is scoped off cmd/ (mapping-table generators) and _test.go
+#     (table-driven tests exceed 15 branches by design).
+#   - gosec G306 accepts 0644: the only writes in the module are docgen's
+#     generated docs, which are committed to the repository and must be
+#     world-readable like every other checked-in file.
 linters:
   enable:
-    - govet
-    - errcheck
-    - staticcheck
-    - unused
-    - goimports
-    - revive
     - gocyclo
     - gosec
-  
-
-linters-settings:
-  goimports:
-    local-prefixes: github.com/kslamph/tronlib
-  revive:
+    - revive
+  settings:
+    gocyclo:
+      min-complexity: 15
+    staticcheck:
+      checks:
+        - all
+        - -QF*
+        - -ST*
+    gosec:
+      config:
+        G306: "0644"
+    revive:
+      rules:
+        # The free-function convention is (cp rpc.ConnProvider, ctx, ...): the
+        # connection is receiver-like and comes first, ctx second. This
+        # contradicts N4's "ctx first" letter for ~30 exported signatures and
+        # is left to an owner-gated API decision; until then the rule would
+        # only flag the ratified (cp, ctx) shape.
+        - name: context-as-argument
+          disabled: true
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
     rules:
-  gocyclo:
-    min-complexity: 15
-
-issues:
-  exclude-dirs:
-    - pb
-    - protos
-    - tmp
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - errcheck
+      - linters:
+          - errcheck
+          - revive
+          - gocyclo
+        path: _test\.go
+      - linters:
+          - gosec
+        path: _test\.go
+      - linters:
+          - revive
+        path: ^rpc/
+      - linters:
+          - gocyclo
+        path: ^cmd/
+    paths:
+      - pb
+      - protos
+      - tmp
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/kslamph/tronlib/v2
+  exclusions:
+    generated: lax
+    paths:
+      - pb
+      - protos
+      - tmp
+      - third_party$
+      - builtin$
+      - examples$

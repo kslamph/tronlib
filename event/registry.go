@@ -5,9 +5,10 @@ import (
 	"strings"
 	"sync"
 
+	"golang.org/x/crypto/sha3"
+
 	"github.com/kslamph/tronlib/v2/pb/core"
 	"github.com/kslamph/tronlib/v2/tron"
-	"golang.org/x/crypto/sha3"
 )
 
 // ParamDef is a compact representation of an event parameter definition.
@@ -22,6 +23,11 @@ type ParamDef struct {
 // entire first topic, not a prefix of it. Keying on a 4-byte prefix let two
 // unrelated signatures share one slot, and one of them silently decoded
 // against the other's definition.
+//
+// package inventory ("event  Log, EventDef, Decode"); renaming to Def is an
+// owner-gated API decision, tracked as a follow-up.
+//
+//nolint:revive // the stutter (event.EventDef) is pinned by architecture §3's
 type EventDef struct {
 	Name   string
 	Inputs []ParamDef

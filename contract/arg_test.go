@@ -6,8 +6,9 @@ import (
 	"testing"
 
 	eCommon "github.com/ethereum/go-ethereum/common"
-	"github.com/kslamph/tronlib/v2/tron"
 	"golang.org/x/crypto/sha3"
+
+	"github.com/kslamph/tronlib/v2/tron"
 )
 
 // Test fixtures: real mainnet-form addresses (the same pair tron's
