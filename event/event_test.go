@@ -225,41 +225,54 @@ func TestRegisterABIJSONBadJSON(t *testing.T) {
 // --- FIX 1: full vendored builtin registry ---
 
 // TestBuiltinTableCountAndKeys asserts the vendored generated table is
-// complete (747 entries) and that every entry whose canonical signature can
-// be reconstructed (all types except tuple/tuple[]/trcToken, whose
-// selectors need component metadata) is keyed by the first 4 bytes of
-// keccak256 of that signature — proving Decode resolves built-ins by topic
-// prefix across the whole table, not just a sample.
+// complete (747 entries) and that every entry's registry key — derived from
+// its own canonical signature, the same way ABI registrations derive theirs —
+// is the v1 selector it is stored under, extended to the full 32-byte hash.
+// It also asserts the derived keys are distinct and each definition is
+// actually reachable in the global registry by that key: together those prove
+// re-keying the registry from 4-byte prefixes to full hashes lost no built-in
+// and left none resolving by prefix alone.
+//
+// The reconstruction covers every entry, tuple and trcToken ones included:
+// v1's generator hashed the same literal type strings the table stores, which
+// is what makes the derivation exact. (Those few selectors are therefore not
+// the ones a real tuple-bearing event emits — a v1 corpus limitation, unchanged
+// here.)
 func TestBuiltinTableCountAndKeys(t *testing.T) {
 	if len(builtinSig4) != 747 {
 		t.Fatalf("builtin table has %d entries, want 747", len(builtinSig4))
 	}
+	derived := make(map[sigKey]string, len(builtinSig4))
 	for key, def := range builtinSig4 {
-		types := make([]string, len(def.Inputs))
-		reconstructible := true
-		for i, in := range def.Inputs {
-			if strings.Contains(in.Type, "tuple") || in.Type == "trcToken" {
-				reconstructible = false
-				break
-			}
-			types[i] = in.Type
-		}
-		if !reconstructible {
-			continue
-		}
-		sig := def.Name + "(" + strings.Join(types, ",") + ")"
-		h := crypto.Keccak256([]byte(sig))
+		full := sigKeyOf(def.signature())
 		var got [4]byte
-		copy(got[:], h[:4])
+		copy(got[:], full[:4])
+		sig := def.Name + "(" + strings.Join(inputTypes(def), ",") + ")"
 		if got != key {
 			t.Errorf("builtin %s: table key %x != keccak256(sig)[:4] %x", sig, key, got)
+		}
+		if prev, dup := derived[full]; dup {
+			t.Errorf("builtin %s and %s derive the same registry key", sig, prev)
+		}
+		derived[full] = sig
+		if registered := globalDef(full); registered != def {
+			t.Errorf("builtin %s: global registry holds %v under its derived key, want the table's definition", sig, registered)
 		}
 	}
 }
 
+// inputTypes lists a definition's ABI parameter types in declared order.
+func inputTypes(def *EventDef) []string {
+	types := make([]string, len(def.Inputs))
+	for i, in := range def.Inputs {
+		types[i] = in.Type
+	}
+	return types
+}
+
 // TestDecodeBuiltinSubmitTransaction decodes a NON-TRC-20 builtin end to
 // end: SubmitTransaction(uint256,address,uint256,bytes) from the vendored
-// v1 table (key 0x00c29375), with indexed and non-indexed params.
+// v1 table (selector 0x00c29375), with indexed and non-indexed params.
 func TestDecodeBuiltinSubmitTransaction(t *testing.T) {
 	sigTopic := keccakTopic(t, "SubmitTransaction(uint256,address,uint256,bytes)")
 	var key [4]byte

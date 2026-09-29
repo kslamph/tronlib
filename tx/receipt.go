@@ -34,8 +34,10 @@ type Receipt struct {
 	BlockTime time.Time
 	// Cost is the actual post-execution cost (architecture §7.4).
 	Cost ActualCost
-	// Logs are the decoded event logs. Unknown signatures materialize with
-	// EventName "" and raw bytes — NEVER dropped (event.DecodeLenient).
+	// Logs are the decoded event logs. Each log is decoded against the
+	// definitions registered for its emitting contract, falling back to the
+	// global registry. Unknown or ambiguous signatures materialize with
+	// EventName "" and raw bytes — NEVER dropped (event.DecodeLenientFor).
 	Logs []event.Log
 	// Revert is the node's revert/failure message, when any.
 	Revert string
@@ -142,17 +144,19 @@ func actualCostFrom(rr *core.ResourceReceipt) ActualCost {
 	}
 }
 
-// decodeReceiptLog decodes one wire log via event.DecodeLenient and attaches
-// the emitting contract. Unknown signatures materialize with EventName "" and
-// raw bytes; a known-but-corrupt log is also materialized raw rather than
-// dropped — a receipt must never lose a log entry it was given.
+// decodeReceiptLog decodes one wire log against the definitions registered for
+// the emitting contract (event.DecodeLenientFor, global registry as the
+// fallback) and attaches the address. Unknown signatures materialize with
+// EventName "" and raw bytes; a known-but-corrupt log is also materialized raw
+// rather than dropped — a receipt must never lose a log entry it was given.
 func decodeReceiptLog(l *core.TransactionInfo_Log) event.Log {
-	el, err := event.DecodeLenient(l.GetTopics(), l.GetData())
+	// Unparseable address bytes yield the zero Address, which DecodeLenientFor
+	// reads as "no scope": the log still decodes against the global registry
+	// instead of being reduced to raw bytes.
+	addr, _ := tron.AddressFromBytes(l.GetAddress())
+	el, err := event.DecodeLenientFor(addr, l.GetTopics(), l.GetData())
 	if err != nil || el == nil {
-		el = &event.Log{Topics: l.GetTopics(), Data: l.GetData(), EventName: ""}
-	}
-	if a, err := tron.AddressFromBytes(l.GetAddress()); err == nil {
-		el.Address = a
+		el = &event.Log{Address: addr, Topics: l.GetTopics(), Data: l.GetData(), EventName: ""}
 	}
 	return *el
 }

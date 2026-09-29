@@ -8,6 +8,17 @@
 // init-ordering semantics (builtins never overwrite earlier or explicit
 // registrations).
 //
+// The table keeps v1's 4-byte selectors as its keys, but they are not the
+// registry's keys: init() derives each entry's full 32-byte signature hash
+// from the definition itself, the same way every ABI registration does. The
+// map keys stay as the vendored artifact's provenance and as a checksum on
+// that derivation — TestBuiltinTableCountAndKeys proves the two agree for all
+// 747 entries, and that the resulting keys are distinct, so re-keying loses no
+// built-in. (The handful of tuple/trcToken entries hash their literal "tuple"
+// and "trcToken" type strings, exactly as v1's generator flattened them; the
+// derivation matching the stored selector is what keeps their entries present
+// in v2 as they were in v1.)
+//
 // Source of truth: v1's generator (cmd/generate_event_builtins) until it
 // is ported to v2 (Phase 2.1). Regenerate this file from the v1
 // generator's output when the ecosystem table updates.
@@ -5751,11 +5762,14 @@ var builtinSig4 = map[[4]byte]*EventDef{
 }
 
 func init() {
-	mu.Lock()
-	for k, v := range builtinSig4 {
-		if _, exists := sig4[k]; !exists {
-			sig4[k] = v
-		}
+	// Keys are derived from the definitions, not from the map's 4-byte
+	// selectors, so built-ins share the registry's full-hash key space with
+	// everything registered through the ABI entry points. The generated table
+	// holds 747 distinct signatures, so insert-if-absent is order-independent
+	// here despite the map iteration.
+	defs := make([]*EventDef, 0, len(builtinSig4))
+	for _, def := range builtinSig4 {
+		defs = append(defs, def)
 	}
-	mu.Unlock()
+	registerBuiltin(defs)
 }

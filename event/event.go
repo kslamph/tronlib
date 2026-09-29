@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
-	"strings"
 
 	eABI "github.com/ethereum/go-ethereum/accounts/abi"
 	eCommon "github.com/ethereum/go-ethereum/common"
@@ -12,8 +11,8 @@ import (
 )
 
 // Log is a decoded TRON log entry. Address carries the emitting contract
-// when the caller knows it (Decode itself only sees topics and data, so it
-// leaves Address zero; tx receipt decoding populates it).
+// when the decoder was told it: Decode only sees topics and data and leaves
+// Address zero, DecodeFor fills it in.
 type Log struct {
 	Address    tron.Address // emitting contract
 	Topics     [][]byte     // raw topics; Topics[0] is the event signature hash
@@ -39,47 +38,76 @@ type Param struct {
 
 // Decode decodes a single log's topics and data into a Log, looking the
 // event signature up in the global registry. The Address field of the
-// returned Log is zero; callers that know the emitting contract set it
-// themselves.
+// returned Log is zero; callers that know the emitting contract prefer
+// DecodeFor, which also consults that contract's own registrations.
 //
 // Errors are *tron.Error:
-//   - no topics, or a first topic too short to hold a signature →
+//   - no topics, or a first topic that is not exactly 32 bytes →
 //     tron.CodeContractArgMismatch (malformed log, not an unknown event)
-//   - no registered definition matches the signature →
+//   - no registered definition matches the signature, or the signature is
+//     ambiguous (two different layouts registered for it) →
 //     tron.CodeEventUnknown (register the emitting contract's ABI)
 //   - a known event whose topics/data don't match its ABI (missing topic,
 //     empty data, or data that fails ABI decoding) →
 //     tron.CodeContractArgMismatch
 func Decode(topics [][]byte, data []byte) (*Log, error) {
+	return decodeAt(tron.Address{}, topics, data, "event.Decode")
+}
+
+// DecodeFor decodes a log emitted by addr, consulting the definitions
+// registered for that contract first (RegisterABIJSONForAddress) and the
+// global registry for signatures it does not define. This is the correct entry
+// point for any caller that knows the emitting contract — a log's signature
+// topic alone cannot distinguish two contracts that use the same event name
+// with different indexed layouts, which is the ambiguity Decode refuses to
+// guess. The returned Log carries Address = addr.
+//
+// Errors are the same as Decode's, scoped to addr's registry first.
+func DecodeFor(addr tron.Address, topics [][]byte, data []byte) (*Log, error) {
+	return decodeAt(addr, topics, data, "event.DecodeFor")
+}
+
+// decodeAt resolves topics[0] against addr's scope (global when addr is
+// unset), then decodes. op names the entry point in returned errors.
+func decodeAt(addr tron.Address, topics [][]byte, data []byte, op string) (*Log, error) {
 	if len(topics) == 0 {
-		return nil, &tron.Error{Code: tron.CodeContractArgMismatch, Op: "event.Decode", Hint: "log has no topics; the first topic must be the event signature hash"}
+		return nil, &tron.Error{Code: tron.CodeContractArgMismatch, Op: op, Hint: "log has no topics; the first topic must be the event signature hash"}
 	}
 	sigTopic := topics[0]
-	if len(sigTopic) < 4 {
-		return nil, &tron.Error{Code: tron.CodeContractArgMismatch, Op: "event.Decode", Hint: fmt.Sprintf("first topic is %d bytes, want at least 4 (the event signature)", len(sigTopic))}
+	if len(sigTopic) != len(sigKey{}) {
+		return nil, &tron.Error{Code: tron.CodeContractArgMismatch, Op: op, Hint: fmt.Sprintf("first topic is %d bytes, want %d (the whole event signature hash)", len(sigTopic), len(sigKey{}))}
 	}
 
-	var key [4]byte
-	copy(key[:], sigTopic[:4])
+	var key sigKey
+	copy(key[:], sigTopic)
 
-	mu.RLock()
-	def := sig4[key]
-	mu.RUnlock()
-
+	def, ambiguous := lookup(addr, key)
+	if ambiguous {
+		return nil, &tron.Error{
+			Code: tron.CodeEventUnknown,
+			Op:   op,
+			Hint: fmt.Sprintf("two different definitions are registered for signature 0x%s and they disagree about which parameters are indexed, so neither can be decoded safely; register the emitting contract's ABI with event.RegisterABIJSONForAddress and decode with event.DecodeFor", hex.EncodeToString(key[:])),
+		}
+	}
 	if def == nil {
 		return nil, &tron.Error{
 			Code: tron.CodeEventUnknown,
-			Op:   "event.Decode",
-			Hint: fmt.Sprintf("no registered event definition matches signature 0x%s; register the emitting contract's ABI (event.RegisterABIJSON) or call event.BuiltinTRC20", hex.EncodeToString(sigTopic[:4])),
+			Op:   op,
+			Hint: fmt.Sprintf("no registered event definition matches signature 0x%s; register the emitting contract's ABI (event.RegisterABIJSON, or event.RegisterABIJSONForAddress for this contract alone) or call event.BuiltinTRC20", hex.EncodeToString(key[:])),
 		}
 	}
 
-	return decodeEvent(def, topics, data)
+	log, err := decodeEvent(def, topics, data, op)
+	if err != nil {
+		return nil, err
+	}
+	log.Address = addr
+	return log, nil
 }
 
 // DecodeLenient decodes a log like Decode, but materializes logs whose
 // signature matches no registered definition instead of dropping them:
-// on an unknown signature it returns
+// on an unknown or ambiguous signature it returns
 // &Log{Topics: topics, Data: data, EventName: ""}, nil — callers classify
 // by EventName == "" and still get the raw bytes. Receipt.Logs and
 // Events() use this so unknown logs are materialized with EventName == ""
@@ -87,46 +115,57 @@ func Decode(topics [][]byte, data []byte) (*Log, error) {
 //
 // Known events behave exactly like Decode: a successful decode returns the
 // decoded Log; a known event whose topics/data don't match its ABI (or a
-// malformed log shape — no topics, short signature topic) returns the same
-// *tron.Error as Decode. Corrupt data on a known event is corrupt: it is
+// malformed log shape — no topics, wrong-size signature topic) returns the
+// same *tron.Error as Decode. Corrupt data on a known event is corrupt: it is
 // an error, not a lenient pass-through.
 func DecodeLenient(topics [][]byte, data []byte) (*Log, error) {
-	log, err := Decode(topics, data)
+	return decodeLenientAt(tron.Address{}, topics, data, "event.Decode")
+}
+
+// DecodeLenientFor is DecodeLenient scoped to an emitting contract: it decodes
+// through DecodeFor, so a contract with its own registered ABI resolves even
+// when the global registry holds a conflicting layout for the same signature.
+// The materialized fallback keeps Address = addr.
+func DecodeLenientFor(addr tron.Address, topics [][]byte, data []byte) (*Log, error) {
+	return decodeLenientAt(addr, topics, data, "event.DecodeFor")
+}
+
+func decodeLenientAt(addr tron.Address, topics [][]byte, data []byte, op string) (*Log, error) {
+	log, err := decodeAt(addr, topics, data, op)
 	if err != nil && tron.HasCode(err, tron.CodeEventUnknown) {
-		return &Log{Topics: topics, Data: data, EventName: ""}, nil
+		return &Log{Address: addr, Topics: topics, Data: data, EventName: ""}, nil
 	}
 	return log, err
 }
 
 // DecodeEventSignature returns the canonical event signature string
-// ("Transfer(address,address,uint256)") for a 4-byte signature prefix,
-// without decoding a log. The boolean reports whether the prefix matches a
-// registered definition (built-ins included). Ported from v1.
+// ("Transfer(address,address,uint256)") for a full 32-byte signature topic,
+// without decoding a log. The boolean reports whether the topic matches a
+// registered definition in the global registry (built-ins included).
+//
+// Unlike Decode this answers for the global registry only — it takes no
+// emitting address — and it still answers for an ambiguous signature: the two
+// competing definitions hash to the same topic precisely because their
+// signature strings agree, so the name is known even when the layout is not.
 func DecodeEventSignature(sig []byte) (string, bool) {
-	if len(sig) < 4 {
+	if len(sig) != len(sigKey{}) {
 		return "", false
 	}
-	var key [4]byte
-	copy(key[:], sig[:4])
+	var key sigKey
+	copy(key[:], sig)
 
-	mu.RLock()
-	def := sig4[key]
-	mu.RUnlock()
+	def := globalDef(key)
 	if def == nil {
 		return "", false
 	}
-	types := make([]string, len(def.Inputs))
-	for i, in := range def.Inputs {
-		types[i] = in.Type
-	}
-	return fmt.Sprintf("%s(%s)", def.Name, strings.Join(types, ",")), true
+	return def.signature(), true
 }
 
 // decodeEvent decodes a matched event definition against raw topics/data.
 // Ported from v1 decodeEventInternal, with decoded ABI values instead of
 // display strings. Parameters are merged positionally rather than by name as
 // in v1 — a v2 fix, see the combine step below.
-func decodeEvent(def *EventDef, topics [][]byte, data []byte) (*Log, error) {
+func decodeEvent(def *EventDef, topics [][]byte, data []byte, op string) (*Log, error) {
 	var indexedParams, nonIndexedParams []ParamDef
 	for _, input := range def.Inputs {
 		if input.Indexed {
@@ -140,7 +179,7 @@ func decodeEvent(def *EventDef, topics [][]byte, data []byte) (*Log, error) {
 	indexedValues := make([]Param, 0, len(indexedParams))
 	for i, param := range indexedParams {
 		if i+1 >= len(topics) {
-			return nil, &tron.Error{Code: tron.CodeContractArgMismatch, Op: "event.Decode", Hint: fmt.Sprintf("event %s: missing topic %d for indexed parameter %q", def.Name, i+1, param.Name)}
+			return nil, &tron.Error{Code: tron.CodeContractArgMismatch, Op: op, Hint: fmt.Sprintf("event %s: missing topic %d for indexed parameter %q", def.Name, i+1, param.Name)}
 		}
 		indexedValues = append(indexedValues, Param{
 			Name:  param.Name,
@@ -152,13 +191,13 @@ func decodeEvent(def *EventDef, topics [][]byte, data []byte) (*Log, error) {
 	// non-indexed parameters is malformed, not decodable-to-nothing
 	// (v1 semantics).
 	if len(nonIndexedParams) > 0 && len(data) == 0 {
-		return nil, &tron.Error{Code: tron.CodeContractArgMismatch, Op: "event.Decode", Hint: fmt.Sprintf("event %s: empty data for %d non-indexed parameters", def.Name, len(nonIndexedParams))}
+		return nil, &tron.Error{Code: tron.CodeContractArgMismatch, Op: op, Hint: fmt.Sprintf("event %s: empty data for %d non-indexed parameters", def.Name, len(nonIndexedParams))}
 	}
 	var nonIndexedValues []Param
 	if len(nonIndexedParams) > 0 {
 		decoded, err := decodeEventData(data, nonIndexedParams)
 		if err != nil {
-			return nil, &tron.Error{Code: tron.CodeContractArgMismatch, Op: "event.Decode", Hint: fmt.Sprintf("event %s: data does not match the registered ABI types", def.Name), Cause: err}
+			return nil, &tron.Error{Code: tron.CodeContractArgMismatch, Op: op, Hint: fmt.Sprintf("event %s: data does not match the registered ABI types", def.Name), Cause: err}
 		}
 		nonIndexedValues = decoded
 	}
