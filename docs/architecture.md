@@ -96,15 +96,22 @@ tron  (no internal deps)
   ├── key
   ├── rpc
   ├── event
-  └── tx        (tron, key, rpc)
-        ├── contract   (tron, rpc, tx)
+  └── tx        (tron, key, rpc, event)
+        ├── contract   (tron, rpc, tx, event)
         └── token      (tron, rpc, tx, contract)
               └── tronlib  (all)
 ```
 
+`tx` depends on `event` for receipt logs only: `Receipt.Logs` is `[]event.Log`,
+and a wire log is decoded through `event.DecodeLenient` (`tx/receipt.go`,
+`tx/logs.go`). It does not depend on `contract` or `token` — that constraint is
+unchanged, see §7.2. `contract` also depends on `event`:
+`contract.Instance.UseABI` feeds the global event registry so its logs decode
+without a second registration step (`contract/instance.go`).
+
 **Why `tx` is its own package.** `token` and `contract` builders must return the transaction types. Placing them in the root facade creates an import cycle (`token → tronlib → token`); v1 already demonstrates the wall — `(*trc20.TRC20Manager).Transfer` returns the raw `*api.TransactionExtention` precisely because it cannot name the client's transaction type (`pkg/trc20/client.go:316`). Placing them in `rpc` instead would mix a curated model into the raw escape hatch, recreating the v1 `client` package's transport-plus-logic problem. A dedicated `tx` package keeps `rpc` honestly 1:1.
 
-**Direction constraint.** `contract` and `token` depend on `tx`, never the reverse. `tx` therefore must not name any type owned by `contract` or `token` — see §7.2 for how this shapes `Estimate`.
+**Direction constraint.** `contract` and `token` depend on `tx`, never the reverse. `tx` therefore must not name any type owned by `contract` or `token` — see §7.2 for how this shapes `Estimate`. `tx` does name `event`, but only for the receipt log it carries and the lenient decode that fills it (§3's DAG); it holds no dependency on `contract`'s ABI argument/result surface.
 
 ### v1 disposition
 
@@ -476,7 +483,7 @@ func (e *Estimate) HasResult() bool
 //   out,  _ := inst.Decode("balanceOf", est.ConstantResult[0])
 ```
 
-`Estimate` deliberately carries **raw bytes** rather than a `*contract.Result`: `contract` depends on `tx`, so `tx` naming a `contract` type would invert the DAG and create a cycle. The cost is one extra call to decode a simulated return; the benefit is that the package graph stays acyclic and `tx` does not acquire an ABI dependency it otherwise has no reason to hold.
+`Estimate` deliberately carries **raw bytes** rather than a `*contract.Result`: `contract` depends on `tx`, so `tx` naming a `contract` type would invert the DAG and create a cycle. The cost is one extra call to decode a simulated return; the benefit is that the package graph stays acyclic and `tx` does not acquire `contract`'s ABI argument/result surface — its only decoding dependency is `event`, for receipt log types (§3).
 
 **Neither `Estimate` nor `EnergyEstimate` has a `TxID` field.** A simulated result cannot carry a fabricated transaction id if the field does not exist. This is the structural fix for the second half of F1.
 
