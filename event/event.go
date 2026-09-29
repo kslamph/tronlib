@@ -166,7 +166,7 @@ func DecodeEventSignature(sig []byte) (string, bool) {
 // Ported from v1 decodeEventInternal, with decoded ABI values instead of
 // display strings. Parameters are merged positionally rather than by name as
 // in v1 — a v2 fix, see the combine step below.
-func decodeEvent(def *EventDef, topics [][]byte, data []byte, op string) (*Log, error) {
+func decodeEvent(def *Definition, topics [][]byte, data []byte, op string) (*Log, error) {
 	var indexedParams, nonIndexedParams []ParamDef
 	for _, input := range def.Inputs {
 		if input.Indexed {

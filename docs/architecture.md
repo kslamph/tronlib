@@ -86,7 +86,7 @@ github.com/kslamph/tronlib/v2
 ├── tx           NativeTx, ContractTx, DeployTx, AssetTx, Receipt, Estimate, EnergyEstimate, CostPreview
 ├── contract     Instance, Result, Arg
 ├── token        Handle, Amount
-└── event        Log, EventDef, Decode
+└── event        Log, Definition, Decode
 ```
 
 ### Dependency DAG (strict, acyclic)

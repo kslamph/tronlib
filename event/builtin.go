@@ -30,7 +30,7 @@ func BuiltinTRC20() {
 // so these land on the same keys as the overlapping entries in the generated
 // table — inserting them is therefore idempotent against init()'s registration
 // of the same signatures.
-var builtinTRC20 = []*EventDef{
+var builtinTRC20 = []*Definition{
 	{
 		Name: "Transfer",
 		Inputs: []ParamDef{

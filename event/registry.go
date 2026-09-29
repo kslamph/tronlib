@@ -18,17 +18,12 @@ type ParamDef struct {
 	Name    string
 }
 
-// EventDef is a compact representation of an event definition. It is keyed in
+// Definition is a compact representation of an event definition. It is keyed in
 // the registry by the FULL 32 bytes of keccak256("Name(type,...)") — a log's
 // entire first topic, not a prefix of it. Keying on a 4-byte prefix let two
 // unrelated signatures share one slot, and one of them silently decoded
 // against the other's definition.
-//
-// package inventory ("event  Log, EventDef, Decode"); renaming to Def is an
-// owner-gated API decision, tracked as a follow-up.
-//
-//nolint:revive // the stutter (event.EventDef) is pinned by architecture §3's
-type EventDef struct {
+type Definition struct {
 	Name   string
 	Inputs []ParamDef
 }
@@ -38,7 +33,7 @@ type EventDef struct {
 // parameter names are deliberately absent: they are not part of the hashed
 // signature, which is why two contracts can share a key while disagreeing
 // about the layout — see scope.register.
-func (d *EventDef) signature() string {
+func (d *Definition) signature() string {
 	types := make([]string, len(d.Inputs))
 	for i, in := range d.Inputs {
 		types[i] = in.Type
@@ -66,12 +61,12 @@ func sigKeyOf(signature string) sigKey {
 // disagreement is about which parameters are indexed, so either choice would
 // mis-assign values for at least one of the two contracts.
 type scope struct {
-	defs      map[sigKey]*EventDef
+	defs      map[sigKey]*Definition
 	ambiguous map[sigKey]bool
 }
 
 func newScope() *scope {
-	return &scope{defs: make(map[sigKey]*EventDef), ambiguous: make(map[sigKey]bool)}
+	return &scope{defs: make(map[sigKey]*Definition), ambiguous: make(map[sigKey]bool)}
 }
 
 var (
@@ -159,8 +154,8 @@ func requireScopeAddress(op string, addr tron.Address) error {
 // eventDefs converts ABI entries into definitions, ignoring entries that are
 // not events. Shared by every registration entry point; the event half of v1's
 // RegisterABIEntries.
-func eventDefs(entries []*core.SmartContract_ABI_Entry) []*EventDef {
-	var defs []*EventDef
+func eventDefs(entries []*core.SmartContract_ABI_Entry) []*Definition {
+	var defs []*Definition
 	for _, entry := range entries {
 		if entry == nil || entry.Type != core.SmartContract_ABI_Entry_Event {
 			continue
@@ -172,7 +167,7 @@ func eventDefs(entries []*core.SmartContract_ABI_Entry) []*EventDef {
 			}
 			inputs[i] = ParamDef{Type: in.Type, Indexed: in.Indexed, Name: in.Name}
 		}
-		defs = append(defs, &EventDef{Name: entry.Name, Inputs: inputs})
+		defs = append(defs, &Definition{Name: entry.Name, Inputs: inputs})
 	}
 	return defs
 }
@@ -180,7 +175,7 @@ func eventDefs(entries []*core.SmartContract_ABI_Entry) []*EventDef {
 // registerDefs registers defs in the scope for addr (global when addr is
 // unset). Registrations are applied in order under one lock so that a
 // self-conflicting ABI is deterministic to decode.
-func registerDefs(addr tron.Address, defs []*EventDef) {
+func registerDefs(addr tron.Address, defs []*Definition) {
 	if len(defs) == 0 {
 		return
 	}
@@ -200,7 +195,7 @@ func registerDefs(addr tron.Address, defs []*EventDef) {
 }
 
 // register applies the identity/ambiguity rule to one definition.
-func (s *scope) register(def *EventDef) {
+func (s *scope) register(def *Definition) {
 	key := sigKeyOf(def.signature())
 	existing, ok := s.defs[key]
 	if !ok {
@@ -216,7 +211,7 @@ func (s *scope) register(def *EventDef) {
 
 // sameDef reports whether two definitions decode identically: same event name
 // and same inputs in the same order, including indexed flags and names.
-func sameDef(a, b *EventDef) bool {
+func sameDef(a, b *Definition) bool {
 	if a.Name != b.Name || len(a.Inputs) != len(b.Inputs) {
 		return false
 	}
@@ -238,7 +233,7 @@ func sameDef(a, b *EventDef) bool {
 // as ABI registrations. TestBuiltinTableCountAndKeys pins that the derived key
 // of every generated definition is the v1 selector it ships with, extended to
 // 32 bytes.
-func registerBuiltin(defs []*EventDef) {
+func registerBuiltin(defs []*Definition) {
 	mu.Lock()
 	defer mu.Unlock()
 	for _, def := range defs {
@@ -253,7 +248,7 @@ func registerBuiltin(defs []*EventDef) {
 // consulting that address's registry first and the global registry when it has
 // no entry for the topic. The second result reports the signature is ambiguous:
 // two different layouts are on file for it, so no decoding is safe.
-func lookup(addr tron.Address, key sigKey) (def *EventDef, ambiguous bool) {
+func lookup(addr tron.Address, key sigKey) (def *Definition, ambiguous bool) {
 	mu.RLock()
 	defer mu.RUnlock()
 	if !addr.IsZero() {
@@ -278,7 +273,7 @@ func lookup(addr tron.Address, key sigKey) (def *EventDef, ambiguous bool) {
 // ambiguity. DecodeEventSignature can afford that: two definitions sharing a
 // key have the same hashed signature by construction, so the signature string
 // is the same either way even when the layouts disagree.
-func globalDef(key sigKey) *EventDef {
+func globalDef(key sigKey) *Definition {
 	mu.RLock()
 	defer mu.RUnlock()
 	return global.defs[key]

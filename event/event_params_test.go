@@ -8,7 +8,7 @@ package event
 // rest. These tests pin the positional contract instead: one value per
 // declared input, in declared order, each decoded value consumed exactly once.
 //
-// The tests drive decodeEvent directly with hand-built EventDefs so they
+// The tests drive decodeEvent directly with hand-built Definitions so they
 // exercise the combine step independently of the registry (which is what a
 // name-keyed merge breaks only inside this function); the last test replays
 // the same shape through the public RegisterABIJSON + Decode path to prove
@@ -69,7 +69,7 @@ func placeholderTopic() []byte { return make([]byte, 32) }
 // Two unnamed indexed inputs are the canonical failing case: both names are
 // "", so name matching collapses them onto the first value.
 func TestDecodeEventUnnamedIndexedInputsAreNotDuplicated(t *testing.T) {
-	def := &EventDef{
+	def := &Definition{
 		Name: "UnnamedPair",
 		Inputs: []ParamDef{
 			{Type: "uint256", Indexed: true},
@@ -90,7 +90,7 @@ func TestDecodeEventUnnamedIndexedInputsAreNotDuplicated(t *testing.T) {
 // Duplicate names among indexed inputs collapse the same way, and a name
 // shared across the indexed/non-indexed boundary must not cross-contaminate.
 func TestDecodeEventDuplicateNamesKeepDistinctValues(t *testing.T) {
-	def := &EventDef{
+	def := &Definition{
 		Name: "Duplicated",
 		Inputs: []ParamDef{
 			{Type: "uint256", Indexed: true, Name: "value"},
@@ -116,7 +116,7 @@ func TestDecodeEventDuplicateNamesKeepDistinctValues(t *testing.T) {
 // Unnamed non-indexed parameters mixed with named ones, decoded through the
 // geth ABI unpack path: the data word order must survive the merge.
 func TestDecodeEventUnnamedNonIndexedMixedWithNamed(t *testing.T) {
-	def := &EventDef{
+	def := &Definition{
 		Name: "MixedUnnamed",
 		Inputs: []ParamDef{
 			{Type: "address", Indexed: true, Name: "owner"},
@@ -143,7 +143,7 @@ func TestDecodeEventUnnamedNonIndexedMixedWithNamed(t *testing.T) {
 
 // Unnamed inputs on both sides of the indexed boundary at once.
 func TestDecodeEventUnnamedOnBothSides(t *testing.T) {
-	def := &EventDef{
+	def := &Definition{
 		Name: "AllUnnamed",
 		Inputs: []ParamDef{
 			{Type: "uint256", Indexed: true},
@@ -168,7 +168,7 @@ func TestDecodeEventUnnamedOnBothSides(t *testing.T) {
 // Fully named inputs, interleaved across topics and data, must still come
 // back in declared order — the positional merge must not reorder them.
 func TestDecodeEventNamedInputsKeepDeclaredOrder(t *testing.T) {
-	def := &EventDef{
+	def := &Definition{
 		Name: "Ordered",
 		Inputs: []ParamDef{
 			{Type: "uint256", Indexed: true, Name: "a"},
@@ -203,7 +203,7 @@ func TestDecodeEventNamedInputsKeepDeclaredOrder(t *testing.T) {
 func TestDecodeEventParameterCountInvariant(t *testing.T) {
 	cases := []struct {
 		name     string
-		def      *EventDef
+		def      *Definition
 		topics   [][]byte
 		data     []byte
 		wantLen  int
@@ -211,13 +211,13 @@ func TestDecodeEventParameterCountInvariant(t *testing.T) {
 	}{
 		{
 			name:    "no inputs",
-			def:     &EventDef{Name: "NoInputs"},
+			def:     &Definition{Name: "NoInputs"},
 			topics:  [][]byte{placeholderTopic()},
 			wantLen: 0,
 		},
 		{
 			name: "three unnamed indexed",
-			def: &EventDef{Name: "T", Inputs: []ParamDef{
+			def: &Definition{Name: "T", Inputs: []ParamDef{
 				{Type: "uint256", Indexed: true},
 				{Type: "uint256", Indexed: true},
 				{Type: "uint256", Indexed: true},
@@ -228,7 +228,7 @@ func TestDecodeEventParameterCountInvariant(t *testing.T) {
 		},
 		{
 			name: "four unnamed non-indexed",
-			def: &EventDef{Name: "U", Inputs: []ParamDef{
+			def: &Definition{Name: "U", Inputs: []ParamDef{
 				{Type: "uint256", Indexed: false},
 				{Type: "uint256", Indexed: false},
 				{Type: "uint256", Indexed: false},
@@ -240,7 +240,7 @@ func TestDecodeEventParameterCountInvariant(t *testing.T) {
 		},
 		{
 			name: "two indexed, two non-indexed, unnamed",
-			def: &EventDef{Name: "W", Inputs: []ParamDef{
+			def: &Definition{Name: "W", Inputs: []ParamDef{
 				{Type: "uint256", Indexed: false, Name: "x"},
 				{Type: "uint256", Indexed: true},
 				{Type: "uint256", Indexed: false, Name: "x"},
@@ -253,7 +253,7 @@ func TestDecodeEventParameterCountInvariant(t *testing.T) {
 		},
 		{
 			name: "unnamed hash types",
-			def: &EventDef{Name: "V", Inputs: []ParamDef{
+			def: &Definition{Name: "V", Inputs: []ParamDef{
 				{Type: "bytes32", Indexed: true},
 				{Type: "bytes32", Indexed: true},
 			}},
@@ -286,7 +286,7 @@ func TestDecodeEventParameterCountInvariant(t *testing.T) {
 func TestDecodeEventUnnamedBytes32IndexedDistinct(t *testing.T) {
 	const digestA = "0101010101010101010101010101010101010101010101010101010101010101"
 	const digestB = "0202020202020202020202020202020202020202020202020202020202020202"
-	def := &EventDef{
+	def := &Definition{
 		Name: "BytesPair",
 		Inputs: []ParamDef{
 			{Type: "bytes32", Indexed: true},

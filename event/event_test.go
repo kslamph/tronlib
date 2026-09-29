@@ -263,7 +263,7 @@ func TestBuiltinTableCountAndKeys(t *testing.T) {
 }
 
 // inputTypes lists a definition's ABI parameter types in declared order.
-func inputTypes(def *EventDef) []string {
+func inputTypes(def *Definition) []string {
 	types := make([]string, len(def.Inputs))
 	for i, in := range def.Inputs {
 		types[i] = in.Type
