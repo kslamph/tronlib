@@ -3,8 +3,8 @@ package tx
 import (
 	"time"
 
-	"github.com/kslamph/tronlib/v2/pb/core"
 	"github.com/kslamph/tronlib/v2/key"
+	"github.com/kslamph/tronlib/v2/pb/core"
 	"github.com/kslamph/tronlib/v2/tron"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"

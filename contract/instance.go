@@ -11,9 +11,9 @@ import (
 
 	eABI "github.com/ethereum/go-ethereum/accounts/abi"
 	eCommon "github.com/ethereum/go-ethereum/common"
+	"github.com/kslamph/tronlib/v2/event"
 	"github.com/kslamph/tronlib/v2/pb/api"
 	"github.com/kslamph/tronlib/v2/pb/core"
-	"github.com/kslamph/tronlib/v2/event"
 	"github.com/kslamph/tronlib/v2/rpc"
 	"github.com/kslamph/tronlib/v2/tron"
 	"github.com/kslamph/tronlib/v2/tx"

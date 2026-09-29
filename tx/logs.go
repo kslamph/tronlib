@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/hex"
 
-	"github.com/kslamph/tronlib/v2/pb/api"
 	"github.com/kslamph/tronlib/v2/event"
+	"github.com/kslamph/tronlib/v2/pb/api"
 	"github.com/kslamph/tronlib/v2/rpc"
 	"github.com/kslamph/tronlib/v2/tron"
 )

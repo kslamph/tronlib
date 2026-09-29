@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kslamph/tronlib/v2/pb/core"
 	"github.com/kslamph/tronlib/v2/event"
+	"github.com/kslamph/tronlib/v2/pb/core"
 	"github.com/kslamph/tronlib/v2/tron"
 )
 

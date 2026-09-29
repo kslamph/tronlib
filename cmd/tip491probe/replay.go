@@ -23,9 +23,9 @@ import (
 	"os"
 	"strings"
 
+	tronlib "github.com/kslamph/tronlib/v2"
 	"github.com/kslamph/tronlib/v2/pb/api"
 	"github.com/kslamph/tronlib/v2/pb/core"
-	tronlib "github.com/kslamph/tronlib/v2"
 	"github.com/kslamph/tronlib/v2/rpc"
 	"github.com/kslamph/tronlib/v2/tron"
 	"github.com/kslamph/tronlib/v2/tx"
