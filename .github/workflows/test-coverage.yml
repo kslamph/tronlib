@@ -15,7 +15,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v7
       with:
-        go-version: '1.25'
+        go-version: '1.26.6'
     
     - name: Install dependencies
       run: go mod download
@@ -91,6 +91,18 @@ jobs:
     #   go -C v2 run ./cmd/migrate -v1 ../pkg -v2-root . -out docs/migration.md
     - name: migration guide drift check (v2)
       run: go -C v2 run ./cmd/migrate -check
+
+    # Vulnerability gate: fail on any advisory REACHABLE from the v2 module.
+    # The Go patch version is pinned above (1.26.6) because the crypto/tls,
+    # x509, asn1 and net/textproto advisories are only fixed in the toolchain.
+    # The root v1 module is scanned separately/scheduled (its go.mod is a
+    # published release) — do not add it here until it is bumped too.
+    - name: Install govulncheck
+      run: go install golang.org/x/vuln/cmd/govulncheck@latest
+
+    - name: govulncheck (v2)
+      working-directory: v2
+      run: govulncheck ./...
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v7
