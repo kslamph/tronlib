@@ -112,21 +112,38 @@ All checks run at closeout on branch `v2` (Go toolchain, `-count=1`, `-race`):
   - `TRX.String`: MinInt64 doc nuance (sign handling wording).
   - `checkParity`: value-uniqueness across test vectors.
   - `sort.SliceStable` noted where ordering of equal keys is observable.
-  - `Result.Byte()` accessor missing — uint8 geth-gap (geth decodes uint8 as byte).
-  - `Result.BigInt()` doc accuracy (doc claims all intN widths; geth decodes uint8
-    as `byte`, not `*big.Int` — discoverable via `decimals()` dead-end).
-  - ABI: `BigIntArg` ≥ 2^256 wraps silently (geth parity; guard candidate); five
-    constructors can't express `address[]`/`bytes`/`bytesN`/`int256`; array outputs
-    lack 0x41 re-prepend inside collections; `Decode` lazily fetches ABI on
-    `context.Background`; lazy-fetch `Op` mislabeled "contract.UseABI".
-  - tx/rpc: node-reject path drops `ret.GetMessage()` → `Receipt.Revert` empty
-    (1-line candidate); `CallAtBlock` reports "unsupported" as `rpc.method_failed`;
-    mid-call transport failure maps `rpc.method_failed` not `chain.connection`
-    (documented boundary); panic-on-mangled-extension in post-build helpers
-    (v1-consistent, documented).
+    **(stale — no such call remains.)**
+  - ~~`Result.Byte()` accessor missing — uint8 geth-gap.~~ **RESOLVED 2026-09-29:**
+    `Result.Byte()` added; `BigInt`/`Uint64` docs corrected to name the uint8
+    exception.
+  - ~~`Result.BigInt()` doc accuracy.~~ **RESOLVED 2026-09-29** (same commit).
+  - ~~ABI: `BigIntArg` ≥ 2^256 wraps silently; five constructors can't express
+    `address[]`/`bytes`/`bytesN`/`int256`; array outputs lack 0x41 re-prepend
+    inside collections; `Decode` lazily fetches ABI on `context.Background`;
+    lazy-fetch `Op` mislabeled "contract.UseABI".~~ **RESOLVED 2026-09-29:**
+    - `BigIntArg`/`Int256Arg` now range-check (uint256 [0, 2^256); int256
+      [-2^255, 2^255)) and fail as `contract.arg_mismatch`; geth's packer only
+      rejected negatives, wrapping every other overflow silently.
+    - New sealed constructors `AddressSliceArg` (address[], 0x41 stripped per
+      element), `BytesArg` (bytes), `BytesNArg` (bytesN, N=len, builds the real
+      `[N]byte` geth requires), `Int256Arg` (signed).
+    - `convertOne` now recurses over geth's TYPED slices/arrays
+      (`[]common.Address`, `[N][32]byte`, ...), not the `[]any` it never
+      actually produced, so collection outputs get 0x41/bytesN conversion;
+      new `Result.Addresses()` / `Result.BytesSlice()` read them.
+    - `Instance.DecodeContext(ctx, …)` bounds the lazy ABI fetch; `Decode`
+      remains the `context.Background` shorthand.
+    - Lazy-load errors now carry `Op = contract.loadABI`, not `contract.UseABI`.
+  - tx/rpc: ~~node-reject path drops `ret.GetMessage()` → `Receipt.Revert` empty~~
+    **(fixed in the release-hardening pass — `Broadcast` sets `Revert`)**;
+    `CallAtBlock` reports "unsupported" as `rpc.method_failed` (**intentional,
+    2026-09-29: it is a classified refusal, not a new code**); mid-call transport
+    failure maps `rpc.method_failed` not `chain.connection` (documented boundary);
+    panic-on-mangled-extension in post-build helpers (v1-consistent, documented).
   - Solidity routing test overstated (compile-error-protected); `containsSub`
-    hand-rolled; dead assertion block in `TestWaitForSolidUsesSolidityEndpoint`;
-    `With*` post-sign doc line ("invalidates any signature").
+    hand-rolled; ~~dead assertion block in `TestWaitForSolidUsesSolidityEndpoint`~~
+    **(stale — the test asserts on the receipt)**;
+    `With*` post-sign doc line (present and accurate).
 
 ## Spec deltas (§ references vs shipped)
 

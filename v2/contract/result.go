@@ -15,10 +15,12 @@ import (
 // wrong number.
 type Result struct {
 	// val is the decoded ABI value in its natural Go shape: bool, string,
-	// *big.Int (uintN/intN of any width), tron.Address (0x41 re-prepended),
-	// uint64, []byte (dynamic bytes), [N]byte (bytesN), or []any for
-	// multi-output methods (whose singular accessors then fail — see the
-	// package doc). nil means the method declared no outputs (IsNil).
+	// *big.Int (uintN/intN of any width except uint8), tron.Address (0x41
+	// re-prepended), uint8 (see Byte), uint64, []byte (dynamic bytes),
+	// [N]byte (bytesN), a typed slice for collection returns ([]tron.Address,
+	// [][]byte, []*big.Int, ...), or []any for multi-output methods (whose
+	// singular accessors then fail — see the package doc). nil means the
+	// method declared no outputs (IsNil).
 	val any
 }
 
@@ -67,7 +69,9 @@ func (r *Result) String() (string, error) {
 }
 
 // BigInt reads an integer return (uintN/intN of any width decode as
-// *big.Int — the ERC-20 balance/allowance shape).
+// *big.Int — the ERC-20 balance/allowance shape). The one exception is the
+// declared uint8 type, which geth decodes as Go uint8 and must be read with
+// Byte; this accessor reports contract.result_type_mismatch for it.
 func (r *Result) BigInt() (*big.Int, error) {
 	v, ok := r.value().(*big.Int)
 	if !ok {
@@ -87,8 +91,20 @@ func (r *Result) Address() (tron.Address, error) {
 	return v, nil
 }
 
+// Byte reads a uint8 return (geth decodes the declared uint8 ABI type as Go
+// uint8, e.g. a TRC-20 decimals() on some contracts). Wider integers decode
+// as *big.Int — use BigInt for those.
+func (r *Result) Byte() (uint8, error) {
+	v, ok := r.value().(uint8)
+	if !ok {
+		return 0, r.resultError("Byte")
+	}
+	return v, nil
+}
+
 // Uint64 reads a uint64 return (geth decodes the declared uint64 ABI type
-// as Go uint64; wider integers decode as *big.Int — use BigInt for those).
+// as Go uint64; wider integers decode as *big.Int — use BigInt for those,
+// and read a uint8 with Byte).
 func (r *Result) Uint64() (uint64, error) {
 	v, ok := r.value().(uint64)
 	if !ok {
@@ -114,6 +130,29 @@ func (r *Result) Bytes() ([]byte, error) {
 		return out, nil
 	}
 	return nil, r.resultError("Bytes")
+}
+
+// Addresses reads an address[] or address[N] return. Each element is
+// re-prepended with 0x41 exactly like Address, so the returned addresses
+// round-trip against AddressArg. A scalar address return is a
+// contract.result_type_mismatch here (use Address).
+func (r *Result) Addresses() ([]tron.Address, error) {
+	v, ok := r.value().([]tron.Address)
+	if !ok {
+		return nil, r.resultError("Addresses")
+	}
+	return v, nil
+}
+
+// BytesSlice reads a bytesN[] or bytes[] return as one []byte per element,
+// with each bytesN element normalized to a fresh []byte copy (see Bytes).
+// A scalar bytes return is a contract.result_type_mismatch here (use Bytes).
+func (r *Result) BytesSlice() ([][]byte, error) {
+	v, ok := r.value().([][]byte)
+	if !ok {
+		return nil, r.resultError("BytesSlice")
+	}
+	return v, nil
 }
 
 // tronAddressFromEVM converts a 20-byte EVM address into a tron.Address by

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 	"sync"
@@ -89,7 +90,7 @@ func (i *Instance) ClearABI(ctx context.Context, owner tron.Address) (*tx.Native
 // failure) and registers the ABI's event definitions with the event
 // package's registry, so event.Decode works for this contract's events.
 func (i *Instance) UseABI(abiJSON string) error {
-	parsed, err := parseAndRegisterABI(abiJSON)
+	parsed, err := parseAndRegisterABI(abiJSON, "contract.UseABI")
 	if err != nil {
 		return err
 	}
@@ -103,9 +104,9 @@ func (i *Instance) UseABI(abiJSON string) error {
 // parseAndRegisterABI validates the JSON (parse + event registration) and
 // returns the parsed ABI — everything UseABI must do, WITHOUT taking the
 // instance lock (the lazy load path calls it while i.mu is already held;
-// locking here would deadlock).
-func parseAndRegisterABI(abiJSON string) (*eABI.ABI, error) {
-	const op = "contract.UseABI"
+// locking here would deadlock). op is the operation to report in errors, so
+// the lazy load path (contract.loadABI) is not mislabelled as UseABI.
+func parseAndRegisterABI(abiJSON, op string) (*eABI.ABI, error) {
 	if strings.TrimSpace(abiJSON) == "" {
 		return nil, &tron.Error{Code: tron.CodeContractBadABI, Op: op, Hint: "ABI JSON is empty; pass the contract's Solidity ABI JSON"}
 	}
@@ -153,7 +154,7 @@ func (i *Instance) loadABI(ctx context.Context) error {
 	}
 	abiJSON, err := pbABIToJSON(sc.GetAbi())
 	if err == nil {
-		parsed, perr := parseAndRegisterABI(abiJSON)
+		parsed, perr := parseAndRegisterABI(abiJSON, op)
 		if perr == nil {
 			// i.mu is already held by ensureABI — set the fields directly.
 			i.abiJSON = abiJSON
@@ -367,9 +368,17 @@ func (i *Instance) Invoke(ctx context.Context, owner tron.Address, value tron.SU
 // Result — the partner of tx.Estimate.ConstantResult (spec §9), which tx
 // cannot decode itself (the DAG direction contract → tx forbids it).
 // If no ABI is loaded yet, the lazy network fetch runs against a
-// background context; load it with UseABI first to decode offline.
+// background context; use DecodeContext to bound that fetch, or load the
+// ABI with UseABI first to decode offline.
 func (i *Instance) Decode(method string, data []byte) (*Result, error) {
 	return i.decodeResult(context.Background(), method, data)
+}
+
+// DecodeContext is Decode with a caller-supplied context, so the lazy ABI
+// fetch (when no ABI is loaded yet) honors the caller's deadline and
+// cancellation. Decode itself is the context.Background shorthand.
+func (i *Instance) DecodeContext(ctx context.Context, method string, data []byte) (*Result, error) {
+	return i.decodeResult(ctx, method, data)
 }
 
 // decodeResult unpacks data against method's declared outputs (ported
@@ -424,29 +433,109 @@ func convertDecoded(values []any, args eABI.Arguments) any {
 	return converted
 }
 
+// convertOne maps one geth-decoded value (or one element of a collection)
+// onto Result's accessor shapes. paramType is the declared Solidity type of
+// that value ("address[]", "bytes32[2]", ...); it names the element type
+// when a collection is empty and there is no element to infer it from.
+//
+// Scalars: an address is re-prepended with 0x41, a bytesN [N]byte becomes a
+// []byte copy. Collections: geth decodes these as TYPED slices/arrays
+// ([]common.Address, [2][32]byte, ...), NOT []any, so each element is
+// converted recursively and re-collected into a typed slice of the
+// converted element type. A []byte (dynamic bytes, bytesN) is passed
+// through untouched — it is a slice of uint8, not a collection of values.
 func convertOne(v any, paramType string) any {
 	switch val := v.(type) {
 	case eCommon.Address:
-		a, err := tronAddressFromEVM(val)
-		if err != nil {
-			return v
+		if a, err := tronAddressFromEVM(val); err == nil {
+			return a
 		}
-		return a
-	case [32]byte:
-		return val[:]
-	case []any:
-		out := make([]any, len(val))
-		base := paramType
-		if k := strings.Index(paramType, "["); k >= 0 {
-			base = paramType[:k]
-		}
-		for idx, elem := range val {
-			out[idx] = convertOne(elem, base)
-		}
-		return out
-	default:
-		// *big.Int (uintN/intN), bool, string, []byte, uint64... pass
-		// through as geth decoded them.
 		return v
 	}
+	rv := reflect.ValueOf(v)
+	switch rv.Kind() {
+	case reflect.Array:
+		if rv.Type().Elem().Kind() == reflect.Uint8 {
+			return bytesFromUintArray(rv)
+		}
+		return convertCollection(rv, paramType)
+	case reflect.Slice:
+		if rv.Type().Elem().Kind() == reflect.Uint8 {
+			return v // dynamic bytes: already []byte
+		}
+		return convertCollection(rv, paramType)
+	}
+	return v
+}
+
+// bytesFromUintArray copies a fixed [N]byte (geth's bytesN shape) into a
+// fresh []byte, so the Result never aliases the unpacker's buffer.
+func bytesFromUintArray(rv reflect.Value) []byte {
+	out := make([]byte, rv.Len())
+	for i := range out {
+		out[i] = byte(rv.Index(i).Uint())
+	}
+	return out
+}
+
+// convertCollection converts each element of a geth-decoded slice/array and
+// re-collects them into a typed slice. When no element changes type and the
+// declared base needs no conversion (e.g. uint256[]), the original value is
+// returned as-is.
+func convertCollection(rv reflect.Value, paramType string) any {
+	base := baseABIType(paramType)
+	elems := make([]any, rv.Len())
+	changed := false
+	for i := 0; i < rv.Len(); i++ {
+		elems[i] = convertOne(rv.Index(i).Interface(), base)
+		if reflect.TypeOf(elems[i]) != rv.Type().Elem() {
+			changed = true
+		}
+	}
+	if !changed && !baseNeedsConversion(base) {
+		return rv.Interface()
+	}
+	return typedSlice(elems, base)
+}
+
+// baseABIType strips the array suffix from a declared type: "address[][]"
+// -> "address", "bytes32[2]" -> "bytes32".
+func baseABIType(paramType string) string {
+	if k := strings.Index(paramType, "["); k >= 0 {
+		return paramType[:k]
+	}
+	return paramType
+}
+
+// baseNeedsConversion reports whether a declared base type is one whose
+// elements convert, so an EMPTY collection must still be re-typed (an empty
+// address[] must yield []tron.Address, not geth's []common.Address).
+func baseNeedsConversion(base string) bool {
+	return base == "address" || strings.HasPrefix(base, "bytes")
+}
+
+// typedSlice builds a []T from converted elements, where T is the first
+// element's type (or, for an empty collection, the type the declared base
+// maps to). A heterogeneous slice cannot be typed and is returned as []any
+// so the accessors fail closed rather than mis-typing.
+func typedSlice(elems []any, base string) any {
+	var elemType reflect.Type
+	switch {
+	case len(elems) > 0:
+		elemType = reflect.TypeOf(elems[0])
+	case base == "address":
+		elemType = reflect.TypeOf(tron.Address{})
+	case strings.HasPrefix(base, "bytes"):
+		elemType = reflect.TypeOf([]byte{})
+	default:
+		return elems
+	}
+	out := reflect.MakeSlice(reflect.SliceOf(elemType), len(elems), len(elems))
+	for i, e := range elems {
+		if reflect.TypeOf(e) != elemType {
+			return elems
+		}
+		out.Index(i).Set(reflect.ValueOf(e))
+	}
+	return out.Interface()
 }

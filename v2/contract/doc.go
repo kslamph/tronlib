@@ -16,9 +16,10 @@
 //
 // Address rule (spec §9.1, normative): AddressArg strips TRON's 0x41
 // prefix and encodes the 20-byte ABI form; Result.Address() re-prepends
-// 0x41. Sending the 21-byte value padded to 32 is the most common
-// ABI-encoding mistake on TRON — it encodes cleanly, executes, and reads
-// the wrong slot. The round-trip is pinned by test.
+// 0x41. AddressSliceArg/Result.Addresses() apply the same rule element-wise
+// to address[]/address[N]. Sending the 21-byte value padded to 32 is the
+// most common ABI-encoding mistake on TRON — it encodes cleanly, executes,
+// and reads the wrong slot. The round-trip is pinned by test.
 //
 // Result wraps ONE decoded ABI return value. Methods that return no
 // values decode to an IsNil Result; methods returning multiple values

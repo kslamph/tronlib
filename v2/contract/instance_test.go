@@ -478,6 +478,80 @@ func TestDecodeRoundTrip(t *testing.T) {
 	})
 }
 
+// TestDecodeContextPropagatesContext: Decode hardcodes a background
+// context, so a lazy ABI fetch cannot be bounded. DecodeContext passes the
+// caller's context through to that fetch — a cancelled context must surface
+// as an error, not silently fetch on Background.
+func TestDecodeContextPropagatesContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	f := &fakeWallet{GetContractFn: func(ctx context.Context, in *api.BytesMessage) (*core.SmartContract, error) {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+			return &core.SmartContract{Abi: mustPbABI(testABI)}, nil
+		}
+	}}
+	i, err := NewInstance(newContractTestClient(t, f), testContractAddress)
+	if err != nil {
+		t.Fatalf("NewInstance: %v", err)
+	}
+	_, err = i.DecodeContext(ctx, "balanceOf", abiUint256(1))
+	if err == nil {
+		t.Fatal("DecodeContext with a cancelled context returned no error (context not propagated)")
+	}
+	if !tron.HasCode(err, tron.CodeChainTimeout) && !tron.HasCode(err, tron.CodeChainConnection) {
+		t.Errorf("DecodeContext: err = %v, want chain.timeout (or chain.connection)", err)
+	}
+}
+
+// TestDecodeContextHappyPath: with the ABI already loaded, DecodeContext
+// decodes like Decode but under the caller's context.
+func TestDecodeContextHappyPath(t *testing.T) {
+	i := newInstanceWithTestABI(t)
+	res, err := i.DecodeContext(t.Context(), "balanceOf", abiUint256(9))
+	if err != nil {
+		t.Fatalf("DecodeContext: %v", err)
+	}
+	if v, err := res.BigInt(); err != nil || v.Int64() != 9 {
+		t.Errorf("BigInt() = (%v, %v), want (9, nil)", v, err)
+	}
+}
+
+// TestLazyLoadErrorOpIsLoadABI: parseAndRegisterABI is shared by UseABI and
+// the lazy network fetch, so it must label its errors with the operation
+// that actually ran — otherwise a failed lazy fetch misreports itself as
+// UseABI, sending callers to the wrong code path.
+func TestLazyLoadErrorOpIsLoadABI(t *testing.T) {
+	bad := &core.SmartContract{
+		Bytecode: []byte{0x00},
+		Abi: &core.SmartContract_ABI{Entrys: []*core.SmartContract_ABI_Entry{{
+			Type:   core.SmartContract_ABI_Entry_Function,
+			Name:   "broken",
+			Inputs: []*core.SmartContract_ABI_Entry_Param{{Type: "notatype"}},
+		}}},
+	}
+	f := &fakeWallet{GetContractFn: func(ctx context.Context, in *api.BytesMessage) (*core.SmartContract, error) {
+		return bad, nil
+	}}
+	i, err := NewInstance(newContractTestClient(t, f), testContractAddress)
+	if err != nil {
+		t.Fatalf("NewInstance: %v", err)
+	}
+	_, err = i.Call(context.Background(), "balanceOf")
+	if !tron.HasCode(err, tron.CodeContractBadABI) {
+		t.Fatalf("Call with a bad on-chain ABI: err = %v, want contract.bad_abi", err)
+	}
+	var te *tron.Error
+	if !asTronError(err, &te) {
+		t.Fatalf("err = %v, want a *tron.Error", err)
+	}
+	if te.Op != "contract.loadABI" {
+		t.Errorf("Op = %q, want contract.loadABI (the operation that ran)", te.Op)
+	}
+}
+
 // TestEncodeDecodeInvokePath: the full call-data round-trip — encode with
 // the instance's encoder (what Invoke sends), then re-parse it: the
 // selector matches the ABI method and the packed arguments unpack to the
