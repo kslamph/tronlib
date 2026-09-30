@@ -15,8 +15,8 @@ func TestTrackedCorpusVerifies(t *testing.T) {
 	if err != nil {
 		t.Fatalf("tracked corpus does not verify against the registry: %v", err)
 	}
-	if len(events) != 747 {
-		t.Fatalf("tracked corpus has %d entries, want 747", len(events))
+	if len(events) < 747 {
+		t.Fatalf("tracked corpus has %d entries, want at least the 747 curated entries", len(events))
 	}
 	bySighash := make(map[string]SavedEvent, len(events))
 	for _, e := range events {

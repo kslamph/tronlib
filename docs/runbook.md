@@ -73,6 +73,43 @@ A stale replay (sender moved its funds) reports "comparison void", not a
 mismatch — that is correct behaviour (E6). The public gateway rate-limits;
 the probe retries read-only steps.
 
+## Event corpus — `cmd/eventtool`
+
+`event/builtin_gen.go` (the zero-config built-in table, based on the 747-entry
+curated corpus) is generated from the tracked corpus
+`internal/eventdata/events_registry.json`. `cmd/eventtool` maintains both,
+against the local Envoy gRPC proxy `~/envoy` (listener `grpc://127.0.0.1:50051`,
+round-robining 19 mainnet full nodes with no rate limits) or any node:
+
+```bash
+# 1. refresh the contract ranking (TronScan top-100 by call volume; snapshotted)
+go run ./cmd/eventtool contracts --limit 100 \
+  --out internal/eventdata/top_contracts.json
+
+# 2. fetch those contracts' on-chain ABIs into the corpus
+go run ./cmd/eventtool capture --node grpc://127.0.0.1:50051 \
+  --in internal/eventdata/top_contracts.json \
+  --out internal/eventdata/events_registry.json
+
+# 3. re-render the built-in table
+go run ./cmd/eventtool generate --in internal/eventdata/events_registry.json \
+  --out event/builtin_gen.go
+```
+
+| Command | Purpose |
+|---|---|
+| `contracts` | Snapshot the TronScan top-N ranking (`--limit`, `--api` to override). Two 50-row pages (the API caps `limit` at 50). Every TRON contract carries an on-chain ABI whether or not its source is verified, so there is no verification filter. |
+| `capture` | `GetContract` each snapshotted address and upsert its named, non-anonymous events (`--concurrency`). Reads the snapshot file only — never TronScan. |
+| `insert` | Add events from one ABI file (`--in`, raw array or `{"abi":[...]}`). |
+| `migrate` | Rewrite a v1 `{selector,...}` corpus into the 32-byte schema (asserts `keccak(signature)[:4] == selector`; idempotent). |
+| `generate` | Render `event/builtin_gen.go` from the corpus through `go/format`. |
+
+The corpus is **first-wins**: a signature already on file is never overwritten
+by a later capture, so a bad entry is corrected by hand-editing
+`internal/eventdata/events_registry.json` and re-running `generate`. The
+snapshot records TronScan's ranking into the repo, so a commit reproduces the
+same corpus; only `contracts` talks to TronScan.
+
 ## Generated docs — `cmd/docgen`
 
 `docs/errors.md` and `docs/examples.md` are generated from source; hand

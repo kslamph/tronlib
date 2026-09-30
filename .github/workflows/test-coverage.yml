@@ -33,8 +33,11 @@ jobs:
         # hermetically. They are gated by go build / go vet / golangci-lint and
         # by the live runs recorded in docs/verification.md, and are excluded
         # from the coverage denominator (CODING_STANDARDS.md §6.5).
+        # cmd/eventtool is a thin CLI wrapper (flags + wiring); its logic lives
+        # in internal/eventtool and is covered there.
         pkgs=$(go list ./... | grep -v '/pb/' \
-          | grep -v 'cmd/examplecheck$' | grep -v 'cmd/tip491probe$')
+          | grep -v 'cmd/examplecheck$' | grep -v 'cmd/tip491probe$' \
+          | grep -v 'cmd/eventtool$')
         go test -short -coverprofile=coverage.txt -covermode=atomic $pkgs
 
     # Lint gate. golangci-lint is installed from source rather than via a

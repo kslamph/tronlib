@@ -10,12 +10,19 @@
 // a log decode against someone else's definition. Decode rejects a first topic
 // that is not exactly 32 bytes as malformed.
 //
-// The registry comes pre-loaded with 747 built-in ecosystem event definitions
-// (including TRC-20's Transfer and Approval), vendored from v1's generated
-// table and auto-registered in init() — decoding is zero-config, as in v1.
-// Register additional ABIs with RegisterABIJSON (Solidity JSON ABI) or
+// The registry comes pre-loaded with the built-in ecosystem event definitions
+// (the 747-entry curated baseline, including TRC-20's Transfer and Approval,
+// plus any contracts captured since), generated from the corpus in
+// internal/eventdata/ and auto-registered in init() — decoding is zero-config,
+// as in v1. Register additional ABIs with RegisterABIJSON (Solidity JSON ABI) or
 // RegisterABIObject (a *core.SmartContract_ABI); BuiltinTRC20 explicitly
 // re-asserts the built-in definitions (idempotent, a near no-op after init).
+//
+// Maintainers extend the corpus with cmd/eventtool: `contracts` snapshots the
+// TronScan top-N ranking, `capture` fetches those contracts' on-chain ABIs, and
+// `generate` re-renders event/builtin_gen.go. The corpus stores each event's
+// full 32-byte signature hash, so a corpus entry and a registry key are the
+// same value by construction (see docs/runbook.md).
 //
 // Indexed parameters are not part of the hashed signature, so two contracts
 // can share a topic while disagreeing about which parameters are indexed — and
