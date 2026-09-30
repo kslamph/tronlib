@@ -42,8 +42,11 @@ go run ./cmd/tip491probe -endpoint $GRPC -replay $TXID
 
 - txid `41808e02d08669098860742b19bba2e16de29da6c065725e6394495d0b3ec2e8`
 - block 86642154 · USDT `transfer` (`TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t`)
-- Claim: replay energy=130,285 penalty=49,635 base=29,650 == receipt
+- Claim: replay energy=130,285 penalty=100,635 base=29,650 == receipt
   exactly. Extends E1 to TIP-491-penalized execution (§7.5 item 2).
+  *(Amended by the R11 audit: this row originally said penalty 49,635 — a
+  mis-transcription; energy = base + penalty reconciles only with 100,635,
+  and the 2026-09-30 replay re-read the immutable receipt at 100,635.)*
 - Re-check: receipt fetch on `$MAIN`; probe replay (needs the sender to
   still cover the amount — if it reverts now, see E6).
 
@@ -194,9 +197,16 @@ round trip and the node's signature-weight verdict. It broadcasts only with
 `-broadcast`, so the default run spends nothing and needs no funded key.
 
 ```sh
-go run ./cmd/examplecheck                         # spend-free (fresh signer)
+go run ./cmd/examplecheck                         # spend-free, fresh signer — notes, not failures
+go run ./cmd/examplecheck -key <hex>              # spend-free, existing account — the variant recorded here
 go run ./cmd/examplecheck -key <hex> -broadcast   # full run, spends TRX
 ```
+
+*(Corrected by the R11 audit: the table below was recorded from the `-key`
+variant — an existing owner account. The no-flags fresh-signer run cannot
+read a permission set that does not exist, and the node rejects state-
+changing builds from an account that does not exist; both are notes, and
+before the audit the harness miscounted the first as failures.)*
 
 Observed at Nile block **71,399,777** — 34 steps OK, 4 notes, **0 failed**:
 
@@ -285,6 +295,111 @@ differ, by exactly the burnt fees. The harness asserts both.
 prove `WithdrawUnstaked` positively — nothing matures inside a single run, which
 is why that method had no positive evidence before.
 
+### R11 — ledger audit against the current tree (Nile, 2026-09-30)
+
+Parts of this ledger predate the v2.0.0 code fixes, so every checkable
+claim was re-verified, read-only, against the tree as it stands:
+
+- **R9 reproduced.** `go run ./cmd/examplecheck -key <K1>` (spend-free,
+  existing owner): **34 OK / 4 notes / 0 failed** — the recorded numbers,
+  against the post-fix tree. The note set shifted with account state, not
+  code: CancelUnstake now builds (the deliberate pending unstake exists)
+  and ClaimRewards notes (nothing claimable).
+- **The no-flags fresh-signer run is a note-path, not a failure path.** It
+  reported 2 FAILs at the audit — `Permissions().Current` answers
+  `contract.bad_metadata` by design for an account that does not exist —
+  so the harness learned that this is the documented "no account" note
+  class. Now 22 OK / 16 notes / 0 failed, exit 0. R9's inline comment
+  wrongly implied the fresh-signer invocation produced its table;
+  corrected above.
+- **`WithdrawUnstaked` still open, with a date**: live `GetAccount` shows
+  the pending 1 TRX ENERGY unstake expiring **2026-10-01 08:30 (+08)** — a
+  `-broadcast` run after that timestamp closes the row.
+- **Permission-update broadcast still refused, against fresh numbers**:
+  `getUpdateAccountPermissionFee` re-read at 100 TRX; key1 holds
+  59.364826 TRX.
+- **Nile TIP-491 negative row re-confirmed**: `getDynamicEnergyThreshold`
+  is still 5×10⁹ on Nile — ordinary usage (≈7.5k energy) sits far below
+  it, factor 0; never cite Nile for penalty behavior.
+- **Stale pointers fixed**: §3 pointed at `PHASE2.md` (removed in
+  `302b0f5`); the token package still documented a "uint8 accessor gap"
+  that `contract.Result.Byte` closed on 2026-09-29. §4's names re-checked:
+  `tx.BandwidthCostOf`, `tx.TotalCostOf`, `DeployTx.Estimate` exist as
+  documented.
+- **Mainnet TIP-491 re-proven**: the probe replay of E2's txid still
+  matches the immutable receipt exactly (energy 130,285 / penalty 100,635 /
+  base 29,650 — PASS), which also exposed E2's mis-transcribed penalty
+  figure; the row above is amended. The Nile negative row stands: it is
+  about citing *Nile* for penalty behaviour, and Mainnet carries the proof.
+
+### R12 — permission-update broadcast, add + verify + reverse (Nile, 2026-09-30)
+
+Funded for this run: the owner account received 200 TRX (259.364626 TRX
+before the run). `cmd/examplecheck -broadcast -permission-update
+-leave-unstaked` — **56 steps OK, 9 notes, 0 failed**, 9 transactions.
+
+The permission cycle (the last §3 broadcast row, now closed):
+
+| Step | Evidence |
+|---|---|
+| Price gate | fee 100 TRX ×2 (add + reverse), account held 250.96 TRX after the earlier flows |
+| SignWeight (node verdict before sending) | `signature weight 1/1 (ENOUGH_PERMISSION) — authorized` |
+| Add active `examplecheck` (Transfer + TriggerSmartContract bitmap, payee key, weight 1) | `2364ff3da3bd58725a7b0957712684019b83981a0c9a6ae99df94e511a22d9ff` |
+| On-chain verify | 2 actives, last `examplecheck` threshold 1; **owner permission asserted unchanged** (same threshold, same key list) |
+| Reverse (submit the saved original set) | `0816b512e177d2b04a1573dcaa1d74a4dfe614a3c734fd93b9ac3e844c58ddea` |
+| Verify reversal | actives back to 1; permission fees burnt **200.829 TRX** |
+
+The lockout risk §3 refused to take never materialized because the flow
+never modifies the owner permission: it appends one active permission to
+the set read from the chain, signs with the owner key, asks the node for
+the sign-weight verdict first, and the reverse submits the saved original
+set back.
+
+Rest of the run (re-proven post-R11): rebalance-in `8ec07e56…1ffa`,
+approve `8adf8c60…2890`, transferFrom `c384f85c…0368`, transfer
+`576f1d01…cb15`, stake `79f6c8cb…08ff`, unstake `65620750…83d6`, SetVotes
+`181ce8bc…592e`. Owner 259.364626 → 50.135726 TRX (209.2289 spent:
+200 permission fees + ≈9.2 run fees). Stakes 3 → 3; pending unstakes 1 → 2
+(`-leave-unstaked`: the original 1 TRX matures 2026-10-01 08:30 (+08), the
+fresh one ≈12:05 — the next run proves `WithdrawUnstaked` on both).
+
+New node-side observation (notes, not failures): with a pending unstake on
+the ENERGY resource the node refuses `delegate resource` /
+`undelegate resource` builds with `tx.invalid_argument` — a delegation
+must be backed by staked balance not in unstaking — so the delegation
+proofs were skipped this run (R10 carries them); `ClaimRewards` with zero
+accrued is likewise refused at build.
+
+### R13 — CostPreview bandwidth line, live (Nile, 2026-09-30)
+
+The last v2.1 code TODO (P2.6) landed early: `CostPreview` now carries a
+`Bandwidth *BandwidthCost` half — the same charging model `BandwidthCostOf`
+applies post-signing: staked bandwidth first, then the free quota, shortfall
+at `SunPerByte` — measured on a one-signature estimate of the broadcast
+bytes, plus `TotalFloor = TronToBurn + Burn`. A predicted burn the balance
+cannot cover fails with `account.insufficient_bandwidth` (the fiction rule
+`BandwidthCostOf` already followed).
+
+Keyed spend-free run (`-key` K1): **34 OK / 4 notes / 0 failed** (totals
+unchanged from R9/R11). New lines, live:
+
+```text
+bandwidth preview: need 345 (staked 0 + free 36); to burn 309 @ 1000 sun/byte = 0.309 sun
+total floor 2.5038 TRX (energy + bandwidth; bandwidth priced on a single-signature estimate; …)
+```
+
+- **Estimate exactness**: the harness signs the same transaction with one
+  key and asserts `preview.Bandwidth.BytesNeeded ==` the signed
+  `BandwidthSize` measurement — **345 == 345, PASS**. The 345-byte shape is
+  E3/E4's live-measured burn model (281 + 64 result overhead).
+- **Fresh-signer run: 21 OK / 17 notes / 0 failed** — `CostPreview` now
+  correctly notes `account.insufficient_bandwidth` for an account with no
+  bandwidth and no balance, where it previously reported an energy-only
+  number with a caveat string. The step counts moved with the honesty, not
+  with a regression.
+- Gates: full suite + `-race` + `golangci-lint` 0 issues; `tx` coverage
+  84.7% (floor 80%).
+
 ## 3. Negative records (what is NOT proven)
 
 - **Nile TIP-491**: factor 0 on Nile USDT (usage 7,506 vs 5e9 threshold);
@@ -293,25 +408,24 @@ is why that method had no positive evidence before.
 - ~~**Staked-energy cost runs**~~ — resolved by R6 above (Nile, 2026-09-29).
 - ~~**`insufficient_bandwidth` live**~~ — resolved by R7 above.
 - ~~**UpdateSetting success path**~~ — resolved by R8 above.
-- **Broadcast-verified (R10):** TRX transfer/rebalance, TRC-20 approve +
+- **Broadcast-verified (R10, R12):** TRX transfer/rebalance, TRC-20 approve +
   transferFrom + transfer, stake, unstake, cancel-unstake, delegate
-  (unlocked and locked), undelegate, vote replace and reward claim.
+  (unlocked and locked), undelegate, vote replace, reward claim, and the
+  permission update (add active + verify + reverse, SignWeight-checked).
 - **`WithdrawUnstaked` has no positive on-chain evidence yet.** Every recorded
   run had nothing matured: the cooldown is a chain parameter (1 day on Nile, 14
-  on Mainnet) and no run spans it. The last run deliberately left 1 TRX
-  pending (`1678a578…79fc`); re-running
-  `cmd/examplecheck -broadcast` after the cooldown elapses calls
-  `WithdrawUnstaked` for real and closes this row.
-- **The permission-update broadcast is not verified.** It costs
-  `getUpdateAccountPermissionFee` — 100 TRX on Mainnet, read live as 100 TRX on
-  Nile — while the throwaway account holds 68.26 TRX, so the harness reports
-  the price and refuses to send. Independently, a wrong owner permission can
-  lock an account out of every permission, which is not something a throwaway
-  key should be risked on; the update stays build/simulate/priced-verified
-  (R9, R10).
+  on Mainnet) and no run spans it. Two 1 TRX unstakes are now pending on key1
+  (the original `1678a578…79fc`, maturing 2026-10-01 08:30 (+08), plus the
+  R12 run's `65620750…83d6`); re-running `cmd/examplecheck -broadcast` after
+  a cooldown elapses calls `WithdrawUnstaked` for real and closes this row.
+- ~~**The permission-update broadcast is not verified.**~~ — resolved by R12
+  above (funded 200 TRX; add + on-chain verify + reverse, 2×100 TRX fees
+  burnt; owner permission untouched throughout).
 - **Arg constructors** for `address[]`/`bytes`/`bytesN`/`int256` and
-  `Result.Byte` for `uint8`: **shipped 2026-09-29** (see `PHASE2.md`
-  Phase 2.1).
+  `Result.Byte` for `uint8`: **shipped 2026-09-29** (the historical PHASE2.md
+  was removed with the v1-era docs in `302b0f5`; the constructors live in
+  `contract/arg.go` and the accessor in `contract/result.go` — presence
+  re-verified at the R11 audit).
 
 ## 4. Reviewer toolbox (no setup)
 

@@ -19,6 +19,9 @@
 //
 //	go run ./cmd/examplecheck                                   # read-only + local signing
 //	go run ./cmd/examplecheck -key <hex> -broadcast              # full run, spends TRX
+//	go run ./cmd/examplecheck -key <hex> -broadcast -permission-update
+//	    # also broadcast a permission update (add an active permission,
+//	    # verify, reverse) — burns the permission fee twice; fund ~2x fee
 //	go run ./cmd/examplecheck -endpoint grpc://grpc.trongrid.io:50051
 package main
 
@@ -26,6 +29,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"flag"
 	"fmt"
 	"math/big"
@@ -66,6 +70,7 @@ func run() int {
 	lockBlocks := flag.Int64("lock-blocks", 20, "delegation lock length, in blocks, for the lock/expiry proof")
 	skipLockWait := flag.Bool("skip-lock-wait", false, "do not wait for the delegation lock to expire (leaves the delegation locked)")
 	leaveUnstaked := flag.Bool("leave-unstaked", false, "do not cancel the unstake, leaving it in its cooldown so a later run can prove WithdrawUnstaked once it matures (the cooldown is 1 day on Nile, 14 on Mainnet)")
+	permUpdate := flag.Bool("permission-update", false, "with -broadcast: broadcast a real permission update — add one active permission, verify it on-chain, then submit the original set back. Burns the permission-update governance fee (100 TRX) twice; fund the owner account with ~2x fee first")
 	flag.Parse()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
@@ -125,6 +130,7 @@ func run() int {
 		lockBlocks:    *lockBlocks,
 		skipLockWait:  *skipLockWait,
 		leaveUnstaked: *leaveUnstaked,
+		permUpdate:    *permUpdate,
 		floatSUN:      tronlib.TRX(int64(*floatTRX)),
 	}
 	fmt.Printf("examplecheck: %s\nsigner:  %s%s\nowner:   %s%s\npayee:   %s%s\n\n",
@@ -176,6 +182,7 @@ type checker struct {
 	lockBlocks    int64
 	skipLockWait  bool
 	leaveUnstaked bool
+	permUpdate    bool
 	floatSUN      tronlib.SUN
 	sent          int
 
@@ -208,6 +215,16 @@ func (c *checker) step(name string, fn func() error) {
 // misbehaving. These are the outcomes a read-only run of a funded flow is
 // expected to hit.
 func noteWorthy(err error) bool {
+	// A permission read on an account that does not exist yet is the "no
+	// account" case for Permissions.Current: there is no permission set to
+	// decode, and Current says so with contract.bad_metadata by design. A
+	// spend-free run with a fresh (unfunded) signer hits it; a run with an
+	// existing owner (-key) reads the real set.
+	var te *tron.Error
+	if errors.As(err, &te) &&
+		te.Code == tron.CodeContractBadMetadata && te.Op == "account.Permissions.Current" {
+		return true
+	}
 	for _, code := range []tron.Code{
 		tron.CodeAccountInsufficientBalance,
 		tron.CodeAccountInsufficientEnergy,
@@ -1454,8 +1471,12 @@ func (c *checker) flowVoting() {
 // permission on the account. It reports the price and leaves the send to an
 // operator who means it.
 func (c *checker) flowPermissions() {
-	fmt.Println("  permissions (priced, not broadcast — see the harness doc):")
 	perms := c.cli.Account(c.owner).Permissions()
+	if c.broadcast && c.permUpdate {
+		c.permissionCycle(perms)
+		return
+	}
+	fmt.Println("  permissions (priced, not broadcast — add -permission-update to send one):")
 	c.step("Price an identical permission update", func() error {
 		set, err := perms.Current(c.ctx)
 		if err != nil {
@@ -1482,6 +1503,163 @@ func (c *checker) flowPermissions() {
 			map[bool]string{true: "affordable", false: "NOT affordable, deliberately not sent"}[balance >= cost.PermissionUpdateFee])
 		return nil
 	})
+}
+
+// permissionCycle closes the ledger's "permission-update broadcast" row:
+// it broadcasts a real AccountPermissionUpdate that appends one active
+// permission (never touching the owner permission), verifies the on-chain
+// effect, then submits the original set back. The governance fee
+// (getUpdateAccountPermissionFee — 100 TRX on Nile and Mainnet) burns once
+// per broadcast, so the owner account must hold ~2x fee + gas before
+// opting in; the affordability gate below refuses otherwise. Every
+// transaction is signed by the owner key and pre-checked with SignWeight.
+func (c *checker) permissionCycle(perms *tronlib.Permissions) {
+	fmt.Println("  permissions (-permission-update: broadcast add, verify, reverse):")
+	before, err := perms.Current(c.ctx)
+	if err != nil {
+		c.failed++
+		fmt.Printf("  FAIL  Current: %v\n", err)
+		return
+	}
+	bitmap, err := tronlib.OperationsBitmap(tronlib.TypeTransfer, tronlib.TypeTriggerSmartContract)
+	if err != nil {
+		c.failed++
+		fmt.Printf("  FAIL  bitmap: %v\n", err)
+		return
+	}
+	update := before
+	update.Actives = append(append([]tronlib.Permission(nil), before.Actives...), tronlib.Permission{
+		Name:       "examplecheck",
+		Threshold:  1,
+		Keys:       []tronlib.PermissionKey{{Address: c.payee, Weight: 1}},
+		Operations: bitmap,
+	})
+	grants, _ := tronlib.OperationsList(bitmap)
+	fmt.Printf("        adding active %q for %s (weight 1, grants: %v)\n", "examplecheck", c.payee, grants)
+
+	balBefore, err := c.cli.Account(c.owner).Balance(c.ctx)
+	if err != nil {
+		c.failed++
+		fmt.Printf("  FAIL  balance: %v\n", err)
+		return
+	}
+
+	c.step("Price the update (fee burns per broadcast)", func() error {
+		tx, err := perms.Update(c.ctx, update)
+		if err != nil {
+			return err
+		}
+		signed, err := tx.Sign(c.signer)
+		if err != nil {
+			return err
+		}
+		cost, err := c.cli.Account(c.owner).TotalCost(c.ctx, signed)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("        fee %s TRX x2 (add + reverse), account holds %s TRX\n",
+			cost.PermissionUpdateFee.Formatted(), balBefore.Formatted())
+		need, _ := cost.PermissionUpdateFee.Mul(2)
+		reserve := tronlib.TRX(2)
+		if total, err := need.Add(reserve); err == nil && balBefore < total {
+			return fmt.Errorf("balance %s TRX is short of 2x fee + 2 TRX reserve (%s TRX) — fund the owner account first",
+				balBefore.Formatted(), total.Formatted())
+		}
+		return nil
+	})
+
+	c.step("Add active permission (build + sign + SignWeight)", func() error {
+		status, err := c.signWeight(perms, update)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("        sign weight %s — authorized\n", status.String())
+		if !status.Enough {
+			return fmt.Errorf("collected weight does not meet the threshold — refusing to send")
+		}
+		return nil
+	})
+	c.step("Add active permission (broadcast + wait)", func() error {
+		return c.send("permission-update", func() (tronlib.Tx, error) {
+			tx, err := perms.Update(c.ctx, update)
+			if err != nil {
+				return nil, err
+			}
+			return tx.Sign(c.signer)
+		})
+	})
+	c.step("Verify the added active permission", func() error {
+		after, err := perms.Current(c.ctx)
+		if err != nil {
+			return err
+		}
+		if len(after.Actives) != len(before.Actives)+1 {
+			return fmt.Errorf("actives %d -> %d, expected +1", len(before.Actives), len(after.Actives))
+		}
+		if err := ownerUnchanged(before, after); err != nil {
+			return err
+		}
+		fmt.Printf("        on-chain: %d active(s), last %q threshold %d — owner permission untouched\n",
+			len(after.Actives), after.Actives[len(after.Actives)-1].Name, after.Actives[len(after.Actives)-1].Threshold)
+		return nil
+	})
+
+	c.step("Reverse (submit the original set)", func() error {
+		return c.send("permission-restore", func() (tronlib.Tx, error) {
+			tx, err := perms.Update(c.ctx, before)
+			if err != nil {
+				return nil, err
+			}
+			return tx.Sign(c.signer)
+		})
+	})
+	c.step("Verify the reversal", func() error {
+		final, err := perms.Current(c.ctx)
+		if err != nil {
+			return err
+		}
+		if len(final.Actives) != len(before.Actives) {
+			return fmt.Errorf("actives %d after reverse, expected back to %d — RE-RUN WITH -permission-update TO RESTORE", len(final.Actives), len(before.Actives))
+		}
+		balAfter, err := c.cli.Account(c.owner).Balance(c.ctx)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("        actives back to %d; permission fees burnt %s TRX\n",
+			len(final.Actives), (balBefore - balAfter).Formatted())
+		return nil
+	})
+}
+
+// signWeight builds, signs and pre-checks a permission update with the
+// node's signature-weight verdict — the discipline the multi-sig flow
+// teaches: broadcast only what the node says is authorized.
+func (c *checker) signWeight(perms *tronlib.Permissions, set tronlib.PermissionSet) (*tronlib.SignatureState, error) {
+	tx, err := perms.Update(c.ctx, set)
+	if err != nil {
+		return nil, err
+	}
+	signed, err := tx.Sign(c.signer)
+	if err != nil {
+		return nil, err
+	}
+	return perms.SignWeight(c.ctx, signed)
+}
+
+// ownerUnchanged asserts the owner permission survived an update: same
+// threshold, same key list. A permission update that silently changed the
+// owner permission would be the lockout class the ledger refuses to risk.
+func ownerUnchanged(before, after tronlib.PermissionSet) error {
+	b, a := before.Owner, after.Owner
+	if b.Threshold != a.Threshold || len(b.Keys) != len(a.Keys) {
+		return fmt.Errorf("owner permission changed: threshold %d/%d keys %d/%d", b.Threshold, a.Threshold, len(b.Keys), len(a.Keys))
+	}
+	for i := range b.Keys {
+		if b.Keys[i].Address != a.Keys[i].Address || b.Keys[i].Weight != a.Keys[i].Weight {
+			return fmt.Errorf("owner key %d changed", i)
+		}
+	}
+	return nil
 }
 
 func (c *checker) cooldownDays() int64 {
