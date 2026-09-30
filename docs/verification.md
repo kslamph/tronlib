@@ -231,6 +231,60 @@ because the reference account has nothing pending to withdraw, cancel or
 undelegate, and is not voting. These builds are state-validated by the node,
 which is why the examples order the reads before the writes.
 
+### R10 — the chain-updating flows, broadcast on Nile (2026-09-30)
+
+`cmd/examplecheck -broadcast` performs the flows for real, with the repo's
+throwaway keys (`v1-legacy:integration_test/test.env`, `NILE_TEST_KEY1/2`).
+Every state change is paired with the operation that reverses it, and the
+harness prints the before/after state so the claim is checkable.
+
+```sh
+K1=... K2=...   # from v1-legacy:integration_test/test.env
+go run ./cmd/examplecheck -key "$K1" -payee TLibCZ2i2dFp6a9KZeKriSms5peeXSibks \
+  -payee-key "$K2" -token TWRvzd6FQcsyp7hwCtttjZGpU1kfvVEtNK -broadcast
+```
+
+Three consecutive runs, each exit 0 (**55 steps OK, 6 notes, 0 failed**).
+Transaction ids from the clean run:
+
+| Flow | Evidence |
+|---|---|
+| Rebalance in (TRX transfer) | `d4474957…92f6` — 2.6 TRX to the payee; payee 0.4963 → 3.0963 TRX |
+| Approve | `6ca05692…1806` — allowance then read back as 0.1 |
+| transferFrom (spender pulls) | `bec02b52…de3c` — the payee's own key signs and pays |
+| Transfer (direct) | `22178712…1ec6` — owner 997,387.35 → 997,387.15, payee 0.6 |
+| Stake 1 TRX Energy | `79f4fdde…76b5` — energy limit rose to 12226 |
+| Unstake | `e3dd027d…1189` — 1 pending unstake, **0 withdrawable** (cooldown 1 day on Nile) |
+| CancelUnstake | `e0f4388a…43e0` — pending unstakes back to 0, stake restored |
+| Delegate (unlocked) | `6820f3c1…bcca` |
+| Undelegate | `32be1d96…0d0d` — immediate for an unlocked delegation |
+| Delegate (locked, 20 blocks) | `15ebb92f…4a72` |
+| Undelegate while locked | **refused at build** with `tx.invalid_argument` — the lock is enforced |
+| Undelegate after the lock expires | `1aac51fd…40d6` — succeeded after the 60 s lock elapsing |
+| SetVotes (whole-list replace) | `9acc69f5…b529` |
+| ClaimRewards | `dbb69af4…b5ef` (earlier run, when rewards were non-zero) |
+
+**The payee's cost, and why the float has to be 3 TRX.** `CostPreview` for the
+payee's `transferFrom` reported *21257 energy needed, 0 staked, buys 21257 =
+2.1257 TRX* — an account holding staked Energy pays nothing for those 21257
+units; this one bought them all with TRX, which is exactly the balance drop the
+run shows. That is the measured basis for the default `-float 3`.
+
+**Rebalancing: repeated runs do not drain either key.** The flow tops the payee
+up to the float when it is short and returns anything above float + reserve, so
+the only net movement is the fees burnt:
+
+- payee: 0.526 → 0.4963 → 3.0963 → 0.5926 TRX across runs — always inside the band, never accumulating
+- owner: 96.2485 → 87.876026 → 78.617126 → 68.257826 TRX — ~9–10.4 TRX per run for 12 broadcasts (≈4 TRX bandwidth + ≈3 TRX bought energy + the payee's ≈2.5 TRX of bought energy)
+
+**Position restored:** `stakes 3 → 3`, `pending unstakes 0 → 0`, only balances
+differ, by exactly the burnt fees. The harness asserts both.
+
+**Left deliberately for a later run:** one 1 TRX unstake is pending from the
+`-leave-unstaked` run (`1678a578…79fc`), so a run after its 1-day cooldown can
+prove `WithdrawUnstaked` positively — nothing matures inside a single run, which
+is why that method had no positive evidence before.
+
 ## 3. Negative records (what is NOT proven)
 
 - **Nile TIP-491**: factor 0 on Nile USDT (usage 7,506 vs 5e9 threshold);
@@ -239,12 +293,22 @@ which is why the examples order the reads before the writes.
 - ~~**Staked-energy cost runs**~~ — resolved by R6 above (Nile, 2026-09-29).
 - ~~**`insufficient_bandwidth` live**~~ — resolved by R7 above.
 - ~~**UpdateSetting success path**~~ — resolved by R8 above.
-- **State-changing flows of the new account API are build/simulate-verified,
-  not broadcast-verified.** Stake, unstake, delegate, undelegate, vote,
-  claim-rewards and permission-update transactions were accepted by the
-  node's build RPCs, signed and priced (R9), but no funded broadcast of them
-  has been recorded. Run `go run ./cmd/examplecheck -key <hex> -broadcast` on
-  a funded testnet key to close this row.
+- **Broadcast-verified (R10):** TRX transfer/rebalance, TRC-20 approve +
+  transferFrom + transfer, stake, unstake, cancel-unstake, delegate
+  (unlocked and locked), undelegate, vote replace and reward claim.
+- **`WithdrawUnstaked` has no positive on-chain evidence yet.** Every recorded
+  run had nothing matured: the cooldown is a chain parameter (1 day on Nile, 14
+  on Mainnet) and no run spans it. The last run deliberately left 1 TRX
+  pending (`1678a578…79fc`); re-running
+  `cmd/examplecheck -broadcast` after the cooldown elapses calls
+  `WithdrawUnstaked` for real and closes this row.
+- **The permission-update broadcast is not verified.** It costs
+  `getUpdateAccountPermissionFee` — 100 TRX on Mainnet, read live as 100 TRX on
+  Nile — while the throwaway account holds 68.26 TRX, so the harness reports
+  the price and refuses to send. Independently, a wrong owner permission can
+  lock an account out of every permission, which is not something a throwaway
+  key should be risked on; the update stays build/simulate/priced-verified
+  (R9, R10).
 - **Arg constructors** for `address[]`/`bytes`/`bytesN`/`int256` and
   `Result.Byte` for `uint8`: **shipped 2026-09-29** (see `PHASE2.md`
   Phase 2.1).

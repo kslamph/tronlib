@@ -142,14 +142,29 @@ signing, simulation, cost pricing, the portable-envelope round trip and the
 node's signature-weight verdict — and spends nothing unless you ask it to:
 
 ```bash
-go run ./cmd/examplecheck                          # spend-free; generates a fresh signer
-go run ./cmd/examplecheck -key <hex> -broadcast    # full run, spends TRX
+# Spend-free: reads, builds, local signing, simulation, pricing, the envelope
+# round trip and the node's sign-weight verdict.
+go run ./cmd/examplecheck
+
+# On-chain: the same flows broadcast for real, each state change paired with
+# the operation that reverses it, and the run rebalanced between two keys.
+go run ./cmd/examplecheck -key "$K1" -payee "$KEY2_ADDR" -payee-key "$K2" \
+  -token TWRvzd6FQcsyp7hwCtttjZGpU1kfvVEtNK -broadcast
 ```
 
-The last recorded run on Nile (34 steps OK, 4 notes, 0 failed) is written up in
-the [verification ledger](docs/verification.md#r9--every-documented-example-flow-live-checked-nile-2026-09-30),
-including the example bug that only execution could find: a reverting
-simulation returns revert data, not the method's return value.
+Recorded runs are written up in the [verification
+ledger](docs/verification.md): R9 (spend-free, 34 steps OK) and R10 (on-chain,
+55 steps OK / 0 failed across three runs), which also documents the example bug
+that only execution could find — a reverting simulation returns revert data, not
+the method's return value.
+
+`-broadcast` keeps the two keys' leftovers balanced: it tops the payee up to
+`-float` (3 TRX by default, enough to cover a TRC-20 call from an account with
+no staked energy) when short and returns anything above float + reserve, so
+repeated runs move the same money back and forth and the only net cost is the
+fees burnt (measured: ~9–10 TRX per run for 12 broadcasts). `-leave-unstaked`
+skips the cancel so a later run can prove `WithdrawUnstaked` once the unstake
+cooldown elapses.
 
 ## Documentation
 

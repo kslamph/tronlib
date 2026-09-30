@@ -83,6 +83,39 @@ func TestSignerFromCertifiesTheKeySource(t *testing.T) {
 	}
 }
 
+func TestRebalanceRoundingKeepsTransfersTidy(t *testing.T) {
+	// Top-ups round up so the payee always reaches its float; returns round
+	// down so the payee always keeps the reserve that pays for the return tx
+	// itself. Both round to 0.1 TRX.
+	cases := []struct {
+		name string
+		in   tron.SUN
+		want tron.SUN
+		up   bool
+	}{
+		{"exact stays", 2_000_000, 2_000_000, true},
+		{"top-up rounds up", 1_950_000, 2_000_000, true},
+		{"top-up to the step", 100_001, 200_000, true},
+		{"return rounds down", 1_999_999, 1_900_000, false},
+		{"return below a step is nothing", 50_000, 0, false},
+		{"zero is zero", 0, 0, true},
+		{"negative is nothing", -5, 0, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var got tron.SUN
+			if tc.up {
+				got = ceilTo(tc.in, rebalanceStep)
+			} else {
+				got = floorTo(tc.in, rebalanceStep)
+			}
+			if got != tc.want {
+				t.Errorf("got %d, want %d", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestStepBookkeepingSeparatesNotesFromFailures(t *testing.T) {
 	c := &checker{}
 	c.step("ok", func() error { return nil })

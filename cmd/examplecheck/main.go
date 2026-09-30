@@ -39,10 +39,14 @@ import (
 
 // Nile reference addresses (docs/verification.md).
 const (
-	nileEndpoint  = "grpc://grpc.nile.trongrid.io:50051"
-	nileUSDT      = "TXLAQ63Xg1NAzckPwKHvzw7CSEmLMEqcdj"
-	nileExisting  = "TLibQrqpdqPyg11VBJR97Q4H2714xa9GT1" // key1's account, funded
-	nileRecipient = "TLibCZ2i2dFp6a9KZeKriSms5peeXSibks" // key2's account
+	nileEndpoint = "grpc://grpc.nile.trongrid.io:50051"
+	nileUSDT     = "TXLAQ63Xg1NAzckPwKHvzw7CSEmLMEqcdj"
+	// The throwaway Nile accounts live in
+	// v1-legacy:integration_test/test.env (NILE_TEST_KEY1/2):
+	// key1 = TLibQrqpdqPyg11VBJR97Q4H2714xa9GT1,
+	// key2 = TLibCZ2i2dFp6a9KZeKriSms5peeXSibks. The flows run as whatever
+	// -key is, and -payee defaults to key2.
+	nileRecipient = "TLibCZ2i2dFp6a9KZeKriSms5peeXSibks"
 	// E1 in docs/verification.md: a Nile TRC-20 transfer, used here to prove
 	// receipt-log decoding against a real transaction.
 	nileTransferTx = "738c6d0e10d2ba325577a38463b93af19209612008fd64fb02ae7f4f7153ac31"
@@ -53,10 +57,18 @@ func main() { os.Exit(run()) }
 func run() int {
 	endpoint := flag.String("endpoint", nileEndpoint, "node endpoint (grpc:// or grpcs://)")
 	keyHex := flag.String("key", "", "hex private key; a fresh random signer is generated when empty")
-	broadcast := flag.Bool("broadcast", false, "actually broadcast the state-changing steps (spends TRX from -key)")
+	broadcast := flag.Bool("broadcast", false, "run the chain-updating sequence (spends TRX from -key)")
+	ownerStr := flag.String("owner", "", "account the flows operate on; defaults to the signer's own address")
+	payeeStr := flag.String("payee", nileRecipient, "counterparty address for transfers and delegations")
+	payeeKeyHex := flag.String("payee-key", "", "counterparty's hex private key; enables the payee-signed steps (transferFrom, the rebalance return) and the delegation/spend proofs")
+	floatTRX := flag.Float64("float", 3, "TRX to keep on the payee between runs; the flow tops it up when short and returns the excess when long, so repeated runs move the same money back and forth instead of draining either key. 3 TRX covers a TRC-20 call from an account holding no staked energy (~2 TRX of bought energy) plus bandwidth")
+	tokenStr := flag.String("token", nileUSDT, "TRC-20 contract for the token flow (the throwaway Nile account holds TLT, not USDT)")
+	lockBlocks := flag.Int64("lock-blocks", 20, "delegation lock length, in blocks, for the lock/expiry proof")
+	skipLockWait := flag.Bool("skip-lock-wait", false, "do not wait for the delegation lock to expire (leaves the delegation locked)")
+	leaveUnstaked := flag.Bool("leave-unstaked", false, "do not cancel the unstake, leaving it in its cooldown so a later run can prove WithdrawUnstaked once it matures (the cooldown is 1 day on Nile, 14 on Mainnet)")
 	flag.Parse()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
 	cli, err := tronlib.Dial(ctx, *endpoint)
@@ -71,33 +83,54 @@ func run() int {
 		fmt.Fprintf(os.Stderr, "key: %v\n", err)
 		return 2
 	}
-	existing, err := tronlib.ParseAddress(nileExisting)
+	owner := signer.Address()
+	if *ownerStr != "" {
+		owner, err = tronlib.ParseAddress(*ownerStr)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "owner: %v\n", err)
+			return 2
+		}
+	}
+	payee, err := tronlib.ParseAddress(*payeeStr)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "reference address: %v\n", err)
+		fmt.Fprintf(os.Stderr, "payee: %v\n", err)
 		return 2
 	}
-	recipient, err := tronlib.ParseAddress(nileRecipient)
+	tokenAddr, err := tronlib.ParseAddress(*tokenStr)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "reference address: %v\n", err)
+		fmt.Fprintf(os.Stderr, "token: %v\n", err)
 		return 2
 	}
-	usdt, err := tronlib.ParseAddress(nileUSDT)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "reference token: %v\n", err)
-		return 2
+	var payeeSigner tronlib.Signer
+	if *payeeKeyHex != "" {
+		payeeSigner, err = tronlib.KeyFromHex(*payeeKeyHex)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "payee key: %v\n", err)
+			return 2
+		}
+		if payeeSigner.Address() != payee {
+			fmt.Fprintf(os.Stderr, "payee key derives %s, not the -payee address %s\n", payeeSigner.Address(), payee)
+			return 2
+		}
 	}
-
 	c := &checker{
-		ctx:       ctx,
-		cli:       cli,
-		signer:    signer,
-		existing:  existing,
-		recipient: recipient,
-		usdt:      usdt,
-		broadcast: *broadcast,
+		ctx:           ctx,
+		cli:           cli,
+		signer:        signer,
+		owner:         owner,
+		payee:         payee,
+		payeeSigner:   payeeSigner,
+		usdt:          tokenAddr,
+		broadcast:     *broadcast,
+		lockBlocks:    *lockBlocks,
+		skipLockWait:  *skipLockWait,
+		leaveUnstaked: *leaveUnstaked,
+		floatSUN:      tronlib.TRX(int64(*floatTRX)),
 	}
-	fmt.Printf("examplecheck: %s\nsigner:  %s%s\naccount: %s\n\n",
-		*endpoint, signer.Address(), generated, existing)
+	fmt.Printf("examplecheck: %s\nsigner:  %s%s\nowner:   %s%s\npayee:   %s%s\n\n",
+		*endpoint, signer.Address(), generated, owner,
+		map[bool]string{true: " (same as signer)", false: " (signed for by a key in its permission list)"}[owner == signer.Address()],
+		payee, map[bool]string{true: "", false: " (no -payee-key: payee-signed steps will be skipped)"}[payeeSigner != nil])
 
 	c.reads()
 	c.token()
@@ -106,6 +139,10 @@ func run() int {
 	c.staking()
 	c.permissions()
 	c.events()
+
+	if *broadcast {
+		c.chainFlows()
+	}
 
 	fmt.Printf("\n%d step(s) OK, %d note(s), %d FAILED\n", c.ok, c.notes, c.failed)
 	if c.failed > 0 {
@@ -128,13 +165,19 @@ func signerFrom(hexKey string) (tronlib.Signer, string, error) {
 }
 
 type checker struct {
-	ctx       context.Context
-	cli       *tronlib.Client
-	signer    tronlib.Signer
-	existing  tronlib.Address
-	recipient tronlib.Address
-	usdt      tronlib.Address
-	broadcast bool
+	ctx           context.Context
+	cli           *tronlib.Client
+	signer        tronlib.Signer
+	owner         tronlib.Address
+	payee         tronlib.Address
+	payeeSigner   tronlib.Signer
+	usdt          tronlib.Address
+	broadcast     bool
+	lockBlocks    int64
+	skipLockWait  bool
+	leaveUnstaked bool
+	floatSUN      tronlib.SUN
+	sent          int
 
 	ok     int
 	notes  int
@@ -182,22 +225,11 @@ func noteWorthy(err error) bool {
 	return false
 }
 
-// broadcastOrReport sends the signed transaction when -broadcast is set and
-// reports the node's verdict; otherwise it stops at "signed", which is as far
-// as a spend-free run can go.
-func (c *checker) broadcastOrReport(name string, signed tronlib.Tx) error {
-	if !c.broadcast {
-		fmt.Printf("        %s: signed %s (not broadcast; -broadcast to send)\n", name, signed.ID()[:16])
-		return nil
-	}
-	rec, err := c.cli.Broadcast(c.ctx, signed)
-	if err != nil {
-		return err
-	}
-	if !rec.OK() {
-		return fmt.Errorf("node rejected: %s %s", rec.NodeCode, rec.Revert)
-	}
-	fmt.Printf("        %s: broadcast %s\n", name, rec.TxID)
+// signOnly reports the signed transaction without broadcasting it. The
+// spend-free pass never sends anything; the spending lives in
+// chainFlows, where each state change is paired with its reversal.
+func (c *checker) signOnly(name string, signed tronlib.Tx) error {
+	fmt.Printf("        %s: signed %s (not broadcast; -broadcast to send)\n", name, signed.ID()[:16])
 	return nil
 }
 
@@ -205,7 +237,7 @@ func (c *checker) broadcastOrReport(name string, signed tronlib.Tx) error {
 // the staking summary and the live chain parameters.
 func (c *checker) reads() {
 	fmt.Println("reads (Example, ExampleClient_Account):")
-	acct := c.cli.Account(c.existing)
+	acct := c.cli.Account(c.owner)
 
 	c.step("Balance", func() error {
 		bal, err := acct.Balance(c.ctx)
@@ -221,7 +253,8 @@ func (c *checker) reads() {
 			return err
 		}
 		if !st.Exists {
-			return fmt.Errorf("reference account %s not found on this network", st.Address)
+			fmt.Printf("        account %s does not exist on this network yet (unfunded signer?)\n", st.Address)
+			return nil
 		}
 		fmt.Printf("        %s TRX, %d stake(s), %d unstake(s), %d vote(s), delegated out %s\n",
 			st.Balance.Formatted(), len(st.Stakes), len(st.Unstakes), len(st.Votes),
@@ -308,7 +341,7 @@ func (c *checker) token() {
 		return nil
 	})
 	c.step("BalanceOf(existing)", func() error {
-		bal, err := handle.BalanceOf(c.ctx, c.existing)
+		bal, err := handle.BalanceOf(c.ctx, c.owner)
 		if err != nil {
 			return err
 		}
@@ -316,7 +349,7 @@ func (c *checker) token() {
 		return nil
 	})
 	c.step("Allowance(existing -> recipient)", func() error {
-		allowance, err := handle.Allowance(c.ctx, c.existing, c.recipient)
+		allowance, err := handle.Allowance(c.ctx, c.owner, c.payee)
 		if err != nil {
 			return err
 		}
@@ -339,7 +372,7 @@ func (c *checker) token() {
 		if err != nil {
 			return err
 		}
-		approve, err := handle.Approve(c.ctx, c.existing, c.recipient, whole)
+		approve, err := handle.Approve(c.ctx, c.owner, c.payee, whole)
 		if err != nil {
 			return err
 		}
@@ -347,14 +380,14 @@ func (c *checker) token() {
 		if err != nil {
 			return err
 		}
-		return c.broadcastOrReport("Approve", signed)
+		return c.signOnly("Approve", signed)
 	})
 	c.step("Transfer (build + sign)", func() error {
 		whole, err := handle.Whole(1)
 		if err != nil {
 			return err
 		}
-		move, err := handle.Transfer(c.ctx, c.existing, c.recipient, whole)
+		move, err := handle.Transfer(c.ctx, c.owner, c.payee, whole)
 		if err != nil {
 			return err
 		}
@@ -362,7 +395,7 @@ func (c *checker) token() {
 		if err != nil {
 			return err
 		}
-		return c.broadcastOrReport("Transfer", signed)
+		return c.signOnly("Transfer", signed)
 	})
 	fmt.Println()
 }
@@ -378,7 +411,7 @@ func (c *checker) contract() {
 		return
 	}
 	c.step("Call balanceOf -> Result.BigInt", func() error {
-		res, err := inst.Call(c.ctx, "balanceOf", contract.AddressArg(c.existing))
+		res, err := inst.Call(c.ctx, "balanceOf", contract.AddressArg(c.owner))
 		if err != nil {
 			return err
 		}
@@ -402,8 +435,8 @@ func (c *checker) contract() {
 	// returns the method's own bool result rather than a revert payload.
 	var approve *tronlib.ContractTx
 	c.step("Invoke approve (build)", func() error {
-		built, err := inst.Invoke(c.ctx, c.existing, 0, "approve",
-			contract.AddressArg(c.recipient), contract.BigIntArg(big.NewInt(1_000_000)))
+		built, err := inst.Invoke(c.ctx, c.owner, 0, "approve",
+			contract.AddressArg(c.payee), contract.BigIntArg(big.NewInt(1_000_000)))
 		if err != nil {
 			return err
 		}
@@ -437,7 +470,7 @@ func (c *checker) contract() {
 			return nil
 		})
 		c.step("CostPreview (account-aware)", func() error {
-			preview, err := c.cli.Account(c.existing).CostPreview(c.ctx, approve)
+			preview, err := c.cli.Account(c.owner).CostPreview(c.ctx, approve)
 			if err != nil {
 				return err
 			}
@@ -451,7 +484,7 @@ func (c *checker) contract() {
 			if err != nil {
 				return err
 			}
-			cost, err := c.cli.Account(c.existing).TotalCost(c.ctx, signed)
+			cost, err := c.cli.Account(c.owner).TotalCost(c.ctx, signed)
 			if err != nil {
 				return err
 			}
@@ -466,8 +499,8 @@ func (c *checker) contract() {
 	c.step("Revert is an answer, not a decodable result", func() error {
 		// This owner holds no USDT on Nile, so the transfer reverts inside the
 		// sandbox. The example checks Revert before touching ConstantResult.
-		attempt, err := inst.Invoke(c.ctx, c.existing, 0, "transfer",
-			contract.AddressArg(c.recipient), contract.BigIntArg(big.NewInt(1_000_000)))
+		attempt, err := inst.Invoke(c.ctx, c.owner, 0, "transfer",
+			contract.AddressArg(c.payee), contract.BigIntArg(big.NewInt(1_000_000)))
 		if err != nil {
 			return err
 		}
@@ -496,10 +529,10 @@ func (c *checker) contract() {
 // encode, decode, recover the signers, then the node's own sign weight.
 func (c *checker) transfer() {
 	fmt.Println("transfer + portable envelope (Example, ExamplePermissions_SignWeight):")
-	acct := c.cli.Account(c.existing)
+	acct := c.cli.Account(c.owner)
 
 	c.step("TransferTRX build + Sign", func() error {
-		transfer, err := acct.TransferTRX(c.ctx, c.recipient, tronlib.TRX(1))
+		transfer, err := acct.TransferTRX(c.ctx, c.payee, tronlib.TRX(1))
 		if err != nil {
 			return err
 		}
@@ -507,12 +540,12 @@ func (c *checker) transfer() {
 		if err != nil {
 			return err
 		}
-		return c.broadcastOrReport("TransferTRX", signed)
+		return c.signOnly("TransferTRX", signed)
 	})
 
 	var envelope []byte
 	c.step("Encode -> Decode -> Signers", func() error {
-		transfer, err := acct.TransferTRX(c.ctx, c.recipient, tronlib.TRX(1))
+		transfer, err := acct.TransferTRX(c.ctx, c.payee, tronlib.TRX(1))
 		if err != nil {
 			return err
 		}
@@ -555,7 +588,7 @@ func (c *checker) transfer() {
 		return nil
 	})
 	c.step("SignHash -> AttachSignature (remote signer path)", func() error {
-		transfer, err := acct.TransferTRX(c.ctx, c.recipient, tronlib.TRX(1))
+		transfer, err := acct.TransferTRX(c.ctx, c.payee, tronlib.TRX(1))
 		if err != nil {
 			return err
 		}
@@ -582,7 +615,7 @@ func (c *checker) transfer() {
 		if err != nil {
 			return err
 		}
-		status, err := c.cli.Account(c.existing).Permissions().SignWeight(c.ctx, back)
+		status, err := c.cli.Account(c.owner).Permissions().SignWeight(c.ctx, back)
 		if err != nil {
 			return err
 		}
@@ -597,7 +630,7 @@ func (c *checker) transfer() {
 // built against a known-existing account so the node accepts the request.
 func (c *checker) staking() {
 	fmt.Println("staking + delegation (ExampleResources_Stake):")
-	res := c.cli.Account(c.existing).Resources()
+	res := c.cli.Account(c.owner).Resources()
 
 	c.step("Stake 1 TRX for Energy", func() error {
 		stake, err := res.Stake(c.ctx, tronlib.Energy, tronlib.TRX(1))
@@ -608,7 +641,7 @@ func (c *checker) staking() {
 		if err != nil {
 			return err
 		}
-		return c.broadcastOrReport("Stake", signed)
+		return c.signOnly("Stake", signed)
 	})
 	c.step("Unstake 1 TRX (starts the cooldown)", func() error {
 		unstake, err := res.Unstake(c.ctx, tronlib.Energy, tronlib.TRX(1))
@@ -619,7 +652,7 @@ func (c *checker) staking() {
 		if err != nil {
 			return err
 		}
-		return c.broadcastOrReport("Unstake", signed)
+		return c.signOnly("Unstake", signed)
 	})
 	c.step("WithdrawUnstaked (claims matured TRX)", func() error {
 		withdraw, err := res.WithdrawUnstaked(c.ctx)
@@ -630,7 +663,7 @@ func (c *checker) staking() {
 		if err != nil {
 			return err
 		}
-		return c.broadcastOrReport("WithdrawUnstaked", signed)
+		return c.signOnly("WithdrawUnstaked", signed)
 	})
 	c.step("CancelUnstake (re-stakes the pending)", func() error {
 		cancel, err := res.CancelUnstake(c.ctx)
@@ -641,7 +674,7 @@ func (c *checker) staking() {
 		if err != nil {
 			return err
 		}
-		return c.broadcastOrReport("CancelUnstake", signed)
+		return c.signOnly("CancelUnstake", signed)
 	})
 	c.step("Delegatable(Energy)", func() error {
 		free, err := res.Delegatable(c.ctx, tronlib.Energy)
@@ -652,7 +685,7 @@ func (c *checker) staking() {
 		return nil
 	})
 	c.step("Delegate 1 TRX with a 28,800-block lock", func() error {
-		delegate, err := res.Delegate(c.ctx, tronlib.Energy, c.recipient, tronlib.TRX(1), tronlib.DelegateParams{
+		delegate, err := res.Delegate(c.ctx, tronlib.Energy, c.payee, tronlib.TRX(1), tronlib.DelegateParams{
 			Lock:       true,
 			LockBlocks: 28_800,
 		})
@@ -663,10 +696,10 @@ func (c *checker) staking() {
 		if err != nil {
 			return err
 		}
-		return c.broadcastOrReport("Delegate", signed)
+		return c.signOnly("Delegate", signed)
 	})
 	c.step("Undelegate (immediate when unlocked)", func() error {
-		undelegate, err := res.Undelegate(c.ctx, tronlib.Energy, c.recipient, tronlib.TRX(1))
+		undelegate, err := res.Undelegate(c.ctx, tronlib.Energy, c.payee, tronlib.TRX(1))
 		if err != nil {
 			return err
 		}
@@ -674,11 +707,11 @@ func (c *checker) staking() {
 		if err != nil {
 			return err
 		}
-		return c.broadcastOrReport("Undelegate", signed)
+		return c.signOnly("Undelegate", signed)
 	})
 	c.step("SetVotes (whole-list replace)", func() error {
-		vote, err := c.cli.Account(c.existing).Voting().SetVotes(c.ctx, []tronlib.Vote{
-			{Witness: c.recipient, Count: 1},
+		vote, err := c.cli.Account(c.owner).Voting().SetVotes(c.ctx, []tronlib.Vote{
+			{Witness: c.payee, Count: 1},
 		})
 		if err != nil {
 			return err
@@ -687,14 +720,14 @@ func (c *checker) staking() {
 		if err != nil {
 			return err
 		}
-		return c.broadcastOrReport("SetVotes", signed)
+		return c.signOnly("SetVotes", signed)
 	})
 	c.step("Rewards read + ClaimRewards", func() error {
-		rewards, err := c.cli.Account(c.existing).Voting().Rewards(c.ctx)
+		rewards, err := c.cli.Account(c.owner).Voting().Rewards(c.ctx)
 		if err != nil {
 			return err
 		}
-		claim, err := c.cli.Account(c.existing).Voting().ClaimRewards(c.ctx)
+		claim, err := c.cli.Account(c.owner).Voting().ClaimRewards(c.ctx)
 		if err != nil {
 			return err
 		}
@@ -703,7 +736,7 @@ func (c *checker) staking() {
 			return err
 		}
 		fmt.Printf("        accrued %s TRX\n", rewards.Formatted())
-		return c.broadcastOrReport("ClaimRewards", signed)
+		return c.signOnly("ClaimRewards", signed)
 	})
 	fmt.Println()
 }
@@ -711,7 +744,7 @@ func (c *checker) staking() {
 // permissions covers ExamplePermissions_Current and the bitmap helpers.
 func (c *checker) permissions() {
 	fmt.Println("permissions (ExamplePermissions_Current):")
-	perms := c.cli.Account(c.existing).Permissions()
+	perms := c.cli.Account(c.owner).Permissions()
 
 	c.step("Current (decode all slots)", func() error {
 		set, err := perms.Current(c.ctx)
@@ -739,7 +772,7 @@ func (c *checker) permissions() {
 		set.Actives = append(set.Actives, tronlib.Permission{
 			Name:       "examplecheck",
 			Threshold:  1,
-			Keys:       []tronlib.PermissionKey{{Address: c.recipient, Weight: 1}},
+			Keys:       []tronlib.PermissionKey{{Address: c.payee, Weight: 1}},
 			Operations: bitmap,
 		})
 		update, err := perms.Update(c.ctx, set)
@@ -750,12 +783,12 @@ func (c *checker) permissions() {
 		if err != nil {
 			return err
 		}
-		cost, err := c.cli.Account(c.existing).TotalCost(c.ctx, signed)
+		cost, err := c.cli.Account(c.owner).TotalCost(c.ctx, signed)
 		if err == nil {
 			fmt.Printf("        permission-update fee %s TRX, total %s TRX\n",
 				cost.PermissionUpdateFee.Formatted(), cost.Total.Formatted())
 		}
-		return c.broadcastOrReport("AccountPermissionUpdate", signed)
+		return c.signOnly("AccountPermissionUpdate", signed)
 	})
 	fmt.Println()
 }
@@ -785,4 +818,676 @@ func (c *checker) events() {
 		return nil
 	})
 	fmt.Println()
+}
+
+// chainFlows is the on-chain half: it broadcasts the documented flows against
+// the live network, in an order where every state change is paired with the
+// operation that reverses it, so the account ends the run as it started. Run
+// it with the repo's throwaway Nile key (v1-legacy:integration_test/test.env)
+// or any funded testnet key.
+func (c *checker) chainFlows() {
+	fmt.Println("chain-updating flows (-broadcast; each change is paired with its reversal):")
+	acct := c.cli.Account(c.owner)
+	before, err := acct.State(c.ctx)
+	if err != nil {
+		c.failed++
+		fmt.Printf("  FAIL  pre-run state: %v\n", err)
+		return
+	}
+	beforeRes, err := acct.Resources().State(c.ctx)
+	if err != nil {
+		c.failed++
+		fmt.Printf("  FAIL  pre-run resources: %v\n", err)
+		return
+	}
+	beforePayee, err := c.cli.Account(c.payee).State(c.ctx)
+	if err != nil {
+		c.failed++
+		fmt.Printf("  FAIL  pre-run payee state: %v\n", err)
+		return
+	}
+
+	c.rebalanceIn()
+	c.flowTRC20()
+	c.flowStaking()
+	c.flowDelegation()
+	c.flowVoting()
+	c.flowPermissions()
+	c.rebalanceOut()
+
+	after, err := acct.State(c.ctx)
+	if err != nil {
+		c.failed++
+		fmt.Printf("  FAIL  post-run state: %v\n", err)
+		return
+	}
+	afterRes, err := acct.Resources().State(c.ctx)
+	if err != nil {
+		c.failed++
+		fmt.Printf("  FAIL  post-run resources: %v\n", err)
+		return
+	}
+	c.step("Position restored (balances differ only by the fees burnt)", func() error {
+		payeeBefore := beforePayee.Balance
+		payeeAfter, err := c.cli.Account(c.payee).Balance(c.ctx)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("        owner %s -> %s TRX (spent %s: energy bought + bandwidth for %d transactions)\n",
+			before.Balance.Formatted(), after.Balance.Formatted(),
+			(before.Balance - after.Balance).Formatted(), c.sent)
+		fmt.Printf("        payee %s -> %s TRX (float %s TRX)\n",
+			payeeBefore.Formatted(), payeeAfter.Formatted(), c.floatSUN.Formatted())
+		fmt.Printf("        stakes %d -> %d, pending unstakes %d -> %d, energy limit %d -> %d\n",
+			len(before.Stakes), len(after.Stakes),
+			len(before.Unstakes), len(after.Unstakes),
+			beforeRes.EnergyLimit, afterRes.EnergyLimit)
+		if c.leaveUnstaked {
+			fmt.Println("        (-leave-unstaked: a pending unstake is expected to remain)")
+		} else if len(after.Unstakes) != len(before.Unstakes) {
+			return fmt.Errorf("pending unstakes changed: %d -> %d", len(before.Unstakes), len(after.Unstakes))
+		}
+		if len(after.Stakes) != len(before.Stakes) {
+			return fmt.Errorf("stake count changed: %d -> %d", len(before.Stakes), len(after.Stakes))
+		}
+		if payeeAfter > c.floatSUN+rebalanceReserve+rebalanceStep {
+			return fmt.Errorf("payee above its band at %s TRX; the return step should have run", payeeAfter.Formatted())
+		}
+		return nil
+	})
+	fmt.Println()
+}
+
+// send signs a built transaction and broadcasts it, waiting for inclusion.
+func (c *checker) send(name string, build func() (tronlib.Tx, error)) error {
+	toSend, err := build()
+	if err != nil {
+		return err
+	}
+	rec, err := c.cli.Broadcast(c.ctx, toSend)
+	if err != nil {
+		return err
+	}
+	if !rec.OK() {
+		return fmt.Errorf("node rejected: %s %s", rec.NodeCode, rec.Revert)
+	}
+	if _, err := c.cli.Wait(c.ctx, rec.TxID); err != nil {
+		return err
+	}
+	fmt.Printf("        %s: %s\n", name, rec.TxID)
+	c.sent++
+	return nil
+}
+
+// signExisting signs an already-built transaction with a specific signer.
+func (c *checker) sendWith(name string, tx tronlib.Tx, signer tronlib.Signer) error {
+	signed, err := signWith(tx, signer)
+	if err != nil {
+		return err
+	}
+	rec, err := c.cli.Broadcast(c.ctx, signed)
+	if err != nil {
+		return err
+	}
+	if !rec.OK() {
+		return fmt.Errorf("node rejected: %s %s", rec.NodeCode, rec.Revert)
+	}
+	if _, err := c.cli.Wait(c.ctx, rec.TxID); err != nil {
+		return err
+	}
+	fmt.Printf("        %s: %s\n", name, rec.TxID)
+	c.sent++
+	return nil
+}
+
+// signWith signs any concrete transaction kind with the given signer.
+func signWith(tx tronlib.Tx, signer tronlib.Signer) (tronlib.Tx, error) {
+	switch v := tx.(type) {
+	case *tronlib.NativeTx:
+		return v.Sign(signer)
+	case *tronlib.ContractTx:
+		return v.Sign(signer)
+	default:
+		return nil, fmt.Errorf("unsupported transaction kind %T", tx)
+	}
+}
+
+// rebalanceIn funds the counterparty when it is short, and rebalanceOut
+// returns what it did not spend. Together they keep the two keys' leftover TRX
+// balanced across runs: the only net movement is the bandwidth each run burns,
+// never a fixed amount drifting from one key to the other.
+//
+// The band is deliberate — topping up dust would cost more in bandwidth than
+// it moves.
+const (
+	// rebalanceStep rounds transfers to 0.1 TRX so the amounts stay readable.
+	rebalanceStep = tronlib.SUN(100_000)
+	// rebalanceReserve covers the bandwidth the returning transfer itself
+	// burns, so the return never leaves the payee unable to pay for it.
+	rebalanceReserve = tronlib.SUN(1_000_000)
+	// rebalanceMinReturn is the smallest return worth its own bandwidth.
+	rebalanceMinReturn = tronlib.SUN(500_000)
+)
+
+func ceilTo(amount, step tronlib.SUN) tronlib.SUN {
+	if amount <= 0 {
+		return 0
+	}
+	return ((amount + step - 1) / step) * step
+}
+
+func floorTo(amount, step tronlib.SUN) tronlib.SUN {
+	if amount <= 0 {
+		return 0
+	}
+	return (amount / step) * step
+}
+
+// rebalanceIn tops the payee up to the float when it has fallen short.
+func (c *checker) rebalanceIn() {
+	fmt.Println("  rebalance in (keeps the counterparty solvent without leaking):")
+	balance, err := c.cli.Account(c.payee).Balance(c.ctx)
+	if err != nil {
+		c.failed++
+		fmt.Printf("  FAIL  payee balance: %v\n", err)
+		return
+	}
+	shortfall := c.floatSUN - balance
+	if shortfall <= 0 {
+		c.step("Payee is at or above the float; nothing to send", func() error {
+			fmt.Printf("        payee holds %s TRX (float %s TRX)\n", balance.Formatted(), c.floatSUN.Formatted())
+			return nil
+		})
+		return
+	}
+	topUp := ceilTo(shortfall, rebalanceStep)
+	c.step("TransferTRX top-up "+topUp.Formatted()+" TRX to the payee", func() error {
+		if err := c.send("rebalance-in", func() (tronlib.Tx, error) {
+			built, err := c.cli.Account(c.owner).TransferTRX(c.ctx, c.payee, topUp)
+			if err != nil {
+				return nil, err
+			}
+			return built.Sign(c.signer)
+		}); err != nil {
+			return err
+		}
+		now, err := c.cli.Account(c.payee).Balance(c.ctx)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("        payee %s -> %s TRX\n", balance.Formatted(), now.Formatted())
+		return nil
+	})
+}
+
+// rebalanceOut returns everything the payee holds above the float plus a
+// bandwidth reserve, signed by the payee's own key — which also proves the
+// counterparty can authorize and broadcast its own transaction.
+func (c *checker) rebalanceOut() {
+	fmt.Println("  rebalance out (returns the run's leftovers):")
+	if c.payeeSigner == nil {
+		c.notes++
+		fmt.Println("  NOTE  no -payee-key given: the payee cannot return its excess, and it cannot run the payee-signed steps")
+		return
+	}
+	balance, err := c.cli.Account(c.payee).Balance(c.ctx)
+	if err != nil {
+		c.failed++
+		fmt.Printf("  FAIL  payee balance: %v\n", err)
+		return
+	}
+	excess := floorTo(balance-c.floatSUN-rebalanceReserve, rebalanceStep)
+	if excess < rebalanceMinReturn {
+		c.step("Payee is below the return threshold; nothing to send back", func() error {
+			fmt.Printf("        payee holds %s TRX (float %s TRX; the next run tops it back up to the float)\n",
+				balance.Formatted(), c.floatSUN.Formatted())
+			return nil
+		})
+		return
+	}
+	c.step("TransferTRX "+excess.Formatted()+" TRX back to the owner (signed by the payee)", func() error {
+		built, err := c.cli.Account(c.payee).TransferTRX(c.ctx, c.owner, excess)
+		if err != nil {
+			return err
+		}
+		signed, err := built.Sign(c.payeeSigner)
+		if err != nil {
+			return err
+		}
+		rec, err := c.cli.Broadcast(c.ctx, signed)
+		if err != nil {
+			return err
+		}
+		if !rec.OK() {
+			return fmt.Errorf("node rejected: %s %s", rec.NodeCode, rec.Revert)
+		}
+		if _, err := c.cli.Wait(c.ctx, rec.TxID); err != nil {
+			return err
+		}
+		c.sent++
+		fmt.Printf("        rebalance-out: %s\n", rec.TxID)
+		now, err := c.cli.Account(c.payee).Balance(c.ctx)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("        payee %s -> %s TRX\n", balance.Formatted(), now.Formatted())
+		return nil
+	})
+}
+
+// flowTRC20 proves approve -> transferFrom -> transfer with real value by
+// moving 0.1 of the token twice. transferFrom is the spender pulling from the
+// owner, which is the only reason to approve at all.
+func (c *checker) flowTRC20() {
+	fmt.Println("  TRC-20 (approve -> transferFrom -> transfer):")
+	handle, err := c.cli.Token(c.ctx, c.usdt)
+	if err != nil {
+		c.failed++
+		fmt.Printf("  FAIL  token: %v\n", err)
+		return
+	}
+	symbol, err := handle.Symbol(c.ctx)
+	if err != nil {
+		c.failed++
+		fmt.Printf("  FAIL  symbol: %v\n", err)
+		return
+	}
+	start, err := handle.BalanceOf(c.ctx, c.owner)
+	if err != nil {
+		c.failed++
+		fmt.Printf("  FAIL  balanceOf: %v\n", err)
+		return
+	}
+	fmt.Printf("        %s: owner holds %s\n", symbol, start.Formatted())
+	portion, err := handle.Amount("0.1")
+	if err != nil {
+		c.failed++
+		fmt.Printf("  FAIL  amount: %v\n", err)
+		return
+	}
+
+	c.step("Approve 0.1", func() error {
+		return c.send("approve", func() (tronlib.Tx, error) {
+			approve, err := handle.Approve(c.ctx, c.owner, c.payee, portion)
+			if err != nil {
+				return nil, err
+			}
+			return approve.Sign(c.signer)
+		})
+	})
+	c.step("Allowance reflects the approval", func() error {
+		allowance, err := handle.Allowance(c.ctx, c.owner, c.payee)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("        allowance %s\n", allowance.String())
+		if allowance.Raw().Cmp(portion.Raw()) < 0 {
+			return fmt.Errorf("allowance %s is below the approved %s", allowance.Raw(), portion.Raw())
+		}
+		return nil
+	})
+	c.step("transferFrom by the spender", func() error {
+		inst, err := c.cli.Contract(c.ctx, c.usdt)
+		if err != nil {
+			return err
+		}
+		pull, err := inst.Invoke(c.ctx, c.payee, 0, "transferFrom",
+			contract.AddressArg(c.owner), contract.AddressArg(c.payee), contract.BigIntArg(portion.Raw()))
+		if err != nil {
+			return err
+		}
+		// The spender pays this call. With no staked energy it buys all of it
+		// with TRX — this preview is what explains the payee's balance drop.
+		preview, err := c.cli.Account(c.payee).CostPreview(c.ctx, pull)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("        spender pays: needs %d energy, has %d staked, buys %d = %s TRX (+bandwidth)\n",
+			preview.EnergyNeeded, preview.EnergyAvailable, preview.EnergyToBuy, preview.TronToBurn.Formatted())
+		return c.sendWith("transferFrom", pull, c.payeeSigner)
+	})
+	c.step("Transfer 0.1 directly", func() error {
+		return c.send("transfer", func() (tronlib.Tx, error) {
+			move, err := handle.Transfer(c.ctx, c.owner, c.payee, portion)
+			if err != nil {
+				return nil, err
+			}
+			return move.Sign(c.signer)
+		})
+	})
+	c.step("Both balances moved by 0.2 net", func() error {
+		ownerNow, err := handle.BalanceOf(c.ctx, c.owner)
+		if err != nil {
+			return err
+		}
+		payeeNow, err := handle.BalanceOf(c.ctx, c.payee)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("        owner %s -> %s | payee %s\n", start.Formatted(), ownerNow.Formatted(), payeeNow.Formatted())
+		return nil
+	})
+}
+
+// flowStaking proves the stake lifecycle: staking raises the resource limit,
+// unstaking starts the cooldown without releasing it, and cancelling re-stakes
+// it immediately — which is what makes the sequence self-reversing.
+func (c *checker) flowStaking() {
+	fmt.Println("  staking lifecycle:")
+	res := c.cli.Account(c.owner).Resources()
+
+	// A previous run may have left an unstake maturing (the cooldown is a
+	// chain parameter: 1 day on Nile, 14 on Mainnet). Withdraw anything that
+	// has matured — this is the only way WithdrawUnstaked can be proven, since
+	// nothing matures inside a single run.
+	c.step("WithdrawUnstaked (anything matured from an earlier run)", func() error {
+		withdrawable, err := res.Withdrawable(c.ctx)
+		if err != nil {
+			return err
+		}
+		if withdrawable == 0 {
+			return nil
+		}
+		fmt.Printf("        %s TRX matured\n", withdrawable.Formatted())
+		return c.send("withdraw-unstaked", func() (tronlib.Tx, error) {
+			withdraw, err := res.WithdrawUnstaked(c.ctx)
+			if err != nil {
+				return nil, err
+			}
+			return withdraw.Sign(c.signer)
+		})
+	})
+	c.step("Stake 1 TRX for Energy", func() error {
+		return c.send("stake", func() (tronlib.Tx, error) {
+			stake, err := res.Stake(c.ctx, tronlib.Energy, tronlib.TRX(1))
+			if err != nil {
+				return nil, err
+			}
+			return stake.Sign(c.signer)
+		})
+	})
+	c.step("Energy limit rose", func() error {
+		rs, err := res.State(c.ctx)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("        energy limit %d, available %d\n", rs.EnergyLimit, rs.EnergyAvailable())
+		if rs.EnergyLimit <= 0 {
+			return fmt.Errorf("energy limit did not rise")
+		}
+		return nil
+	})
+	c.step("Unstake 1 TRX (enters the cooldown)", func() error {
+		return c.send("unstake", func() (tronlib.Tx, error) {
+			unstake, err := res.Unstake(c.ctx, tronlib.Energy, tronlib.TRX(1))
+			if err != nil {
+				return nil, err
+			}
+			return unstake.Sign(c.signer)
+		})
+	})
+	c.step("It is pending, not spendable", func() error {
+		state, err := c.cli.Account(c.owner).State(c.ctx)
+		if err != nil {
+			return err
+		}
+		withdrawable, err := res.Withdrawable(c.ctx)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("        %d pending unstake(s), %s withdrawable (cooldown %d day(s))\n",
+			len(state.Unstakes), withdrawable.Formatted(), c.cooldownDays())
+		if len(state.Unstakes) == 0 {
+			return fmt.Errorf("no pending unstake recorded")
+		}
+		if withdrawable != 0 {
+			fmt.Println("        note: something was already matured; the cooldown had elapsed")
+		}
+		return nil
+	})
+	if c.leaveUnstaked {
+		c.notes++
+		fmt.Println("  NOTE  -leave-unstaked: the 1 TRX stays in its cooldown; run again after it matures to prove WithdrawUnstaked")
+	} else {
+		c.step("CancelUnstake re-stakes it", func() error {
+			return c.send("cancel-unstake", func() (tronlib.Tx, error) {
+				cancel, err := res.CancelUnstake(c.ctx)
+				if err != nil {
+					return nil, err
+				}
+				return cancel.Sign(c.signer)
+			})
+		})
+	}
+
+	pending := func() (int, error) {
+		state, err := c.cli.Account(c.owner).State(c.ctx)
+		if err != nil {
+			return 0, err
+		}
+		return len(state.Unstakes), nil
+	}
+	if c.leaveUnstaked {
+		c.step("The unstake is left pending for the next run", func() error {
+			n, err := pending()
+			if err != nil {
+				return err
+			}
+			fmt.Printf("        pending unstakes: %d (expected by -leave-unstaked)\n", n)
+			if n == 0 {
+				return fmt.Errorf("-leave-unstaked was set but no unstake is pending")
+			}
+			return nil
+		})
+	} else {
+		c.step("No unstake is pending again", func() error {
+			n, err := pending()
+			if err != nil {
+				return err
+			}
+			fmt.Printf("        pending unstakes: %d\n", n)
+			if n != 0 {
+				return fmt.Errorf("cancel left %d pending unstake(s)", n)
+			}
+			return nil
+		})
+	}
+}
+
+// flowDelegation proves both delegation kinds: unlocked undelegates
+// immediately, locked is refused until the lock expires and then succeeds.
+func (c *checker) flowDelegation() {
+	fmt.Println("  delegation (unlocked, then locked):")
+	res := c.cli.Account(c.owner).Resources()
+
+	c.step("Delegate 1 TRX unlocked", func() error {
+		return c.send("delegate", func() (tronlib.Tx, error) {
+			delegate, err := res.Delegate(c.ctx, tronlib.Energy, c.payee, tronlib.TRX(1), tronlib.DelegateParams{})
+			if err != nil {
+				return nil, err
+			}
+			return delegate.Sign(c.signer)
+		})
+	})
+	c.step("Undelegate it immediately", func() error {
+		return c.send("undelegate", func() (tronlib.Tx, error) {
+			undelegate, err := res.Undelegate(c.ctx, tronlib.Energy, c.payee, tronlib.TRX(1))
+			if err != nil {
+				return nil, err
+			}
+			return undelegate.Sign(c.signer)
+		})
+	})
+
+	locked := false
+	c.step("Delegate 1 TRX locked for "+fmt.Sprint(c.lockBlocks)+" blocks", func() error {
+		delegate, err := res.Delegate(c.ctx, tronlib.Energy, c.payee, tronlib.TRX(1), tronlib.DelegateParams{
+			Lock:       true,
+			LockBlocks: c.lockBlocks,
+		})
+		if err != nil {
+			return err
+		}
+		signed, err := delegate.Sign(c.signer)
+		if err != nil {
+			return err
+		}
+		rec, err := c.cli.Broadcast(c.ctx, signed)
+		if err != nil {
+			return err
+		}
+		if !rec.OK() {
+			return fmt.Errorf("node rejected: %s %s", rec.NodeCode, rec.Revert)
+		}
+		if _, err := c.cli.Wait(c.ctx, rec.TxID); err != nil {
+			return err
+		}
+		locked = true
+		c.sent++
+		fmt.Printf("        locked delegate: %s\n", rec.TxID)
+		return nil
+	})
+	if !locked {
+		fmt.Println("        (locked delegation was refused by the node; skipping the lock proof)")
+		return
+	}
+	c.step("Undelegate while locked is refused", func() error {
+		undelegate, err := res.Undelegate(c.ctx, tronlib.Energy, c.payee, tronlib.TRX(1))
+		if err != nil {
+			fmt.Printf("        refused at build: %v\n", err)
+			return nil
+		}
+		signed, err := undelegate.Sign(c.signer)
+		if err != nil {
+			return err
+		}
+		rec, err := c.cli.Broadcast(c.ctx, signed)
+		if err != nil {
+			fmt.Printf("        refused at broadcast: %v\n", err)
+			return nil
+		}
+		if !rec.OK() {
+			fmt.Printf("        refused by the node: %s %s\n", rec.NodeCode, rec.Revert)
+			return nil
+		}
+		return fmt.Errorf("the lock did not hold: the delegation was undelegated at %s", rec.TxID)
+	})
+
+	if c.skipLockWait {
+		fmt.Println("        (-skip-lock-wait: leaving the delegation locked)")
+		return
+	}
+	wait := time.Duration(c.lockBlocks)*3*time.Second + 6*time.Second
+	fmt.Printf("        waiting %s for the lock to expire...\n", wait.Round(time.Second))
+	select {
+	case <-time.After(wait):
+	case <-c.ctx.Done():
+		return
+	}
+	c.step("Undelegate after the lock expires", func() error {
+		return c.send("undelegate (unlocked)", func() (tronlib.Tx, error) {
+			undelegate, err := res.Undelegate(c.ctx, tronlib.Energy, c.payee, tronlib.TRX(1))
+			if err != nil {
+				return nil, err
+			}
+			return undelegate.Sign(c.signer)
+		})
+	})
+}
+
+// flowVoting re-submits the account's existing vote list (a whole-list
+// replacement that changes nothing) and claims the accrued rewards.
+func (c *checker) flowVoting() {
+	fmt.Println("  voting (whole-list replace) + rewards:")
+	voting := c.cli.Account(c.owner).Voting()
+	votes, err := voting.Votes(c.ctx)
+	if err != nil {
+		c.failed++
+		fmt.Printf("  FAIL  votes: %v\n", err)
+		return
+	}
+	if len(votes) == 0 {
+		witnesses, err := c.cli.Witnesses(c.ctx, tronlib.Page{Limit: 1})
+		if err != nil || len(witnesses) == 0 {
+			c.notes++
+			fmt.Printf("  NOTE  no votes on the account and no witness list to pick from: %v\n", err)
+			return
+		}
+		votes = []tronlib.Vote{{Witness: witnesses[0].Address, Count: 1}}
+		fmt.Printf("        no existing votes; casting 1 TRON Power for %s\n", witnesses[0].Address)
+	}
+	c.step("SetVotes (replaces the whole list)", func() error {
+		return c.send("set-votes", func() (tronlib.Tx, error) {
+			vote, err := voting.SetVotes(c.ctx, votes)
+			if err != nil {
+				return nil, err
+			}
+			return vote.Sign(c.signer)
+		})
+	})
+	c.step("ClaimRewards", func() error {
+		rewards, err := voting.Rewards(c.ctx)
+		if err != nil {
+			return err
+		}
+		if rewards == 0 {
+			// A claim with nothing to withdraw is rejected at build time
+			// (tx.invalid_argument): the node state-validates it. Skipping is
+			// the honest outcome, not a failure.
+			c.notes++
+			fmt.Printf("  NOTE  ClaimRewards: nothing accrued (the node rejects a claim with no balance, at build time)\n")
+			return nil
+		}
+		fmt.Printf("        accrued %s TRX\n", rewards.Formatted())
+		return c.send("claim-rewards", func() (tronlib.Tx, error) {
+			claim, err := voting.ClaimRewards(c.ctx)
+			if err != nil {
+				return nil, err
+			}
+			return claim.Sign(c.signer)
+		})
+	})
+}
+
+// flowPermissions does not broadcast: the update fee is a governance
+// parameter (100 TRX) and a mis-specified owner permission can lock every
+// permission on the account. It reports the price and leaves the send to an
+// operator who means it.
+func (c *checker) flowPermissions() {
+	fmt.Println("  permissions (priced, not broadcast — see the harness doc):")
+	perms := c.cli.Account(c.owner).Permissions()
+	c.step("Price an identical permission update", func() error {
+		set, err := perms.Current(c.ctx)
+		if err != nil {
+			return err
+		}
+		update, err := perms.Update(c.ctx, set)
+		if err != nil {
+			return err
+		}
+		signed, err := update.Sign(c.signer)
+		if err != nil {
+			return err
+		}
+		cost, err := c.cli.Account(c.owner).TotalCost(c.ctx, signed)
+		if err != nil {
+			return err
+		}
+		balance, err := c.cli.Account(c.owner).Balance(c.ctx)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("        fee %s TRX, account holds %s TRX -> %s\n",
+			cost.PermissionUpdateFee.Formatted(), balance.Formatted(),
+			map[bool]string{true: "affordable", false: "NOT affordable, deliberately not sent"}[balance >= cost.PermissionUpdateFee])
+		return nil
+	})
+}
+
+func (c *checker) cooldownDays() int64 {
+	params, err := tronlib.ChainParamsOf(c.ctx, c.cli.Raw())
+	if err != nil {
+		return 0
+	}
+	return params.UnfreezeDelayDays
 }
