@@ -225,32 +225,26 @@ func TestRegisterABIJSONBadJSON(t *testing.T) {
 
 // --- FIX 1: full vendored builtin registry ---
 
-// TestBuiltinTableCountAndKeys asserts the vendored generated table is
-// complete (747 entries) and that every entry's registry key — derived from
-// its own canonical signature, the same way ABI registrations derive theirs —
-// is the v1 selector it is stored under, extended to the full 32-byte hash.
-// It also asserts the derived keys are distinct and each definition is
-// actually reachable in the global registry by that key: together those prove
-// re-keying the registry from 4-byte prefixes to full hashes lost no built-in
-// and left none resolving by prefix alone.
+// TestBuiltinTableCountAndKeys asserts the generated table is complete (747
+// entries) and that every entry's map key — the full 32-byte signature hash —
+// equals the hash derived from the definition itself, that the keys are
+// distinct, and that each definition is actually reachable in the global
+// registry by that key. Together those prove the table and the registry agree
+// on the key space and that no built-in is shadowed or lost.
 //
 // The reconstruction covers every entry, tuple and trcToken ones included:
-// v1's generator hashed the same literal type strings the table stores, which
-// is what makes the derivation exact. (Those few selectors are therefore not
-// the ones a real tuple-bearing event emits — a v1 corpus limitation, unchanged
-// here.)
+// the generator hashed the same literal type strings the table stores, which is
+// what makes the derivation exact.
 func TestBuiltinTableCountAndKeys(t *testing.T) {
-	if len(builtinSig4) != 747 {
-		t.Fatalf("builtin table has %d entries, want 747", len(builtinSig4))
+	if len(builtinSig) != 747 {
+		t.Fatalf("builtin table has %d entries, want 747", len(builtinSig))
 	}
-	derived := make(map[sigKey]string, len(builtinSig4))
-	for key, def := range builtinSig4 {
+	derived := make(map[sigKey]string, len(builtinSig))
+	for key, def := range builtinSig {
 		full := sigKeyOf(def.signature())
-		var got [4]byte
-		copy(got[:], full[:4])
 		sig := def.Name + "(" + strings.Join(inputTypes(def), ",") + ")"
-		if got != key {
-			t.Errorf("builtin %s: table key %x != keccak256(sig)[:4] %x", sig, key, got)
+		if full != key {
+			t.Errorf("builtin %s: table key %x != keccak256(sig) %x", sig, key, full)
 		}
 		if prev, dup := derived[full]; dup {
 			t.Errorf("builtin %s and %s derive the same registry key", sig, prev)
@@ -272,14 +266,13 @@ func inputTypes(def *Definition) []string {
 }
 
 // TestDecodeBuiltinSubmitTransaction decodes a NON-TRC-20 builtin end to
-// end: SubmitTransaction(uint256,address,uint256,bytes) from the vendored
-// v1 table (selector 0x00c29375), with indexed and non-indexed params.
+// end: SubmitTransaction(uint256,address,uint256,bytes) from the generated
+// table, with indexed and non-indexed params.
 func TestDecodeBuiltinSubmitTransaction(t *testing.T) {
 	sigTopic := keccakTopic(t, "SubmitTransaction(uint256,address,uint256,bytes)")
-	var key [4]byte
-	copy(key[:], sigTopic[:4])
-	if def := builtinSig4[key]; def == nil || def.Name != "SubmitTransaction" {
-		t.Fatal("SubmitTransaction missing from builtin table under its keccak prefix")
+	key := sigKeyOf("SubmitTransaction(uint256,address,uint256,bytes)")
+	if def := builtinSig[key]; def == nil || def.Name != "SubmitTransaction" {
+		t.Fatal("SubmitTransaction missing from builtin table under its full signature key")
 	}
 
 	// data = uint256 value(1000) + offset(0x40) + len(5) + "hello" padded.
