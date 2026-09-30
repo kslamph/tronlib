@@ -201,10 +201,10 @@ func (i *Instance) ABI() string {
 	return i.abiJSON
 }
 
-// Methods returns the loaded ABI's function names, sorted (architecture §7.6:
-// valid method values are enumerable). Empty until an ABI is loaded
-// (UseABI, or the lazy fetch triggered by the first Call/Invoke/Decode).
-// It performs no I/O.
+// Methods returns the loaded ABI's function names, sorted (architecture §9:
+// the call surface is enumerable, not an interface{} guess). Empty until an
+// ABI is loaded (UseABI, or the lazy fetch triggered by the first
+// Call/Invoke/Decode). It performs no I/O.
 func (i *Instance) Methods() []string {
 	i.mu.Lock()
 	defer i.mu.Unlock()

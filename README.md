@@ -1,7 +1,9 @@
 # TronLib
 
 A typed Go SDK for the TRON blockchain. One import for the happy path,
-explicit subpackages when you need the full surface.
+explicit subpackages when you need the full surface. Human developers and
+AI coding agents are equal first-class users — see
+[Two audiences](#two-audiences).
 
 - **Module:** `github.com/kslamph/tronlib/v2`
 - **Go:** 1.27.1 or newer
@@ -146,37 +148,46 @@ characters), `TRON_MNEMONIC`, `TRON_SIGNER_A_KEY`, `TRON_SIGNER_B_MNEMONIC`.
 ### Checking them against a live node
 
 Compilation proves the examples type-check, not that they are correct. The
-harness walks every flow above against a real node — reads, builds, local
-signing, simulation, cost pricing, the portable-envelope round trip and the
-node's signature-weight verdict — and spends nothing unless you ask it to:
+harness behind them, `cmd/examplecheck`, walks every documented flow against
+a real node — reads, builds, local signing, simulation, cost pricing, the
+multi-signature envelope round trip and the node's signature-weight verdict —
+and spends nothing unless asked to:
 
 ```bash
-# Spend-free: reads, builds, local signing, simulation, pricing, the envelope
-# round trip and the node's sign-weight verdict.
-go run ./cmd/examplecheck
-
-# On-chain: the same flows broadcast for real, each state change paired with
-# the operation that reverses it, and the run rebalanced between two keys.
-go run ./cmd/examplecheck -key "$K1" -payee "$KEY2_ADDR" -payee-key "$K2" \
-  -token TWRvzd6FQcsyp7hwCtttjZGpU1kfvVEtNK -broadcast
+go run ./cmd/examplecheck   # every flow, live node, zero spend
 ```
 
-Recorded runs are written up in the [verification
-ledger](docs/verification.md): R9 (spend-free, 34 steps OK) and R10 (on-chain,
-55 steps OK / 0 failed across three runs), which also documents the example bug
-that only execution could find — a reverting simulation returns revert data, not
-the method's return value.
+Recorded runs live in the [verification ledger](docs/verification.md): R9
+(spend-free, 34 steps OK), R10 (on-chain, 55 steps OK / 0 failed) with every
+txid — along with the flags for a broadcasting run, the run-to-run cost
+measurements, the example bug only execution could find (a reverting
+simulation returns revert data, not the method's return value), and what is
+deliberately not yet proven.
 
-`-broadcast` keeps the two keys' leftovers balanced: it tops the payee up to
-`-float` (3 TRX by default, enough to cover a TRC-20 call from an account with
-no staked energy) when short and returns anything above float + reserve, so
-repeated runs move the same money back and forth and the only net cost is the
-fees burnt (measured: ~9–10 TRX per run for 12 broadcasts). `-leave-unstaked`
-skips the cancel so a later run can prove `WithdrawUnstaked` once the unstake
-cooldown elapses.
+## Two audiences
+
+Human developers and AI coding agents are equal first-class users, and the
+documentation serves each natively:
+
+- **Errors are machine-readable remediation.** Every failure is a
+  `*tron.Error` with a stable `Code`, a `Hint` that names the fix, and a
+  `Next` action (`retry`, `wait`, `fix_call`, `fix_transaction`, `fund`).
+  The [error table](docs/errors.md) is generated from the source by
+  `cmd/docgen`, so it cannot drift from the code it documents.
+- **Examples are compiled and were executed.** Every example in
+  [docs/examples.md](docs/examples.md) is a Go example compiled by `go test`,
+  and the [verification ledger](docs/verification.md) records them running
+  against a live node, with txids.
+- **[`llms.txt`](llms.txt)** is the curated reading order — the four
+  documents an agent (or a human in a hurry) needs, plus the API's few
+  non-negotiable rules restated where they cannot be missed.
 
 ## Documentation
 
+- [`llms.txt`](llms.txt) — the curated reading order, for AI agents and fast readers
 - [Error reference](docs/errors.md)
 - [Examples](docs/examples.md)
+- [Architecture](docs/architecture.md) — the design, described and explained
+- [Review records & deferred work](docs/review.md) — review dispositions, TODO list
 - [Live verification ledger](docs/verification.md)
+- [Runbook](docs/runbook.md) — maintainer operations: live verification, docgen, release gates

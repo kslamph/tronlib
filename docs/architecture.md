@@ -1,11 +1,17 @@
 # tronlib v2 — Architecture
 
 **Status:** Adopted. This is the architecture reference for the shipped v2 API; the
-`(architecture §X)` references in code comments point here. §16 records the
-disposition of the original design review's findings.
-**Date:** 2026-08-31 (module-layout amendment: 2026-09-29)
+`(architecture §X)` references in code comments point here.
+**Date:** 2026-08-31 (module-layout amendment: 2026-09-29; process records moved out: 2026-09-30)
 **Scope:** Core API redesign.
 **Provenance:** Derived from a two-model adversarial design process (oracle draft + three independent attack lanes) with every P0 finding independently re-verified by execution.
+
+> **Document map.** This document describes and explains the design — nothing
+> else lives here. Review findings, their dispositions and the deferred-work
+> TODO list are in [review.md](review.md); on-chain evidence for every
+> behavioural claim in [verification.md](verification.md); maintainer
+> operations (live-verification harness, docgen, release gates) in
+> [runbook.md](runbook.md).
 
 > **Layout amendment (2026-09-29).** The module now lives at the repository root
 > as a single module, `github.com/kslamph/tronlib/v2`, released as `v2.0.0`; v1 is
@@ -551,7 +557,7 @@ type EnergyPrice struct {
 
 **Two stated limitations of `CostPreview`:**
 
-1. **Bandwidth is not modelled.** `Receipt.Cost` reports `NetFee`, so a preview→actual delta can contain bandwidth cost the preview never mentioned. `CostPreview` therefore carries an explicit `BandwidthNote` and §12's docs must state that the preview covers energy only. Adding a bandwidth line is a v2.1 item, not a v2.0 blocker.
+1. **Bandwidth is modelled on a single-signature estimate** *(the v2.1 item landed early, 2026-09-30, R13)*. `CostPreview` carries the bandwidth half on the same charging model `BandwidthCostOf` applies to a signed transaction — staked bandwidth first, then the free quota, any shortfall burning at `SunPerByte` — measured on a one-signature estimate of the broadcast bytes (each extra signature adds ~67 bytes, stated in `BandwidthNote`), plus `TotalFloor` = energy burn + bandwidth burn. A predicted burn the balance cannot cover fails with `account.insufficient_bandwidth` rather than reporting a number the node would refuse. Live-verified: the estimate equals the signed measurement exactly for one signature (R13).
 2. **Recipient activation is not modelled.** Sending TRX to an address that has never existed costs roughly 1.1 TRX (account creation plus bandwidth shortfall), and a contract transfer to an unactivated address costs about 25,000 extra energy. `CostPreview` cannot know the recipient's state without an account read, so it documents the delta rather than guessing it. An agent transferring to a fresh address will otherwise see an unexplained cost jump — which is exactly the class of surprise §8 exists to eliminate.
 
 **Staleness is a stated property, not an implementation detail.** `consumption_factor` is recomputed each maintenance period, so a `CostPreview` is a **floor, not a ceiling**. `PricedAt` exists so callers can set their own tolerance.
@@ -576,12 +582,21 @@ Exposing `CostPreview` before and `Receipt.Cost` after makes the delta between e
 
 `NodeCode string` on `Receipt` preserves the `api.Return_*` distinction that has three different remedies: `BANDWITH_ERROR` (buy bandwidth), `CONTRACT_EXE_ERROR` (arguments), `CONTRACT_VALIDATE_ERROR` (transaction shape). Collapsing these into one mapped code loses actionable signal, so the mapped `Code` and the raw `NodeCode` are both carried.
 
-### 7.5 To be verified by the implementor
+### 7.5 Verified against a live node (was: to be verified by the implementor)
 
-The following two statements are derived from reading the wire protocol and TIP-491, not from execution against a node. **Verify both before implementing `EstimateEnergy` and `CostPreview`.** If either is false, adjust the affected struct's semantics — the API shape in §7.2–§7.3 stands either way.
+Both statements below were derived from reading the wire protocol and
+TIP-491, then **verified by execution** — item 1 by E1/E2 (Simulate ==
+receipt on both an unpenalized Nile contract and a TIP-491-penalized
+Mainnet USDT transfer; re-proven at the R11 audit), item 2 by R6 (an
+account with 12005 staked energy: the stake consumed exactly 12005, only
+the 16564 shortfall was bought, and predicted burn == `EnergyFee` with
+delta 0). The API shape in §7.2–§7.3 stood as designed.
 
-1. **`EstimateEnergyMessage.EnergyRequired` already includes the TIP-491 penalty**, so no client-side factor multiplication is needed. Confirm by comparing `EnergyRequired` against `ResourceReceipt.EnergyUsageTotal` and `OriginEnergyUsage` for the same call on a contract known to carry a factor.
-2. **`burn = max(0, required − available) × price` matches what the chain actually charges.** Confirm by executing a contract call from an account with known staked energy and comparing the computed `TronToBurn` against `ResourceReceipt.EnergyFee`.
+1. **`EstimateEnergyMessage.EnergyRequired` already includes the TIP-491 penalty**, so no client-side factor multiplication is needed.
+2. **`burn = max(0, required − available) × price` matches what the chain actually charges.**
+
+Evidence and replay commands: [verification.md](verification.md) §1 (E1,
+E2, R1, R6).
 
 ---
 
@@ -950,31 +965,10 @@ Step 4 precedes all API work deliberately: `docgen` is the mechanism that keeps 
 
 ## 16. Review disposition
 
-Every finding from the original design review, with its verification status. Load-bearing claims were re-checked against source or the live protocol before being accepted; one review claim was found to be wrong.
-
-| ID | Finding | Status | Action |
-|---|---|---|---|
-| **B1** | `fee_limit` unsettable; contract calls go out with 0 | **Accepted — verified by inspection**: §4 promised methods §6 never defined | §6.4 `With*` family + documented defaults |
-| **B2** | `0x65` testnet prefix is false | **Accepted — verified against official docs**: `0x41` on Mainnet/Shasta/Nile; no `0x65`; no chain ID exists | §10 rewritten: `address.wrong_prefix` is format-only; `WithNetwork` explicit + `VerifyNetwork` heuristic |
-| **B3** | Deployment in scope but unassigned | **Accepted — verified**: v1 exposes `Manager.Deploy`, so omission is a regression | §6.1 `DeployTx` as a third kind, no simulate path |
-| **B4** | Expiration and permission id also undefined | **Accepted** | §6.4; expiration is the documented remedy for cross-process multi-sig circulation |
-| **G1** | No block data; `Wait` finality unspecified | **Partly accepted** | §6.6 adds `BlockNum`/`BlockTime`/`Solidified()`/`WaitForSolid`. **The review's parenthetical is wrong**: `EstimateEnergy` *is* on `WalletSolidity` (`pb/api/api_grpc.pb.go:6181`), not Wallet-only |
-| **G2** | No read path for view functions | **Accepted** | §9 `Instance.Call` / `CallAtBlock` |
-| **G3** | ABI `0x41`-strip rule absent | **Accepted** | §9.1 as a normative requirement with a named step-8 test |
-| **G4** | §6.4 rationale protocol-wrong | **Accepted — verified**: `DUP_TRANSACTION_ERROR` deduplicates identical payloads, so resend cannot double-spend; the hazard is rebuilding | §6.5 rewritten; `ActionWait` kept, reason corrected; `tx.duplicate` now mapped explicitly |
-| **G5** | `EnergyPrice` cache keyed on head block refetches every ~3 s | **Accepted** | §7.3 TTL-only rule |
-| **G6** | TRC-10 transfer homeless; C3 vs §3 disagree | **Accepted** | `AssetTx` + `TransferToken` in scope; §13 separates transfer from issuance |
-| **P2.1** | `TRX(10e15)` is a compile error, not a panic | **Accepted — verified by execution** | §5.2 corrected; real panic row added |
-| **P2.2** | Decimals cap 18 rejects valid uint8 tokens | **Accepted** | §5.4 accepts 0–255; `bad_metadata` reserved for wrong encoding width |
-| **P2.3** | `Add`/`Sub` unchecked vs `Mul` checked | **Accepted** | §5.3 all three checked |
-| **P2.4** | `Tx` claimed sealed but is not | **Accepted** | §6.1 adds `txInternal()` marker |
-| **P2.5** | Activation cost unmodelled | **Accepted as a documented limitation** | §7.3 note; not modelled in v2.0 |
-| **P2.6** | `CostPreview` ignores bandwidth | **Accepted as a documented limitation** | §7.3 note; bandwidth line deferred to v2.1 |
-| **P2.7** | `Network` type undefined | **Accepted** | §10 defines it |
-
-**Net effect on the design's spine:** none. The package DAG, the amount model, the error taxonomy, the four-kind F1 fix and docgen-before-API all survived review unchanged. Every accepted finding was a last-mile gap — a mechanism promised in one section and not defined in another, or a protocol fact stated from recollection. That is the same failure mode as P11, appearing in a document written to eliminate P11, which is worth noting as the real lesson here: **a spec that polices unverified claims still has to make them, and every one needs a source.**
-
----
+Moved to [review.md](review.md) §1 (2026-09-30), together with the
+quickstart-review findings (below, §17.1) and the consolidated deferred-work
+list. The section number is preserved because this document's §-references
+are load-bearing: code comments and other docs cite `(architecture §16)`.
 
 ## 17. Revision (2026-09-30): the account-scoped facade
 
@@ -985,28 +979,10 @@ the curated API at all.
 
 ### 17.1 What the quickstart review found
 
-The curated layer covered transfers, deployment, contract calls and cost
-preview, and `rpc` carried a 1:1 wrapper for essentially everything else. What
-was missing was not node support but **workflows**: the compositions of rpc +
-tx + sign + broadcast that a user actually performs. The inventory:
-
-| Workflow | Before this revision |
-|---|---|
-| TRX / TRC-10 / TRC-20 transfers, calls, deploy | Curated path existed |
-| Stake 2.0: stake, unstake, withdraw matured, cancel unstake | Raw `rpc` calls only; no builders, no facade |
-| Delegate / undelegate, delegation reads | Raw `rpc` calls only |
-| Multi-signature | `Sign(signers...)` and `WithPermissionID` existed; configuring permissions, checking weight and **moving a partial transaction between machines** did not |
-| Voting and reward claiming | `Witnesses` was curated; everything else was raw |
-| Account state (stake, unstake, votes, delegation totals) | Protobuf reads only, except `TronBalance` |
-
-Two structural consequences made this more than a naming gap:
-
-1. `Client.Broadcast` accepts the sealed `tx.Tx` interface, so a transaction
-   returned by a raw `rpc` build call **cannot** enter the curated signing
-   pipeline. A user following the quickstart could not stake without
-   dropping to protobufs.
-2. Multi-signature was only demonstrated within one process. There was no safe
-   way to hand a partially signed transaction to another signer.
+Moved to [review.md](review.md) §2 — the inventory of missing workflows that
+produced this revision (stake/delegation builders, permission configuration,
+portable multi-signature, voting, account-shaped reads). The number is
+preserved for the same §-reference reason as §16.
 
 ### 17.2 Reversed decisions
 

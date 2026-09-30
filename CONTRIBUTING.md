@@ -36,8 +36,10 @@ golangci-lint run          # same gate CI runs
 ```
 
 No environment variables or testnet accounts are required for unit tests.
-Live-network checks are explicit and manual (`go run ./cmd/tip491probe`);
-see [`docs/verification.md`](docs/verification.md).
+Live-network checks are explicit, manual and spend-free by default — the
+harness, its flags, measured costs and the release gate sequence are in
+[`docs/runbook.md`](docs/runbook.md); recorded evidence lives in
+[`docs/verification.md`](docs/verification.md).
 
 ## Reporting issues
 

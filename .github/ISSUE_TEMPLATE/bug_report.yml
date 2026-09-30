@@ -15,8 +15,8 @@ body:
       label: What happened?
       description: A clear, concise description of the bug. What did you expect instead?
       placeholder: |
-        Calling trc20.Transfer(...) returns "failed to pre-fetch decimals" against
-        contract <address> on Nile. Expected: the transfer builds and broadcasts.
+        Calling cli.Token(ctx, addr).Transfer(...) against contract <address> on Nile
+        returns token.New: contract.bad_metadata. Expected: the transfer builds.
     validations:
       required: true
   - type: dropdown
@@ -24,20 +24,16 @@ body:
     attributes:
       label: Which package?
       options:
-        - pkg/client (connections, broadcaster)
-        - pkg/trc20
-        - pkg/trc10
-        - pkg/smartcontract
-        - pkg/eventdecoder
-        - pkg/account
-        - pkg/signer
-        - pkg/voting
-        - pkg/network
-        - pkg/resources
-        - pkg/types
-        - pkg/utils
-        - example/ programs
-        - cmd/ tools
+        - root facade / Client (dial, broadcast, wait, aliases)
+        - account (state, staking, delegation, permissions, voting)
+        - tx (builders, With* options, signing, broadcast, receipts, cost)
+        - contract (ABI-driven calls, deploys)
+        - token (TRC-20 handle, decimal-aware amounts)
+        - event (log and event decoding)
+        - key (signers, mnemonic, message signing)
+        - rpc (1:1 gRPC wrapper surface)
+        - tron (addresses, SUN amounts, error codes)
+        - cmd/ tools (examplecheck, tip491probe, docgen)
         - docs / README
         - other / not sure
     validations:
@@ -46,8 +42,8 @@ body:
     id: version
     attributes:
       label: tronlib version
-      description: Output of `go list -m github.com/kslamph/tronlib` (or the commit if building from source).
-      placeholder: v1.x.y or commit SHA
+      description: Output of `go list -m github.com/kslamph/tronlib/v2` (or the commit if building from source).
+      placeholder: v2.x.y or commit SHA
     validations:
       required: true
   - type: input
@@ -55,7 +51,7 @@ body:
     attributes:
       label: Go version
       description: Output of `go version`.
-      placeholder: go version go1.25.0 darwin/arm64
+      placeholder: go version go1.27.0 darwin/arm64
     validations:
       required: true
   - type: textarea
@@ -70,7 +66,7 @@ body:
     id: logs
     attributes:
       label: Output / logs
-      description: Exact error text or logs. Redact anything sensitive.
+      description: Exact error text or logs (the tron.Error Code/Op/Hint lines especially). Redact anything sensitive.
       render: shell
     validations:
       required: false

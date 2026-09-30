@@ -1,0 +1,63 @@
+# tronlib
+
+> A typed Go SDK for the TRON blockchain (Go 1.27+, gRPC to a node). One
+> import for the happy path; explicit subpackages for the full surface.
+> Human developers and AI coding agents are equal first-class users: every
+> error carries a machine-readable code with a remediation hint, every
+> example is compiled in CI and was executed on a live node, and this file
+> is the curated reading order.
+
+Module: `github.com/kslamph/tronlib/v2`
+
+## Rules an agent must not get wrong
+
+- Amounts are integer SUN: 1 TRX = 1_000_000 SUN. Wrap literals in
+  `tronlib.TRX(n)`; parse dynamic strings with `tronlib.ParseTRX("1.5")`.
+  A bare integer where a `SUN` is expected compiles — and means SUN, not
+  TRX. TRC-20 amounts are separate opaque `token.Amount` values minted via
+  `handle.Amount("1.6")` / `handle.Whole(3)`.
+- Building, signing and broadcasting are separate steps.
+  `cli.Account(owner).TransferTRX(...)` returns an UNSIGNED transaction;
+  call `.Sign(signer)` then `cli.Broadcast(ctx, signed)`. The account
+  handle never holds a key; owner and signer may differ (multi-sig).
+- Node rejections are not Go errors: `Broadcast` returns a `Receipt` —
+  check `rec.OK()` before waiting. A rejected transaction never lands, so
+  `Wait` on it polls until the context deadline.
+- After an ambiguous broadcast (`chain.unconfirmed`): poll `Wait(txid)`;
+  do NOT rebuild and resign. Resending identical bytes is deduplicated;
+  rebuilding gets a new txid and spends twice.
+- TRC-20 (USDT & friends) goes through `cli.Token(ctx, addr)` with
+  decimal-aware amounts. `Account(owner).TransferTRC10` is the legacy
+  TRC-10 asset system, in raw asset units.
+
+## Read in this order
+
+- [README](README.md): the complete happy path — dial, transfer, sign,
+  broadcast, wait for finality — plus the packages table and Notes that
+  state the API's semantics in one line each (SUN, staking lifecycles,
+  receipts, multi-sig envelopes, `With*` option rules).
+- [Examples](docs/examples.md): whole-task examples — transfer, staking
+  and delegation, a contract call simulated/priced/decoded end to end,
+  TRC-20, permissions and offline multi-signature. Every one is compiled
+  by `go test`; each is a task, not a single API call.
+- [Error codes](docs/errors.md): the full code table (code → action →
+  meaning) generated from source by `cmd/docgen`, plus the
+  recovery-semantics legend (`retry` / `wait` / `fix_call` /
+  `fix_transaction` / `fund`).
+- [Architecture](docs/architecture.md): why the API is shaped this way —
+  the account-scoped facade, sealed interfaces, amount safety, the
+  double-spend reconciliation, and the decision log of reversed designs.
+
+## Evidence
+
+- [Verification ledger](docs/verification.md): every on-chain claim with
+  its txid, block and the exact command to re-check it — including §3,
+  what is deliberately NOT proven yet — plus the `cmd/examplecheck`
+  harness that walks every documented flow against a live node.
+
+## Maintainers
+
+- [Runbook](docs/runbook.md): live-verification harness flags and costs,
+  docgen regeneration, release gate sequence, ledger conventions.
+- [Review records](docs/review.md): review dispositions and the
+  consolidated deferred-work TODO list.

@@ -24,7 +24,8 @@ const (
 )
 
 // genesisID is the recorded block-0 id of each public network, fetched from
-// the network's own getblockbynum (architecture §2.1). It is data, not a derivation.
+// the network's own getblockbynum (architecture §10: VerifyNetwork compares
+// against recorded data, it never derives identity). It is data, not a derivation.
 var genesisID = map[Network]string{
 	Mainnet: "00000000000000001ebf88508a03865c71d452e25f4d51194196a1d22b6653dc",
 	Nile:    "0000000000000000d698d4192c56cb6be724a558448e2684802de4d6cd8690dc",
