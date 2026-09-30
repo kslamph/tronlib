@@ -1,15 +1,16 @@
 # Event tooling v2: 32-byte selective capture — design
 
 Date: 2026-09-30.
-Status: rev 2 — awaiting re-review (owner). Rev 2 resolves the review
-findings: the corpus moves out of the gitignored `tmp/`, signature
-derivation is shared with the registry instead of re-implemented, the
-caller/attribution rules are pinned, and the CI coverage/package split is
-stated.
+Status: rev 3 — awaiting re-review (owner). Rev 3 replaces popularity
+discovery (the rolling-24h caller walk) with a **snapshotted TronScan
+top-100 by `trxCount`**; the block walk, caller/owner decoding, txid join,
+worker pool and `--min-callers/--workers/--sleep-ms` are deleted. Rev 2
+findings (tracked corpus, shared signature derivation, CI package split)
+are retained.
 Scope: clean up the last v1 4-byte event concepts and rebuild the
-capture/insert/generate loop on native 32-byte keys, with popularity-gated
-selective capture. **No decode-*behavior* change** (`event/event.go`
-untouched; `event/registry.go` gains only exported pure helpers, §4).
+capture/insert/migrate/generate loop on native 32-byte keys.
+**No decode-*behavior* change** (`event/event.go` untouched;
+`event/registry.go` gains only exported pure helpers, §4).
 
 ## 1. Background
 
@@ -30,27 +31,43 @@ references them. `TestBuiltinTableCountAndKeys` proves
 `keccak(signature)[:4] == selector` for all 747 entries, so migration is
 lossless.
 
-## 2. Decisions (owner-approved; D2/D7 amended in rev 2)
+The v1 corpus was curated by walking blocks and counting distinct callers.
+That discovery step is the part worth replacing: it costs ~57k RPCs per 24h
+window, depends on wall-clock and node health, and yields a different set
+every run. A ranked, snapshotted source is smaller and reproducible.
 
-- D1 Single binary `cmd/eventtool` with `capture` / `insert` / `migrate` /
-  `generate` subcommands (precedent: `cmd/docgen`). Reusable logic lives in
-  `internal/eventtool/`; `cmd/eventtool/main.go` is flag parsing and wiring
-  only (precedent: `internal/format`, `internal/compilecheck`). See §5/§6
-  for why the split is load-bearing.
+## 2. Decisions (owner-approved; D4 replaced in rev 3)
+
+- D1 One binary `cmd/eventtool` with `contracts` / `capture` / `insert` /
+  `migrate` / `generate` subcommands (precedent: `cmd/docgen`). Reusable
+  logic lives in `internal/eventtool/`; `cmd/eventtool/main.go` is flag
+  parsing and wiring only (precedent: `internal/format`,
+  `internal/compilecheck`). See §6 for why the split is load-bearing.
 - D2 The corpus is **relocated to a tracked path, then migrated in place**:
   `internal/eventdata/events_registry.json`, new 32-byte schema, no 4-byte
-  field retained. The 7 ABIs move from `tmp/abi/` to
+  field retained. The 7 seed ABIs move from `tmp/abi/` to
   `internal/eventdata/abi/`. Nothing in this design may depend on a
   gitignored path.
 - D3 `event/builtin_gen.go` regenerated to `map[[32]byte]*Definition` now.
-- D4 Caller = **transaction sender** (tx owner joined by txid), threshold
-  **≥10 distinct senders**, window **exactly 24h of chain time ending at the
-  tip block's timestamp**, sub-threshold contracts **skipped entirely**.
-  Owner/attribution rules are pinned in §5.1.
-- D5 Gate/payload split: the caller count only **gates** a contract; once
-  gated, `capture` ingests the contract's **entire ABI** (all named event
-  entries), not just caller-triggered events.
-- D6 Store stays additive across periodic runs (upsert-if-absent, first-wins).
+- D4 **Contract selection = TronScan's contract ranking by call volume.**
+  `eventtool contracts` fetches the top 100 from
+  `https://apilist.tronscanapi.com/api/contracts?sort=-trxCount` and writes
+  the ranked list to the tracked `internal/eventdata/top_contracts.json`.
+  `capture` never calls TronScan — it consumes only the snapshot plus
+  on-chain ABIs, so the corpus is a pure function of (snapshot, chain) and
+  the same commit regenerates the same corpus. Refreshing the list is a
+  deliberate, diff-reviewable command.
+  - The endpoint caps `limit` at **50** (100 → HTTP 400), so top-100 is two
+    requests (`start=0` and `start=50`).
+  - **No verification filter.** Every deployed TRON contract carries an
+    on-chain ABI whether or not its source is verified, so all 100 are
+    fetched; `verify_status` is recorded in the snapshot for provenance
+    only. TronScan's `open-source-only`/`verified-only` params are ignored
+    by this endpoint anyway (verified against the live API).
+- D5 Gate/payload: selection only **gates** which contracts are captured;
+  once selected, `capture` ingests the contract's **entire ABI** (all named
+  event entries), not just events that appear in one call path.
+- D6 Store stays additive across runs (upsert-if-absent, first-wins).
   First-wins is permanent (pruning is a non-goal); the correction path — hand
   edit the corpus, regenerate — is stated in the runbook.
 - D7 **Signature derivation is shared, not re-implemented.** `event` exports
@@ -70,7 +87,7 @@ New schema per entry: `{sighash, signature, name, inputs}`.
   produced by `event.SignatureKey` (D7).
 - `signature` / `name` / `inputs` unchanged (`inputs`: `{type, indexed,
   name}`).
-- Migration is a pure function exposed as `eventtool migrate` (§5.3):
+- Migration is a pure function exposed as `eventtool migrate` (§5.4):
   recompute from `signature`, assert the first 4 bytes equal the old
   `selector`, fail loud on any mismatch, write atomically. The tuple /
   `trcToken` entries hash their literal stored type strings — the same input
@@ -105,71 +122,72 @@ New schema per entry: `{sighash, signature, name, inputs}`.
 ## 5. `cmd/eventtool`
 
 Layout: `cmd/eventtool/main.go` (flags + wiring only) and
-`internal/eventtool/{store,migrate,capture,abi,generate}.go`.
+`internal/eventtool/{store,contracts,capture,abi,migrate,generate}.go`.
 
-Dependencies: stdlib (`go/format`) + `tronlib` root (`Dial`) +
-`rpc.GetBlockByNum2` / `rpc.GetTransactionInfoByBlockNum` / `rpc.GetContract`
-+ `event` (pure derivation helpers) + `pb/core` + `google.golang.org/protobuf`
-(`proto`, `types/known/anypb`, `reflect/protoreflect`). Importing `event`
-runs its builtin `init()` in-process; the tool never *mutates* the registry
-and never decodes logs.
+Dependencies: stdlib (`net/http`, `encoding/json`, `go/format`) + `tronlib`
+root (`Dial`) + `rpc.GetContract` + `event` (pure derivation helpers).
+Importing `event` runs its builtin `init()` in-process; the tool never
+*mutates* the registry and never decodes logs.
 
 Shared store: `map[sighash-hex]SavedEvent` with `Load` (new schema only),
 atomic `Save` (tmp + rename), `Upsert` (insert-if-absent, returns bool).
 
-### 5.1 `capture [--node=grpc://127.0.0.1:50051 --out=internal/eventdata/events_registry.json --min-callers=10 --sleep-ms=250 --workers=8]`
+### 5.1 `contracts [--limit=100 --out=internal/eventdata/top_contracts.json --api=...api/contracts]`
 
-1. `Dial`, `ChainTip` → tip `N`; fetch the tip block, take `T` = its
-   `blockTimeStamp`, so the window is exactly 24h of chain time ending at the
-   tip.
-2. Walk heights `N, N-1, ...`, fetching block AND infos per height (worker
-   pool over heights), until the block's `blockTimeStamp < T-24h`. `--sleep-ms`
-   is a **global** inter-dispatch throttle shared by all `--workers`, not a
-   per-worker delay. A fetch that fails after a small bounded retry (3
-   attempts, backoff) **aborts the run** with a non-zero exit and writes
-   nothing: qualification is a property of the whole window, so a partial
-   window would under-count. (Cross-run resumability is a non-goal; the
-   documented fallback for a window too slow to walk is sampling — out of
-   scope.)
-3. Join by txid. The block carries `core.Transaction`s but no txid, so
-   compute `txid = sha256(serialized raw_data)`, matching `TransactionInfo.id`.
-   Caller = the tx's **owner**: decode the contract `parameter` `Any`
-   (`anypb.UnmarshalNew`) and read its `owner_address` field generically via
-   `protoreflect` (every TRON contract message that has a sender names it
-   `owner_address`); txs whose parameter does not decode, or has no
-   `owner_address`, are skipped.
-   Attribution is to the **directly-called contract only** —
-   `info.ContractAddress` — with `log[].address` used only as a fallback when
-   `ContractAddress` is empty. Internal-call emitters do not earn a caller.
-   Tally `contract → distinct-owner set` in memory.
-4. Qualifier iff `len(owners) >= --min-callers` (default 10). Below
-   threshold: nothing — no ABI fetch, no write, no cross-run state.
-5. Per qualifier, `GetContract` once → keep the ABI entries with
-   `type == "Event"` and a non-empty `name` (anonymous events are skipped:
-   they have no topic0 and cannot be signature-decoded) → canonical
-   `CanonicalSignature(name, types)` → `Upsert` (D5: whole ABI, D6:
-   first-wins). Atomic save-on-insert; SIGINT/SIGTERM saves and stops.
-6. Report: `heights / contracts seen / qualified / new events`. Exit 0.
+1. GET the ranking in 50-row pages until `--limit` (100) rows are collected,
+   pacing requests to stay under TronScan's 5 req/s (2 requests here).
+2. Write the snapshot atomically in rank order:
 
-Cost disclosure: ~2 RPCs/height (~57k per full 24h window at TRON's ~3s
-blocks). `--workers` (default 8) bounds wall-time; the ABI fetch lands only
-on qualifiers.
+   ```json
+   {
+     "source": "https://apilist.tronscanapi.com/api/contracts?sort=-trxCount",
+     "rank_by": "trxCount",
+     "fetched_at": "2026-09-30T13:30:00Z",
+     "limit": 100,
+     "contracts": [
+       {"rank": 1, "address": "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
+        "name": "TetherToken", "trxCount": 3644148431, "verify_status": 2}
+     ]
+   }
+   ```
 
-### 5.2 `insert [--in (required) --out=internal/eventdata/events_registry.json]`
+3. Uses the public endpoint with no API key (works anonymously); sends the
+   key as a header when `TRONSCAN_API_KEY` is set. Prints
+   `N contracts (rank 1..N by trxCount)`.
+
+### 5.2 `capture [--node=grpc://127.0.0.1:50051 --in=internal/eventdata/top_contracts.json --out=internal/eventdata/events_registry.json]`
+
+1. Load the snapshot (§5.1 output). Refuses to run if it is absent or
+   malformed — it does not fall back to a live fetch (D4 determinism).
+2. `Dial` the node. For each contract in rank order: `rpc.GetContract` once →
+   keep ABI entries with `type == "Event"` and a non-empty `name` (anonymous
+   events are skipped: they have no topic0 and cannot be signature-decoded) →
+   canonical `CanonicalSignature(name, types)` → `Upsert` (D5: whole ABI, D6:
+   first-wins). An address whose ABI carries no event entries is counted
+   skipped, not fatal (defensive: TRON contracts normally ship an ABI).
+3. Sequential by default (100 calls); an optional `--concurrency` (default 1)
+   may widen it without changing the result — upsert is order-independent.
+4. Atomic save-on-insert; SIGINT/SIGTERM saves and stops.
+5. Report: `contracts / with events / new events / skipped`. Exit 0.
+
+Cost: 2 HTTP requests per `contracts` refresh; 100 `GetContract` calls per
+`capture`. No block walk, no caller tallies, no time window.
+
+### 5.3 `insert [--in (required) --out=internal/eventdata/events_registry.json]`
 
 v1 loader port. Reads an ABI file (raw array or `{"abi":[...]}`), minimal
 local JSON parse (name + inputs only), canonical signature + full-hash
 upsert. Prints `N new event(s) added`. Same signature/sighash verification as
 §3.
 
-### 5.3 `migrate [--in=internal/eventdata/events_registry.json --out=same]`
+### 5.4 `migrate [--in=internal/eventdata/events_registry.json --out=same]`
 
 Reads a v1 `{selector, ...}` corpus, derives `sighash` from each
 `signature`, asserts the 4-byte prefix equals the stored `selector`, writes
 the new schema atomically. Idempotent. This is the only sanctioned way the
 committed corpus changes shape.
 
-### 5.4 `generate [--in=internal/eventdata/events_registry.json --out=event/builtin_gen.go]`
+### 5.5 `generate [--in=internal/eventdata/events_registry.json --out=event/builtin_gen.go]`
 
 Reads the corpus (sighash-verified), dedups by sighash first-wins, emits
 `event/builtin_gen.go` through `go/format` (replaces v1's hand-rolled
@@ -183,16 +201,24 @@ Reads the corpus (sighash-verified), dedups by sighash first-wins, emits
 - Update `TestDecodeBuiltinSubmitTransaction`
   (`event/event_test.go:274-282`), which also indexes the table by a 4-byte
   key, to the 32-byte key.
-- New `internal/eventtool` tests: store round-trip + first-wins + old-schema
-  rejection; `migrate` on a fixture old corpus (prefix assertion fires on a
-  corrupt entry, idempotent on a new one); **corpus-vs-registry drift**:
-  load the tracked corpus and assert every entry's `signature ==
-  CanonicalSignature(...)` and `sighash == hex(SignatureKey(...))`, with
-  fixtures `Transfer(address,address,uint256)` and
-  `SubmitTransaction(uint256,address,uint256,bytes)`; `generate`
-  golden-output check (parses via `go/parser`, spot `go build`).
-- New `event` test: `SignatureKey` agrees with `sigKeyOf` on fixtures
-  (locks D7).
+- New `internal/eventtool` tests:
+  - `contracts`: parse a recorded TronScan response fixture
+    (`internal/eventtool/testdata/contracts_page{1,2}.json`), assert 2-page
+    paging at the 50-row cap and the snapshot schema/rank order.
+  - `capture`: against a stub `GetContract` fetcher returning a
+    `core.SmartContract_ABI` (functions + events + one anonymous event),
+    assert only named events are upserted and first-wins holds; a second
+    address with no event entries counts as skipped.
+  - store round-trip + first-wins + old-schema rejection;
+  - `migrate` on a fixture old corpus (prefix assertion fires on a corrupt
+    entry, idempotent on a new one);
+  - **corpus-vs-registry drift**: load the tracked corpus and assert every
+    entry's `signature == CanonicalSignature(...)` and `sighash ==
+    hex(SignatureKey(...))`, with fixtures `Transfer(address,address,uint256)`
+    and `SubmitTransaction(uint256,address,uint256,bytes)`;
+  - `generate` golden-output check (parses via `go/parser`, spot `go build`).
+- New `event` test: `SignatureKey` agrees with `sigKeyOf` on fixtures (locks
+  D7).
 - Coverage/CI: logic in `internal/eventtool` is instrumented and covered. Add
   `cmd/eventtool` to the package exclusion list in
   `.github/workflows/test-coverage.yml` (alongside `cmd/examplecheck`,
@@ -204,8 +230,10 @@ Reads the corpus (sighash-verified), dedups by sighash first-wins, emits
 ## 7. Docs
 
 - `event/doc.go`: source-of-truth wording for the corpus + tool commands.
-- `docs/runbook.md`: the four `eventtool` commands (flags, periodic-run
-  recipe, first-wins correction path, fallback note).
+- `docs/runbook.md`: the five `eventtool` commands (flags, the
+  refresh-diff-capture-generate recipe, first-wins correction path, note that
+  TronScan's contract list is an external dependency snapshotted into the
+  repo).
 - No `architecture.md` renumbering (section numbers are load-bearing for
   code comments); touch only if a section names the v1 generator.
 
@@ -214,13 +242,15 @@ Reads the corpus (sighash-verified), dedups by sighash first-wins, emits
 - Moved: `tmp/events_registry.json` → `internal/eventdata/events_registry.json`
   (then migrated in place to §3's schema, 747 entries); `tmp/abi/*.json` →
   `internal/eventdata/abi/`.
+- Added (tracked data): `internal/eventdata/top_contracts.json`.
 - Regenerated: `event/builtin_gen.go`.
-- Added: `cmd/eventtool/main.go`; `internal/eventtool/{store,migrate,capture,
-  abi,generate}_*.go`.
+- Added (code): `cmd/eventtool/main.go`; `internal/eventtool/{store,contracts,
+  capture,abi,migrate,generate}_*.go`; `internal/eventtool/testdata/*`.
 - Touched: `event/registry.go` (D7 helpers + comment), `event/event_test.go`,
   `event/doc.go`, `docs/runbook.md`,
   `.github/workflows/test-coverage.yml` (exclusion).
 - Deleted: nothing beyond the `tmp/` move (v1 cmds already absent; the 4-byte
   fields above are the last remnants).
-- Non-goals: decode-path changes, per-address scoping in the tool, count
-  persistence across runs, sampling, pruning of stale builtin entries.
+- Non-goals: decode-path changes, per-address scoping in the tool, pruning of
+  stale builtin entries, live TronScan fetching inside `capture`, block-walk
+  discovery.
