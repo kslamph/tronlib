@@ -1,0 +1,133 @@
+[
+    {
+        "inputs": [
+            {
+                "name": "_logic",
+                "type": "address"
+            },
+            {
+                "name": "admin_",
+                "type": "address"
+            },
+            {
+                "name": "_data",
+                "type": "bytes"
+            }
+        ],
+        "stateMutability": "Nonpayable",
+        "type": "Constructor"
+    },
+    {
+        "inputs": [
+            {
+                "name": "target",
+                "type": "address"
+            }
+        ],
+        "name": "AddressEmptyCode",
+        "type": "Error"
+    },
+    {
+        "inputs": [
+            {
+                "name": "admin",
+                "type": "address"
+            }
+        ],
+        "name": "ERC1967InvalidAdmin",
+        "type": "Error"
+    },
+    {
+        "inputs": [
+            {
+                "name": "implementation",
+                "type": "address"
+            }
+        ],
+        "name": "ERC1967InvalidImplementation",
+        "type": "Error"
+    },
+    {
+        "name": "ERC1967NonPayable",
+        "type": "Error"
+    },
+    {
+        "name": "FailedInnerCall",
+        "type": "Error"
+    },
+    {
+        "inputs": [
+            {
+                "name": "previousAdmin",
+                "type": "address"
+            },
+            {
+                "name": "newAdmin",
+                "type": "address"
+            }
+        ],
+        "name": "AdminChanged",
+        "type": "Event"
+    },
+    {
+        "inputs": [
+            {
+                "indexed": true,
+                "name": "implementation",
+                "type": "address"
+            }
+        ],
+        "name": "Upgraded",
+        "type": "Event"
+    },
+    {
+        "stateMutability": "Payable",
+        "type": "Fallback"
+    },
+    {
+        "outputs": [
+            {
+                "type": "address"
+            }
+        ],
+        "name": "admin",
+        "stateMutability": "View",
+        "type": "Function"
+    },
+    {
+        "inputs": [
+            {
+                "name": "newAdmin",
+                "type": "address"
+            }
+        ],
+        "name": "changeAdmin",
+        "stateMutability": "Nonpayable",
+        "type": "Function"
+    },
+    {
+        "outputs": [
+            {
+                "type": "address"
+            }
+        ],
+        "name": "implementation",
+        "stateMutability": "View",
+        "type": "Function"
+    },
+    {
+        "inputs": [
+            {
+                "name": "newImplementation",
+                "type": "address"
+            }
+        ],
+        "name": "upgradeTo",
+        "stateMutability": "Nonpayable",
+        "type": "Function"
+    },
+    {
+        "stateMutability": "Payable",
+        "type": "Receive"
+    }
+]

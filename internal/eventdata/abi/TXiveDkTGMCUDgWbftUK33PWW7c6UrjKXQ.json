@@ -1,0 +1,129 @@
+[
+    {
+        "inputs": [
+            {
+                "indexed": true,
+                "name": "previousOwner",
+                "type": "address"
+            },
+            {
+                "indexed": true,
+                "name": "newOwner",
+                "type": "address"
+            }
+        ],
+        "name": "OwnershipTransferred",
+        "type": "Event"
+    },
+    {
+        "name": "claimOwnership",
+        "stateMutability": "Nonpayable",
+        "type": "Function"
+    },
+    {
+        "outputs": [
+            {
+                "name": "_bytecode",
+                "type": "bytes"
+            },
+            {
+                "name": "_address",
+                "type": "address"
+            }
+        ],
+        "inputs": [
+            {
+                "name": "_salt",
+                "type": "uint256"
+            }
+        ],
+        "name": "getDeposit",
+        "stateMutability": "View",
+        "type": "Function"
+    },
+    {
+        "outputs": [
+            {
+                "type": "bytes7"
+            }
+        ],
+        "name": "getFactoryVersion",
+        "stateMutability": "Pure",
+        "type": "Function"
+    },
+    {
+        "outputs": [
+            {
+                "type": "address"
+            }
+        ],
+        "name": "owner",
+        "stateMutability": "View",
+        "type": "Function"
+    },
+    {
+        "outputs": [
+            {
+                "type": "address"
+            }
+        ],
+        "name": "recipient",
+        "stateMutability": "View",
+        "type": "Function"
+    },
+    {
+        "outputs": [
+            {
+                "type": "address"
+            }
+        ],
+        "name": "token",
+        "stateMutability": "View",
+        "type": "Function"
+    },
+    {
+        "inputs": [
+            {
+                "name": "_newOwner",
+                "type": "address"
+            }
+        ],
+        "name": "transferOwnership",
+        "stateMutability": "Nonpayable",
+        "type": "Function"
+    },
+    {
+        "inputs": [
+            {
+                "name": "_token",
+                "type": "address"
+            },
+            {
+                "name": "_salt",
+                "type": "uint256"
+            }
+        ],
+        "name": "withdraw",
+        "stateMutability": "Nonpayable",
+        "type": "Function"
+    },
+    {
+        "inputs": [
+            {
+                "name": "_anotherAddress",
+                "type": "address"
+            },
+            {
+                "name": "_token",
+                "type": "address"
+            },
+            {
+                "name": "_salt",
+                "type": "uint256"
+            }
+        ],
+        "name": "withdrawToAnotherAddress",
+        "stateMutability": "Nonpayable",
+        "type": "Function"
+    }
+]
