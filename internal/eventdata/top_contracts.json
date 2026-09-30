@@ -1,0 +1,708 @@
+{
+  "source": "https://apilist.tronscanapi.com/api/contracts?sort=-trxCount",
+  "rank_by": "trxCount",
+  "fetched_at": "2026-09-30T07:16:56Z",
+  "limit": 100,
+  "contracts": [
+    {
+      "rank": 1,
+      "address": "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
+      "name": "TetherToken",
+      "trxCount": 3644148431,
+      "verify_status": 2
+    },
+    {
+      "rank": 2,
+      "address": "TK5qKN9xJoLfCzZPG6Mj642WQtvbiHCTMx",
+      "name": "",
+      "trxCount": 136419999,
+      "verify_status": 0
+    },
+    {
+      "rank": 3,
+      "address": "TWmhXhXjgXTj87trBufmWFuXtQP8sCWZZV",
+      "name": "TronBetDice",
+      "trxCount": 134031029,
+      "verify_status": 0
+    },
+    {
+      "rank": 4,
+      "address": "TEEXEWrkMFKapSMJ6mErg39ELFKDqEs6w3",
+      "name": "TronBet",
+      "trxCount": 97251614,
+      "verify_status": 0
+    },
+    {
+      "rank": 5,
+      "address": "TXSjGe7jtfHwiTFxxfER8PKVz9vc1N8u2x",
+      "name": "",
+      "trxCount": 60574898,
+      "verify_status": 0
+    },
+    {
+      "rank": 6,
+      "address": "TV7rB5oK44V3MNS3CKWpQBF6piyeQB6fMt",
+      "name": "Token",
+      "trxCount": 44364191,
+      "verify_status": 0
+    },
+    {
+      "rank": 7,
+      "address": "TSvin3om2vWuw5stbxTeDQrpqH2VSKTpKz",
+      "name": "TronBetLivePool",
+      "trxCount": 39083677,
+      "verify_status": 0
+    },
+    {
+      "rank": 8,
+      "address": "TNNxU7Jez9Q4bXREBrBxrmTLnzpAtKDRhw",
+      "name": "TrxChainInsurance",
+      "trxCount": 38473982,
+      "verify_status": 2
+    },
+    {
+      "rank": 9,
+      "address": "TVkNuE1BYxECWq85d8UR9zsv6WppBns9iH",
+      "name": "",
+      "trxCount": 38166932,
+      "verify_status": 0
+    },
+    {
+      "rank": 10,
+      "address": "TGVtEmiB9EH4Rt1sEvvsaaBCQHvBVEkvYN",
+      "name": "",
+      "trxCount": 30049884,
+      "verify_status": 0
+    },
+    {
+      "rank": 11,
+      "address": "TTagN2hiUpt7HBbLTgLWi8qQoSmfrXn9Zp",
+      "name": "TronBetRakePool",
+      "trxCount": 28480040,
+      "verify_status": 0
+    },
+    {
+      "rank": 12,
+      "address": "TSQyuZowokRp3TMRCcrbsDnhnnDSg7gtMT",
+      "name": "",
+      "trxCount": 27736479,
+      "verify_status": 0
+    },
+    {
+      "rank": 13,
+      "address": "TF4m79ExoxxhCTMeDkKTXY1ygPbcd8wHxS",
+      "name": "BankOfTron",
+      "trxCount": 22123859,
+      "verify_status": 4
+    },
+    {
+      "rank": 14,
+      "address": "TBTxi4miSX4SJL8rM38eTaRb8AA16py27x",
+      "name": "TronBetRing",
+      "trxCount": 20930801,
+      "verify_status": 0
+    },
+    {
+      "rank": 15,
+      "address": "TGtGhthzyLBYPUKDysXX1YSgRKPYVTQuMe",
+      "name": "888Tron",
+      "trxCount": 19566829,
+      "verify_status": 4
+    },
+    {
+      "rank": 16,
+      "address": "TTcz2rtb8uDD7NZz5MVU8U9wLAcS72bgYf",
+      "name": "DiceGame",
+      "trxCount": 18823297,
+      "verify_status": 0
+    },
+    {
+      "rank": 17,
+      "address": "TRyzgWGjzvXx88ExpHS8L9DXxwTtNEaN68",
+      "name": "WinDividend",
+      "trxCount": 18801233,
+      "verify_status": 0
+    },
+    {
+      "rank": 18,
+      "address": "TK9CYa8SU17Kk95Hy9cktp9mBiKYUccTWS",
+      "name": "Token",
+      "trxCount": 17572314,
+      "verify_status": 0
+    },
+    {
+      "rank": 19,
+      "address": "TVj7RNVHy6thbM7BWdSe9G6gXwKhjhdNZS",
+      "name": "Klever",
+      "trxCount": 16439089,
+      "verify_status": 2
+    },
+    {
+      "rank": 20,
+      "address": "TFJDc5RmS5HuLRujYSFwHadHQbnz1GXJ48",
+      "name": "TronBetLiveDivider",
+      "trxCount": 16225040,
+      "verify_status": 0
+    },
+    {
+      "rank": 21,
+      "address": "TXijhBT8JcWV9ZNucbUmMzhDngEPtLu1a9",
+      "name": "",
+      "trxCount": 13922972,
+      "verify_status": 0
+    },
+    {
+      "rank": 22,
+      "address": "TZ7y9zuk1LMfp4JLFPrs1EcqXuqZukmBYG",
+      "name": "TronWow",
+      "trxCount": 13716383,
+      "verify_status": 0
+    },
+    {
+      "rank": 23,
+      "address": "TTH1sxRXqdLtbNXTCjQGdRp9nKV6DhdzJk",
+      "name": "TronBetMoon",
+      "trxCount": 13332226,
+      "verify_status": 0
+    },
+    {
+      "rank": 24,
+      "address": "TRkXAjRA6rRsCZ31DofFsZYYPjtz8fvL1u",
+      "name": "TronBetRing",
+      "trxCount": 12028955,
+      "verify_status": 0
+    },
+    {
+      "rank": 25,
+      "address": "TBcBEdghMBi4NtCNQ8ZvdSXgm7xvzMwbqz",
+      "name": "LiveStakingDividend",
+      "trxCount": 11565683,
+      "verify_status": 0
+    },
+    {
+      "rank": 26,
+      "address": "TVwXxvyYawS21PT1B7XZxBZCMbQZLUENoE",
+      "name": "ATT",
+      "trxCount": 10429388,
+      "verify_status": 0
+    },
+    {
+      "rank": 27,
+      "address": "TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE",
+      "name": "CreatedByContract",
+      "trxCount": 10397198,
+      "verify_status": 2
+    },
+    {
+      "rank": 28,
+      "address": "TZFs5ch1R1C4mmjwrrmZqeqbUgGpxY1yWB",
+      "name": "PumpswapRouter",
+      "trxCount": 10081115,
+      "verify_status": 2
+    },
+    {
+      "rank": 29,
+      "address": "TXnBP1MHkYww9R9mrAgcZ8i4t5TKvFnXWy",
+      "name": "DiceGame",
+      "trxCount": 9660878,
+      "verify_status": 0
+    },
+    {
+      "rank": 30,
+      "address": "TLa2f6VPqDgRE67v1736s7bJ8Ray5wYjU7",
+      "name": "WINKLINK",
+      "trxCount": 9395306,
+      "verify_status": 2
+    },
+    {
+      "rank": 31,
+      "address": "TGfbkJww3x5cb9u4ekLtZ9hXvJo48nUSi4",
+      "name": "",
+      "trxCount": 9124800,
+      "verify_status": 0
+    },
+    {
+      "rank": 32,
+      "address": "THk5qH79SoAaUnUh8JVdRarSESTZpqPjSQ",
+      "name": "",
+      "trxCount": 8996421,
+      "verify_status": 0
+    },
+    {
+      "rank": 33,
+      "address": "TFFAMQLZybALaLb4uxHA9RBE7pxhUAjF3U",
+      "name": "UpgradableProxy",
+      "trxCount": 8641872,
+      "verify_status": 0
+    },
+    {
+      "rank": 34,
+      "address": "THnSDgi6Do7Kvqhys7PndZvPVGzGRN4Y7c",
+      "name": "TrxChain",
+      "trxCount": 8620436,
+      "verify_status": 2
+    },
+    {
+      "rank": 35,
+      "address": "TP7s2QG9tVESyTnvgTmpDbRzENw7cQnk68",
+      "name": "DiceCashier",
+      "trxCount": 8513794,
+      "verify_status": 0
+    },
+    {
+      "rank": 36,
+      "address": "TBnNBhyQQs3VbiYnmFnpu2yLKmiALUPxUd",
+      "name": "dataSaveChianForAG",
+      "trxCount": 7776712,
+      "verify_status": 0
+    },
+    {
+      "rank": 37,
+      "address": "TXiYhx9paXyDzPqgT6nCkzxKYtn2gHVNDp",
+      "name": "TronBetRakeDivider",
+      "trxCount": 7752444,
+      "verify_status": 0
+    },
+    {
+      "rank": 38,
+      "address": "TVSkd22mRhjgTr2XSSuL6faTgo4jALmNuH",
+      "name": "TronBetMoon",
+      "trxCount": 7699976,
+      "verify_status": 0
+    },
+    {
+      "rank": 39,
+      "address": "TRYiHLtgTs7mBvE8JKWjGAZLq2nM1pR6j9",
+      "name": "",
+      "trxCount": 7351956,
+      "verify_status": 0
+    },
+    {
+      "rank": 40,
+      "address": "TSMbPm5mUsaTDSEjHCd55ZJaib3Ysvjyc5",
+      "name": "TronMarket",
+      "trxCount": 7234448,
+      "verify_status": 0
+    },
+    {
+      "rank": 41,
+      "address": "TLHmcRxAKAvZpykrycxhjjniCQDD1bCeyU",
+      "name": "dataSaveChianForAG",
+      "trxCount": 7148581,
+      "verify_status": 0
+    },
+    {
+      "rank": 42,
+      "address": "TJwfth2Jhtzry3bzdUUfK2xcreMMcrZnBC",
+      "name": "TronBetMineOracle",
+      "trxCount": 6807011,
+      "verify_status": 0
+    },
+    {
+      "rank": 43,
+      "address": "TFczxzPhnThNSqr5by8tvxsdCFRRz6cPNq",
+      "name": "APENFT",
+      "trxCount": 6684646,
+      "verify_status": 2
+    },
+    {
+      "rank": 44,
+      "address": "TBm1y7BY5XeuXAwUQBU6RUZJ4LGiqHWgUQ",
+      "name": "dataSaveChianForAG",
+      "trxCount": 6595927,
+      "verify_status": 0
+    },
+    {
+      "rank": 45,
+      "address": "TCgnJmYmMUJ9eS6x62Vj7YFfpBM1DTL8V8",
+      "name": "TRC20Trade",
+      "trxCount": 6285393,
+      "verify_status": 0
+    },
+    {
+      "rank": 46,
+      "address": "TBWFVJvnveYW7VTkM9sucxogsh1vgbewh5",
+      "name": "",
+      "trxCount": 6212869,
+      "verify_status": 0
+    },
+    {
+      "rank": 47,
+      "address": "TMT8CPuyV9saDEr1zwM7zzq8cL7s2y8wZi",
+      "name": "",
+      "trxCount": 5585938,
+      "verify_status": 0
+    },
+    {
+      "rank": 48,
+      "address": "TTNag1RsrBp4pWkndttM7z7vAjui1m9had",
+      "name": "R",
+      "trxCount": 5579282,
+      "verify_status": 0
+    },
+    {
+      "rank": 49,
+      "address": "TLFupxZS4m66Vfc1gcFH5pfiAFhmXsc7Kg",
+      "name": "TronDivs",
+      "trxCount": 5447071,
+      "verify_status": 2
+    },
+    {
+      "rank": 50,
+      "address": "TFdko4yMVrKZarYLkC8XKgjrRmhsu9D7iA",
+      "name": "Mother",
+      "trxCount": 5391969,
+      "verify_status": 0
+    },
+    {
+      "rank": 51,
+      "address": "TW76veo5eQotWrtjP4fjDCDfBDM8fzhoC8",
+      "name": "TronDice",
+      "trxCount": 5190108,
+      "verify_status": 0
+    },
+    {
+      "rank": 52,
+      "address": "TPwezUWpEGmFBENNWJHwXHRG1D2NCEEt5s",
+      "name": "Bridgers",
+      "trxCount": 5149104,
+      "verify_status": 2
+    },
+    {
+      "rank": 53,
+      "address": "TYVxHYG2fxJjoHD3UtdQmoXgdRyT8FSznS",
+      "name": "",
+      "trxCount": 5107908,
+      "verify_status": 0
+    },
+    {
+      "rank": 54,
+      "address": "TCFLL5dx5ZJdKnWuesXxi1VPwjLVmWZZy9",
+      "name": "JST",
+      "trxCount": 4696302,
+      "verify_status": 2
+    },
+    {
+      "rank": 55,
+      "address": "THrHnUGWzjGx61ftewCBPxSS6B9dHbwEBM",
+      "name": "",
+      "trxCount": 4593668,
+      "verify_status": 0
+    },
+    {
+      "rank": 56,
+      "address": "TR5Ffqku2qeMH1do646K25bkGMaCqjZN1o",
+      "name": "TronDice",
+      "trxCount": 4529789,
+      "verify_status": 0
+    },
+    {
+      "rank": 57,
+      "address": "TMbtaxgjAqEwp6Z6UyGw9mctE4A9TDRFk7",
+      "name": "Goo",
+      "trxCount": 4495866,
+      "verify_status": 0
+    },
+    {
+      "rank": 58,
+      "address": "TAnJeiFqVEFHEs7KAaEfR4xEesGW1UwTYP",
+      "name": "",
+      "trxCount": 4436982,
+      "verify_status": 0
+    },
+    {
+      "rank": 59,
+      "address": "TARciDTaL5Bpsqf5YeLzNkyj9zj7Uctfpb",
+      "name": "ToCandy",
+      "trxCount": 4381002,
+      "verify_status": 0
+    },
+    {
+      "rank": 60,
+      "address": "TU2MJ5Veik1LRAgjeSzEdvmDYx7mefJZvd",
+      "name": "MarketProxy",
+      "trxCount": 4342986,
+      "verify_status": 2
+    },
+    {
+      "rank": 61,
+      "address": "THeo5hYWegUqbNSp1L16jekLJrKb8DVRZQ",
+      "name": "DiceCashier",
+      "trxCount": 4312332,
+      "verify_status": 0
+    },
+    {
+      "rank": 62,
+      "address": "TQYuR8FpmhMJK3ZpfoTgERjaZRywqMnFAH",
+      "name": "PAYNET",
+      "trxCount": 4293386,
+      "verify_status": 2
+    },
+    {
+      "rank": 63,
+      "address": "TXF1xDbVGdxFGbovmmmXvBGu8ZiE3Lq4mR",
+      "name": "SunswapV2Router02",
+      "trxCount": 4239081,
+      "verify_status": 2
+    },
+    {
+      "rank": 64,
+      "address": "TML8ktbzU1KgfeuGXEefEmCBVG6tFAKKqi",
+      "name": "tron_poker",
+      "trxCount": 4200328,
+      "verify_status": 0
+    },
+    {
+      "rank": 65,
+      "address": "TCFNp179Lg46D16zKoumd4Poa2WFFdtqYj",
+      "name": "SmartExchangeRouter",
+      "trxCount": 4173296,
+      "verify_status": 0
+    },
+    {
+      "rank": 66,
+      "address": "TAFjULxiVgT4qWk6UZwjqwZXTSaGaqnVp4",
+      "name": "BTT",
+      "trxCount": 4146096,
+      "verify_status": 2
+    },
+    {
+      "rank": 67,
+      "address": "TY256VcJCXDAKDuGDXFFvqyuD4LSWbBJ86",
+      "name": "",
+      "trxCount": 4000268,
+      "verify_status": 0
+    },
+    {
+      "rank": 68,
+      "address": "TVRqMwBZU13c4wx6Hi6jqroCnYv2nrqQU1",
+      "name": "TGOLDe",
+      "trxCount": 3712191,
+      "verify_status": 2
+    },
+    {
+      "rank": 69,
+      "address": "TXaSfPHBrEmgXb2MHfN9cwGusHtCoydStf",
+      "name": "AceGame",
+      "trxCount": 3645846,
+      "verify_status": 0
+    },
+    {
+      "rank": 70,
+      "address": "TTfvyrAz86hbZk5iDpKD78pqLGgi8C7AAw",
+      "name": "LaunchPadProxy",
+      "trxCount": 3567601,
+      "verify_status": 2
+    },
+    {
+      "rank": 71,
+      "address": "TFHXfDuHmq6yFCTVKp5xfxTWcHay5rpAN6",
+      "name": "Moon",
+      "trxCount": 3501848,
+      "verify_status": 0
+    },
+    {
+      "rank": 72,
+      "address": "TCGST91DVQ4XGM5kEbupUWAE8CBJDJq9Fs",
+      "name": "TRC20",
+      "trxCount": 3488036,
+      "verify_status": 0
+    },
+    {
+      "rank": 73,
+      "address": "TMwj214xSNyWh7mSYwtXeTTEzin2Z4QyPE",
+      "name": "TronBetMine",
+      "trxCount": 3487548,
+      "verify_status": 0
+    },
+    {
+      "rank": 74,
+      "address": "TVSsyDQ2xVAHThJMrFwwMSm9Y5VwSb8LjS",
+      "name": "DiceStakingDividendPlus",
+      "trxCount": 3437030,
+      "verify_status": 0
+    },
+    {
+      "rank": 75,
+      "address": "TKTcfBEKpp5ZRPwmiZ8SfLx8W7CDZ7PHCY",
+      "name": "TWX",
+      "trxCount": 3220746,
+      "verify_status": 0
+    },
+    {
+      "rank": 76,
+      "address": "TCkBkQBnSmsNXJvdn5ihPKUjUSHrjfT5xv",
+      "name": "CreatedByContract",
+      "trxCount": 3212605,
+      "verify_status": 0
+    },
+    {
+      "rank": 77,
+      "address": "TPPbgUArxSFX6p597sXMSp9FHjXQY7GxxP",
+      "name": "MinesCashier",
+      "trxCount": 3088787,
+      "verify_status": 0
+    },
+    {
+      "rank": 78,
+      "address": "TCREraSkMwj5vMtXn25mAXLNCaSqET55mP",
+      "name": "TronBetRakePool",
+      "trxCount": 3084568,
+      "verify_status": 0
+    },
+    {
+      "rank": 79,
+      "address": "TVRwKecUN5iLMdNhA7RYGTRZWuecei2rxC",
+      "name": "DDOS",
+      "trxCount": 3035063,
+      "verify_status": 0
+    },
+    {
+      "rank": 80,
+      "address": "TM2EUpMXqXqBN4CbzrafiDbK3occQtxbVY",
+      "name": "TRONtopia_classic_dice",
+      "trxCount": 2947723,
+      "verify_status": 0
+    },
+    {
+      "rank": 81,
+      "address": "THAwnD8pTTZMdUmmVjGXCYW8DdY74xkNpm",
+      "name": "TronBetLive",
+      "trxCount": 2944826,
+      "verify_status": 0
+    },
+    {
+      "rank": 82,
+      "address": "TMpgs9ezRBi7oixrgWtjYsx2U5Adef9tNj",
+      "name": "",
+      "trxCount": 2920640,
+      "verify_status": 0
+    },
+    {
+      "rank": 83,
+      "address": "TTmQYPPZ3N3AfSFx4NKm4or2zwDn8dvKRE",
+      "name": "",
+      "trxCount": 2884050,
+      "verify_status": 0
+    },
+    {
+      "rank": 84,
+      "address": "TJUWKa3esTw9ou1nFsYViF6YK5HoYtzmzH",
+      "name": "Dice",
+      "trxCount": 2870295,
+      "verify_status": 0
+    },
+    {
+      "rank": 85,
+      "address": "TW63ChA2TFUrX7D9zpYuNa7pPb2RLXFGBZ",
+      "name": "",
+      "trxCount": 2804233,
+      "verify_status": 0
+    },
+    {
+      "rank": 86,
+      "address": "TMYcx6eoRXnePKT1jVn25ZNeMNJ6828HWk",
+      "name": "TRONdice",
+      "trxCount": 2662687,
+      "verify_status": 0
+    },
+    {
+      "rank": 87,
+      "address": "TKkeiboTkxXKJpbmVFbv4a8ov5rAfRDMf9",
+      "name": "SunToken",
+      "trxCount": 2662653,
+      "verify_status": 2
+    },
+    {
+      "rank": 88,
+      "address": "TEkxiTehnzSmSe2XqrBj4w32RUN966rdz8",
+      "name": "FiatTokenProxy",
+      "trxCount": 2573937,
+      "verify_status": 0
+    },
+    {
+      "rank": 89,
+      "address": "TWiti6GpPJPRXtCFKURdTtxN7UEcurQoeS",
+      "name": "TRONex",
+      "trxCount": 2562054,
+      "verify_status": 2
+    },
+    {
+      "rank": 90,
+      "address": "TEoxVRxwNQJygDEMWg7PwR18AES1JJ6Fs7",
+      "name": "DragonCastle",
+      "trxCount": 2465649,
+      "verify_status": 0
+    },
+    {
+      "rank": 91,
+      "address": "TEEhQt3UsbARyWofJsgT3FuZ9cwbyADB16",
+      "name": "Dice",
+      "trxCount": 2453679,
+      "verify_status": 0
+    },
+    {
+      "rank": 92,
+      "address": "TGP1UsPZmjAKhXVgW1VsRaoy6CtLqbw8Nt",
+      "name": "",
+      "trxCount": 2443371,
+      "verify_status": 0
+    },
+    {
+      "rank": 93,
+      "address": "THnCkTX1GfDArAuyzzv2nGpDt4vChm8t2e",
+      "name": "TrxMarket",
+      "trxCount": 2400881,
+      "verify_status": 0
+    },
+    {
+      "rank": 94,
+      "address": "TYemZc2xRyGcB831F1XstGJ1sSSW6NC6KG",
+      "name": "TronTradeCancel",
+      "trxCount": 2363909,
+      "verify_status": 0
+    },
+    {
+      "rank": 95,
+      "address": "TP3EEG5Jgim3Dm83k7rfD1gg8g3jfmnGgY",
+      "name": "CrazyDogsLive",
+      "trxCount": 2298229,
+      "verify_status": 0
+    },
+    {
+      "rank": 96,
+      "address": "TKzxdSv2FZKQrEqkKVgp5DcwEXBEKMg2Ax",
+      "name": "SunswapV2Router02",
+      "trxCount": 2280042,
+      "verify_status": 0
+    },
+    {
+      "rank": 97,
+      "address": "TKQ2WmYs9KRmD3c9TwUMjZ3vj5BKgADUZ5",
+      "name": "",
+      "trxCount": 2258758,
+      "verify_status": 0
+    },
+    {
+      "rank": 98,
+      "address": "TJ7C9ajLYi5TD6zcuHWxGsLXLHfEpQV1m4",
+      "name": "Token",
+      "trxCount": 2131724,
+      "verify_status": 0
+    },
+    {
+      "rank": 99,
+      "address": "TEpC1DGvDdfrDf83JZDUzdNZydeHz9w21H",
+      "name": "TUMarket",
+      "trxCount": 2130319,
+      "verify_status": 0
+    },
+    {
+      "rank": 100,
+      "address": "TTnSmkMNBoxeBMbEA84x29wmR98WbQYdbQ",
+      "name": "",
+      "trxCount": 2076711,
+      "verify_status": 0
+    }
+  ]
+}

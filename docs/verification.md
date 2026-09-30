@@ -400,6 +400,41 @@ total floor 2.5038 TRX (energy + bandwidth; bandwidth priced on a single-signatu
 - Gates: full suite + `-race` + `golangci-lint` 0 issues; `tx` coverage
   84.7% (floor 80%).
 
+### R14 — eventtool live capture against Envoy (mainnet, 2026-09-30)
+
+The v1 4-byte event remnants were replaced by the 32-byte `cmd/eventtool`
+pipeline (spec `docs/superpowers/specs/2026-09-30-eventtool-design.md`). Node
+access went through the local Envoy gRPC proxy `~/envoy` (listener
+`grpc://127.0.0.1:50051` → 19 mainnet full nodes, no rate limits):
+
+```bash
+docker compose -f ~/envoy/compose.yaml up -d
+go run ./cmd/eventtool contracts --limit 100 --out internal/eventdata/top_contracts.json
+go run ./cmd/eventtool capture --node grpc://127.0.0.1:50051 \
+  --in internal/eventdata/top_contracts.json \
+  --out internal/eventdata/events_registry.json
+go run ./cmd/eventtool generate --in internal/eventdata/events_registry.json \
+  --out event/builtin_gen.go
+```
+
+Measured, live:
+
+- `contracts`: **100 contracts** ranked by `trxCount` (TronScan's default list;
+  two 50-row pages), snapshot written to `internal/eventdata/top_contracts.json`
+  (`fetched_at` 2026-09-30T07:16:56Z). Rank 1 USDT
+  `TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t`; rank 100
+  `TTnSmkMNBoxeBMbEA84x29wmR98WbQYdbQ`.
+- `capture`: **100 contracts / 77 with events / 155 new events / 23 skipped**
+  in ~40 s sequential (one `GetContract` per address). 23 addresses carry an
+  ABI with no event entries (proxy/treasury-shaped contracts).
+- corpus **747 → 902 entries** (no duplicate signatures); the curated baseline
+  survived first-wins.
+- `generate`: **902 definitions** → `event/builtin_gen.go`, keys as 32-byte
+  array literals; re-running is byte-identical (idempotent).
+- The whole corpus verifies against `event.SignatureKey`
+  (`TestTrackedCorpusVerifies`), and the regenerated table is consistent and
+  distinct-keyed (`TestBuiltinTableCountAndKeys`).
+
 ## 3. Negative records (what is NOT proven)
 
 - **Nile TIP-491**: factor 0 on Nile USDT (usage 7,506 vs 5e9 threshold);

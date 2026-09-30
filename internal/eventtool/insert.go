@@ -41,7 +41,7 @@ func InsertABI(data []byte, s *Store) (int, error) {
 		}
 		inputs := make([]SavedInput, len(e.Inputs))
 		for i, p := range e.Inputs {
-			inputs[i] = SavedInput{Type: p.Type, Indexed: p.Indexed, Name: p.Name}
+			inputs[i] = SavedInput(p)
 		}
 		if s.Upsert(makeSavedEvent(e.Name, inputs)) {
 			added++

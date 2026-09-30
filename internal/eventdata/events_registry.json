@@ -278,6 +278,38 @@
     ]
   },
   {
+    "sighash": "06394aceeb75e9fc6deadbb78aeba19f342d0131c907f38332030ae2bb795db5",
+    "signature": "Jackpot(address,uint256,uint256,uint256,uint8)",
+    "name": "Jackpot",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "user"
+      },
+      {
+        "type": "uint256",
+        "indexed": true,
+        "name": "types"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "jackpot"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "odds"
+      },
+      {
+        "type": "uint8",
+        "indexed": false,
+        "name": "round"
+      }
+    ]
+  },
+  {
     "sighash": "06417103c5093d12990826b58599d5c19605dc971709b37d7df2b8ee67ff4e69",
     "signature": "DepositEvent(address,uint8,uint256)",
     "name": "DepositEvent",
@@ -318,6 +350,75 @@
         "type": "address",
         "indexed": false,
         "name": "portal"
+      }
+    ]
+  },
+  {
+    "sighash": "06b5eda7664d1db8122bb01bbffe40d5ae0958bbe47e3edab25996cf35383646",
+    "signature": "RakeDivideCreate(uint64,uint64,uint64,uint64,uint64)",
+    "name": "RakeDivideCreate",
+    "inputs": [
+      {
+        "type": "uint64",
+        "indexed": true,
+        "name": "round"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "trxAmountTotal"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "rakeAmountTotal"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "maxHolderIndex"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "tmCreate"
+      }
+    ]
+  },
+  {
+    "sighash": "06eda748c05341b4761e812f29f6e1e26a258a02751069e066331382e133d829",
+    "signature": "LiveDividendCreate(uint256,uint64,uint256,uint256[],uint32,uint32)",
+    "name": "LiveDividendCreate",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": true,
+        "name": "round"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "totalStakingAmount"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "trxTrc10"
+      },
+      {
+        "type": "uint256[]",
+        "indexed": false,
+        "name": "trc20s"
+      },
+      {
+        "type": "uint32",
+        "indexed": false,
+        "name": "stakingInfoLength"
+      },
+      {
+        "type": "uint32",
+        "indexed": false,
+        "name": "start"
       }
     ]
   },
@@ -509,6 +610,33 @@
     ]
   },
   {
+    "sighash": "0b0b865a94f64a4460fa4e8449633c2c36b9f7a7398850bea03652fd6550c2e8",
+    "signature": "SnapshotCompleted(uint32,uint64,uint64,uint32)",
+    "name": "SnapshotCompleted",
+    "inputs": [
+      {
+        "type": "uint32",
+        "indexed": false,
+        "name": "snapshotCnt"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "totalStakingAmount"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "devStakingAmount"
+      },
+      {
+        "type": "uint32",
+        "indexed": false,
+        "name": "stakingInfoLength"
+      }
+    ]
+  },
+  {
     "sighash": "0b41c00d759e4bb53001631786d766a06e172d365fd7c6b59618476f79d59855",
     "signature": "DepositStaked(address,uint256,bool)",
     "name": "DepositStaked",
@@ -634,6 +762,53 @@
     ]
   },
   {
+    "sighash": "0ddc90cb7cb47fb8320e5e5735c1ed51c3abfdea971dc562f7c8639905d4f2f0",
+    "signature": "PendingOrder(uint256,uint256,uint256,address,uint256,uint256,uint256,uint256)",
+    "name": "PendingOrder",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "orderID"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "orderStatus"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "orderType"
+      },
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "user"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "firstToken"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "firstAmount"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "secondAmount"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "price"
+      }
+    ]
+  },
+  {
     "sighash": "0e2fb031ee032dc02d8011dc50b816eb450cf856abd8261680dac74f72165bd2",
     "signature": "Paused(bool)",
     "name": "Paused",
@@ -741,6 +916,53 @@
     ]
   },
   {
+    "sighash": "0fc3a62b6d557ba83c143ee1db772b281737dd01bd409b4bcaefbb9ec600b09f",
+    "signature": "RareWins(address,uint256,uint256,uint256,uint256,uint256,bool,uint256)",
+    "name": "RareWins",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "user"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_startNumber"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_endNumber"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_winningNumber"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_value"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_winamount"
+      },
+      {
+        "type": "bool",
+        "indexed": false,
+        "name": "result"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "timestamp"
+      }
+    ]
+  },
+  {
     "sighash": "1002381ecf76700f6f0ab4c90b9f523e39df7b0482b71ec63cf62cf854120470",
     "signature": "ConfirmAuction(uint256,uint256,uint256)",
     "name": "ConfirmAuction",
@@ -819,6 +1041,48 @@
     ]
   },
   {
+    "sighash": "106a9a42bc3b799ae7f02bbc949a4d94f10c116e3f67116210e54d91c4552cf2",
+    "signature": "saveBetToLog(string,string,string,string,string,string,string)",
+    "name": "saveBetToLog",
+    "inputs": [
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "loginName"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "orderNo"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "gamePlatfom"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "gameType"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "amount"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "createDate"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "currency"
+      }
+    ]
+  },
+  {
     "sighash": "106f923f993c2149d49b4255ff723acafa1f2d94393f561d3eda32ae348f7241",
     "signature": "RewardClaimed(address,uint256)",
     "name": "RewardClaimed",
@@ -866,6 +1130,48 @@
         "type": "uint256",
         "indexed": true,
         "name": "tron_bought"
+      }
+    ]
+  },
+  {
+    "sighash": "10c86261b978686ffcd80ce4b49e1d3b01e2d88e035fc5e65e1a1968e6cad017",
+    "signature": "card_change(address,uint256,bool,bool,bool,bool,bool)",
+    "name": "card_change",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "player"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "time"
+      },
+      {
+        "type": "bool",
+        "indexed": false,
+        "name": "change1"
+      },
+      {
+        "type": "bool",
+        "indexed": false,
+        "name": "change2"
+      },
+      {
+        "type": "bool",
+        "indexed": false,
+        "name": "change3"
+      },
+      {
+        "type": "bool",
+        "indexed": false,
+        "name": "change4"
+      },
+      {
+        "type": "bool",
+        "indexed": false,
+        "name": "change5"
       }
     ]
   },
@@ -926,6 +1232,12 @@
     ]
   },
   {
+    "sighash": "12533cfcdd9be2976a6528079a7d8e45ad3e21aa124aa379e0b5739a4d0ccf3b",
+    "signature": "OnActive()",
+    "name": "OnActive",
+    "inputs": []
+  },
+  {
     "sighash": "1277c40d3995d03eeadf7af7147df2ead7d26264fa4de606233a307590fe3338",
     "signature": "UpdateFlushSize(uint256)",
     "name": "UpdateFlushSize",
@@ -946,6 +1258,23 @@
         "type": "address",
         "indexed": false,
         "name": "a"
+      }
+    ]
+  },
+  {
+    "sighash": "13b46ae1da3b476d0302ec781f7dd6982727671bc7bc07411d908daeb468751e",
+    "signature": "PlayerWithdraw(address,uint256)",
+    "name": "PlayerWithdraw",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "user"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "amount"
       }
     ]
   },
@@ -1013,6 +1342,23 @@
     ]
   },
   {
+    "sighash": "14b43ca4c63c5423006ad978eab8a14386476b52f1d4728070ea20a36f13e83b",
+    "signature": "WithDraw(address,uint256)",
+    "name": "WithDraw",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "_addr"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_amount"
+      }
+    ]
+  },
+  {
     "sighash": "14dd550c0106443ee279cdaf6ad03fb646a304915a95793b02cb74d1008a6313",
     "signature": "BaseUserLimitUpdated(uint256)",
     "name": "BaseUserLimitUpdated",
@@ -1073,6 +1419,18 @@
         "type": "bytes",
         "indexed": false,
         "name": "offchainConfig"
+      }
+    ]
+  },
+  {
+    "sighash": "15fdd5bb5e21c0ef2287d76c626974514e36fd143e58a2a2fb3867dda2ad146b",
+    "signature": "saveWithdrawToLog(string)",
+    "name": "saveWithdrawToLog",
+    "inputs": [
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "json"
       }
     ]
   },
@@ -1508,6 +1866,50 @@
     ]
   },
   {
+    "sighash": "1c6bcd2efea3e89aa67d597365013e85cbb09377d5f669082a20c099ec58e612",
+    "signature": "DivideCreate(uint64,uint64,uint64,uint64,uint64)",
+    "name": "DivideCreate",
+    "inputs": [
+      {
+        "type": "uint64",
+        "indexed": true,
+        "name": "round"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "trxAmountTotal"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "anteAmountTotal"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "maxHolderIndex"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "tmCreate"
+      }
+    ]
+  },
+  {
+    "sighash": "1c7b9d4977572d60f4131e7e16a5aede87724e1454f19b5c380ad2410df006a3",
+    "signature": "saveDepositToLog(string)",
+    "name": "saveDepositToLog",
+    "inputs": [
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "json"
+      }
+    ]
+  },
+  {
     "sighash": "1c9c8e162795e73b913b6f8e4fb51b329ee0f0fae52a97c5dc5943c65ee7203a",
     "signature": "Mine(string,string,uint256)",
     "name": "Mine",
@@ -1526,6 +1928,58 @@
         "type": "uint256",
         "indexed": false,
         "name": "amount"
+      }
+    ]
+  },
+  {
+    "sighash": "1cd7a44182d802c9afa42dce3b067123a134a134b1e120f219c63bffd8f5cc9c",
+    "signature": "TradedOrder(uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256)",
+    "name": "TradedOrder",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "tradeStatus"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "buyOrderId"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "sellOrderId"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "firstAmount"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "secondAmount"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "feeFirstAmount"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "feeSecondAmount"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "tradedFirstAmount"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "tradedSecondAmount"
       }
     ]
   },
@@ -1644,6 +2098,53 @@
     ]
   },
   {
+    "sighash": "1fe80996608bb1c0e07ff339e9441ecb383c720a97b1b6fae01919dcc2956bb7",
+    "signature": "DividePlusStep(uint256,address,uint64,uint64,uint64,uint64,uint256,uint256)",
+    "name": "DividePlusStep",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": true,
+        "name": "index"
+      },
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "owner"
+      },
+      {
+        "type": "uint64",
+        "indexed": true,
+        "name": "round"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "trxAmountTotal"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "winAmountTotal"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "maxHolderIndex"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "winAmount"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "trxAmount"
+      }
+    ]
+  },
+  {
     "sighash": "202f1139a3e334b6056064c0e9b19fd07e44a88d8f6e5ded571b24cf8c371f12",
     "signature": "RootRemoved(bytes32)",
     "name": "RootRemoved",
@@ -1742,6 +2243,43 @@
     ]
   },
   {
+    "sighash": "21059b34855d9fad2ceceebab2b1fa158fa3a4e25719cc8cf0812984efe172e9",
+    "signature": "WinDividendCreate(uint256,uint64,uint256,uint256[],uint32,uint32)",
+    "name": "WinDividendCreate",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": true,
+        "name": "round"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "totalStakingAmount"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "trxTrc10"
+      },
+      {
+        "type": "uint256[]",
+        "indexed": false,
+        "name": "trc20s"
+      },
+      {
+        "type": "uint32",
+        "indexed": false,
+        "name": "stakingInfoLength"
+      },
+      {
+        "type": "uint32",
+        "indexed": false,
+        "name": "start"
+      }
+    ]
+  },
+  {
     "sighash": "2138b9314634f9fdd5e49bee3eaf17ca557b6637524d0db759711c3bfcd3d850",
     "signature": "UserRegistered(address,address)",
     "name": "UserRegistered",
@@ -1772,6 +2310,28 @@
         "type": "uint256",
         "indexed": false,
         "name": "newMax"
+      }
+    ]
+  },
+  {
+    "sighash": "21e12a7cad0da5928167e1084ea4d5fdf8d9af66657a2543a9ac76a0ca081477",
+    "signature": "Refund(uint256,address,uint256)",
+    "name": "Refund",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "fromOrderId"
+      },
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "userAddr"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "trxAmount"
       }
     ]
   },
@@ -1893,6 +2453,23 @@
         "type": "uint256",
         "indexed": false,
         "name": "payment"
+      }
+    ]
+  },
+  {
+    "sighash": "234c57dd28932112b3b6e56195e065a9627d3570b56ba659163318c5158e5701",
+    "signature": "SetRtuMode(uint8,uint8)",
+    "name": "SetRtuMode",
+    "inputs": [
+      {
+        "type": "uint8",
+        "indexed": false,
+        "name": "oldMode"
+      },
+      {
+        "type": "uint8",
+        "indexed": false,
+        "name": "newMode"
       }
     ]
   },
@@ -2020,6 +2597,60 @@
         "type": "string",
         "indexed": false,
         "name": "reason"
+      }
+    ]
+  },
+  {
+    "sighash": "25b6777ddf50000a6cfb77ee7d11afb45e182a80fd01a74e8873cebbfa5f51c7",
+    "signature": "DividePlusComplete(uint64,uint64,uint64,uint64,uint64)",
+    "name": "DividePlusComplete",
+    "inputs": [
+      {
+        "type": "uint64",
+        "indexed": true,
+        "name": "round"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "trxAmountTotal"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "winAmountTotal"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "maxHolderIndex"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "tmCompleted"
+      }
+    ]
+  },
+  {
+    "sighash": "25ceb5fd2326fd99e7b6b6f60cf37c3082e0b93e0ccdc14a2fdc87126617ada8",
+    "signature": "PayedEvent(string,address,uint256)",
+    "name": "PayedEvent",
+    "inputs": [
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "orderId"
+      },
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "player"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "amount"
       }
     ]
   },
@@ -2222,6 +2853,12 @@
     ]
   },
   {
+    "sighash": "28603723503a67f1c3462d22bfc17cd532e6dab29f1b47aa7a8be130b0c936bb",
+    "signature": "OnFreeze()",
+    "name": "OnFreeze",
+    "inputs": []
+  },
+  {
     "sighash": "289753534e95ecb978c809df86963e0cd524c0a9876f75dbb6be9b3715517293",
     "signature": "InsertParticipant(address,string)",
     "name": "InsertParticipant",
@@ -2235,6 +2872,23 @@
         "type": "string",
         "indexed": false,
         "name": "name"
+      }
+    ]
+  },
+  {
+    "sighash": "2899dc8c12def1caa9accb64257cf2fd9f960f21bb27a560a757eae3c2ec43c1",
+    "signature": "FeePayed(address,uint256)",
+    "name": "FeePayed",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "user"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "totalAmount"
       }
     ]
   },
@@ -2678,6 +3332,23 @@
     ]
   },
   {
+    "sighash": "2e3feca4334579203cd183fe1ced9524940047e5586fe13e8cc5dd1babaf6e82",
+    "signature": "onOwnershipTransferred(address,address)",
+    "name": "onOwnershipTransferred",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "previousOwner"
+      },
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "newOwner"
+      }
+    ]
+  },
+  {
     "sighash": "2e69e3d143a53f8af96048880a5c58a4aec3cf228e914a880f5ae0ef697b78b5",
     "signature": "PledgeMiner(address,uint256,uint256,uint256,uint256,uint256,uint256,address)",
     "name": "PledgeMiner",
@@ -3067,6 +3738,18 @@
     ]
   },
   {
+    "sighash": "3677756e847b966714c70405f039c5888da6d1817573a41218bcf65caaaa7f95",
+    "signature": "SetCoo(address)",
+    "name": "SetCoo",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "_addr"
+      }
+    ]
+  },
+  {
     "sighash": "3740bd8a26c31468835dd291e48b85d6f48a7082c4373b6212389bc1f879260a",
     "signature": "DepositContractCreated(uint256,address)",
     "name": "DepositContractCreated",
@@ -3080,6 +3763,18 @@
         "type": "address",
         "indexed": false,
         "name": "depositContract"
+      }
+    ]
+  },
+  {
+    "sighash": "38498a37f911dcd45d3d0295f0ea4b117b4b2a1e3ecdc63bbc375e89f5366db7",
+    "signature": "UpdateRewardPool(int256)",
+    "name": "UpdateRewardPool",
+    "inputs": [
+      {
+        "type": "int256",
+        "indexed": false,
+        "name": "pool"
       }
     ]
   },
@@ -3162,6 +3857,63 @@
         "type": "uint64",
         "indexed": false,
         "name": "creditsTron"
+      }
+    ]
+  },
+  {
+    "sighash": "3aab9c27274ca0f01e73fc039db764c267c1a16645086bac5e92ab1d0e3728d9",
+    "signature": "Trade(uint256,uint256,address,address,address,uint256,uint256,uint256,uint256,uint8)",
+    "name": "Trade",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "fromOrderId"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "toOrderId"
+      },
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "fromAddr"
+      },
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "toAddr"
+      },
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "tokenAddr"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "amount"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "trxAmount"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "price"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "feeTrx"
+      },
+      {
+        "type": "uint8",
+        "indexed": false,
+        "name": "side"
       }
     ]
   },
@@ -3455,6 +4207,48 @@
     ]
   },
   {
+    "sighash": "3df45e4cecf323663c07214f385f9bb91f4f638fe4a1646df4d8663d073b1255",
+    "signature": "Order(uint256,address,address,uint64,uint128,uint64,uint8)",
+    "name": "Order",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "orderId"
+      },
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "userAddr"
+      },
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "tokenAddr"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "price"
+      },
+      {
+        "type": "uint128",
+        "indexed": false,
+        "name": "amount"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "trxAmount"
+      },
+      {
+        "type": "uint8",
+        "indexed": false,
+        "name": "side"
+      }
+    ]
+  },
+  {
     "sighash": "3ea16a923ff4b1df6526e854c9e3a995c43385d70e73359e10623c74f0b52037",
     "signature": "RoundRequested(address,bytes16,uint32,uint8)",
     "name": "RoundRequested",
@@ -3478,6 +4272,18 @@
         "type": "uint8",
         "indexed": false,
         "name": "round"
+      }
+    ]
+  },
+  {
+    "sighash": "3ec6207bff19aa81b51d630c1fef424acc3c9b834cca29f8c06ed07432037b4f",
+    "signature": "OnBoardRefresh(uint256)",
+    "name": "OnBoardRefresh",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "size"
       }
     ]
   },
@@ -3605,6 +4411,23 @@
         "type": "uint256",
         "indexed": false,
         "name": "amount1"
+      }
+    ]
+  },
+  {
+    "sighash": "40f80ada768c12b346469d26648844850ca63cb0f3df92026ee0cb88d76424e6",
+    "signature": "UserReadyToMine(uint256,address)",
+    "name": "UserReadyToMine",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": true,
+        "name": "_order"
+      },
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "_miner"
       }
     ]
   },
@@ -3790,6 +4613,38 @@
     ]
   },
   {
+    "sighash": "43c16892701e06aa14765ff7cd506889af8dcc51e6551757458a8dea93183ead",
+    "signature": "DiceDivideCreate(uint64,uint64,uint64,uint64,uint64)",
+    "name": "DiceDivideCreate",
+    "inputs": [
+      {
+        "type": "uint64",
+        "indexed": true,
+        "name": "round"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "trxAmountTotal"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "diceAmountTotal"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "maxHolderIndex"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "tmCreate"
+      }
+    ]
+  },
+  {
     "sighash": "442e715f626346e8c54381002da614f62bee8d27386535b2521ec8540898556e",
     "signature": "ExecutionSuccess(bytes32,uint256)",
     "name": "ExecutionSuccess",
@@ -3961,6 +4816,23 @@
     ]
   },
   {
+    "sighash": "45d4968a06e5eab777a47bcfaa9d8c611e19fb523becfaceab136fc67bae76d0",
+    "signature": "FilishedOrder(uint256,uint256)",
+    "name": "FilishedOrder",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "orderID"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "orderStatus"
+      }
+    ]
+  },
+  {
     "sighash": "45dcd9ab8c61f0629f2904906111e617d542ed4af59ecb4af2586823382a408c",
     "signature": "WhitelistAddressRemoved(address)",
     "name": "WhitelistAddressRemoved",
@@ -4023,6 +4895,28 @@
         "type": "uint256",
         "indexed": false,
         "name": "minterAllowedAmount"
+      }
+    ]
+  },
+  {
+    "sighash": "46b475ceb7806a5b54dae6ae3234c3747edc552b95ca27b144fe4de8529338ea",
+    "signature": "HandleToken(uint256,address,address)",
+    "name": "HandleToken",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "handleType"
+      },
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "from"
+      },
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "tokenA"
       }
     ]
   },
@@ -4421,6 +5315,70 @@
     ]
   },
   {
+    "sighash": "4a0276f32d1dc1f56ff4e6491876a2f2512eb9ed7e9da8307716b6204e3c6340",
+    "signature": "DiceCreate(uint256,address,uint256,uint256,uint256)",
+    "name": "DiceCreate",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": true,
+        "name": "_orderId"
+      },
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "_bettor"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_number"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_direction"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_amount"
+      }
+    ]
+  },
+  {
+    "sighash": "4a0c0bed65112a44e25606f1786860f1cbf83f09506ea1ffdc133dc62a430542",
+    "signature": "DiceRefund(uint256,address,uint64,uint64,uint256)",
+    "name": "DiceRefund",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": true,
+        "name": "_orderId"
+      },
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "_bettor"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "_number"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "_direction"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_amount"
+      }
+    ]
+  },
+  {
     "sighash": "4a28b173d9bc739be3886d172e07fef80392184787fc6b92406ce0f0c05b7e63",
     "signature": "ChangeWrappedAllowed(address[],bool[])",
     "name": "ChangeWrappedAllowed",
@@ -4472,6 +5430,28 @@
     ]
   },
   {
+    "sighash": "4a8348849b48b187cb3d1e43f8e48aabdda68283e4f93f187812d1fc79610b18",
+    "signature": "SnapshotStarted(uint32,uint64,uint32)",
+    "name": "SnapshotStarted",
+    "inputs": [
+      {
+        "type": "uint32",
+        "indexed": false,
+        "name": "snapshotCnt"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "totalStakingAmount"
+      },
+      {
+        "type": "uint32",
+        "indexed": false,
+        "name": "stakerCnt"
+      }
+    ]
+  },
+  {
     "sighash": "4ab46a55e31867dcf9a66a49553d0f5efdf7c3b0821b839bb606ce1fda30fa9e",
     "signature": "SourceTokenUpdated(address,address)",
     "name": "SourceTokenUpdated",
@@ -4487,6 +5467,12 @@
         "name": "swapAdapter"
       }
     ]
+  },
+  {
+    "sighash": "4ae917735439356edfbe14e923d7943ebf17c63fd695a65c10f29697f2d050e7",
+    "signature": "InitUpdate()",
+    "name": "InitUpdate",
+    "inputs": []
   },
   {
     "sighash": "4b0c0eecf65b0e220ab71c8ee4864f49a8bce98efda26dfb8260aadf3ece094f",
@@ -4531,6 +5517,38 @@
         "type": "address",
         "indexed": true,
         "name": "fee_converter"
+      }
+    ]
+  },
+  {
+    "sighash": "4b5a9c1bdba3f100214aeecb1c0f368f734870e9d92fec5e4c8c9bbc30675267",
+    "signature": "LiveDivideCreate(uint64,uint64,uint64,uint64,uint64)",
+    "name": "LiveDivideCreate",
+    "inputs": [
+      {
+        "type": "uint64",
+        "indexed": true,
+        "name": "round"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "trxAmountTotal"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "liveAmountTotal"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "maxHolderIndex"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "tmCreate"
       }
     ]
   },
@@ -4917,6 +5935,33 @@
     ]
   },
   {
+    "sighash": "50010427810009c928b6a1b8e37f43f51b6babcacc8d95ff22122eb834b2a958",
+    "signature": "bet(address,uint256,uint256,uint256)",
+    "name": "bet",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "user"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "betVal"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "prediction"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "is_under"
+      }
+    ]
+  },
+  {
     "sighash": "502f5a6697a92e602c626b931a4a771fef4360eb9cece7bf906f10c5cec96aaa",
     "signature": "ShareBurnedWithId(uint256,address,uint256,uint256,uint256)",
     "name": "ShareBurnedWithId",
@@ -5030,6 +6075,60 @@
         "type": "uint256",
         "indexed": true,
         "name": "transactionId"
+      }
+    ]
+  },
+  {
+    "sighash": "526f5007c797cbd0b831f05711a83c0ea2ff9c1c140f30e975ba8fa76edb4d5f",
+    "signature": "betStep1(address,uint256,uint256)",
+    "name": "betStep1",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "player"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "time"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "amount"
+      }
+    ]
+  },
+  {
+    "sighash": "52a3002326493f2e07096067a444c24393607b01a6464e114c782e9ba5cbc074",
+    "signature": "DividePlusCreate(uint64,uint64,uint64,uint64,uint64)",
+    "name": "DividePlusCreate",
+    "inputs": [
+      {
+        "type": "uint64",
+        "indexed": true,
+        "name": "round"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "trxAmountTotal"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "winAmountTotal"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "maxHolderIndex"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "tmCreate"
       }
     ]
   },
@@ -5180,6 +6279,77 @@
     ]
   },
   {
+    "sighash": "5435d79b68a19ff61d45a69e84de32ae80c91c040e81e86fcaa82342160e7010",
+    "signature": "Roll(address,uint256,uint256,uint256,uint256,bool,uint256)",
+    "name": "Roll",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "user"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_startNumber"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_endNumber"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_winningNumber"
+      },
+      {
+        "type": "uint256",
+        "indexed": true,
+        "name": "_value"
+      },
+      {
+        "type": "bool",
+        "indexed": true,
+        "name": "result"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "timestamp"
+      }
+    ]
+  },
+  {
+    "sighash": "546818475e79b60e10b940bb6013ab28371d0ab5e195cbffd1381193c4d82214",
+    "signature": "newRound(uint256,uint256)",
+    "name": "newRound",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "time"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "roundNum"
+      }
+    ]
+  },
+  {
+    "sighash": "546b5cb9f1a352f14c9ea50d9852744ef81af7456e3b038a382f8bdc64197c7e",
+    "signature": "saveBetToLog(string)",
+    "name": "saveBetToLog",
+    "inputs": [
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "json"
+      }
+    ]
+  },
+  {
     "sighash": "54791b38f3859327992a1ca0590ad3c0f08feba98d1a4f56ab0dca74d203392a",
     "signature": "MessageSent(bytes32)",
     "name": "MessageSent",
@@ -5214,6 +6384,23 @@
     ]
   },
   {
+    "sighash": "54e4b9c15587133f1cbfb20aaf63375e09b05118ca5fcf273e1af2e9023c2f00",
+    "signature": "Jackpot(address,int256)",
+    "name": "Jackpot",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "addr"
+      },
+      {
+        "type": "int256",
+        "indexed": false,
+        "name": "reward"
+      }
+    ]
+  },
+  {
     "sighash": "54ff32c5fe6e04031abcc9d0c05fb2c146df6f5aad45f3d7d06f1e21c9f6bbfb",
     "signature": "LocalDeposit(uint256)",
     "name": "LocalDeposit",
@@ -5222,6 +6409,38 @@
         "type": "uint256",
         "indexed": false,
         "name": "amount"
+      }
+    ]
+  },
+  {
+    "sighash": "551e945b4c129ab7fa2b1f4b016508af01948dc5a5de22778537f6a1829dea94",
+    "signature": "LiveDivideComplete(uint64,uint64,uint64,uint64,uint64)",
+    "name": "LiveDivideComplete",
+    "inputs": [
+      {
+        "type": "uint64",
+        "indexed": true,
+        "name": "round"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "trxAmountTotal"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "liveAmountTotal"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "maxHolderIndex"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "tmCompleted"
       }
     ]
   },
@@ -5273,6 +6492,23 @@
         "type": "address[]",
         "indexed": false,
         "name": "newValidators"
+      }
+    ]
+  },
+  {
+    "sighash": "559a53978954e4269006fdaac41995559a5ac17f7a1cce06450d0b562405f4c5",
+    "signature": "MineCancle(uint256,address)",
+    "name": "MineCancle",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": true,
+        "name": "_orderId"
+      },
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "_miner"
       }
     ]
   },
@@ -5399,6 +6635,28 @@
     ]
   },
   {
+    "sighash": "57f542d767287314b1c4f145c240b45cac08f5448a00dc9c4af31cfe74d895ae",
+    "signature": "BetRefunded(bytes32,address,uint256)",
+    "name": "BetRefunded",
+    "inputs": [
+      {
+        "type": "bytes32",
+        "indexed": true,
+        "name": "_betHash"
+      },
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "_gambler"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_amountRefunded"
+      }
+    ]
+  },
+  {
     "sighash": "5845892132946850460bff5a0083f71031bc5bf9aadcd40f1de79423eac9b10b",
     "signature": "MetaTransactionExecuted(address,address,bytes)",
     "name": "MetaTransactionExecuted",
@@ -5446,6 +6704,23 @@
         "type": "uint256",
         "indexed": false,
         "name": "jtoken_balance"
+      }
+    ]
+  },
+  {
+    "sighash": "58be02934e87dcdb08adf93a75fc2a42ebc8085dd7a32db852a7e1c21446ba1c",
+    "signature": "PlayerDeposit(address,uint256)",
+    "name": "PlayerDeposit",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "_player"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_trxAmount"
       }
     ]
   },
@@ -5654,6 +6929,67 @@
     ]
   },
   {
+    "sighash": "5a5677b75fd42a6bb14975b293bff2e60f00898756f1fb2b0ddcde2db1bbd680",
+    "signature": "paymentError(address,uint256,string)",
+    "name": "paymentError",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "user"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "sum"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "game"
+      }
+    ]
+  },
+  {
+    "sighash": "5a7032236dc34b9cbda0269d46dabda0f5d1a8cea6cf91a2017b84338b5bb9fb",
+    "signature": "GetToken(address,uint256)",
+    "name": "GetToken",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "to"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "amount"
+      }
+    ]
+  },
+  {
+    "sighash": "5a7c04de69e45893b35933028462bd1efefbf2d5ea85799d7b2b5a37f4f24e0a",
+    "signature": "BetExpired(bytes32,address,uint256)",
+    "name": "BetExpired",
+    "inputs": [
+      {
+        "type": "bytes32",
+        "indexed": false,
+        "name": "betHash"
+      },
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "user"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "betAmount"
+      }
+    ]
+  },
+  {
     "sighash": "5a980ed3bb4dd09162988674fd35c7002fa70e44dd03d2942ac38c074b1a638e",
     "signature": "SetBalanceOf(address[])",
     "name": "SetBalanceOf",
@@ -5835,6 +7171,28 @@
     ]
   },
   {
+    "sighash": "5cae2e0aa7cedc821587610458f431b60e90fdd4fa63a0cfb6f80cfec677d4c4",
+    "signature": "RandomNumUpdated(uint256,uint256,uint256)",
+    "name": "RandomNumUpdated",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "result"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "serialNumberOfResult"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "blockTimestamp"
+      }
+    ]
+  },
+  {
     "sighash": "5cbe105e36805f7820e291f799d5794ff948af2a5f664e580382defb63390041",
     "signature": "ConfirmTransaction(address,uint256)",
     "name": "ConfirmTransaction",
@@ -6006,6 +7364,70 @@
         "type": "bool[]",
         "indexed": false,
         "name": "newModes"
+      }
+    ]
+  },
+  {
+    "sighash": "5f3f7af6ce64927e6003be6969f6111628d7a45d9494a2a11af9bab75546bc3c",
+    "signature": "Result(address,uint8,uint248,uint48,uint208,uint256,uint256,uint208,bool)",
+    "name": "Result",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "user"
+      },
+      {
+        "type": "uint8",
+        "indexed": false,
+        "name": "round"
+      },
+      {
+        "type": "uint248",
+        "indexed": false,
+        "name": "actions"
+      },
+      {
+        "type": "uint48",
+        "indexed": false,
+        "name": "stake"
+      },
+      {
+        "type": "uint208",
+        "indexed": false,
+        "name": "pot"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "cards1"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "cards2"
+      },
+      {
+        "type": "uint208",
+        "indexed": false,
+        "name": "prevPot"
+      },
+      {
+        "type": "bool",
+        "indexed": false,
+        "name": "withdrawn"
+      }
+    ]
+  },
+  {
+    "sighash": "5f77307e506c9965ff87d512c87e4bbb8b104405489cea8f374aa295187defdc",
+    "signature": "CallOraclizeRandom(address)",
+    "name": "CallOraclizeRandom",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "player"
       }
     ]
   },
@@ -6329,6 +7751,28 @@
     ]
   },
   {
+    "sighash": "676f0fffb2fbfbfc8daa0d0f7d89788003ac6a87c448c7fb792ceb5b8e00e0dd",
+    "signature": "ReferalGain(address,address,uint256)",
+    "name": "ReferalGain",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "player"
+      },
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "referal"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "amount"
+      }
+    ]
+  },
+  {
     "sighash": "67b4fa9642f42120bf031f3051d1824b0fe25627945b27b8a6a65d5761d5482e",
     "signature": "UserOperationPrefundTooLow(bytes32,address,uint256)",
     "name": "UserOperationPrefundTooLow",
@@ -6551,6 +7995,70 @@
         "type": "address",
         "indexed": false,
         "name": "newLib"
+      }
+    ]
+  },
+  {
+    "sighash": "6b379eca63b75f601bfc532ba2fe79aa75886d0f6ebcc39d5a9b119c32ad4554",
+    "signature": "LogBet(uint256,address,uint256,uint256,uint256,uint256,bool)",
+    "name": "LogBet",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": true,
+        "name": "betId"
+      },
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "PlayerAddress"
+      },
+      {
+        "type": "uint256",
+        "indexed": true,
+        "name": "RewardValue"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "ProfitValue"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "BetValue"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "playerRollUnder"
+      },
+      {
+        "type": "bool",
+        "indexed": false,
+        "name": "reverseLogic"
+      }
+    ]
+  },
+  {
+    "sighash": "6b3a021d24590111816fc2ea0e89abcbf4b496ecc9ee4156b81a149aead419a1",
+    "signature": "serverUserBet(bool,uint8,string)",
+    "name": "serverUserBet",
+    "inputs": [
+      {
+        "type": "bool",
+        "indexed": false,
+        "name": "win"
+      },
+      {
+        "type": "uint8",
+        "indexed": false,
+        "name": "lucky_number"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "seed"
       }
     ]
   },
@@ -6989,6 +8497,28 @@
     ]
   },
   {
+    "sighash": "70832d19c04dba12abc9247bba1f2f2b6eb15f3c60125893adb685e191971029",
+    "signature": "RevokeOrder(uint256,uint256,uint256)",
+    "name": "RevokeOrder",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "orderID"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "orderStatus"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "refundAmount"
+      }
+    ]
+  },
+  {
     "sighash": "7084f5476618d8e60b11ef0d7d3f06914655adb8793e28ff7f018d4c76d505d5",
     "signature": "Withdrawn(address,uint256)",
     "name": "Withdrawn",
@@ -7094,6 +8624,23 @@
     ]
   },
   {
+    "sighash": "71b03471b324bbcc7546b2626d0407dbb70a61e5e77c56214352d9c12893933f",
+    "signature": "Authorization(address,bool)",
+    "name": "Authorization",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "caller"
+      },
+      {
+        "type": "bool",
+        "indexed": false,
+        "name": "isAuthorized"
+      }
+    ]
+  },
+  {
     "sighash": "7221f7a2708437039cc63319145b6b873a40594b9782a3bee45b975e2f3b0f68",
     "signature": "CappedPricePosted(address,uint256,uint256,uint256)",
     "name": "CappedPricePosted",
@@ -7161,6 +8708,38 @@
         "type": "uint256",
         "indexed": false,
         "name": "amount"
+      }
+    ]
+  },
+  {
+    "sighash": "7388862d38b6395ddd0ae10069431f5b96b04cc97836f2a4e6b04132f404f4db",
+    "signature": "DiceDivideComplete(uint64,uint64,uint64,uint64,uint64)",
+    "name": "DiceDivideComplete",
+    "inputs": [
+      {
+        "type": "uint64",
+        "indexed": true,
+        "name": "round"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "trxAmountTotal"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "diceAmountTotal"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "maxHolderIndex"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "tmCompleted"
       }
     ]
   },
@@ -7324,6 +8903,43 @@
     ]
   },
   {
+    "sighash": "76eb244672adaa52182795f7229ee0b5ae7fe9f0b19965d75f6e88b399772028",
+    "signature": "saveGameResultToLog(string,string,string,string,string,string)",
+    "name": "saveGameResultToLog",
+    "inputs": [
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "gameNo"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "gamePlatfom"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "gameType"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "gameResult"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "createDate"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "endDate"
+      }
+    ]
+  },
+  {
     "sighash": "770c7c7d8e20347e5080e2ac70e8519793bedaff621f044396fd8d6d052c4aa8",
     "signature": "DelegatorUnstaked(uint256,address,uint256)",
     "name": "DelegatorUnstaked",
@@ -7354,6 +8970,50 @@
         "type": "uint256",
         "indexed": false,
         "name": "id"
+      }
+    ]
+  },
+  {
+    "sighash": "777ad34e96d9af5d378c5cee353b6fc0fbe5be752490023145c2d1687d3c2b3a",
+    "signature": "UserLose(uint256,address,uint256,uint256,uint256)",
+    "name": "UserLose",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": ""
+      },
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "_addr"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_amount"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_point"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_random"
+      }
+    ]
+  },
+  {
+    "sighash": "777c49ada499e1156a51b3f920ec3ee00af0f886b357cb09442b8fc415f2a6ba",
+    "signature": "dividendsEvent(uint256)",
+    "name": "dividendsEvent",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "res"
       }
     ]
   },
@@ -7393,6 +9053,85 @@
         "type": "uint256",
         "indexed": false,
         "name": "value"
+      }
+    ]
+  },
+  {
+    "sighash": "77b25d55832ea12d65e227a3e6caa224679613ccffef961d2517175afa39610e",
+    "signature": "DiceStakingDividendPlusCreate(uint256,uint64,uint256,uint256[],uint32,uint32)",
+    "name": "DiceStakingDividendPlusCreate",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": true,
+        "name": "round"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "totalStakingAmount"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "trxTrc10"
+      },
+      {
+        "type": "uint256[]",
+        "indexed": false,
+        "name": "trc20s"
+      },
+      {
+        "type": "uint32",
+        "indexed": false,
+        "name": "stakingInfoLength"
+      },
+      {
+        "type": "uint32",
+        "indexed": false,
+        "name": "start"
+      }
+    ]
+  },
+  {
+    "sighash": "77ca433e6fd32f3d8bcc7a272c84fa3fecb6d2d587b8802c2018ceb38bb754f2",
+    "signature": "RandomNumUpdate(string,string,string,string,string,string,uint256)",
+    "name": "RandomNumUpdate",
+    "inputs": [
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "randomNum"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "id"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "serialNumber"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "signature"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "bitsUsed"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "bitsLeft"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "blockTimestamp"
       }
     ]
   },
@@ -7499,6 +9238,33 @@
         "type": "address",
         "indexed": true,
         "name": "current"
+      }
+    ]
+  },
+  {
+    "sighash": "78f48c0304225cf88f35ec10827d7dee8a14824019d5d4821672798e4bc6fc47",
+    "signature": "SendServiceFee(uint256,uint256,address,uint256)",
+    "name": "SendServiceFee",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "buyOrderId"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "sellOrderId"
+      },
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "cfo"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "amount"
       }
     ]
   },
@@ -7960,6 +9726,53 @@
     ]
   },
   {
+    "sighash": "7f731ca1a5998fc07ca9d7a9e41c8b73cf6f45417857ed1cdf60cfc6ac6b071c",
+    "signature": "DiceDivideStep(uint256,address,uint64,uint64,uint64,uint64,uint256,uint256)",
+    "name": "DiceDivideStep",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": true,
+        "name": "index"
+      },
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "owner"
+      },
+      {
+        "type": "uint64",
+        "indexed": true,
+        "name": "round"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "trxAmountTotal"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "diceAmountTotal"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "maxHolderIndex"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "diceAmount"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "trxAmount"
+      }
+    ]
+  },
+  {
     "sighash": "7f743fb741e07b0c4daeb2af54fb3ebfa2bdb31d9913a0e555661c870411aae5",
     "signature": "onTokenPurchase(address,uint256,uint256)",
     "name": "onTokenPurchase",
@@ -8002,6 +9815,12 @@
         "name": "value"
       }
     ]
+  },
+  {
+    "sighash": "7f95d919e78bdebe8a285e6e33357c2fcb65ccf66e72d7573f9f8f6caad0c4cc",
+    "signature": "DistrFinished()",
+    "name": "DistrFinished",
+    "inputs": []
   },
   {
     "sighash": "7fcf532c15f0a6db0bd6d0e038bea71d30d808c7d98cb3bf7268a95bf5081b65",
@@ -8051,6 +9870,18 @@
         "type": "uint256",
         "indexed": false,
         "name": "checkpointRewardDelta"
+      }
+    ]
+  },
+  {
+    "sighash": "804ccf9cdd03425a739fc6de3e621f46dbe52cdb09ab924317b92abb7750f327",
+    "signature": "SetCfo(address)",
+    "name": "SetCfo",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "_addr"
       }
     ]
   },
@@ -8256,6 +10087,28 @@
     ]
   },
   {
+    "sighash": "850f3c7e08f80943d8666ef94f99a95a9f85b3fc39af2a08829aa61a276b7a42",
+    "signature": "WithdrawFunds(address,uint256,uint256)",
+    "name": "WithdrawFunds",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "beneficiary"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "amount"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "balance"
+      }
+    ]
+  },
+  {
     "sighash": "851142557f45c7a4ad02559d2f51b70cc86cfd5dac0fd0734efedaefae544c4a",
     "signature": "GrayListSet(address,bool)",
     "name": "GrayListSet",
@@ -8330,6 +10183,53 @@
         "type": "address",
         "indexed": false,
         "name": "user"
+      }
+    ]
+  },
+  {
+    "sighash": "87696c5bb7cf5db187652029746abf058451b6cf0953cda37f8e3c0389dc6d15",
+    "signature": "UserWin(uint256,address,uint256,uint256,uint256,uint256,uint256,uint256)",
+    "name": "UserWin",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": ""
+      },
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "_addr"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_amount"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_point"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_random"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_P"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_O"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_W"
       }
     ]
   },
@@ -8579,6 +10479,23 @@
     ]
   },
   {
+    "sighash": "8ab020d752d65f6cc4d9cf1834ec616885d8b7b87d3dd162501b4f348f5e604f",
+    "signature": "SetSmallest(address,uint256)",
+    "name": "SetSmallest",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "_addr"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_value"
+      }
+    ]
+  },
+  {
     "sighash": "8ace227f12fdc9477d9be5e391bfdebf167cc88ab12e8979e011aa0c6a5914e1",
     "signature": "SetBar(uint256)",
     "name": "SetBar",
@@ -8623,6 +10540,23 @@
     ]
   },
   {
+    "sighash": "8b9ac889d14d23f1a755d054e979afd82ea255f7d9fbf13cff6b9b34d7f75dfd",
+    "signature": "OnPay(address,uint256)",
+    "name": "OnPay",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "beneficiary"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "amount"
+      }
+    ]
+  },
+  {
     "sighash": "8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0",
     "signature": "OwnershipTransferred(address,address)",
     "name": "OwnershipTransferred",
@@ -8636,6 +10570,28 @@
         "type": "address",
         "indexed": true,
         "name": "newOwner"
+      }
+    ]
+  },
+  {
+    "sighash": "8be595f92769f2616e009f5fdf62c8d4d7e6f21fb5d0a7ec17930bad5c1df6a4",
+    "signature": "LiveDivide(uint256,uint256,uint256)",
+    "name": "LiveDivide",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": true,
+        "name": "_sysTxId"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_total"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_hotSlot"
       }
     ]
   },
@@ -8745,6 +10701,28 @@
         "type": "address",
         "indexed": false,
         "name": "token"
+      }
+    ]
+  },
+  {
+    "sighash": "8e8b80ac616f9a05b0eec54294a344b0c3b0841fc09b1e5e95a8e7576f7e0d64",
+    "signature": "userBet(address,uint256,uint256)",
+    "name": "userBet",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "user"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "stop"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "bet"
       }
     ]
   },
@@ -9030,6 +11008,38 @@
     ]
   },
   {
+    "sighash": "9126b77059319df56e6c82b481fd435a53a5cd3469d3e402a02db5209c09b317",
+    "signature": "LiveDividendComplete(uint256,uint256,uint256[],uint32,uint32)",
+    "name": "LiveDividendComplete",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": true,
+        "name": "round"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "trxTrc10"
+      },
+      {
+        "type": "uint256[]",
+        "indexed": false,
+        "name": "trc20s"
+      },
+      {
+        "type": "uint32",
+        "indexed": false,
+        "name": "stakingInfoLength"
+      },
+      {
+        "type": "uint32",
+        "indexed": false,
+        "name": "end"
+      }
+    ]
+  },
+  {
     "sighash": "913ba2de6656c0526b77df40af24e3412f55282655873937f3b641c4ab3f797b",
     "signature": "DelayTimeChange(uint256,uint256)",
     "name": "DelayTimeChange",
@@ -9132,6 +11142,18 @@
     ]
   },
   {
+    "sighash": "948dba3e8b309840e67193b86ba3d80b2e0d46854edc7d68734c5c984e67a773",
+    "signature": "GameDeactivated(bool)",
+    "name": "GameDeactivated",
+    "inputs": [
+      {
+        "type": "bool",
+        "indexed": false,
+        "name": "gameStatus"
+      }
+    ]
+  },
+  {
     "sighash": "94d1eaaba297ffb0e6a23b867a3d6f936cca4ae0045709e596d461aee2e362ee",
     "signature": "ProcessorUpdated(address)",
     "name": "ProcessorUpdated",
@@ -9152,6 +11174,43 @@
         "type": "uint256",
         "indexed": false,
         "name": "amount"
+      }
+    ]
+  },
+  {
+    "sighash": "95a16992cc8637dd730c2f0f13e56fb8d47f18b525021e87121549dafcd3bc38",
+    "signature": "userBet(address,uint8,bool,uint256,uint256,uint256)",
+    "name": "userBet",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "user"
+      },
+      {
+        "type": "uint8",
+        "indexed": false,
+        "name": "prediction"
+      },
+      {
+        "type": "bool",
+        "indexed": false,
+        "name": "is_under"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "sum"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "balance"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "bet"
       }
     ]
   },
@@ -9185,6 +11244,55 @@
     ]
   },
   {
+    "sighash": "95f7ca68e6041f07860e3dc1d21241cd3a177614841a2e3d8dbe1045dbc8fe90",
+    "signature": "UserLose(address,uint256,uint256,uint256)",
+    "name": "UserLose",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "_addr"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_amount"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_point"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_random"
+      }
+    ]
+  },
+  {
+    "sighash": "9609199aecfb7ab98b0bee78fb0c4d1ffeddfb8623fcfdd2ef4bf1c6ed368cc9",
+    "signature": "DiceResult(string,uint256,uint256)",
+    "name": "DiceResult",
+    "inputs": [
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "method"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "betId"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "winAmount"
+      }
+    ]
+  },
+  {
     "sighash": "96f29b65cebbd6816352fb242b6af7180b49e8a09e19e589225d35bc8444f0b7",
     "signature": "OracleFailure(address,address,uint256,uint256,uint256)",
     "name": "OracleFailure",
@@ -9213,6 +11321,23 @@
         "type": "uint256",
         "indexed": false,
         "name": "detail"
+      }
+    ]
+  },
+  {
+    "sighash": "971d7b78ca462b35398f987f77812008c81f0b2361de7aaa8b9db1d55f9c2292",
+    "signature": "SetTokenB(address,address)",
+    "name": "SetTokenB",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "_addr"
+      },
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "_tokenB"
       }
     ]
   },
@@ -9321,6 +11446,38 @@
     ]
   },
   {
+    "sighash": "995eee85e9a232632a85970e7b42e6804e66f578197a94f0ef03107164286195",
+    "signature": "saveDepositToLog(string,string,string,string,string)",
+    "name": "saveDepositToLog",
+    "inputs": [
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "userName"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "depositTime"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "depositType"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "depositAmount"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "currency"
+      }
+    ]
+  },
+  {
     "sighash": "9985886fa2f848be5f83e79df7592adebce0c554283252f12b1c6ca0c1e35093",
     "signature": "onRemoveLiquidity(address,uint256,uint256)",
     "name": "onRemoveLiquidity",
@@ -9365,6 +11522,38 @@
     ]
   },
   {
+    "sighash": "99ee3baa59b5b6f59cb8aecdebc8ca8f9fc5ee786a00e9f24761e0dd50965b74",
+    "signature": "RakeDivideWin(uint64,address,uint64,uint64,uint256)",
+    "name": "RakeDivideWin",
+    "inputs": [
+      {
+        "type": "uint64",
+        "indexed": true,
+        "name": "round"
+      },
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "winPool"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "trxAmountTotal"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "rakeAmountTotal"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "winDivideTotal"
+      }
+    ]
+  },
+  {
     "sighash": "9a63b6cd1ffb6303bcc3054ecb016ffaaa7d0706e3e2913f0a99d9fecb0c5d3d",
     "signature": "RewardTreasury(uint256)",
     "name": "RewardTreasury",
@@ -9373,6 +11562,23 @@
         "type": "uint256",
         "indexed": false,
         "name": "reward"
+      }
+    ]
+  },
+  {
+    "sighash": "9a7b89cf778462f98a9b59f99121c720927a5c37ffaaba0346f77326622a8aeb",
+    "signature": "onInvest(address,uint256)",
+    "name": "onInvest",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "investor"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "amount"
       }
     ]
   },
@@ -9532,6 +11738,70 @@
     "inputs": []
   },
   {
+    "sighash": "9bfe8b3728c8a3af9a81e92220fa20cb435e16f0c92f9bfafd30d5704fc627e3",
+    "signature": "RingCreate(uint256,address,uint256,uint256,uint256,uint256)",
+    "name": "RingCreate",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": true,
+        "name": "_round"
+      },
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "_bettor"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_multiplier"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_amount"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_minedAnte"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_index"
+      }
+    ]
+  },
+  {
+    "sighash": "9c91e048d66318457f6827bb14b6f37a776cfc3390f886acd6963ca9ab8689fe",
+    "signature": "DiceStakingDividendPlusStep(uint256,uint256,address,uint64)",
+    "name": "DiceStakingDividendPlusStep",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": true,
+        "name": "round"
+      },
+      {
+        "type": "uint256",
+        "indexed": true,
+        "name": "dividIndex"
+      },
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "staker"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "stakingAmnt"
+      }
+    ]
+  },
+  {
     "sighash": "9cd6008e8d4ebd34fd9d022278fec7f95d133780ecc1a0dea459fae3e9675390",
     "signature": "TokensSent(uint256,bytes32,uint256,bytes32,uint256,uint8)",
     "name": "TokensSent",
@@ -9641,6 +11911,28 @@
         "type": "address",
         "indexed": false,
         "name": "_newImpl"
+      }
+    ]
+  },
+  {
+    "sighash": "9d9b588f4a1e6016f6a0ee27b1fcfc3d40f20d9c680f281ea5ba8e47b9dd01dd",
+    "signature": "data(int256,int256,int256)",
+    "name": "data",
+    "inputs": [
+      {
+        "type": "int256",
+        "indexed": false,
+        "name": "nn"
+      },
+      {
+        "type": "int256",
+        "indexed": false,
+        "name": "rr"
+      },
+      {
+        "type": "int256",
+        "indexed": false,
+        "name": "dd"
       }
     ]
   },
@@ -9758,6 +12050,18 @@
     ]
   },
   {
+    "sighash": "9eaf1c9fc3f9ed1f0c936a25baf321d638e586b8ca1673bd0d04e583a9b2b7be",
+    "signature": "savePromotionActivityRecordToLog(string)",
+    "name": "savePromotionActivityRecordToLog",
+    "inputs": [
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "json"
+      }
+    ]
+  },
+  {
     "sighash": "9f4d150e5193cfa9a87226111d3b60b624d97ccc056eeeac1569af1ea27bf641",
     "signature": "Upline(address,address)",
     "name": "Upline",
@@ -9771,6 +12075,18 @@
         "type": "address",
         "indexed": true,
         "name": "upline"
+      }
+    ]
+  },
+  {
+    "sighash": "9fd565cd14c3c391679eb0cad12a14dcf7534e9d3462bcb9b67a098a9bbbc24a",
+    "signature": "Newbie(address)",
+    "name": "Newbie",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "user"
       }
     ]
   },
@@ -9795,6 +12111,38 @@
         "type": "address",
         "indexed": false,
         "name": "timelock"
+      }
+    ]
+  },
+  {
+    "sighash": "a202cf7910914751d8fc1af3decd393825cd1a6e4335da3ad0e88bb33c559df7",
+    "signature": "Cancel(uint256,address,address,uint128,uint8)",
+    "name": "Cancel",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "orderId"
+      },
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "userAddr"
+      },
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "tokenAddr"
+      },
+      {
+        "type": "uint128",
+        "indexed": false,
+        "name": "refundAmount"
+      },
+      {
+        "type": "uint8",
+        "indexed": false,
+        "name": "side"
       }
     ]
   },
@@ -9967,6 +12315,28 @@
     ]
   },
   {
+    "sighash": "a42dcf7f76c611f59eb8a21823736f441a5e515b7bb248b11ce834d25d063076",
+    "signature": "onGrant(address,address,uint256)",
+    "name": "onGrant",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "grantor"
+      },
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "beneficiary"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "amount"
+      }
+    ]
+  },
+  {
     "sighash": "a45f47fdea8a1efdd9029a5691c7f759c32b7c698632b563573e155625d16933",
     "signature": "Unpaused()",
     "name": "Unpaused",
@@ -9996,6 +12366,18 @@
         "type": "uint256",
         "indexed": false,
         "name": "token_supply"
+      }
+    ]
+  },
+  {
+    "sighash": "a59a6953534593eecbbf66ea141e4f80cd71359af8e72073dc26ad02138351b2",
+    "signature": "startEvent(uint256)",
+    "name": "startEvent",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "time"
       }
     ]
   },
@@ -10052,6 +12434,55 @@
         "type": "bool",
         "indexed": true,
         "name": "isAuthorized"
+      }
+    ]
+  },
+  {
+    "sighash": "a7a1e76bdd1175aa7a6981061f46974c95daefa9b85121268a1b38b3be5651f2",
+    "signature": "LiveDivideAnte(uint64,address,uint64,uint64,uint256)",
+    "name": "LiveDivideAnte",
+    "inputs": [
+      {
+        "type": "uint64",
+        "indexed": true,
+        "name": "round"
+      },
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "winPool"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "trxAmountTotal"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "liveAmountTotal"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "anteDivideTotal"
+      }
+    ]
+  },
+  {
+    "sighash": "a7b516a005f2245b0b776f968f44892127c229f8f9d5bd2c0c69f9d4596a9677",
+    "signature": "SetServiceFee(address,uint256)",
+    "name": "SetServiceFee",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "_addr"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_value"
       }
     ]
   },
@@ -10123,6 +12554,38 @@
         "type": "uint256",
         "indexed": false,
         "name": "exchangeRate"
+      }
+    ]
+  },
+  {
+    "sighash": "a8fde1bab7889c3efa4721bd84e19209010d99c11c92848402c460a69f40fbf4",
+    "signature": "savePromotionActivityRecordToLog(string,string,string,string,string)",
+    "name": "savePromotionActivityRecordToLog",
+    "inputs": [
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "userName"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "promotionType"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "amount"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "createDate"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "currency"
       }
     ]
   },
@@ -10317,6 +12780,129 @@
     ]
   },
   {
+    "sighash": "ac464fe4d3a86b9121261ac0a01dd981bfe0777c7c9d9c8f4473d31a9c0f9d2d",
+    "signature": "FailedPayment(address,uint256)",
+    "name": "FailedPayment",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "to"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "amount"
+      }
+    ]
+  },
+  {
+    "sighash": "aca302b1c67814a2ff71f31036608386a9832c7a0d036848ff39e465d4cf2a75",
+    "signature": "DivideStep(uint256,address,uint64,uint64,uint64,uint64,uint256,uint256)",
+    "name": "DivideStep",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": true,
+        "name": "index"
+      },
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "owner"
+      },
+      {
+        "type": "uint64",
+        "indexed": true,
+        "name": "round"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "trxAmountTotal"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "anteAmountTotal"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "maxHolderIndex"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "anteAmount"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "trxAmount"
+      }
+    ]
+  },
+  {
+    "sighash": "ad126eabb33a4d77b042374f3eeef39ff6417caebe90c9b3f69e710a3aa8f7eb",
+    "signature": "savePayBonusToLog(string,string,string,string,string,string,string)",
+    "name": "savePayBonusToLog",
+    "inputs": [
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "loginName"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "gamePlatfom"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "gameType"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "orderNo"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "amount"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "createDate"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "currency"
+      }
+    ]
+  },
+  {
+    "sighash": "ad1805cbb3c90694ac4d5976d28492520d2e8b0fbea821045ca2ecfd7d2bee80",
+    "signature": "OnFailedPay(address,uint256)",
+    "name": "OnFailedPay",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "beneficiary"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "amount"
+      }
+    ]
+  },
+  {
     "sighash": "ad2f86b01ed93b4b3a150d448c61a4f5d8d38075d3c0c64cc0a26fd6e1f49545",
     "signature": "RewardsDurationUpdated(address,uint256)",
     "name": "RewardsDurationUpdated",
@@ -10330,6 +12916,43 @@
         "type": "uint256",
         "indexed": false,
         "name": "newDuration"
+      }
+    ]
+  },
+  {
+    "sighash": "ad462240beba31f9eea78f7cf56a43109d84342cc8dc2206d5b924cc24bb4cd5",
+    "signature": "DamagedMonster(address,uint8,uint8,uint256,uint256,bytes32)",
+    "name": "DamagedMonster",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "addr"
+      },
+      {
+        "type": "uint8",
+        "indexed": false,
+        "name": "def"
+      },
+      {
+        "type": "uint8",
+        "indexed": false,
+        "name": "atk"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "hp"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "value"
+      },
+      {
+        "type": "bytes32",
+        "indexed": false,
+        "name": "txhash"
       }
     ]
   },
@@ -10494,6 +13117,33 @@
     ]
   },
   {
+    "sighash": "aff9a9b5e4dcc2f581b95a15e65f4e8d3638ebd298b885cc585e1a7a0d208e03",
+    "signature": "DividePlusDev(uint64,uint64,uint64,uint256)",
+    "name": "DividePlusDev",
+    "inputs": [
+      {
+        "type": "uint64",
+        "indexed": true,
+        "name": "round"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "trxAmountTotal"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "winAmountTotal"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "anteDivideTotal"
+      }
+    ]
+  },
+  {
     "sighash": "affebbdd31c6253ae2ea132d4a132d79b3ad07ed2720b51749aa97330a7bdb13",
     "signature": "onSummary(uint256,uint256)",
     "name": "onSummary",
@@ -10616,6 +13266,33 @@
     ]
   },
   {
+    "sighash": "b06cb54b17603e70140ce0216d86cef7e3e645e5a77c76f0cd1e4afe1b5b9e3f",
+    "signature": "PlayerAttacked(address,address,bool,uint256)",
+    "name": "PlayerAttacked",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "attacker"
+      },
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "target"
+      },
+      {
+        "type": "bool",
+        "indexed": false,
+        "name": "success"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "gooStolen"
+      }
+    ]
+  },
+  {
     "sighash": "b10e37e7594458eb76f3df933129e897d6f5ac58a79933ae8f3da87196478f8c",
     "signature": "PaymentTransfer(address,address,uint256)",
     "name": "PaymentTransfer",
@@ -10712,6 +13389,18 @@
         "type": "bool",
         "indexed": false,
         "name": "authorized"
+      }
+    ]
+  },
+  {
+    "sighash": "b2747507a46e1abceca19c4eb9572926c186e20c649034a80dd1ac2ec21cb271",
+    "signature": "saveGameResultToLog(string)",
+    "name": "saveGameResultToLog",
+    "inputs": [
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "json"
       }
     ]
   },
@@ -10892,6 +13581,28 @@
     ]
   },
   {
+    "sighash": "b6d35f558a34938047f09ebf800fa2e15ec407c357a8eab97a5dd67b4d015b5b",
+    "signature": "UnitBought(address,uint256,uint256)",
+    "name": "UnitBought",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "player"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "unitId"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "amount"
+      }
+    ]
+  },
+  {
     "sighash": "b78ebc573f1f889ca9e1e0fb62c843c836f3d3a2e1f43ef62940e9b894f4ea4c",
     "signature": "LogMedianPrice(uint256,uint256)",
     "name": "LogMedianPrice",
@@ -10943,6 +13654,28 @@
     ]
   },
   {
+    "sighash": "b84e528e18e54dd4bb87635427809661099f52b6fb31e5c969e6f07c9a19913c",
+    "signature": "UpgradeMigration(address,uint256,uint256)",
+    "name": "UpgradeMigration",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "player"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "upgradeId"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "txProof"
+      }
+    ]
+  },
+  {
     "sighash": "b90306ad06b2a6ff86ddc9327db583062895ef6540e62dc50add009db5b356eb",
     "signature": "Burn(uint256)",
     "name": "Burn",
@@ -10951,6 +13684,28 @@
         "type": "uint256",
         "indexed": false,
         "name": "value"
+      }
+    ]
+  },
+  {
+    "sighash": "b9186c27d6ff6bfeac6b9313f008e1a6426bd5142dc193eed8f2e03734e4ad28",
+    "signature": "WithDraw_token(address,address,uint256)",
+    "name": "WithDraw_token",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "_token"
+      },
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "_addr"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_amount"
       }
     ]
   },
@@ -11156,6 +13911,23 @@
     ]
   },
   {
+    "sighash": "bb139d33583839e19389be0c788bb4983ba63129333b3ffe835a4c4af0e5dcb8",
+    "signature": "CancelOrder(uint256,uint256)",
+    "name": "CancelOrder",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "orderID"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "orderStatus"
+      }
+    ]
+  },
+  {
     "sighash": "bb47ee3e183a558b1a2ff0874b079f3fc5478b7454eacf2bfc5af2ff5878f972",
     "signature": "BeforeExecution()",
     "name": "BeforeExecution",
@@ -11286,6 +14058,28 @@
     ]
   },
   {
+    "sighash": "bde3daa993ddadd7dd0e9027fe8207a42f1fbb014b56d8a454f49e357e73fd98",
+    "signature": "SnapshotCompleted(uint32,uint64,uint32)",
+    "name": "SnapshotCompleted",
+    "inputs": [
+      {
+        "type": "uint32",
+        "indexed": false,
+        "name": "snapshotCnt"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "totalStakingAmount"
+      },
+      {
+        "type": "uint32",
+        "indexed": false,
+        "name": "stakingInfoLength"
+      }
+    ]
+  },
+  {
     "sighash": "be12859b636aed607d5230b2cc2711f68d70e51060e6cca1f575ef5d2fcc95d1",
     "signature": "NewFee(uint256,uint256)",
     "name": "NewFee",
@@ -11344,6 +14138,53 @@
         "type": "address",
         "indexed": false,
         "name": "newAnchorAdmin"
+      }
+    ]
+  },
+  {
+    "sighash": "bf7a22926ba713978a3b7d44833f6cb54fce5df7ab8dc64f658fe30ad535efb5",
+    "signature": "check(uint8,address,uint256,uint256,uint256,uint256,uint256,uint256)",
+    "name": "check",
+    "inputs": [
+      {
+        "type": "uint8",
+        "indexed": false,
+        "name": "playType"
+      },
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "user"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "prediction"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "blockNumber"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "randomNumber"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "cost"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "award"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "tokenAmount"
       }
     ]
   },
@@ -11414,6 +14255,33 @@
     ]
   },
   {
+    "sighash": "c12b130fa7055246ff6df38ab77c7c8bdcacd7148320e443ada592ac23503c96",
+    "signature": "LiveDividendStep(uint256,uint256,address,uint64)",
+    "name": "LiveDividendStep",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": true,
+        "name": "round"
+      },
+      {
+        "type": "uint256",
+        "indexed": true,
+        "name": "dividIndex"
+      },
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "player"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "stakingAmnt"
+      }
+    ]
+  },
+  {
     "sighash": "c16891855cffb4a5ac51ac11864a3f3c96ba816cc45fe686c987ae36277de5ec",
     "signature": "DefaultReceiveLibrarySet(uint32,address)",
     "name": "DefaultReceiveLibrarySet",
@@ -11427,6 +14295,28 @@
         "type": "address",
         "indexed": false,
         "name": "newLib"
+      }
+    ]
+  },
+  {
+    "sighash": "c17ed4aaaaf3086610be64cde67f528668b1b6ba498f28facdd84e29f9a48f75",
+    "signature": "ServerReadyForMiner(uint256,address,uint256)",
+    "name": "ServerReadyForMiner",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": true,
+        "name": "_order"
+      },
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "_miner"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_mineHash"
       }
     ]
   },
@@ -11654,6 +14544,53 @@
     ]
   },
   {
+    "sighash": "c571223c04009b0cdbb989bd6c8af9e48438932fabeffa8b341726b08e71dc90",
+    "signature": "RakeDivideStep(uint256,address,uint64,uint64,uint64,uint64,uint256,uint256)",
+    "name": "RakeDivideStep",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": true,
+        "name": "index"
+      },
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "owner"
+      },
+      {
+        "type": "uint64",
+        "indexed": true,
+        "name": "round"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "trxAmountTotal"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "rakeAmountTotal"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "maxHolderIndex"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "rakeAmount"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "trxAmount"
+      }
+    ]
+  },
+  {
     "sighash": "c5e3ee9638e27bf70406196c2e816ca580711860edae4a67f2938ce71f269251",
     "signature": "HeartBeatIntervalUpdate(address,uint256)",
     "name": "HeartBeatIntervalUpdate",
@@ -11667,6 +14604,18 @@
         "type": "uint256",
         "indexed": false,
         "name": "interval"
+      }
+    ]
+  },
+  {
+    "sighash": "c60ad7dbc5c8a9913b5e4e0c29f10a29a6fa4b48c6dc2913976bba841f790384",
+    "signature": "GameActivated(bool)",
+    "name": "GameActivated",
+    "inputs": [
+      {
+        "type": "bool",
+        "indexed": false,
+        "name": "gameStatus"
       }
     ]
   },
@@ -11688,6 +14637,43 @@
     ]
   },
   {
+    "sighash": "c644bbd8c49625a08ac53c08c2e9aa268537b38ba0f337ab82f98502caad8d2c",
+    "signature": "saveWithdrawToLog(string,string,string,string,string,string)",
+    "name": "saveWithdrawToLog",
+    "inputs": [
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "userName"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "amount"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "createDate"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "arrivalDate"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "currency"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "status"
+      }
+    ]
+  },
+  {
     "sighash": "c65a3f767206d2fdcede0b094a4840e01c0dd0be1888b5ba800346eaa0123c16",
     "signature": "Issue(address,uint256)",
     "name": "Issue",
@@ -11701,6 +14687,23 @@
         "type": "uint256",
         "indexed": false,
         "name": "amount"
+      }
+    ]
+  },
+  {
+    "sighash": "c661ca8cedc7e7d3e9263091b1eff15c4e9b2757ec1dc57672e32e49c7b41264",
+    "signature": "Collect(address,string)",
+    "name": "Collect",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "from"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "candyId"
       }
     ]
   },
@@ -11828,6 +14831,38 @@
         "type": "uint40",
         "indexed": false,
         "name": "epochAndRound"
+      }
+    ]
+  },
+  {
+    "sighash": "c79ad22c5caca181d8c9c4f205c8217b9a997c69e5d7f82466297f55d45a097d",
+    "signature": "DiceStakingDividendPlusComplete(uint256,uint256,uint256[],uint32,uint32)",
+    "name": "DiceStakingDividendPlusComplete",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": true,
+        "name": "round"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "trxTrc10"
+      },
+      {
+        "type": "uint256[]",
+        "indexed": false,
+        "name": "trc20s"
+      },
+      {
+        "type": "uint32",
+        "indexed": false,
+        "name": "stakingInfoLength"
+      },
+      {
+        "type": "uint32",
+        "indexed": false,
+        "name": "end"
       }
     ]
   },
@@ -12087,6 +15122,23 @@
     ]
   },
   {
+    "sighash": "ca3f22a357627745018b023824c40ea1a31c7b961fc42bdce966fa993266446a",
+    "signature": "OnBid(address,uint256)",
+    "name": "OnBid",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "player"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "price"
+      }
+    ]
+  },
+  {
     "sighash": "ca4f2f25d0898edd99413412fb94012f9e54ec8142f9b093e7720646a95b16a9",
     "signature": "NewPendingAdmin(address,address)",
     "name": "NewPendingAdmin",
@@ -12184,6 +15236,38 @@
     ]
   },
   {
+    "sighash": "cc2218491c42c01a53a16312d9ae9a496df1fb5eb01e5bd3bfd77e16a53ab57a",
+    "signature": "LiveAirDrop(address,uint256,uint128,uint128,uint256)",
+    "name": "LiveAirDrop",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "_owner"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_liveAmount"
+      },
+      {
+        "type": "uint128",
+        "indexed": false,
+        "name": "_fromSec"
+      },
+      {
+        "type": "uint128",
+        "indexed": false,
+        "name": "_toSec"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_sysTxID"
+      }
+    ]
+  },
+  {
     "sighash": "cc358699805e9a8b7f77b522628c7cb9abd07d9efb86b6fb616af1609036a99e",
     "signature": "Deprecate(address)",
     "name": "Deprecate",
@@ -12268,6 +15352,28 @@
         "type": "uint256",
         "indexed": true,
         "name": "token_balance"
+      }
+    ]
+  },
+  {
+    "sighash": "cc8b89b418040e46da4d7c2b80d04814b94e586637f9a96470862f94a069c9b7",
+    "signature": "FundContract(address,uint256,uint256)",
+    "name": "FundContract",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "user"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "amount"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "balance"
       }
     ]
   },
@@ -12448,6 +15554,85 @@
         "type": "bool",
         "indexed": false,
         "name": "isBlacklisted"
+      }
+    ]
+  },
+  {
+    "sighash": "cf6d8a54bbc5cf01aa5608c1be225c45b329b4ab226a711a714c0c9def099422",
+    "signature": "RakeDivideComplete(uint64,uint64,uint64,uint64,uint64)",
+    "name": "RakeDivideComplete",
+    "inputs": [
+      {
+        "type": "uint64",
+        "indexed": true,
+        "name": "round"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "trxAmountTotal"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "rakeAmountTotal"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "maxHolderIndex"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "tmCompleted"
+      }
+    ]
+  },
+  {
+    "sighash": "cf840b19389fce4c19d0e42b76a40364a45f66907253500b7f120a6c90bebeae",
+    "signature": "MineResult(uint256,address,address,uint256,uint64,uint256,uint256,uint256)",
+    "name": "MineResult",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": true,
+        "name": "_order"
+      },
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "_miner"
+      },
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "_mentor"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "mentorFee"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "_winAmout"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_mines"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_solt"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_mines_hash"
       }
     ]
   },
@@ -12707,6 +15892,33 @@
     ]
   },
   {
+    "sighash": "d41f7e766eebcc7ff42b11ac8691bdf864db4afc0c55e71d629d54edce460d98",
+    "signature": "RefBonus(address,address,uint256,uint256)",
+    "name": "RefBonus",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "referrer"
+      },
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "referral"
+      },
+      {
+        "type": "uint256",
+        "indexed": true,
+        "name": "level"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "amount"
+      }
+    ]
+  },
+  {
     "sighash": "d437cd899a379e5277064ae6063f247a924bdddc96ea151ee5ee4ec5221d4b47",
     "signature": "CrossOut(address,address,address,uint256,uint256,bytes32)",
     "name": "CrossOut",
@@ -12740,6 +15952,58 @@
         "type": "bytes32",
         "indexed": false,
         "name": "txHash"
+      }
+    ]
+  },
+  {
+    "sighash": "d4510f2551494a3a2a70f23facf23c2b1b21bc8a9ec5086e117bac4f7c8ee987",
+    "signature": "LogResult(uint256,uint256,address,uint256,uint256,uint256,int256,bool,uint256)",
+    "name": "LogResult",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": true,
+        "name": "betId"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "ResultSerialNumber"
+      },
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "PlayerAddress"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "betRollUnder"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "DiceResult"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "BetValue"
+      },
+      {
+        "type": "int256",
+        "indexed": false,
+        "name": "Status"
+      },
+      {
+        "type": "bool",
+        "indexed": false,
+        "name": "reverseLogic"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "payout"
       }
     ]
   },
@@ -12816,6 +16080,23 @@
         "type": "address",
         "indexed": false,
         "name": "preCrimeAddress"
+      }
+    ]
+  },
+  {
+    "sighash": "d4f43975feb89f48dd30cabbb32011045be187d1e11c8ea9faa43efc35282519",
+    "signature": "Payment(address,uint256)",
+    "name": "Payment",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "to"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "amount"
       }
     ]
   },
@@ -12918,6 +16199,23 @@
     ]
   },
   {
+    "sighash": "d584f47db3331546269975ff6f7109efabf2b034063355de66211811197f30b9",
+    "signature": "KilledMonster(address,bytes32)",
+    "name": "KilledMonster",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "addr"
+      },
+      {
+        "type": "bytes32",
+        "indexed": false,
+        "name": "name"
+      }
+    ]
+  },
+  {
     "sighash": "d5c54ab1d37bfef4dd2253d9d73c292e46f5bd8a67ca5920aab4c2e1993178e7",
     "signature": "SetMetaRouter(address)",
     "name": "SetMetaRouter",
@@ -13009,6 +16307,55 @@
         "type": "address",
         "indexed": false,
         "name": "walletAddress"
+      }
+    ]
+  },
+  {
+    "sighash": "d65b065b1f15addede9abf578ab86200e7d9910864087be8627cea31171f2dd0",
+    "signature": "RakeAirDrop(address,uint256,uint128,uint128,uint256)",
+    "name": "RakeAirDrop",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "_owner"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_rakeAmount"
+      },
+      {
+        "type": "uint128",
+        "indexed": false,
+        "name": "_fromSec"
+      },
+      {
+        "type": "uint128",
+        "indexed": false,
+        "name": "_toSec"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_sysTxID"
+      }
+    ]
+  },
+  {
+    "sighash": "d6b60ace2b3fc9c8b3e810d8ac366e9c81a3002d836f3fdfe39e519a143214cd",
+    "signature": "fomo_end(address,uint256)",
+    "name": "fomo_end",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "winner"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "win_amount"
       }
     ]
   },
@@ -13199,6 +16546,43 @@
     ]
   },
   {
+    "sighash": "d96ed3af16a1f2bd44953df4020bfbf49e1bb2d07c784ffb8de1133aabc1b879",
+    "signature": "BetStarted(bytes32,address,bytes32,bytes32,uint256,uint256[3])",
+    "name": "BetStarted",
+    "inputs": [
+      {
+        "type": "bytes32",
+        "indexed": true,
+        "name": "_betHash"
+      },
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "_gambler"
+      },
+      {
+        "type": "bytes32",
+        "indexed": false,
+        "name": "_uniqueBetId"
+      },
+      {
+        "type": "bytes32",
+        "indexed": false,
+        "name": "_userSeed"
+      },
+      {
+        "type": "uint256",
+        "indexed": true,
+        "name": "_blockNumber"
+      },
+      {
+        "type": "uint256[3]",
+        "indexed": false,
+        "name": "_rollIntegerVariables"
+      }
+    ]
+  },
+  {
     "sighash": "d9b45ff50eed6ae710eebfb537378310020a2033b73a45db48bb97c9f175de8a",
     "signature": "WalletUpdate(string,address)",
     "name": "WalletUpdate",
@@ -13376,6 +16760,18 @@
     ]
   },
   {
+    "sighash": "dbe60b79c7fc263304608fc644259ce5daa1ef7bc84d5386bf8f71933b103b37",
+    "signature": "OnCommit(uint256)",
+    "name": "OnCommit",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "commit"
+      }
+    ]
+  },
+  {
     "sighash": "dbebfba65bd6398fb722063efc10c99f624f9cd8ba657201056af918a676d5ee",
     "signature": "SetOperator(address)",
     "name": "SetOperator",
@@ -13384,6 +16780,50 @@
         "type": "address",
         "indexed": true,
         "name": "operator"
+      }
+    ]
+  },
+  {
+    "sighash": "dc776af5351c29fc895eb280cb5e10f85515a46afa3bee19cf5f09d487e89739",
+    "signature": "PlayerWithdraw(uint256,address,uint256)",
+    "name": "PlayerWithdraw",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": true,
+        "name": "_sysTxId"
+      },
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "_player"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_trxAmount"
+      }
+    ]
+  },
+  {
+    "sighash": "dcbdcb2045d6cbb9e8d23957243599f1677f7a303b5f3d82353955925a53f532",
+    "signature": "ReleaseVCoin(address,uint256,uint256)",
+    "name": "ReleaseVCoin",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "_bettor"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_vcoinAmount"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_devAmount"
       }
     ]
   },
@@ -13449,6 +16889,33 @@
     ]
   },
   {
+    "sighash": "dd6785c80c7a31b9bf5542cfbb6a18b6daace28927108d486ec6069569f74191",
+    "signature": "HandleToken(uint8,address,uint256,uint8)",
+    "name": "HandleToken",
+    "inputs": [
+      {
+        "type": "uint8",
+        "indexed": false,
+        "name": "handleType"
+      },
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "_from"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_tokenid"
+      },
+      {
+        "type": "uint8",
+        "indexed": false,
+        "name": "decimals"
+      }
+    ]
+  },
+  {
     "sighash": "dd71a1d19fcba687442a1d5c58578f1e409af71a79d10fd95a4d66efd8fa9ae7",
     "signature": "PricePosted(address,uint256,uint256,uint256)",
     "name": "PricePosted",
@@ -13494,6 +16961,38 @@
         "type": "uint256",
         "indexed": false,
         "name": "timestamp"
+      }
+    ]
+  },
+  {
+    "sighash": "ddc8a84ed861e6c9b9551b9d771d2aabee0e93ca9f4dd7d695b5cb9dda14d1d2",
+    "signature": "DivideComplete(uint64,uint64,uint64,uint64,uint64)",
+    "name": "DivideComplete",
+    "inputs": [
+      {
+        "type": "uint64",
+        "indexed": true,
+        "name": "round"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "trxAmountTotal"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "anteAmountTotal"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "maxHolderIndex"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "tmCompleted"
       }
     ]
   },
@@ -13611,6 +17110,18 @@
         "type": "uint256",
         "indexed": false,
         "name": "amount"
+      }
+    ]
+  },
+  {
+    "sighash": "e085bd33d6f70c91ce4743c136063a3036514a387359c6ebe049ae17cee7fc5b",
+    "signature": "savePayBonusToLog(string)",
+    "name": "savePayBonusToLog",
+    "inputs": [
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "json"
       }
     ]
   },
@@ -13913,6 +17424,28 @@
     ]
   },
   {
+    "sighash": "e561256863eeaab72fa0f3f4a74d88f8adc7f7961cb62b67efb002ee6518d78d",
+    "signature": "WithDraw_token(trcToken,address,uint256)",
+    "name": "WithDraw_token",
+    "inputs": [
+      {
+        "type": "trcToken",
+        "indexed": false,
+        "name": "_token"
+      },
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "_addr"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_amount"
+      }
+    ]
+  },
+  {
     "sighash": "e5b754fb1abb7f01b499791d0b820ae3b6af3424ac1c59768edb53f4ec31a929",
     "signature": "Redeem(address,uint256,uint256)",
     "name": "Redeem",
@@ -13931,6 +17464,18 @@
         "type": "uint256",
         "indexed": false,
         "name": "redeemTokens"
+      }
+    ]
+  },
+  {
+    "sighash": "e6d5073025a090a43ec37b0b9a174aa63374bc8b24f7569c9d865e5ca8464fd3",
+    "signature": "FreezeTransfer(bool)",
+    "name": "FreezeTransfer",
+    "inputs": [
+      {
+        "type": "bool",
+        "indexed": false,
+        "name": "frozen"
       }
     ]
   },
@@ -14184,6 +17729,85 @@
     ]
   },
   {
+    "sighash": "ea0203a01c2aa807f65df9405c8b0eca49ea26f3d293753dc12f6f81ad62f44e",
+    "signature": "WinDividendComplete(uint256,uint256,uint256[],uint32,uint32)",
+    "name": "WinDividendComplete",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": true,
+        "name": "round"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "trxTrc10"
+      },
+      {
+        "type": "uint256[]",
+        "indexed": false,
+        "name": "trc20s"
+      },
+      {
+        "type": "uint32",
+        "indexed": false,
+        "name": "stakingInfoLength"
+      },
+      {
+        "type": "uint32",
+        "indexed": false,
+        "name": "end"
+      }
+    ]
+  },
+  {
+    "sighash": "ea4f248a9a34b0ef200e6f5463b313b5568faaf8b073b8b541e16f9a2110c817",
+    "signature": "diceResult(address,uint256,uint256,uint256,bytes32,string,bool,uint256)",
+    "name": "diceResult",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "user"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "betValue"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "prediction"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "is_under"
+      },
+      {
+        "type": "bytes32",
+        "indexed": false,
+        "name": "blockHash"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "tx"
+      },
+      {
+        "type": "bool",
+        "indexed": false,
+        "name": "win"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "lucky_number"
+      }
+    ]
+  },
+  {
     "sighash": "ea59e8027e41fda1525220008cf2416797405065eb21b0ebd417bfc6d361b8de",
     "signature": "SequenceNumberSet(uint64,uint64)",
     "name": "SequenceNumberSet",
@@ -14251,6 +17875,80 @@
         "type": "address",
         "indexed": false,
         "name": "oracle"
+      }
+    ]
+  },
+  {
+    "sighash": "eb75b2d76fa4075d0be501a3e01f43c4a969797154a1c473ebc71c8c0408d10b",
+    "signature": "saveWashCodeToLog(string,string,string,string)",
+    "name": "saveWashCodeToLog",
+    "inputs": [
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "userName"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "createDate"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "amount"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "currency"
+      }
+    ]
+  },
+  {
+    "sighash": "eba6649fe7a0c8fe0d0a20a994015af623abc1a21f0994124afd70054f232b0a",
+    "signature": "LiveDivideStep(uint256,address,uint64,uint64,uint64,uint64,uint256,uint256)",
+    "name": "LiveDivideStep",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": true,
+        "name": "index"
+      },
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "owner"
+      },
+      {
+        "type": "uint64",
+        "indexed": true,
+        "name": "round"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "trxAmountTotal"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "liveAmountTotal"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "maxHolderIndex"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "liveAmount"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "trxAmount"
       }
     ]
   },
@@ -14563,6 +18261,58 @@
     ]
   },
   {
+    "sighash": "f0f1e23ddce8a520eaa7502e02fa767cb24152e9a86a4bf02529637c4e57504b",
+    "signature": "DiceResult(uint256,address,address,uint64,uint64,uint256,uint64,uint256,uint256)",
+    "name": "DiceResult",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": true,
+        "name": "_orderId"
+      },
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "_bettor"
+      },
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "_mentor"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "_number"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "_direction"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_amount"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "_roll"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_winAmount"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_referralAmount"
+      }
+    ]
+  },
+  {
     "sighash": "f1038c18cf84a56e432fdbfaf746924b7ea511dfe03a6506a0ceba4888788d9b",
     "signature": "DefaultAdminDelayChangeScheduled(uint48,uint48)",
     "name": "DefaultAdminDelayChangeScheduled",
@@ -14709,6 +18459,23 @@
     ]
   },
   {
+    "sighash": "f2991c8d6b2753a5fe7d4965623f52a1b09537c3042c388a03206f56cdf51506",
+    "signature": "OnAuctionEnd(uint256,uint256)",
+    "name": "OnAuctionEnd",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "round"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "size"
+      }
+    ]
+  },
+  {
     "sighash": "f2ef974bc2aedf0c322b1a97e8627e85114a789cadf8d172b5efb5d6c1d94f8d",
     "signature": "ChangeTransitCross(address,address)",
     "name": "ChangeTransitCross",
@@ -14753,6 +18520,18 @@
     ]
   },
   {
+    "sighash": "f3421c93854709397d0d2db783688451d8b0cce5121d0580b704b45a32e9240d",
+    "signature": "BetFinished(bytes32)",
+    "name": "BetFinished",
+    "inputs": [
+      {
+        "type": "bytes32",
+        "indexed": true,
+        "name": "_betHash"
+      }
+    ]
+  },
+  {
     "sighash": "f35c007b2f3afc6efbb2ad052c7e715fff12c111a73cf0ce49ce8eebf86bf964",
     "signature": "SetTTL(uint256)",
     "name": "SetTTL",
@@ -14773,6 +18552,43 @@
         "type": "address",
         "indexed": true,
         "name": "owner"
+      }
+    ]
+  },
+  {
+    "sighash": "f3dc5b4e697b8163db8f7ac096bc1e3a9ab7ffa999770bd5c9b44372e147ef25",
+    "signature": "saveDepositToLog(string,string,string,string,string,string)",
+    "name": "saveDepositToLog",
+    "inputs": [
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "userName"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "depositTime"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "depositType"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "depositAmount"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "currency"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "status"
       }
     ]
   },
@@ -14817,6 +18633,80 @@
         "type": "uint256",
         "indexed": true,
         "name": "fee"
+      }
+    ]
+  },
+  {
+    "sighash": "f41b7910e085d0992d604fd470931728fd77cc8eb504d99e50e51a0a30fcfd1a",
+    "signature": "Bet(address,uint256,uint256)",
+    "name": "Bet",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "_addr"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_amount"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_index"
+      }
+    ]
+  },
+  {
+    "sighash": "f41f60f711ba836227c971508457bbe98fabd925aa91193903921d0bb66dbae1",
+    "signature": "PendingOrder(uint256,uint256,uint256,address,address,uint256,address,uint256,uint256)",
+    "name": "PendingOrder",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "orderID"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "orderStatus"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "orderType"
+      },
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "user"
+      },
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "firstToken"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "firstAmount"
+      },
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "secondToken"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "secondAmount"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "price"
       }
     ]
   },
@@ -14985,6 +18875,23 @@
     ]
   },
   {
+    "sighash": "f6a7e669306918b018d1eb595a21c8180bdecc0c90847daef23f9cf5fbd4902a",
+    "signature": "Dividend(address,uint256)",
+    "name": "Dividend",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "bettor"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "amount"
+      }
+    ]
+  },
+  {
     "sighash": "f6cef455daa2f0926726c225d4ab406e2be4fb2f4d92b0b4bd58e9127d501e18",
     "signature": "NewAirdrop(address,address,uint256,uint256)",
     "name": "NewAirdrop",
@@ -15042,6 +18949,50 @@
         "type": "bool",
         "indexed": false,
         "name": "isOp"
+      }
+    ]
+  },
+  {
+    "sighash": "f7a33b3f26e41613f6be1312275c89789f280e80a2aeeb3807f1ed758f0a9792",
+    "signature": "saveWashCodeToLog(string)",
+    "name": "saveWashCodeToLog",
+    "inputs": [
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "json"
+      }
+    ]
+  },
+  {
+    "sighash": "f87773a42397e78138141da48b9481bdc71e8cdda9b0f642435e918f4b04a346",
+    "signature": "saveWithdrawToLog(string,string,string,string,string)",
+    "name": "saveWithdrawToLog",
+    "inputs": [
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "userName"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "amount"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "createDate"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "arrivalDate"
+      },
+      {
+        "type": "string",
+        "indexed": false,
+        "name": "currency"
       }
     ]
   },
@@ -15109,6 +19060,60 @@
     ]
   },
   {
+    "sighash": "fa190dd5cf02aed0ac51cde4dcb61edb7d2ee157f9579d4250afe1cf33f80fb5",
+    "signature": "WinDividendStep(uint256,uint256,address,uint64)",
+    "name": "WinDividendStep",
+    "inputs": [
+      {
+        "type": "uint256",
+        "indexed": true,
+        "name": "roundIndex"
+      },
+      {
+        "type": "uint256",
+        "indexed": true,
+        "name": "dividIndex"
+      },
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "player"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "stakingAmnt"
+      }
+    ]
+  },
+  {
+    "sighash": "fa6dad6eb312f5e9ebe90f6a22f124900d874d0d484b32918fe9854468a6ef97",
+    "signature": "SnapshotStarted(uint32,uint64,uint64,uint32)",
+    "name": "SnapshotStarted",
+    "inputs": [
+      {
+        "type": "uint32",
+        "indexed": false,
+        "name": "snapshotCnt"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "totalStakingAmount"
+      },
+      {
+        "type": "uint64",
+        "indexed": false,
+        "name": "devStakingAmount"
+      },
+      {
+        "type": "uint32",
+        "indexed": false,
+        "name": "stakerCnt"
+      }
+    ]
+  },
+  {
     "sighash": "fa9b3c14cc825c412c9ed81b3ba365a5b459439403f18829e572ed53a4180f0a",
     "signature": "StakeUnlocked(address,uint256)",
     "name": "StakeUnlocked",
@@ -15122,6 +19127,75 @@
         "type": "uint256",
         "indexed": false,
         "name": "withdrawTime"
+      }
+    ]
+  },
+  {
+    "sighash": "facc228914cdc3eb8ea99ce266d969e92361210c635c7c0528e580043c169d04",
+    "signature": "UserWin(address,uint256,uint256,uint256,uint256,uint256,uint256)",
+    "name": "UserWin",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "_addr"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_amount"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_point"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_random"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_P"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_O"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_W"
+      }
+    ]
+  },
+  {
+    "sighash": "fbc993f3fa69e680de1828623df5993043eeac6012fca3eabafacc6c22de7785",
+    "signature": "bet(uint8,address,uint8,uint256)",
+    "name": "bet",
+    "inputs": [
+      {
+        "type": "uint8",
+        "indexed": false,
+        "name": "_type"
+      },
+      {
+        "type": "address",
+        "indexed": false,
+        "name": "user"
+      },
+      {
+        "type": "uint8",
+        "indexed": false,
+        "name": "_number"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_value"
       }
     ]
   },
@@ -15171,6 +19245,53 @@
         "type": "uint256",
         "indexed": false,
         "name": "amount"
+      }
+    ]
+  },
+  {
+    "sighash": "fca4b97855d40e2cc24898577ea208d17e24a1b4a21ee8050756238d1e0e47f7",
+    "signature": "HighRollers(address,uint256,uint256,uint256,uint256,uint256,bool,uint256)",
+    "name": "HighRollers",
+    "inputs": [
+      {
+        "type": "address",
+        "indexed": true,
+        "name": "user"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_startNumber"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_endNumber"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_winningNumber"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_value"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "_winamount"
+      },
+      {
+        "type": "bool",
+        "indexed": false,
+        "name": "result"
+      },
+      {
+        "type": "uint256",
+        "indexed": false,
+        "name": "timestamp"
       }
     ]
   },
