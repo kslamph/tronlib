@@ -2,10 +2,7 @@ package event
 
 import (
 	"fmt"
-	"strings"
 	"sync"
-
-	"golang.org/x/crypto/sha3"
 
 	"github.com/kslamph/tronlib/v2/pb/core"
 	"github.com/kslamph/tronlib/v2/tron"
@@ -29,28 +26,25 @@ type Definition struct {
 }
 
 // signature returns the canonical event signature whose keccak256 is the
-// registry key ("Transfer(address,address,uint256)"). Indexed flags and
-// parameter names are deliberately absent: they are not part of the hashed
-// signature, which is why two contracts can share a key while disagreeing
-// about the layout — see scope.register.
+// registry key ("Transfer(address,address,uint256)"). It delegates to
+// CanonicalSignature, the exported single source of the join rule, so the
+// registry and out-of-process tooling derive identical hashes.
 func (d *Definition) signature() string {
 	types := make([]string, len(d.Inputs))
 	for i, in := range d.Inputs {
 		types[i] = in.Type
 	}
-	return fmt.Sprintf("%s(%s)", d.Name, strings.Join(types, ","))
+	return CanonicalSignature(d.Name, types)
 }
 
 // sigKey is the registry key: the whole signature hash, matching the length of
 // a real topics[0].
 type sigKey [32]byte
 
+// sigKeyOf hashes a full signature string through the package's one keccak
+// primitive (hashSignature), the same one SignatureKey uses.
 func sigKeyOf(signature string) sigKey {
-	hasher := sha3.NewLegacyKeccak256()
-	hasher.Write([]byte(signature))
-	var key sigKey
-	copy(key[:], hasher.Sum(nil))
-	return key
+	return sigKey(hashSignature(signature))
 }
 
 // scope is one namespace of event definitions: the process-wide global
