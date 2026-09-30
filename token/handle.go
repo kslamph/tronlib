@@ -13,11 +13,9 @@ import (
 
 // trc20ABI is the minimal TRC-20 surface the Handle drives. decimals is
 // deliberately declared uint256, NOT the uint8 real contracts declare:
-// go-ethereum decodes a declared-uint8 output as a Go byte, and
-// contract.Result has no accessor for that shape (the uint8 accessor gap
-// — see the package doc). Declared uint256, the same wire word decodes
-// through Result.BigInt() for both the standard uint8 form and the
-// uint256-packed form some non-standard contracts emit, and the
+// declared so, the same wire word decodes through Result.BigInt() for
+// both the standard uint8 form (which Result.Byte also reads directly)
+// and the uint256-packed form some non-standard contracts emit, and the
 // malformed-metadata check becomes an explicit 0..255 range test.
 const trc20ABI = `[
   {"type":"function","name":"decimals","stateMutability":"view",

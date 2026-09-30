@@ -344,8 +344,8 @@ func TestHandleBuildersReachTheNode(t *testing.T) {
 	if f.gotCreate.GetAmount() != 1_000_000 {
 		t.Errorf("transfer request = %+v", f.gotCreate)
 	}
-	if _, err := h.TransferToken(t.Context(), testTo, "1000001", 5); err != nil {
-		t.Fatalf("TransferToken: %v", err)
+	if _, err := h.TransferTRC10(t.Context(), testTo, "1000001", 5); err != nil {
+		t.Fatalf("TransferTRC10: %v", err)
 	}
 	if string(f.gotAsset.GetAssetName()) != "1000001" {
 		t.Errorf("asset request = %+v", f.gotAsset)

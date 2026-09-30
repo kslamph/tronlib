@@ -17,19 +17,18 @@
 // scales above 18 would conflate unusual-but-valid tokens with malformed
 // responses.)
 //
-// # The uint8 accessor gap
+// # Why decimals is declared uint256
 //
-// go-ethereum decodes a declared-uint8 ABI output as a Go byte, and
-// v2/contract's Result has no accessor for that shape (Uint64 reads
-// uint64, BigInt reads *big.Int) — reading decimals as declared would be
-// a dead end. Handle therefore supplies its own ABI in which decimals is
-// declared uint256: Result.BigInt() then works for BOTH the standard
-// uint8 wire form (a uint8 value fits a uint256 word exactly) and the
+// contract.Result can read a declared-uint8 output (Result.Byte), so the
+// historic "uint8 accessor gap" that once motivated this workaround is
+// closed — the uint256 declaration stays for a different reason. Declared
+// uint256, the same wire word decodes through Result.BigInt() for BOTH the
+// standard uint8 form (a uint8 value fits a uint256 word exactly) and the
 // uint256-packed form some non-standard contracts emit (the case v1's
-// decimals_uint256_test.go pinned), and the bad_metadata check becomes an
-// explicit range test instead of a decode failure. The same asymmetry
-// means BalanceOf needs no workaround: balanceOf is declared uint256 and
-// Result.BigInt() is its accessor.
+// decimals_uint256_test.go pinned), and the malformed-metadata check
+// becomes an explicit range test instead of a decode failure. The same
+// asymmetry means BalanceOf needs no workaround: balanceOf is declared
+// uint256 and Result.BigInt() is its accessor.
 //
 // # Immutable amounts
 //

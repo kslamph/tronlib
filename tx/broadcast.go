@@ -106,9 +106,11 @@ func reconcileAfterBroadcast(ctx context.Context, cp rpc.ConnProvider, op, txid 
 
 // Wait polls the FullNode receipt (GetTransactionInfoById) until the
 // transaction is included and executed, and returns the parsed Receipt.
-// Inclusion is not finality: TRON reaches practical finality when a block is
-// solidified (~a minute) — use WaitForSolid for custody or deposit-crediting
-// semantics. Receipt.Solidified() is false here.
+// Call it only on a broadcast the node accepted (Receipt.OK()): a
+// transaction the node rejected never lands, so Wait on it polls until
+// the context deadline. Inclusion is not finality: TRON reaches practical
+// finality when a block is solidified (~a minute) — use WaitForSolid for
+// custody or deposit-crediting semantics. Receipt.Solidified() is false here.
 //
 // Poll errors are transient (v1 semantics): a failed poll is retried until
 // the context is done, which surfaces as chain.timeout.
@@ -118,8 +120,9 @@ func Wait(ctx context.Context, cp rpc.ConnProvider, txid string) (*Receipt, erro
 
 // WaitForSolid polls the Solidity endpoint (GetTransactionInfoById on
 // WalletSolidity) until the transaction appears there — solidified
-// semantics, the finality-aware variant of Wait. A receipt from the solidity
-// node reports Solidified() == true.
+// semantics, the finality-aware variant of Wait, including Wait's rule
+// that it is called only on a broadcast the node accepted. A receipt from
+// the solidity node reports Solidified() == true.
 func WaitForSolid(ctx context.Context, cp rpc.ConnProvider, txid string) (*Receipt, error) {
 	return pollReceipt(ctx, cp, "tx.WaitForSolid", txid, true)
 }

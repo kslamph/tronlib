@@ -174,9 +174,12 @@ func (h *Handle) TransferTRX(ctx context.Context, to tron.Address, amt tron.SUN)
 	return tx.BuildTransfer(ctx, h.cp, h.owner, to, amt)
 }
 
-// TransferToken builds a TRC-10 transfer (AssetTx) of qty units of assetName.
-// TRC-20 transfers go through the token handle: cli.Token(addr).Transfer(...).
-func (h *Handle) TransferToken(ctx context.Context, to tron.Address, assetName string, qty int64) (*tx.AssetTx, error) {
+// TransferTRC10 builds a TRC-10 asset transfer (AssetTx) of qty raw units of
+// assetName. TRC-10 is TRON's legacy asset system; TRC-20 (USDT and friends)
+// goes through the token handle: cli.Token(ctx, addr).Transfer(...). qty is
+// raw asset units — the SDK does not read the asset's issuance precision,
+// so scale whole-token input before calling.
+func (h *Handle) TransferTRC10(ctx context.Context, to tron.Address, assetName string, qty int64) (*tx.AssetTx, error) {
 	return tx.BuildAssetTransfer(ctx, h.cp, h.owner, to, assetName, qty)
 }
 

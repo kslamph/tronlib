@@ -473,7 +473,7 @@ func TestTransferTRXDelegatesToBuildTransfer(t *testing.T) {
 	}
 }
 
-func TestTransferTokenDelegatesToBuildAssetTransfer(t *testing.T) {
+func TestTransferTRC10DelegatesToBuildAssetTransfer(t *testing.T) {
 	var gotReq *core.TransferAssetContract
 	f := &fakeFacadeServer{}
 	f.TransferAssetFn = func(ctx context.Context, in *core.TransferAssetContract) (*api.TransactionExtention, error) {
@@ -481,9 +481,9 @@ func TestTransferTokenDelegatesToBuildAssetTransfer(t *testing.T) {
 		return facadeAssetExt(), nil
 	}
 	c := newFacadeTestClient(t, f)
-	asset, err := c.Account(facadeFrom).TransferToken(context.Background(), facadeTo, "1000001", 5)
+	asset, err := c.Account(facadeFrom).TransferTRC10(context.Background(), facadeTo, "1000001", 5)
 	if err != nil {
-		t.Fatalf("Account.TransferToken: %v", err)
+		t.Fatalf("Account.TransferTRC10: %v", err)
 	}
 	if string(gotReq.GetAssetName()) != "1000001" || gotReq.GetAmount() != 5 {
 		t.Fatalf("request did not reach BuildAssetTransfer's RPC: %+v", gotReq)

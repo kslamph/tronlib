@@ -40,6 +40,8 @@ func main() {
 	}
 	to := tronlib.MustAddress("TBkfmcE7pM8cwxEhATtkMFwAf1FeQcwY9x")
 
+	// Amounts are integer SUN: 1 TRX = 1_000_000 SUN. Wrap literals in
+	// tronlib.TRX — a bare 1 here would mean 1 SUN, not 1 TRX.
 	transfer, err := cli.Account(signer.Address()).TransferTRX(ctx, to, tronlib.TRX(1))
 	if err != nil {
 		panic(err)
@@ -78,7 +80,7 @@ the first call. If you declared a network with `WithNetwork`, call
 | `.../v2/rpc` | Full 1:1 gRPC wrapper surface. |
 | `.../v2/tx` | Transaction builders, signing, broadcast, receipts, cost preview. |
 | `.../v2/contract` | ABI-driven contract calls and deploys. |
-| `.../v2/token` | TRC-20 token handle with decimal-aware amounts (TRC-10 transfers go through `Client.TransferToken`). |
+| `.../v2/token` | TRC-20 token handle with decimal-aware amounts — `Client.Token(ctx, addr)`. TRC-10 legacy assets go through `Client.Account(owner).TransferTRC10`. |
 | `.../v2/event` | Log and event decoding. |
 | `.../v2/tron` | Core types: addresses, amounts (SUN), errors. |
 
@@ -87,15 +89,22 @@ the first call. If you declared a network with `WithNetwork`, call
 - `Client` is the chain handle (dial, broadcast, wait, contract and token
   reads). Everything bound to one address lives on
   `cli.Account(owner)`; the handle holds no key and never signs, which is what
-  lets a multi-signature signer authorize someone else's account.
-- Amounts are integer **SUN**. Use `tronlib.TRX` only for literals and
-  constants; dynamic decimal input must go through `tronlib.ParseTRX`.
+  lets a multi-signature signer authorize someone else's account. The token
+  handle is the one deliberate exception: it is bound to the token *contract*,
+  not an owner, so it hangs off `Client.Token` and its `Transfer`/`Approve`
+  take the sending account as an explicit first argument.
+- Amounts are integer **SUN** (1 TRX = 1_000_000 SUN). Use `tronlib.TRX`
+  for literals and constants; dynamic decimal input must go through
+  `tronlib.ParseTRX`. A bare integer where a `SUN` is expected compiles and
+  means SUN — `TransferTRX(ctx, to, 10)` sends 0.00001 TRX.
 - Staking amounts are TRX in SUN, never Energy or Bandwidth quantities, and
   `Unstake` starts the chain's cooldown rather than returning TRX —
   `WithdrawUnstaked` claims the matured balance. `ClaimRewards` is voting
   rewards, a different balance again.
 - `Client.Broadcast` returns a `Receipt` for node-level rejections —
-  `rec.OK()` reports them; they are not Go errors.
+  `rec.OK()` reports them; they are not Go errors. Check `rec.OK()` before
+  waiting: a rejected transaction never lands, so `Wait` on it polls until
+  the context deadline.
 - `Client.Wait` reports inclusion; use `WaitForSolid` for custody or
   deposit-crediting semantics.
 - Multi-signature transactions can travel between signers:

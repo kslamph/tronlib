@@ -306,8 +306,10 @@ func (c *Client) Broadcast(ctx context.Context, t Tx) (*Receipt, error) {
 }
 
 // Wait polls until the transaction is included and executed, and returns
-// the parsed Receipt. Inclusion is not finality; use WaitForSolid for
-// custody or deposit-crediting semantics.
+// the parsed Receipt. Call it only on a broadcast the node accepted
+// (Receipt.OK()) — a rejected transaction never lands and Wait would poll
+// until the context deadline. Inclusion is not finality; use WaitForSolid
+// for custody or deposit-crediting semantics.
 func (c *Client) Wait(ctx context.Context, txid string) (*Receipt, error) {
 	return tx.Wait(ctx, c.inner, txid)
 }

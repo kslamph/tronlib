@@ -336,11 +336,11 @@ Four kinds, four types. `NativeTx`, `ContractTx`, `DeployTx` and `AssetTx` each 
 The kind is decided **statically by the builder**, not by runtime inspection:
 
 ```go
-func (c *Client) TransferTRX(ctx, from, to Address, amt tron.SUN) (*tx.NativeTx, error)
-func (c *Client) TransferToken(ctx, from, to Address, assetName string, qty int64) (*tx.AssetTx, error)
-func (h *token.Handle) Transfer(ctx, from, to Address, amt token.Amount) (*tx.ContractTx, error)
-func (i *contract.Instance) Invoke(ctx, owner Address, value tron.SUN, method string, args ...Arg) (*tx.ContractTx, error)
-func (c *Client) Deploy(ctx, owner Address, p DeployParams) (*tx.DeployTx, error)
+func (h *account.Handle) TransferTRX(ctx, to tron.Address, amt tron.SUN) (*tx.NativeTx, error)
+func (h *account.Handle) TransferTRC10(ctx, to tron.Address, assetName string, qty int64) (*tx.AssetTx, error)
+func (h *token.Handle) Transfer(ctx, from, to tron.Address, amt token.Amount) (*tx.ContractTx, error)
+func (i *contract.Instance) Invoke(ctx, owner tron.Address, value tron.SUN, method string, args ...Arg) (*tx.ContractTx, error)
+func (h *account.Handle) Deploy(ctx, p tx.DeployParams) (*tx.DeployTx, error)
 ```
 
 **Deployment is in scope.** v1 exposes `smartcontract.Manager.Deploy`, `UpdateSetting` and `UpdateEnergyLimit`; omitting them would be a regression, and C3 excludes only shielded operations, TRC-10 *issuance*, and the CLI. `DeployTx` is a distinct type rather than a variant of `ContractTx` because it carries fields no other kind has — `OriginEnergyLimit` (must be > 0) and `ConsumeUserResourcePercent` — and because the protocol gives it **no simulation path**, which the type system should express rather than document.
@@ -896,7 +896,7 @@ v2 explicitly does **not**:
 
 - Provide shielded/Sapling operations (C3). Deferred to v2.1; `rpc` means nothing is blocked.
 - Provide TRC-10 asset **issuance** (C3) — `AssetIssueCreate`, update and permission variants.
-- **TRC-10 *transfer* is in scope**, as `tx.AssetTx` via `Client.TransferToken`. C3 excludes issuance, not the ability to move an asset you already hold, and `TransferAssetContract` is a native (non-TVM, no-energy) transaction that fits `NativeTx`'s category. It is a distinct type because it carries an asset-name field neither `NativeTx` nor `ContractTx` has.
+- **TRC-10 *transfer* is in scope**, as `tx.AssetTx` via `Account(owner).TransferTRC10`. C3 excludes issuance, not the ability to move an asset you already hold, and `TransferAssetContract` is a native (non-TVM, no-energy) transaction that fits `NativeTx`'s category. It is a distinct type because it carries an asset-name field neither `NativeTx` nor `ContractTx` has.
 - Contract **deployment is in scope** (§6.1). v1 exposes `Manager.Deploy`, so omitting it would be a regression.
 - Ship a CLI (C3).
 - Carry any `Deprecated:` shim (C4).
@@ -1033,7 +1033,7 @@ func (h *Handle) Address() tron.Address
 func (h *Handle) State(ctx) (*State, error)          // decoded: balance, stakes, unstakes, votes, delegation
 func (h *Handle) Balance(ctx) (tron.SUN, error)
 func (h *Handle) TransferTRX(ctx, to tron.Address, amt tron.SUN) (*tx.NativeTx, error)
-func (h *Handle) TransferToken(ctx, to tron.Address, asset string, qty int64) (*tx.AssetTx, error)
+func (h *Handle) TransferTRC10(ctx, to tron.Address, asset string, qty int64) (*tx.AssetTx, error)
 func (h *Handle) Deploy(ctx, p tx.DeployParams) (*tx.DeployTx, error)
 func (h *Handle) CostPreview(ctx, t *tx.ContractTx) (*tx.CostPreview, error)
 func (h *Handle) TotalCost(ctx, t tx.Tx) (*tx.TotalCost, error)
