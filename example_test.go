@@ -277,14 +277,18 @@ func ExampleClient_Contract() {
 		}
 	}
 
-	// 4. Price it against this account's staked energy, then broadcast.
+	// 4. Price it against this account's staked energy and bandwidth, then
+	// broadcast. TotalFloor is the all-in floor: energy burn + bandwidth
+	// burn, with no governance fees (TotalCost on the signed transaction is
+	// the all-in answer).
 	acct := cli.Account(signer.Address())
 	preview, err := acct.CostPreview(ctx, call)
 	if err != nil {
 		fmt.Println("preview:", err)
 		return
 	}
-	fmt.Println("burn", preview.TronToBurn.Formatted(), "TRX of", preview.SunPerEnergy, "sun/energy",
+	fmt.Println("burn", preview.TronToBurn.Formatted(), "TRX of", preview.SunPerEnergy, "sun/energy;")
+	fmt.Println(preview.Bandwidth.String(), "; total floor", preview.TotalFloor.Formatted(), "TRX",
 		"("+preview.BandwidthNote+")")
 
 	signed, err := call.Sign(signer)

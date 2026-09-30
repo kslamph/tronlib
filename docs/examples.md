@@ -244,7 +244,8 @@ if err != nil {
 	fmt.Println("preview:", err)
 	return
 }
-fmt.Println("burn", preview.TronToBurn.Formatted(), "TRX of", preview.SunPerEnergy, "sun/energy",
+fmt.Println("burn", preview.TronToBurn.Formatted(), "TRX of", preview.SunPerEnergy, "sun/energy;")
+fmt.Println(preview.Bandwidth.String(), "; total floor", preview.TotalFloor.Formatted(), "TRX",
 	"("+preview.BandwidthNote+")")
 
 signed, err := call.Sign(signer)

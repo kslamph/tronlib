@@ -188,9 +188,11 @@ func (h *Handle) Deploy(ctx context.Context, p tx.DeployParams) (*tx.DeployTx, e
 	return tx.BuildDeploy(ctx, h.cp, h.owner, p)
 }
 
-// CostPreview predicts the energy cost of a contract call for this account,
-// combining the simulated energy, the current unit price and this account's
-// staked energy (tx.PreviewCost).
+// CostPreview predicts the cost of a contract call for this account,
+// combining the simulated energy, the account's staked energy and
+// bandwidth, and both governance unit prices (tx.PreviewCost): energy to
+// burn, bandwidth to burn on a single-signature estimate of the broadcast
+// bytes, and TotalFloor — the all-in floor with no governance fees.
 func (h *Handle) CostPreview(ctx context.Context, t *tx.ContractTx) (*tx.CostPreview, error) {
 	return tx.PreviewCost(ctx, h.cp, t, h.owner)
 }

@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/kslamph/tronlib/v2/pb/api"
 	"github.com/kslamph/tronlib/v2/pb/core"
 	"github.com/kslamph/tronlib/v2/rpc"
@@ -14,7 +16,7 @@ import (
 )
 
 // CostPreview predicts what broadcasting a ContractTx will cost the owner in
-// SUN, combining three read-only node answers (architecture §7.3):
+// SUN, combining four read-only node answers (architecture §7.3):
 //
 //  1. ContractTx.Simulate — the accurate ENERGY ESTIMATOR
 //     (TriggerConstantContract.EnergyUsed) AND the revert check.
@@ -25,12 +27,18 @@ import (
 //     for a call that cannot run would be noise.
 //     Simulate.Penalty supplies the TIP-491 penalty split (when > 0).
 //
-//  2. rpc.GetAccountResource (owner) — EnergyLimit−EnergyUsed = staked
-//     energy available without buying (EnergyAvailable).
+//  2. rpc.GetAccountResource (owner) — the owner's staked energy
+//     (EnergyLimit−EnergyUsed → EnergyAvailable) AND the staked/free
+//     bandwidth (Net/FreeNet limits minus usage → Bandwidth half), one read
+//     feeding both halves.
 //
 //  3. EnergyPriceOf — the current SunPerEnergy (the network governance
 //     parameter that sets the energy→SUN burn ratio, independent of any
 //     specific contract or transaction).
+//
+//  4. BandwidthPriceOf — the current SunPerByte (getTransactionFee's
+//     history), pricing the bandwidth shortfall the same way
+//     BandwidthCostOf prices it on a signed transaction.
 //
 // Energy estimator vs Energy burn calculator:
 //
@@ -80,24 +88,52 @@ type CostPreview struct {
 	SunPerEnergy int64
 	// PricedAt is when the price was read; staleness is explicit.
 	PricedAt time.Time
-	// BandwidthNote states what the preview does not cover. The energy-only
-	// preview is a FLOOR: a live run measured a 345,000 SUN NetFee delta the
-	// preview never mentioned (architecture §7.3 limitation 1).
+	// Bandwidth predicts the bandwidth half of the broadcast, on the same
+	// charging model BandwidthCostOf applies to a signed transaction:
+	// staked bandwidth first, then the free quota, any shortfall burning at
+	// SunPerByte. BytesNeeded is measured on a ONE-SIGNATURE estimate of the
+	// broadcast bytes (the preview runs before signing); a predicted burn
+	// the owner cannot cover is account.insufficient_bandwidth — a number
+	// the node would refuse is not reported as a prediction.
+	Bandwidth *BandwidthCost
+	// TotalFloor is TronToBurn + Bandwidth.Burn: the all-in floor. Both
+	// halves under-state at worst — the energy price is a governance value,
+	// and bandwidth availability only grows between the read and the
+	// broadcast — while extra signatures beyond the first add ~67 bytes
+	// each. It is a floor, not a total: it carries no governance fees
+	// (TotalCostOf on the signed transaction is the all-in answer).
+	TotalFloor tron.SUN
+	// BandwidthNote states the preview's estimation caveat (see
+	// BandwidthEstimateNote): the bandwidth half is priced on a
+	// single-signature estimate of the broadcast bytes.
 	BandwidthNote string
 }
 
-// BandwidthNotModelled is the CostPreview.BandwidthNote value: the preview
-// prices energy only, and RecipientActivation is a separate unmodelled cost
-// (architecture §7.3 limitations 1 and 2).
-const BandwidthNotModelled = "bandwidth (NetFee) and recipient activation are not included"
+// BandwidthEstimateNote is the CostPreview.BandwidthNote value: the preview
+// runs before signing, so its bandwidth is priced on a one-signature
+// estimate of the broadcast bytes. (Recipient activation is not a
+// CostPreview concern: a contract call's activation cost lands inside
+// Simulate's energy, and the transfer kinds that can create accounts take
+// BandwidthCostOf's creation branch instead.)
+const BandwidthEstimateNote = "bandwidth priced on a single-signature estimate; each extra signature adds ~67 bytes"
 
-// String renders the preview as one line, including the bandwidth note so a
-// logged preview cannot be read as a total.
+// signatureBytes is the secp256k1 signature length a broadcast carries per
+// signer (R||S||V, 65 bytes). In the repeated-bytes signature field each
+// entry encodes as tag + length + 65 ≈ 67 bytes of serialized size.
+const signatureBytes = 65
+
+// String renders the preview as one line, including the bandwidth half and
+// the total floor so a logged preview reads as the estimate it is.
 func (c *CostPreview) String() string {
+	bandwidth := "bandwidth: not computed"
+	if c.Bandwidth != nil {
+		bandwidth = c.Bandwidth.String()
+	}
 	return fmt.Sprintf(
-		"cost preview: energy needed %d (base %d + penalty %d), available %d, to buy %d @ %d sun/energy = %s sun (priced %s; %s)",
+		"cost preview: energy needed %d (base %d + penalty %d), available %d, to buy %d @ %d sun/energy = %s sun; %s; total floor %s sun (priced %s; %s)",
 		c.EnergyNeeded, c.EnergyBase, c.EnergyPenalty, c.EnergyAvailable,
 		c.EnergyToBuy, c.SunPerEnergy, c.TronToBurn,
+		bandwidth, c.TotalFloor,
 		c.PricedAt.Format(time.RFC3339), c.BandwidthNote,
 	)
 }
@@ -123,7 +159,9 @@ func PreviewCost(ctx context.Context, cp rpc.ConnProvider, t *ContractTx, owner 
 	if err != nil {
 		return nil, err
 	}
-	// Read 2: the owner's staked energy.
+	// Read 2: the owner's staked energy AND bandwidth (one GetAccountResource
+	// read feeds both halves — EnergyAvailable here, the Bandwidth half in
+	// previewBandwidth below).
 	res, err := rpc.GetAccountResource(cp, ctx, &core.Account{Address: owner.Bytes()})
 	if err != nil {
 		return nil, err
@@ -158,6 +196,21 @@ func PreviewCost(ctx context.Context, cp rpc.ConnProvider, t *ContractTx, owner 
 			Hint: "raise fee_limit via WithFeeLimit (current default 150 TRX) — the computed burn exceeds the transaction's fee limit",
 		}
 	}
+
+	// Read 4: the bandwidth→SUN burn ratio, and the bandwidth half on the
+	// same charging model BandwidthCostOf applies post-signing. A contract
+	// call never takes the creation branch (its activation cost, if any, is
+	// inside Simulate's energy), so this is the plain covered/burn split.
+	bandwidth, err := previewBandwidth(ctx, cp, op, t, owner, res)
+	if err != nil {
+		return nil, err
+	}
+	total, err := burn.Add(bandwidth.Burn)
+	if err != nil {
+		return nil, &tron.Error{Code: tron.CodeAmountOverflow, Op: op, Cause: err,
+			Hint: "TronToBurn + bandwidth Burn overflows SUN; the call cannot be priced in int64 SUN",
+		}
+	}
 	return &CostPreview{
 		EnergyNeeded:    sim.Energy,
 		EnergyBase:      sim.Energy - sim.Penalty,
@@ -167,8 +220,72 @@ func PreviewCost(ctx context.Context, cp rpc.ConnProvider, t *ContractTx, owner 
 		TronToBurn:      burn,
 		SunPerEnergy:    price.SunPerEnergy,
 		PricedAt:        price.FetchedAt,
-		BandwidthNote:   BandwidthNotModelled,
+		Bandwidth:       bandwidth,
+		TotalFloor:      total,
+		BandwidthNote:   BandwidthEstimateNote,
 	}, nil
+}
+
+// previewBandwidth computes the bandwidth half of a CostPreview on the
+// charging model BandwidthCostOf applies to a signed transaction: staked
+// bandwidth first, then the free quota (both from res, the read PreviewCost
+// already made), any shortfall burning at BandwidthPriceOf's unit price. A
+// predicted burn the owner cannot cover is account.insufficient_bandwidth
+// — the node rejects the broadcast, so the preview reports the refusal
+// instead of a number that cannot happen.
+func previewBandwidth(ctx context.Context, cp rpc.ConnProvider, op string, t *ContractTx, owner tron.Address, res *api.AccountResourceMessage) (*BandwidthCost, error) {
+	need, err := estimateBandwidthBytes(t.Transaction())
+	if err != nil {
+		return nil, err
+	}
+	bwPrice, err := BandwidthPriceOf(ctx, cp)
+	if err != nil {
+		return nil, err
+	}
+	cost := &BandwidthCost{
+		BytesNeeded:     need,
+		StakedAvailable: res.GetNetLimit() - res.GetNetUsed(),
+		FreeAvailable:   res.GetFreeNetLimit() - res.GetFreeNetUsed(),
+		SunPerByte:      bwPrice.SunPerByte,
+		PricedAt:        bwPrice.FetchedAt,
+		NetUsage:        need,
+	}
+	toBurnBytes := need - cost.StakedAvailable - cost.FreeAvailable
+	if toBurnBytes < 0 {
+		toBurnBytes = 0
+	}
+	cost.ToBurn = toBurnBytes
+	if toBurnBytes == 0 {
+		return cost, nil // covered: no burn, no balance read (the lazy rule)
+	}
+	bwBurn, err := bwPrice.CostOf(toBurnBytes)
+	if err != nil {
+		return nil, &tron.Error{Code: tron.CodeAmountOverflow, Op: op, Cause: err,
+			Hint: "ToBurn × SunPerByte overflows SUN; the call cannot be priced",
+		}
+	}
+	cost.Burn = bwBurn
+	cost.NetUsage = 0 // the node reports NetUsage 0 on the burn path
+	return requireBandwidthBalance(ctx, cp, op, owner, cost, int64(bwBurn))
+}
+
+// estimateBandwidthBytes measures what BandwidthSize will report for this
+// transaction once it carries one signature: the SAME model — a clone with
+// ret cleared plus ResultSizePerContract per contract — with one 65-byte
+// placeholder signature attached, so a preview that runs before signing
+// prices the bytes the broadcast will actually be charged for. Each
+// additional signature grows the broadcast by ~67 bytes (tag + length +
+// 65), priced as bandwidth when uncovered — the caveat BandwidthEstimateNote
+// states.
+func estimateBandwidthBytes(unsigned *core.Transaction) (int64, error) {
+	const op = "tx.PreviewCost"
+	if unsigned == nil {
+		return 0, &tron.Error{Code: tron.CodeTxInvalidArgument, Op: op, Hint: "transaction is nil"}
+	}
+	clone := proto.Clone(unsigned).(*core.Transaction)
+	clone.Ret = nil
+	clone.Signature = [][]byte{make([]byte, signatureBytes)}
+	return BandwidthSize(clone)
 }
 
 // latestEnergyPrice fetches the energy price history and returns the price

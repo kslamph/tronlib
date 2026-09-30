@@ -63,6 +63,8 @@ type (
 	Delegation     = tx.Delegation
 	DelegationList = tx.DelegationIndex
 	TotalCost      = tx.TotalCost
+	CostPreview    = tx.CostPreview
+	BandwidthCost  = tx.BandwidthCost
 )
 
 // Resource names a stakeable/delegatable resource. TRON Power is

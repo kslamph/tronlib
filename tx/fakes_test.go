@@ -102,6 +102,7 @@ type fakeWalletServer struct {
 	// simulateCalls / estimateCalls / accountResourceCalls / energyPricesCalls
 	// count invocations, for asserting the CostPreview read sequence.
 	simulateCalls        atomic.Int32
+	bandwidthPricesCalls atomic.Int32
 	estimateCalls        atomic.Int32
 	accountResourceCalls atomic.Int32
 	energyPricesCalls    atomic.Int32
@@ -160,6 +161,7 @@ func (f *fakeWalletServer) GetEnergyPrices(ctx context.Context, in *api.EmptyMes
 }
 
 func (f *fakeWalletServer) GetBandwidthPrices(ctx context.Context, in *api.EmptyMessage) (*api.PricesResponseMessage, error) {
+	f.bandwidthPricesCalls.Add(1)
 	if f.BandwidthPrices != nil {
 		return f.BandwidthPrices(ctx, in)
 	}

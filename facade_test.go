@@ -168,6 +168,10 @@ func (f *fakeFacadeServer) GetAccount(ctx context.Context, in *core.Account) (*c
 	return &core.Account{Balance: 1_500_000}, nil
 }
 
+func (f *fakeFacadeServer) GetBandwidthPrices(ctx context.Context, in *api.EmptyMessage) (*api.PricesResponseMessage, error) {
+	return &api.PricesResponseMessage{Prices: "1627279200000:1000"}, nil
+}
+
 func (f *fakeFacadeServer) GetNowBlock2(ctx context.Context, in *api.EmptyMessage) (*api.BlockExtention, error) {
 	if f.GetNowBlock2Fn != nil {
 		return f.GetNowBlock2Fn(ctx, in)

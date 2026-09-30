@@ -486,14 +486,19 @@ func (c *checker) contract() {
 			fmt.Printf("        energy %d, penalty %d, decoded result: true\n", est.Energy, est.Penalty)
 			return nil
 		})
+		var preview *tronlib.CostPreview
 		c.step("CostPreview (account-aware)", func() error {
-			preview, err := c.cli.Account(c.owner).CostPreview(c.ctx, approve)
+			p, err := c.cli.Account(c.owner).CostPreview(c.ctx, approve)
 			if err != nil {
 				return err
 			}
+			preview = p
 			fmt.Printf("        needs %d energy, has %d staked, buys %d @ %d sun = %s TRX\n",
-				preview.EnergyNeeded, preview.EnergyAvailable, preview.EnergyToBuy,
-				preview.SunPerEnergy, preview.TronToBurn.Formatted())
+				p.EnergyNeeded, p.EnergyAvailable, p.EnergyToBuy,
+				p.SunPerEnergy, p.TronToBurn.Formatted())
+			fmt.Printf("        %s\n", p.Bandwidth.String())
+			fmt.Printf("        total floor %s TRX (energy + bandwidth; %s)\n",
+				p.TotalFloor.Formatted(), p.BandwidthNote)
 			return nil
 		})
 		c.step("Sign + TotalCostOf (both resources + fees)", func() error {
@@ -504,6 +509,14 @@ func (c *checker) contract() {
 			cost, err := c.cli.Account(c.owner).TotalCost(c.ctx, signed)
 			if err != nil {
 				return err
+			}
+			// The preview's one-signature bandwidth estimate must equal the
+			// measured signed bytes — the estimate model is exact for one
+			// signature, and this run signs with exactly one.
+			if preview != nil && cost.Bandwidth != nil &&
+				preview.Bandwidth.BytesNeeded != cost.Bandwidth.BytesNeeded {
+				return fmt.Errorf("preview bandwidth estimate %d bytes != signed measurement %d bytes",
+					preview.Bandwidth.BytesNeeded, cost.Bandwidth.BytesNeeded)
 			}
 			fmt.Printf("        total %s TRX — %s\n", cost.Total.Formatted(), cost.String())
 			return nil

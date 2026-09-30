@@ -120,7 +120,9 @@ the first call. If you declared a network with `WithNetwork`, call
   with `SIGERROR`.
 - `TotalCostOf` includes the governance fees a transaction triggers
   (multi-signature surcharge, permission-update fee), read live from the
-  chain parameters.
+  chain parameters. `CostPreview` (pre-sign) prices energy **and** bandwidth
+  — `TotalFloor` is the all-in floor on a single-signature estimate of the
+  broadcast bytes; sign and call `TotalCost` for the all-in answer.
 
 ## Examples
 

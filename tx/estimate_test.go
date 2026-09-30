@@ -3,6 +3,7 @@ package tx
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"strings"
 	"testing"
@@ -285,7 +286,7 @@ func TestEstimateEnergyNodeRejectIsError(t *testing.T) {
 	}
 }
 
-func TestPreviewCostCarriesBandwidthNote(t *testing.T) {
+func TestPreviewCostCarriesBandwidthEstimateNote(t *testing.T) {
 	f := &fakeWalletServer{}
 	cp := newTxTestClient(t, f)
 	ctx := t.Context()
@@ -293,18 +294,111 @@ func TestPreviewCostCarriesBandwidthNote(t *testing.T) {
 	f.TriggerConstant = func(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error) {
 		return &api.TransactionExtention{Result: okResult(), EnergyUsed: 5000, EnergyPenalty: 0}, nil
 	}
+	// Free bandwidth covers the bytes, so the preview needs no balance read.
 	f.AccountResource = func(ctx context.Context, in *core.Account) (*api.AccountResourceMessage, error) {
-		return &api.AccountResourceMessage{}, nil
+		return &api.AccountResourceMessage{FreeNetLimit: 600, FreeNetUsed: 0}, nil
+	}
+	f.Account = func(ctx context.Context, in *core.Account) (*core.Account, error) {
+		return nil, fmt.Errorf("balance read must not happen when bandwidth is covered")
 	}
 	cp2, err := PreviewCost(ctx, cp, ctxTx, testFrom)
 	if err != nil {
 		t.Fatalf("CostPreview: %v", err)
 	}
-	if cp2.BandwidthNote != BandwidthNotModelled {
-		t.Errorf("BandwidthNote = %q, want %q", cp2.BandwidthNote, BandwidthNotModelled)
+	if cp2.BandwidthNote != BandwidthEstimateNote {
+		t.Errorf("BandwidthNote = %q, want %q", cp2.BandwidthNote, BandwidthEstimateNote)
 	}
-	if !strings.Contains(cp2.String(), "bandwidth") {
-		t.Errorf("String() = %q, want it to mention bandwidth", cp2.String())
+	if cp2.Bandwidth == nil {
+		t.Fatal("Bandwidth half is nil, want the covered prediction")
+	}
+	if cp2.Bandwidth.ToBurn != 0 || cp2.Bandwidth.Burn != 0 {
+		t.Errorf("covered bandwidth = %s, want zero burn", cp2.Bandwidth.String())
+	}
+	if cp2.Bandwidth.NetUsage != cp2.Bandwidth.BytesNeeded {
+		t.Errorf("covered NetUsage = %d, want BytesNeeded %d", cp2.Bandwidth.NetUsage, cp2.Bandwidth.BytesNeeded)
+	}
+	// Covered bandwidth adds nothing: the floor is the energy burn alone.
+	if cp2.TotalFloor != cp2.TronToBurn {
+		t.Errorf("TotalFloor = %s, want TronToBurn %s", cp2.TotalFloor, cp2.TronToBurn)
+	}
+	for _, want := range []string{"bandwidth preview:", "total floor", "single-signature"} {
+		if !strings.Contains(cp2.String(), want) {
+			t.Errorf("String() = %q, want it to contain %q", cp2.String(), want)
+		}
+	}
+}
+
+// TestPreviewCostBandwidthBurnPricedAndGated: no bandwidth at all, so the
+// whole byte count burns at the fake's 1000 sun/byte. The zero-balance
+// default account makes the preview refuse with account.insufficient_bandwidth
+// (the fiction rule — the node would reject the broadcast), and funding the
+// account turns the same prediction into numbers.
+func TestPreviewCostBandwidthBurnPricedAndGated(t *testing.T) {
+	f := &fakeWalletServer{}
+	cp := newTxTestClient(t, f)
+	ctx := t.Context()
+	ctxTx, _ := BuildTriggerSmartContract(ctx, cp, testFrom, testTo, nil, 0)
+	f.TriggerConstant = func(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error) {
+		return &api.TransactionExtention{Result: okResult(), EnergyUsed: 5000, EnergyPenalty: 0}, nil
+	}
+	f.Account = func(ctx context.Context, in *core.Account) (*core.Account, error) {
+		return &core.Account{Address: in.GetAddress(), Balance: 0}, nil // exists, broke
+	}
+	_, err := PreviewCost(ctx, cp, ctxTx, testFrom)
+	if !tron.HasCode(err, tron.CodeAccountInsufficientBandwidth) {
+		t.Fatalf("unfunded burn preview = %v, want account.insufficient_bandwidth", err)
+	}
+	f.Account = func(ctx context.Context, in *core.Account) (*core.Account, error) {
+		return &core.Account{Address: in.GetAddress(), Balance: 10_000_000}, nil // 10 TRX
+	}
+	preview, err := PreviewCost(ctx, cp, ctxTx, testFrom)
+	if err != nil {
+		t.Fatalf("funded burn preview: %v", err)
+	}
+	bw := preview.Bandwidth
+	if bw.ToBurn != bw.BytesNeeded {
+		t.Errorf("ToBurn = %d, want the full byte count %d (nothing covers it)", bw.ToBurn, bw.BytesNeeded)
+	}
+	if want := tron.SUN(bw.ToBurn * 1000); bw.Burn != want {
+		t.Errorf("Burn = %s, want ToBurn×1000 = %s", bw.Burn, want)
+	}
+	if bw.NetUsage != 0 {
+		t.Errorf("burn-path NetUsage = %d, want 0 (the node reports 0 on the burn path)", bw.NetUsage)
+	}
+	if want := preview.TronToBurn + bw.Burn; preview.TotalFloor != want {
+		t.Errorf("TotalFloor = %s, want TronToBurn(%s) + Burn(%s)", preview.TotalFloor, preview.TronToBurn, bw.Burn)
+	}
+}
+
+// TestPreviewCostBandwidthEstimateMatchesSignedSize pins the estimate's
+// exactness for the single-signature case: the bytes PreviewCost priced
+// before signing are exactly the bytes BandwidthSize measures on the signed
+// transaction — the same model, one placeholder signature vs one real one.
+func TestPreviewCostBandwidthEstimateMatchesSignedSize(t *testing.T) {
+	f := &fakeWalletServer{}
+	cp := newTxTestClient(t, f)
+	ctx := t.Context()
+	ctxTx, _ := BuildTriggerSmartContract(ctx, cp, testFrom, testTo, nil, 0)
+	f.TriggerConstant = func(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error) {
+		return &api.TransactionExtention{Result: okResult(), EnergyUsed: 5000, EnergyPenalty: 0}, nil
+	}
+	f.Account = func(ctx context.Context, in *core.Account) (*core.Account, error) {
+		return &core.Account{Address: in.GetAddress(), Balance: 10_000_000}, nil
+	}
+	preview, err := PreviewCost(ctx, cp, ctxTx, testFrom)
+	if err != nil {
+		t.Fatalf("PreviewCost: %v", err)
+	}
+	signed, err := ctxTx.Sign(mustSigner(t, testKeyHex))
+	if err != nil {
+		t.Fatalf("Sign: %v", err)
+	}
+	measured, err := BandwidthSize(signed.Transaction())
+	if err != nil {
+		t.Fatalf("BandwidthSize(signed): %v", err)
+	}
+	if preview.Bandwidth.BytesNeeded != measured {
+		t.Errorf("estimate BytesNeeded = %d, signed measurement = %d, want equal", preview.Bandwidth.BytesNeeded, measured)
 	}
 }
 
@@ -330,11 +424,16 @@ func TestPreviewCostThreeReadSequence(t *testing.T) {
 	var gotOwner *core.Account
 	f.AccountResource = func(ctx context.Context, in *core.Account) (*api.AccountResourceMessage, error) {
 		gotOwner = in
-		return &api.AccountResourceMessage{EnergyLimit: 2000, EnergyUsed: 500}, nil
+		// Energy: 1500 available. Bandwidth: free quota covers the bytes,
+		// so the fourth read's balance check stays lazy (no GetAccount).
+		return &api.AccountResourceMessage{EnergyLimit: 2000, EnergyUsed: 500, FreeNetLimit: 600, FreeNetUsed: 0}, nil
 	}
 	// Two entries: the LATEST timestamp (1691500000000 → 420) must win.
 	f.EnergyPrices = func(ctx context.Context, in *api.EmptyMessage) (*api.PricesResponseMessage, error) {
 		return &api.PricesResponseMessage{Prices: "1691400000000:410,1691500000000:420"}, nil
+	}
+	f.Account = func(ctx context.Context, in *core.Account) (*core.Account, error) {
+		return nil, fmt.Errorf("balance read must not happen when both halves are covered")
 	}
 	cp2, err := PreviewCost(ctx, cp, ctxTx, testFrom)
 	if err != nil {
@@ -381,6 +480,7 @@ func TestPreviewCostThreeReadSequence(t *testing.T) {
 		"EstimateEnergy":     f.estimateCalls.Load(),
 		"GetAccountResource": f.accountResourceCalls.Load(),
 		"GetEnergyPrices":    f.energyPricesCalls.Load(),
+		"GetBandwidthPrices": f.bandwidthPricesCalls.Load(),
 	} {
 		want := int32(1)
 		if name == "EstimateEnergy" {
@@ -524,11 +624,11 @@ func TestPreviewCostFeeLimitGatePasses(t *testing.T) {
 	f.TriggerConstant = func(ctx context.Context, in *core.TriggerSmartContract) (*api.TransactionExtention, error) {
 		return &api.TransactionExtention{Result: okResult(), EnergyUsed: 5000, EnergyPenalty: 0}, nil
 	}
-	f.AccountResource = func(ctx context.Context, in *core.Account) (*api.AccountResourceMessage, error) {
-		return &api.AccountResourceMessage{EnergyLimit: 2000, EnergyUsed: 500}, nil
-	}
 	f.EnergyPrices = func(ctx context.Context, in *api.EmptyMessage) (*api.PricesResponseMessage, error) {
 		return &api.PricesResponseMessage{Prices: "1691500000000:420"}, nil
+	}
+	f.AccountResource = func(ctx context.Context, in *core.Account) (*api.AccountResourceMessage, error) {
+		return &api.AccountResourceMessage{EnergyLimit: 2000, EnergyUsed: 500, FreeNetLimit: 600, FreeNetUsed: 0}, nil
 	}
 	high, err := ctxTx.WithFeeLimit(tron.TRX(5)) // 5_000_000 SUN > 1_470_000 SUN burn
 	if err != nil {
