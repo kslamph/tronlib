@@ -22,6 +22,9 @@ const DefaultSnapshotPath = "internal/eventdata/top_contracts.json"
 // is two pages.
 const tronscanContractsPath = "https://apilist.tronscanapi.com/api/contracts"
 
+// DefaultContractsURL is the real TronScan ranking endpoint; --api overrides it.
+const DefaultContractsURL = tronscanContractsPath
+
 // pageSize is the API's maximum rows per request (100 → HTTP 400).
 const pageSize = 50
 

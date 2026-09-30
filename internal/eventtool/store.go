@@ -10,6 +10,10 @@ import (
 	"github.com/kslamph/tronlib/v2/event"
 )
 
+// DefaultCorpusPath is the tracked event corpus: the file capture/insert/migrate
+// maintain and generate consumes.
+const DefaultCorpusPath = "internal/eventdata/events_registry.json"
+
 // SavedInput is one event parameter as stored in the corpus. The JSON tags are
 // the corpus schema's field names; the shape mirrors event.ParamDef, which has
 // no tags of its own.
