@@ -7,5 +7,6 @@ coverage.txt
 /docgen.exe
 .superpowers/
 .pi/
-.agents//eventtool
+.agents/
+/eventtool
 /eventtool.exe
