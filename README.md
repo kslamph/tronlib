@@ -134,6 +134,23 @@ They carry no `// Output:` comment, so they compile without contacting a node
 `main` and set the environment it reads: `TRON_PRIVATE_KEY` (hex, 64
 characters), `TRON_MNEMONIC`, `TRON_SIGNER_A_KEY`, `TRON_SIGNER_B_MNEMONIC`.
 
+### Checking them against a live node
+
+Compilation proves the examples type-check, not that they are correct. The
+harness walks every flow above against a real node — reads, builds, local
+signing, simulation, cost pricing, the portable-envelope round trip and the
+node's signature-weight verdict — and spends nothing unless you ask it to:
+
+```bash
+go run ./cmd/examplecheck                          # spend-free; generates a fresh signer
+go run ./cmd/examplecheck -key <hex> -broadcast    # full run, spends TRX
+```
+
+The last recorded run on Nile (34 steps OK, 4 notes, 0 failed) is written up in
+the [verification ledger](docs/verification.md#r9--every-documented-example-flow-live-checked-nile-2026-09-30),
+including the example bug that only execution could find: a reverting
+simulation returns revert data, not the method's return value.
+
 ## Documentation
 
 - [Error reference](docs/errors.md)

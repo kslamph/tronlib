@@ -249,22 +249,31 @@ func ExampleClient_Contract() {
 		return
 	}
 
-	// 3. Dry-run: the accurate energy cost, any revert message, and the ABI
-	// return value of the call the node simulated.
+	// 3. Dry-run. A revert is an answer, not an error: the node reports it in
+	// est.Revert, and the constant result then carries the revert payload rather
+	// than the method's return value — so the revert MUST be checked before the
+	// result is decoded, or Decode fails with contract.arg_mismatch. (A live run
+	// of this example against Nile caught exactly that: an unfunded owner made
+	// transfer revert, and the unconditional decode below reported arg_mismatch
+	// instead of the revert.)
 	est, err := call.Simulate(ctx)
 	if err != nil {
 		fmt.Println("simulate:", err)
 		return
 	}
-	fmt.Println("energy:", est.Energy, "penalty:", est.Penalty, "revert:", est.Revert)
-	if est.HasResult() {
-		result, err := inst.Decode("transfer", est.ConstantResult[0])
-		if err != nil {
-			fmt.Println("decode result:", err)
-			return
-		}
-		if ok, err := result.Bool(); err == nil {
-			fmt.Println("transfer would succeed:", ok)
+	if est.Revert != "" {
+		fmt.Println("the call would revert:", est.Revert, "— energy", est.Energy, "code", est.Code)
+	} else {
+		fmt.Println("energy:", est.Energy, "penalty:", est.Penalty)
+		if est.HasResult() {
+			result, err := inst.Decode("transfer", est.ConstantResult[0])
+			if err != nil {
+				fmt.Println("decode result:", err)
+				return
+			}
+			if ok, err := result.Bool(); err == nil {
+				fmt.Println("transfer would succeed:", ok)
+			}
 		}
 	}
 
@@ -459,6 +468,12 @@ func ExampleClient_Token() {
 // The three unstake states are distinct and the API names them apart, because
 // the TRX is not spendable in the middle one. The cooldown length is a chain
 // parameter (14 days on Mainnet, 1 on Nile) — read it, never assume it.
+//
+// Note that the build RPCs for the reverse operations are state-validated by
+// the node: withdrawing with nothing matured, cancelling when no unstake is
+// pending, or undelegating a delegation that does not exist is rejected at
+// build time (tx.invalid_argument), before there is anything to sign. That is
+// why the reads below come first.
 func ExampleResources_Stake() {
 	ctx := context.Background()
 

@@ -27,7 +27,14 @@ jobs:
       run: |
         # pb/ is generated protobuf code with no tests; keep it out of the
         # coverage denominator (mirrors the .golangci.yml pb exclusion).
-        pkgs=$(go list ./... | grep -v '/pb/')
+        #
+        # cmd/examplecheck and cmd/tip491probe are live-node harnesses: their
+        # purpose is to talk to a real node, so they cannot be unit-tested
+        # hermetically. They are gated by go build / go vet / golangci-lint and
+        # by the live runs recorded in docs/verification.md, and are excluded
+        # from the coverage denominator (CODING_STANDARDS.md §6.5).
+        pkgs=$(go list ./... | grep -v '/pb/' \
+          | grep -v 'cmd/examplecheck$' | grep -v 'cmd/tip491probe$')
         go test -short -coverprofile=coverage.txt -covermode=atomic $pkgs
 
     # Lint gate. golangci-lint is installed from source rather than via a

@@ -222,15 +222,19 @@ if err != nil {
 	fmt.Println("simulate:", err)
 	return
 }
-fmt.Println("energy:", est.Energy, "penalty:", est.Penalty, "revert:", est.Revert)
-if est.HasResult() {
-	result, err := inst.Decode("transfer", est.ConstantResult[0])
-	if err != nil {
-		fmt.Println("decode result:", err)
-		return
-	}
-	if ok, err := result.Bool(); err == nil {
-		fmt.Println("transfer would succeed:", ok)
+if est.Revert != "" {
+	fmt.Println("the call would revert:", est.Revert, "— energy", est.Energy, "code", est.Code)
+} else {
+	fmt.Println("energy:", est.Energy, "penalty:", est.Penalty)
+	if est.HasResult() {
+		result, err := inst.Decode("transfer", est.ConstantResult[0])
+		if err != nil {
+			fmt.Println("decode result:", err)
+			return
+		}
+		if ok, err := result.Bool(); err == nil {
+			fmt.Println("transfer would succeed:", ok)
+		}
 	}
 }
 

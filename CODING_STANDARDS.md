@@ -289,6 +289,13 @@ Rules:
 - Error paths count. A package whose error branches are untested is not done.
 - Generated protobuf code (`pb/**`) is excluded from both the CI coverage run
   and Codecov (`codecov.yml`); it carries no tests.
+- **Live-node harnesses are excluded from the coverage denominator**
+  (`cmd/examplecheck`, `cmd/tip491probe`). Their purpose is to exercise flows
+  against a real node, so they cannot be covered hermetically; they are gated
+  by `go build`, `go vet` and `golangci-lint`, and their runs are recorded in
+  `docs/verification.md`. Their pure helpers still carry tests. Without this
+  exclusion a harness of a few hundred lines would drag the library's real
+  coverage below the floor and the floor would stop measuring the library.
 
 ## 7. Documentation
 

@@ -186,6 +186,51 @@ These close the three "NOT proven" items below.
   `consume_user_resource_percent` = **42** (was 0) — the success path a
   deployer key is required for.
 
+### R9 — every documented example flow, live-checked (Nile, 2026-09-30)
+
+`cmd/examplecheck` walks the flows the examples teach against a live node:
+reads, builds, local signing, simulation, cost pricing, the portable-envelope
+round trip and the node's signature-weight verdict. It broadcasts only with
+`-broadcast`, so the default run spends nothing and needs no funded key.
+
+```sh
+go run ./cmd/examplecheck                         # spend-free (fresh signer)
+go run ./cmd/examplecheck -key <hex> -broadcast   # full run, spends TRX
+```
+
+Observed at Nile block **71,399,777** — 34 steps OK, 4 notes, **0 failed**:
+
+| Flow | Live evidence |
+|---|---|
+| Account reads | `TLibQrqp…GT1` state, resource state, staking summary and delegation index all decoded; EnergyLimit 8520, free Bandwidth 600 |
+| Chain parameters | `getUnfreezeDelayDays` **1** (Nile, not 14), `getMaxDelegateLockPeriod` 144000, `getMultiSignFee` 1 TRX, `getUpdateAccountPermissionFee` 100 TRX |
+| Energy price | 100 sun/energy, `EffectiveAt` 2025-08-08 (a governance entry, not "now") |
+| TRC-20 handle | `Tether USD (USDT)`, decimals 6, totalSupply 1,000,000,000,000,000,035,993,266,846; `Amount("1.5")` → 1500000 raw units |
+| ABI from the node | 20 methods loaded from `getcontractinfo` and used by `Invoke`/`Decode` |
+| Simulate (success) | `approve`: energy 22506, decoded ABI result `true` |
+| CostPreview | 22506 needed, 8520 staked, buys 13986 @ 100 sun = **1.3986 TRX** |
+| TotalCostOf | 1.3985 TRX; for the permission update it reported the **100 TRX** `getUpdateAccountPermissionFee` — the V2 reversal, live (a bandwidth-only total would have said 0) |
+| Simulate (revert) | `transfer` from a 0-balance owner: `REVERT opcode executed`; decoding that payload fails with `contract.arg_mismatch` |
+| Portable envelope | 215 bytes, kind `native`, signer recovered from the bytes after `Decode`, duplicate signer refused with `tx.already_signed` |
+| Remote signer | `SignHash` → `AttachSignature` verified the 65-byte signature against the stated address |
+| SignWeight | `PERMISSION_ERROR`, threshold 1, `enough=false` — a signature from a key outside the permission list does not authorize, which is the point of the step |
+| Staking builds | stake / unstake / delegate accepted by the node's build RPCs and each signed locally |
+| Event decoding | E1's txid decoded to `Transfer [from=TKgHdpAqr7… to=TBkfmcE7pM8… value=1000000000000000000]` |
+
+**Defect caught by this run:** `ExampleClient_Contract` decoded
+`Simulate`'s `ConstantResult` unconditionally. A reverting simulation returns
+the revert payload, not the method's return value, so the example failed with
+`contract.arg_mismatch` instead of reporting the revert. The example now
+checks `Estimate.Revert` before decoding; the harness keeps a step that pins
+both branches. Compilation could not have found this — only execution could.
+
+**Notes (all four are node-side state validation, not SDK behaviour):**
+`withdrawexpireunfreeze`, `cancelallunfreezev2`, `undelegateresource` and
+`votewitnessaccount` were rejected at *build* time with `tx.invalid_argument`
+because the reference account has nothing pending to withdraw, cancel or
+undelegate, and is not voting. These builds are state-validated by the node,
+which is why the examples order the reads before the writes.
+
 ## 3. Negative records (what is NOT proven)
 
 - **Nile TIP-491**: factor 0 on Nile USDT (usage 7,506 vs 5e9 threshold);
@@ -194,6 +239,12 @@ These close the three "NOT proven" items below.
 - ~~**Staked-energy cost runs**~~ — resolved by R6 above (Nile, 2026-09-29).
 - ~~**`insufficient_bandwidth` live**~~ — resolved by R7 above.
 - ~~**UpdateSetting success path**~~ — resolved by R8 above.
+- **State-changing flows of the new account API are build/simulate-verified,
+  not broadcast-verified.** Stake, unstake, delegate, undelegate, vote,
+  claim-rewards and permission-update transactions were accepted by the
+  node's build RPCs, signed and priced (R9), but no funded broadcast of them
+  has been recorded. Run `go run ./cmd/examplecheck -key <hex> -broadcast` on
+  a funded testnet key to close this row.
 - **Arg constructors** for `address[]`/`bytes`/`bytesN`/`int256` and
   `Result.Byte` for `uint8`: **shipped 2026-09-29** (see `PHASE2.md`
   Phase 2.1).
