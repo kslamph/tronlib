@@ -49,3 +49,18 @@ func TestInsertABIRejectsGarbage(t *testing.T) {
 		t.Fatal("want an error for malformed JSON")
 	}
 }
+
+// TestInsertABIRejectsObjectWithoutABI: an object that is not an ABI artifact
+// (e.g. an API error body) must be an error, not a silent "0 events added"
+// success that re-saves the corpus unchanged.
+func TestInsertABIRejectsObjectWithoutABI(t *testing.T) {
+	s := New("")
+	if _, err := InsertABI([]byte(`{"error":"not found"}`), s); err == nil {
+		t.Fatal(`want an error when an object has no "abi" key`)
+	}
+	// An explicitly empty ABI array is legitimate: no events, no error.
+	n, err := InsertABI([]byte(`{"abi":[]}`), New(""))
+	if err != nil || n != 0 {
+		t.Fatalf(`InsertABI({"abi":[]}) = (%d, %v), want (0, nil)`, n, err)
+	}
+}

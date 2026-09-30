@@ -2,6 +2,7 @@ package eventtool
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -89,6 +90,60 @@ func TestFetchTopStopsAtFiftyWithSinglePage(t *testing.T) {
 	}
 	if len(snap.Contracts) != 50 {
 		t.Fatalf("contracts = %d, want 50", len(snap.Contracts))
+	}
+}
+
+// TestFetchTopStopsOnShortPage: when the API returns fewer rows than requested
+// (the ranking ran out early), the walk must stop after that page rather than
+// keep requesting. Nothing more is coming; continuing would either loop or
+// error. A mutated loop that ignores the short page issues start=100, which
+// this server rejects, so the test fails loudly instead of hanging.
+func TestFetchTopStopsOnShortPage(t *testing.T) {
+	page1, err := os.ReadFile("testdata/contracts_page1.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var p2 struct {
+		Data []json.RawMessage `json:"data"`
+	}
+	raw2, err := os.ReadFile("testdata/contracts_page2.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(raw2, &p2); err != nil {
+		t.Fatal(err)
+	}
+	short, err := json.Marshal(map[string]any{"data": p2.Data[:10]})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var requests [][2]string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		requests = append(requests, [2]string{q.Get("start"), q.Get("limit")})
+		switch q.Get("start") {
+		case "0":
+			w.Write(page1)
+		case "50":
+			w.Write(short)
+		default:
+			http.Error(w, "past the short page", http.StatusBadRequest)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	old := pagePause
+	pagePause = 0
+	t.Cleanup(func() { pagePause = old })
+
+	snap, err := FetchTop(context.Background(), srv.Client(), srv.URL, 100)
+	if err != nil {
+		t.Fatalf("FetchTop: %v", err)
+	}
+	if len(requests) != 2 {
+		t.Fatalf("requests = %v, want exactly 2 (short page must end the walk)", requests)
+	}
+	if len(snap.Contracts) != 60 {
+		t.Fatalf("contracts = %d, want 60", len(snap.Contracts))
 	}
 }
 

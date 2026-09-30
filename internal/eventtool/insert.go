@@ -51,17 +51,25 @@ func InsertABI(data []byte, s *Store) (int, error) {
 }
 
 // parseABIEntries accepts either a top-level array of entries or an object
-// wrapping that array under "abi".
+// wrapping that array under "abi". An object without an "abi" key is an error,
+// not an empty ABI: it is usually the wrong file (an API error body, say), and
+// silently inserting nothing would report success for a mistake.
 func parseABIEntries(data []byte) ([]abiEntry, error) {
 	var entries []abiEntry
 	if err := json.Unmarshal(data, &entries); err == nil {
 		return entries, nil
 	}
 	var wrapped struct {
-		ABI []abiEntry `json:"abi"`
+		ABI json.RawMessage `json:"abi"`
 	}
 	if err := json.Unmarshal(data, &wrapped); err != nil {
 		return nil, fmt.Errorf("eventtool: ABI is neither an array nor {\"abi\":[...]}: %w", err)
 	}
-	return wrapped.ABI, nil
+	if wrapped.ABI == nil {
+		return nil, fmt.Errorf(`eventtool: ABI object has no "abi" key`)
+	}
+	if err := json.Unmarshal(wrapped.ABI, &entries); err != nil {
+		return nil, fmt.Errorf(`eventtool: ABI object's "abi" is not an array: %w`, err)
+	}
+	return entries, nil
 }

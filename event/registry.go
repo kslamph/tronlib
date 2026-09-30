@@ -222,11 +222,12 @@ func sameDef(a, b *Definition) bool {
 // explicit registration. Called by BuiltinTRC20's explicit re-assertion and by
 // the generated table's init().
 //
-// Keys come from the definitions themselves, not from the selector each
-// generated entry is stored under, so built-ins land on the same full-hash keys
-// as ABI registrations. TestBuiltinTableCountAndKeys pins that the derived key
-// of every generated definition is the v1 selector it ships with, extended to
-// 32 bytes.
+// Every key is derived from the definition itself (sigKeyOf of its canonical
+// signature), so built-ins land on the same full-hash keys as ABI
+// registrations; generated entries carry no selector at all.
+// TestBuiltinTableCountAndKeys pins that each generated entry's table key
+// equals that derived key, that the keys are distinct, and that every
+// definition is reachable in the global registry by it.
 func registerBuiltin(defs []*Definition) {
 	mu.Lock()
 	defer mu.Unlock()
