@@ -26,6 +26,38 @@ func TestHasCodeThroughWrapping(t *testing.T) {
 	assert.False(t, HasCode(errors.New("plain"), CodeAmountOverflow))
 }
 
+// TestErrorOfExposesWhatErrorHides pins the accessor that makes Op, Hint, TxID
+// and Next reachable. Error() prints only "op: code" by design (see
+// TestHintIsNotInMessage), so Hint — the remediation README.md and
+// docs/errors.md promise, "a Hint that names the fix" — is otherwise
+// unreachable without importing errors and type-asserting *Error at every call
+// site.
+func TestErrorOfExposesWhatErrorHides(t *testing.T) {
+	inner := &Error{
+		Code: CodeAddressInvalid,
+		Op:   "account.Permissions.Current",
+		Hint: "owner.keys[0] is not a 0x41-prefixed 21-byte address",
+		Next: ActionFixCall,
+	}
+
+	// Through a wrapping chain, which is how a caller actually meets it.
+	te := ErrorOf(fmt.Errorf("reading permissions: %w", inner))
+	if te == nil {
+		t.Fatal("ErrorOf must find the *Error through a wrapping chain")
+	}
+	assert.Equal(t, CodeAddressInvalid, te.Code, "the fact")
+	assert.Equal(t, "account.Permissions.Current", te.Op)
+	assert.Contains(t, te.Hint, "owner.keys[0]", "the actionable half must survive")
+	assert.Equal(t, ActionFixCall, te.Action())
+
+	// Directly.
+	assert.Same(t, inner, ErrorOf(inner))
+
+	// And the cases where there is nothing to return.
+	assert.Nil(t, ErrorOf(nil))
+	assert.Nil(t, ErrorOf(errors.New("plain")), "a non-tronlib error has no fields to read")
+}
+
 func TestActionDerivedFromCode(t *testing.T) {
 	assert.Equal(t, ActionRetry, CodeChainConnection.Action())
 	assert.Equal(t, ActionRetry, CodeChainTimeout.Action())

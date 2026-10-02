@@ -43,13 +43,27 @@ func (e *Error) Is(target error) bool {
 	return false
 }
 
-// HasCode reports whether err, or any error in its chain, is a *Error with code c.
-func HasCode(err error, c Code) bool {
+// ErrorOf returns the *Error in err's chain, or nil if err is not from tronlib.
+// Use it to read what Error() does not print:
+//
+//	if te := tron.ErrorOf(err); te != nil {
+//		log.Printf("%s: %s: %s (next: %s)", te.Op, te.Code, te.Hint, te.Action())
+//	}
+//
+// To test a code, use HasCode(err, tron.CodeX) rather than reading
+// ErrorOf(err).Code: HasCode handles the nil case.
+func ErrorOf(err error) *Error {
 	var e *Error
 	if errors.As(err, &e) {
-		return e.Code == c
+		return e
 	}
-	return false
+	return nil
+}
+
+// HasCode reports whether err, or any error in its chain, is a *Error with code c.
+func HasCode(err error, c Code) bool {
+	e := ErrorOf(err)
+	return e != nil && e.Code == c
 }
 
 // Action returns the remediation the caller should take.
