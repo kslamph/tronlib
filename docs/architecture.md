@@ -383,8 +383,9 @@ func (t *ContractTx) WithPermissionID(id int32) (*ContractTx, error)
 
 // Native and asset transfers: expiration and permission id only. They
 // consume no energy, so no fee-limit *option* is offered — but every builder
-// still stamps the DefaultFeeLimit default, and on these kinds the cap is
-// inert because there is no energy to purchase.
+// still stamps the DefaultFeeLimit default. On these kinds the cap is not the
+// binding constraint (an unbandwidth-covered transfer still burns TRX, but
+// nowhere near 150 TRX); it is simply never worth tuning.
 func (t *NativeTx) WithExpiration(d time.Duration) (*NativeTx, error)
 func (t *NativeTx) WithPermissionID(id int32) (*NativeTx, error)
 func (t *AssetTx)  WithExpiration(d time.Duration) (*AssetTx, error)
@@ -416,7 +417,7 @@ failures keep their `tx.invalid_argument` treatment.
 
 | Option | Default | Rationale |
 |---|---|---|
-| `fee_limit` (all kinds) | `150_000_000` SUN (150 TRX) | stamped by every builder; only the contract-shaped kinds can override it (native and asset transfers carry it inert, since they consume no energy) |
+| `fee_limit` (all kinds) | `150_000_000` SUN (150 TRX) | stamped by every builder; only the contract-shaped kinds can override it. The ceiling exists to bound the energy purchase, which only contract-shaped kinds make, so on native and asset transfers the default is never the binding constraint — the largest native outlay this design documents is ~1.1 TRX of recipient activation (limitation 2 above), two orders of magnitude below the cap. It is not absent, though: an unbandwidth-covered transfer still burns TRX. |
 | expiration | head + 60 s | protocol default |
 | `permission_id` | `0` (owner) | protocol default; multi-sig under active permissions needs 2–9 |
 
@@ -493,9 +494,14 @@ type Estimate struct {
 }
 
 type EnergyEstimate struct {
-    Energy  int64   // total required, penalty inclusive — the only field the
-                    // EstimateEnergy RPC exposes; a Base/Penalty split would
-                    // be fabricated (use Estimate.Penalty from Simulate)
+    Energy  int64   // energy_required — the penalty-inclusive total, and the
+                    // only field EstimateEnergyMessage returns. The
+                    // pre-broadcast base/penalty split is NOT derivable from
+                    // it: pre-broadcast use Estimate.Penalty (Simulate) with
+                    // Base = Energy − Penalty (the arithmetic CostPreview.EnergyBase
+                    // performs); the authoritative MEASURED split arrives
+                    // post-broadcast as Receipt.Cost.BaseEnergy
+                    // (OriginEnergyUsage) and .Penalty (EnergyPenaltyTotal)
 }
 
 func (e *Estimate) HasResult() bool
@@ -579,7 +585,7 @@ type ActualCost struct {
 }
 ```
 
-Exposing `CostPreview` before and `Receipt.Cost` after makes the delta between estimate and actual directly observable — which is exactly what a contract's penalty factor did to the caller mid-flight.
+Exposing `CostPreview` before and `Receipt.Cost` after makes the delta between estimate and actual directly observable — which is exactly what a contract's penalty factor did to the caller mid-flight. The split itself is available at only one of the two ends: `EstimateEnergy` cannot report it (§7.2, the RPC returns a single `energy_required`), so before broadcast the base and penalty are derived from `Simulate`'s `Energy`/`Penalty`, while after broadcast they are *measured* — `Receipt.Cost.BaseEnergy` (`OriginEnergyUsage`, the pre-TIP-491 figure) and `Receipt.Cost.Penalty` (`EnergyPenaltyTotal`).
 
 `NodeCode string` on `Receipt` preserves the `api.Return_*` distinction that has three different remedies: `BANDWITH_ERROR` (buy bandwidth), `CONTRACT_EXE_ERROR` (arguments), `CONTRACT_VALIDATE_ERROR` (transaction shape). Collapsing these into one mapped code loses actionable signal, so the mapped `Code` and the raw `NodeCode` are both carried.
 
