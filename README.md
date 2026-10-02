@@ -1,5 +1,14 @@
 # TronLib
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/kslamph/tronlib/v2.svg)](https://pkg.go.dev/github.com/kslamph/tronlib/v2)
+[![codecov](https://codecov.io/gh/kslamph/tronlib/branch/v2/graph/badge.svg?token=QIN77Y7S2T)](https://codecov.io/gh/kslamph/tronlib/branch/v2)
+[![lint](https://img.shields.io/github/actions/workflow/status/kslamph/tronlib/test-coverage.yml?branch=v2&label=lint)](https://github.com/kslamph/tronlib/actions/workflows/test-coverage.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+
+The `lint` badge is the whole release gate, not a golangci-lint score: build,
+tests, the 80% coverage floor, `golangci-lint` v2.14.0, the docgen drift check
+and `govulncheck` in one workflow ([`test-coverage.yml`](.github/workflows/test-coverage.yml)).
+
 A typed Go SDK for the TRON blockchain. One import for the happy path,
 explicit subpackages when you need the full surface. Human developers and
 AI coding agents are equal first-class users — see
