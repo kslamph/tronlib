@@ -6,12 +6,6 @@
 [![checks](https://github.com/kslamph/tronlib/actions/workflows/checks.yaml/badge.svg?branch=v2)](https://github.com/kslamph/tronlib/actions/workflows/checks.yaml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
-`tests` = build, `go test -short`, the 80% coverage floor and the Codecov
-upload ([`tests.yaml`](.github/workflows/tests.yaml)). `checks` =
-`golangci-lint` v2.14.0, the docgen drift check and `govulncheck`
-([`checks.yaml`](.github/workflows/checks.yaml)) — CI-only, and the lint
-config that defines it is [`.golangci.yml`](.golangci.yml).
-
 A typed Go SDK for the TRON blockchain. One import for the happy path,
 explicit subpackages when you need the full surface. Human developers and
 AI coding agents are equal first-class users — see
