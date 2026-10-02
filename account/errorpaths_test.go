@@ -103,7 +103,7 @@ func TestStateErrorPaths(t *testing.T) {
 		st, err := newTestHandle(t, f).State(t.Context())
 		require.NoError(t, err)
 		require.Len(t, st.Stakes, 1)
-		assert.Equal(t, tx.Resource(-1), st.Stakes[0].Resource,
+		assert.Equal(t, tx.ResourceUnknown, st.Stakes[0].Resource,
 			"an unmapped resource must stay distinguishable from Bandwidth and Energy")
 		assert.Equal(t, "UNKNOWN", st.Stakes[0].Resource.String())
 	})

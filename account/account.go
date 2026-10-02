@@ -219,9 +219,9 @@ func (h *Handle) Voting() *Voting { return &Voting{cp: h.cp, owner: h.owner} }
 // never overrides it.
 var nowFunc = time.Now
 
-// resourceFromProto maps the wire resource enum onto the curated one. The wire
-// also carries TRON_POWER (2), which is only meaningful under the new resource
-// model; it maps to the zero value here so it cannot be mistaken for Energy.
+// resourceFromProto maps a wire resource code onto the curated one.
+// Codes outside {BANDWIDTH, ENERGY} — such as TRON_POWER — become
+// tx.ResourceUnknown, which no builder accepts.
 func resourceFromProto(r core.ResourceCode) tx.Resource {
 	if r == core.ResourceCode_ENERGY {
 		return tx.ResourceEnergy
@@ -229,7 +229,7 @@ func resourceFromProto(r core.ResourceCode) tx.Resource {
 	if r == core.ResourceCode_BANDWIDTH {
 		return tx.ResourceBandwidth
 	}
-	return tx.Resource(-1)
+	return tx.ResourceUnknown
 }
 
 func millisOrZero(ms int64) time.Time {

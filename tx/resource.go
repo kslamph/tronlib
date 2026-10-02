@@ -48,6 +48,14 @@ const (
 	ResourceEnergy
 )
 
+// ResourceUnknown marks a resource code the curated set does not cover — TRON
+// Power, or any code a future node adds. It is deliberately outside the
+// [ResourceBandwidth, ResourceEnergy] range and is rejected by every builder,
+// so a decode of an unmapped code can be told apart from Bandwidth (which is
+// the zero value and would otherwise read as "this account staked Bandwidth").
+// Decoders return it; nothing accepts it.
+const ResourceUnknown Resource = -1
+
 // String returns the resource name as the protocol's ResourceCode spells it.
 func (r Resource) String() string {
 	switch r {

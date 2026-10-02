@@ -472,3 +472,59 @@ func TestErrorActionIsFixCallForBuilderValidation(t *testing.T) {
 		t.Errorf("Action() = %v, want fix_call", te.Action())
 	}
 }
+
+// TestResourceUnknownIsRefusedEverywhere closes the decode/build round-trip.
+//
+// resourceFromProto (account) turns a wire code outside {BANDWIDTH, ENERGY} into
+// ResourceUnknown rather than letting it fall onto ResourceBandwidth, which is
+// the zero value. That half is tested in package account. This half is the part
+// that makes the sentinel safe: no builder and no read may accept it. If one
+// did, an account decoded with an unmapped resource could be written straight
+// back to the chain as a Bandwidth stake, turning TRON Power into Bandwidth on
+// the ledger — the exact coercion the decode side exists to prevent.
+func TestResourceUnknownIsRefusedEverywhere(t *testing.T) {
+	cp := newTxTestClient(t, &fakeWalletServer{})
+	ctx := t.Context()
+
+	// Every value outside the curated pair, the sentinel included. Resource(7)
+	// and ResourceUnknown share a shape but not an origin: the first is a
+	// caller typo, the second is what a decoder hands back.
+	for _, res := range []Resource{ResourceUnknown, Resource(7), Resource(99)} {
+		t.Run(res.String(), func(t *testing.T) {
+			for name, call := range map[string]func() error{
+				"BuildFreezeBalanceV2": func() error {
+					_, err := BuildFreezeBalanceV2(ctx, cp, testFrom, res, tron.TRX(1))
+					return err
+				},
+				"BuildUnfreezeBalanceV2": func() error {
+					_, err := BuildUnfreezeBalanceV2(ctx, cp, testFrom, res, tron.TRX(1))
+					return err
+				},
+				"BuildDelegateResource": func() error {
+					_, err := BuildDelegateResource(ctx, cp, testFrom, testTo, res, tron.TRX(1), DelegateOptions{})
+					return err
+				},
+				"BuildUnDelegateResource": func() error {
+					_, err := BuildUnDelegateResource(ctx, cp, testFrom, testTo, res, tron.TRX(1))
+					return err
+				},
+				"DelegatableOf": func() error {
+					_, err := DelegatableOf(ctx, cp, testFrom, res)
+					return err
+				},
+			} {
+				t.Run(name, func(t *testing.T) {
+					err := call()
+					if !tron.HasCode(err, tron.CodeTxInvalidArgument) {
+						t.Fatalf("%s(%v) err = %v, want tx.invalid_argument", name, res, err)
+					}
+				})
+			}
+		})
+	}
+
+	// The curated pair must still pass, or the rejection above proves nothing.
+	if _, err := BuildDelegateResource(ctx, cp, testFrom, testTo, ResourceEnergy, tron.TRX(1), DelegateOptions{}); err != nil {
+		t.Fatalf("ResourceEnergy must stay accepted, got %v", err)
+	}
+}
