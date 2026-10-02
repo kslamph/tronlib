@@ -63,6 +63,14 @@ type fakeWalletServer struct {
 	gotVote    *core.VoteWitnessContract
 	gotPerm    *core.AccountPermissionUpdateContract
 	gotTrigger *core.TriggerSmartContract
+	// Staking lifecycle requests: each Unfreeze/Delegate/Withdraw handler
+	// records what the builder sent, so the tests can assert the forwarding
+	// rather than just that the call succeeded.
+	gotUnfreeze   *core.UnfreezeBalanceV2Contract
+	gotWithdraw   *core.WithdrawExpireUnfreezeContract
+	gotCancel     *core.CancelAllUnfreezeV2Contract
+	gotDelegate   *core.DelegateResourceContract
+	gotUndelegate *core.UnDelegateResourceContract
 }
 
 func (f *fakeWalletServer) GetAccount(_ context.Context, in *core.Account) (*core.Account, error) {
@@ -149,22 +157,27 @@ func (f *fakeWalletServer) FreezeBalanceV2(_ context.Context, in *core.FreezeBal
 }
 
 func (f *fakeWalletServer) UnfreezeBalanceV2(_ context.Context, in *core.UnfreezeBalanceV2Contract) (*api.TransactionExtention, error) {
+	f.gotUnfreeze = in
 	return ext(core.Transaction_Contract_UnfreezeBalanceV2Contract, in), nil
 }
 
 func (f *fakeWalletServer) DelegateResource(_ context.Context, in *core.DelegateResourceContract) (*api.TransactionExtention, error) {
+	f.gotDelegate = in
 	return ext(core.Transaction_Contract_DelegateResourceContract, in), nil
 }
 
 func (f *fakeWalletServer) UnDelegateResource(_ context.Context, in *core.UnDelegateResourceContract) (*api.TransactionExtention, error) {
+	f.gotUndelegate = in
 	return ext(core.Transaction_Contract_UnDelegateResourceContract, in), nil
 }
 
 func (f *fakeWalletServer) CancelAllUnfreezeV2(_ context.Context, in *core.CancelAllUnfreezeV2Contract) (*api.TransactionExtention, error) {
+	f.gotCancel = in
 	return ext(core.Transaction_Contract_CancelAllUnfreezeV2Contract, in), nil
 }
 
 func (f *fakeWalletServer) WithdrawExpireUnfreeze(_ context.Context, in *core.WithdrawExpireUnfreezeContract) (*api.TransactionExtention, error) {
+	f.gotWithdraw = in
 	return ext(core.Transaction_Contract_WithdrawExpireUnfreezeContract, in), nil
 }
 
