@@ -12,8 +12,10 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"sort"
 	"strings"
@@ -164,58 +166,94 @@ type multiFlag []string
 func (m *multiFlag) String() string     { return strings.Join(*m, ",") }
 func (m *multiFlag) Set(v string) error { *m = append(*m, v); return nil }
 
+// main is an exit-code shim over run. Everything the CLI does lives in run so
+// that flag parsing, the exit codes and the error text are testable without
+// forking a subprocess (CODING_STANDARDS.md 6.5: a command's pure helpers carry
+// tests; the process boundary itself is the one line that cannot).
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Fprint(os.Stderr, usage)
-		os.Exit(2)
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+}
+
+// run implements the docgen CLI and returns the process exit code rather than
+// exiting: 0 on success, 1 when the requested operation failed, 2 on a usage
+// error. stdout and stderr are injected so tests can assert on what the user
+// sees. args is os.Args[1:] (the command word first), matching how main calls
+// it.
+func run(args []string, stdout, stderr io.Writer) int {
+	if len(args) < 1 {
+		fmt.Fprint(stderr, usage)
+		return 2
 	}
-	switch os.Args[1] {
+	switch args[0] {
 	case "generate-codes":
-		fs := flag.NewFlagSet("generate-codes", flag.ExitOnError)
+		fs := flag.NewFlagSet("generate-codes", flag.ContinueOnError)
+		fs.SetOutput(stderr)
 		pkgDir := fs.String("pkg", "", "package directory containing codes.go")
 		out := fs.String("out", "", "output file for the generated source")
-		if err := fs.Parse(os.Args[2:]); err != nil {
-			fmt.Fprint(os.Stderr, usage)
-			os.Exit(2)
+		if code, decided := parseFlags(fs, args[1:], stderr); decided {
+			return code
 		}
 		if *pkgDir == "" || *out == "" {
-			fmt.Fprintln(os.Stderr, "generate-codes requires -pkg and -out")
-			os.Exit(2)
+			fmt.Fprintln(stderr, "generate-codes requires -pkg and -out")
+			return 2
 		}
 		src, err := generateCodes(*pkgDir)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "docgen: %v\n", err)
-			os.Exit(1)
+			fmt.Fprintf(stderr, "docgen: %v\n", err)
+			return 1
 		}
 		if err := os.WriteFile(*out, []byte(src), 0o644); err != nil {
-			fmt.Fprintf(os.Stderr, "docgen: %v\n", err)
-			os.Exit(1)
+			fmt.Fprintf(stderr, "docgen: %v\n", err)
+			return 1
 		}
-		fmt.Printf("docgen: wrote %s (%d bytes)\n", *out, len(src))
+		fmt.Fprintf(stdout, "docgen: wrote %s (%d bytes)\n", *out, len(src))
+		return 0
 	case "sync-docs":
-		fs := flag.NewFlagSet("sync-docs", flag.ExitOnError)
+		fs := flag.NewFlagSet("sync-docs", flag.ContinueOnError)
+		fs.SetOutput(stderr)
 		pkgDir := fs.String("pkg", "", "package directory to read codes and Example functions from")
 		var examplePkgs multiFlag
 		fs.Var(&examplePkgs, "example-pkg", "additional package directory to extract Example functions from; repeatable")
 		var docs multiFlag
 		fs.Var(&docs, "docs", "docs file to sync; repeatable")
 		check := fs.Bool("check", false, "do not write; byte-compare rendered output against each docs file and fail on drift")
-		if err := fs.Parse(os.Args[2:]); err != nil {
-			fmt.Fprint(os.Stderr, usage)
-			os.Exit(2)
+		if code, decided := parseFlags(fs, args[1:], stderr); decided {
+			return code
 		}
 		if *pkgDir == "" || len(docs) == 0 {
-			fmt.Fprintln(os.Stderr, "sync-docs requires -pkg and at least one -docs")
-			os.Exit(2)
+			fmt.Fprintln(stderr, "sync-docs requires -pkg and at least one -docs")
+			return 2
 		}
 		if err := runSync(*pkgDir, examplePkgs, docs, *check); err != nil {
-			fmt.Fprintf(os.Stderr, "docgen: %v\n", err)
-			os.Exit(1)
+			fmt.Fprintf(stderr, "docgen: %v\n", err)
+			return 1
 		}
+		return 0
 	default:
-		fmt.Fprintf(os.Stderr, "docgen: unknown command %q\n%s", os.Args[1], usage)
-		os.Exit(2)
+		fmt.Fprintf(stderr, "docgen: unknown command %q\n%s", args[0], usage)
+		return 2
 	}
+}
+
+// parseFlags parses args for a command's FlagSet and decides whether the CLI is
+// done. Under flag.ContinueOnError Parse returns its errors instead of exiting
+// in-process, so this is where the old flag.ExitOnError behaviour is
+// reconstructed: -h/-help printed the usage and exited 0, a bad flag printed an
+// error and exited 2.
+//
+// The second result reports whether a decision was made; when it is false the
+// flags parsed cleanly and the command should proceed with the zero code.
+func parseFlags(fs *flag.FlagSet, args []string, stderr io.Writer) (int, bool) {
+	err := fs.Parse(args)
+	if err == nil {
+		return 0, false
+	}
+	if errors.Is(err, flag.ErrHelp) {
+		// flag already wrote the per-command usage to stderr.
+		return 0, true
+	}
+	fmt.Fprint(stderr, usage)
+	return 2, true
 }
 
 const usage = `usage: docgen <command> [flags]
