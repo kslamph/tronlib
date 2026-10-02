@@ -29,6 +29,13 @@ Module: `github.com/kslamph/tronlib/v2`
 - TRC-20 (USDT & friends) goes through `cli.Token(ctx, addr)` with
   decimal-aware amounts. `Account(owner).TransferTRC10` is the legacy
   TRC-10 asset system, in raw asset units.
+- Staked-resource codes are decoded, never defaulted. A wire code outside
+  {bandwidth, energy} — TRON Power, or anything a future node adds — decodes
+  to `tx.ResourceUnknown`, not to the zero value: zero is
+  `tx.ResourceBandwidth`, so a silent fallback would report a TRON Power
+  stake as Bandwidth. Decoders return it; no builder and no
+  `tx.DelegatableOf` accepts it. It stringifies as `UNKNOWN`. Check
+  `stake.Resource` before feeding a decoded position back into a builder.
 - Errors are `*tron.Error`. `Error()` prints only `op: code`, so the
   remediation is not in the message: read it with `tron.ErrorOf(err)` —
   `.Code`, `.Op`, `.Hint`, and `.Action()` (the remedy: `retry` / `wait` /
