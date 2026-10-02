@@ -16,7 +16,7 @@
 //	go run ./cmd/eventtool capture
 //	go run ./cmd/eventtool generate
 //
-// Design: docs/superpowers/specs/2026-09-30-eventtool-design.md.
+// Design: .superpowers/specs/2026-09-30-eventtool-design.md (local, untracked).
 package main
 
 import (

@@ -6,6 +6,6 @@
 // The logic lives here, not in cmd/eventtool, so it is hermetically testable:
 // cmd/eventtool is flags and wiring only (precedent: internal/format,
 // internal/compilecheck). Design:
-// docs/superpowers/specs/2026-09-30-eventtool-design.md; plan:
-// docs/superpowers/plans/2026-09-30-eventtool.md.
+// .superpowers/specs/2026-09-30-eventtool-design.md; plan:
+// .superpowers/plans/2026-09-30-eventtool.md (both local, untracked).
 package eventtool

@@ -7,7 +7,7 @@
 // header on the generated file was unverifiable. It lives here, in the module,
 // so the data and the generated code travel together.
 //
-// Design: docs/superpowers/specs/2026-09-30-eventtool-design.md.
+// Design: .superpowers/specs/2026-09-30-eventtool-design.md (local, untracked).
 package eventdata
 
 import _ "embed"
