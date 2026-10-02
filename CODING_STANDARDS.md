@@ -8,7 +8,8 @@ that contributors, reviewers, and automated tooling apply the same rules.
 - **Enforced by tooling** — `golangci-lint run` (the `.golangci.yml` v2
   config) is both the local and the CI gate: CI runs `go build ./...`, the
   linter, `-short` tests against an 80% coverage floor, the `docgen` drift
-  check, and `govulncheck` (see `.github/workflows/test-coverage.yml`).
+  check, and `govulncheck` (see `.github/workflows/tests.yaml` and
+  `.github/workflows/checks.yaml`).
   A tooling failure is not debatable in review; fix it before the PR.
 - **Review-enforced** — judgement calls applied in code review. Where this
   document states a rule, follow it; deviations need a stated reason in the PR

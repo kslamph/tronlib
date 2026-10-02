@@ -129,11 +129,12 @@ Expectations (details in [CODING_STANDARDS.md](CODING_STANDARDS.md) §6):
   using the package's bufconn fake (`fakes_test.go`).
 - **CI enforces an 80% total coverage floor** on the module (generated `pb/`
   excluded); a PR that drops below it fails.
-- What CI actually runs
-  ([`.github/workflows/test-coverage.yml`](.github/workflows/test-coverage.yml)):
-  `go build ./...`, `go test -short` with the coverage floor, `golangci-lint
-  run` (v2.14.0, built from source with the repo toolchain), the `docgen`
-  drift check on `docs/errors.md` and `docs/examples.md`, and `govulncheck`.
+- What CI actually runs, in two workflows that fire together:
+  [`tests.yaml`](.github/workflows/tests.yaml) — `go build ./...`, `go test
+  -short` with the 80% coverage floor, and the Codecov upload;
+  [`checks.yaml`](.github/workflows/checks.yaml) — `golangci-lint run`
+  (v2.14.0, built from source with the repo toolchain), the `docgen` drift
+  check on `docs/errors.md` and `docs/examples.md`, and `govulncheck`.
 - Bug fixes include a regression test named after the behaviour or the issue
   (`TestIssue42_...`), and the PR footer references the issue.
 

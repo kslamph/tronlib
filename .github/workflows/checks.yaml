@@ -1,5 +1,9 @@
-name: Test Coverage
+name: checks
 
+# Split out of the former single test-coverage.yml: golangci-lint, the
+# generated-docs drift gate and govulncheck. Tests, the 80% coverage floor
+# and the Codecov upload live in tests.yaml; the two workflows run in
+# parallel on the same events.
 on:
    push:
      branches: [main, master, v2]
@@ -7,7 +11,7 @@ on:
    workflow_dispatch:
 
 jobs:
-  test-coverage:
+  lint-and-verify:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v7
@@ -20,26 +24,6 @@ jobs:
     - name: Install dependencies
       run: go mod download
 
-    - name: Build everything (cmd included)
-      run: go build ./...
-
-    - name: Run tests with coverage (parallel)
-      run: |
-        # pb/ is generated protobuf code with no tests; keep it out of the
-        # coverage denominator (mirrors the .golangci.yml pb exclusion).
-        #
-        # cmd/examplecheck and cmd/tip491probe are live-node harnesses: their
-        # purpose is to talk to a real node, so they cannot be unit-tested
-        # hermetically. They are gated by go build / go vet / golangci-lint and
-        # by the live runs recorded in docs/verification.md, and are excluded
-        # from the coverage denominator (CODING_STANDARDS.md §6.5).
-        # cmd/eventtool is a thin CLI wrapper (flags + wiring); its logic lives
-        # in internal/eventtool and is covered there.
-        pkgs=$(go list ./... | grep -v '/pb/' \
-          | grep -v 'cmd/examplecheck$' | grep -v 'cmd/tip491probe$' \
-          | grep -v 'cmd/eventtool$')
-        go test -short -coverprofile=coverage.txt -covermode=atomic $pkgs
-
     # Lint gate. golangci-lint is installed from source rather than via a
     # prebuilt release: the module targets go 1.27.1 and prebuilt binaries
     # lag the toolchain (the 2.5.0 stock binary cannot even parse go1.27
@@ -49,15 +33,6 @@ jobs:
       run: |
         go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
         golangci-lint run
-
-    - name: Enforce coverage floor (80%)
-      run: |
-        total=$(go tool cover -func=coverage.txt | grep '^total:' | awk '{print substr($NF, 1, length($NF)-1)}')
-        echo "Total statement coverage: ${total}%"
-        awk -v c="$total" 'BEGIN { exit !(c >= 80) }' || {
-          echo "::error::Total coverage ${total}% is below the 80% floor (CODING_STANDARDS.md §6.5)"
-          exit 1
-        }
 
     # Docs drift gate: re-render docs/errors.md and docs/examples.md from the
     # tron package source (plus the root facade's examples, via -example-pkg .)
@@ -76,8 +51,3 @@ jobs:
 
     - name: govulncheck
       run: govulncheck ./...
-
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v7
-      with:
-        token: ${{ secrets.CODECOV_TOKEN }}

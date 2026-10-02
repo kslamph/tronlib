@@ -1,0 +1,59 @@
+name: tests
+
+# Split out of the former single test-coverage.yml so the README's `tests`
+# badge means tests (build, go test, coverage floor, Codecov upload) and
+# nothing else. golangci-lint, the docgen drift check and govulncheck live
+# in checks.yaml; the two workflows run in parallel on the same events.
+on:
+   push:
+     branches: [main, master, v2]
+   pull_request:
+   workflow_dispatch:
+
+jobs:
+  test-coverage:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v7
+
+    - name: Set up Go
+      uses: actions/setup-go@v7
+      with:
+        go-version: '1.27.1'
+
+    - name: Install dependencies
+      run: go mod download
+
+    - name: Build everything (cmd included)
+      run: go build ./...
+
+    - name: Run tests with coverage (parallel)
+      run: |
+        # pb/ is generated protobuf code with no tests; keep it out of the
+        # coverage denominator (mirrors the .golangci.yml pb exclusion).
+        #
+        # cmd/examplecheck and cmd/tip491probe are live-node harnesses: their
+        # purpose is to talk to a real node, so they cannot be unit-tested
+        # hermetically. They are gated by go build / go vet / golangci-lint and
+        # by the live runs recorded in docs/verification.md, and are excluded
+        # from the coverage denominator (CODING_STANDARDS.md §6.5).
+        # cmd/eventtool is a thin CLI wrapper (flags + wiring); its logic lives
+        # in internal/eventtool and is covered there.
+        pkgs=$(go list ./... | grep -v '/pb/' \
+          | grep -v 'cmd/examplecheck$' | grep -v 'cmd/tip491probe$' \
+          | grep -v 'cmd/eventtool$')
+        go test -short -coverprofile=coverage.txt -covermode=atomic $pkgs
+
+    - name: Enforce coverage floor (80%)
+      run: |
+        total=$(go tool cover -func=coverage.txt | grep '^total:' | awk '{print substr($NF, 1, length($NF)-1)}')
+        echo "Total statement coverage: ${total}%"
+        awk -v c="$total" 'BEGIN { exit !(c >= 80) }' || {
+          echo "::error::Total coverage ${total}% is below the 80% floor (CODING_STANDARDS.md §6.5)"
+          exit 1
+        }
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v7
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
