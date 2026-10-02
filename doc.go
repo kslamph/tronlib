@@ -1,7 +1,7 @@
 // Package tronlib is a Go SDK for the TRON blockchain.
 //
-// v2 is a clean-room redesign. See docs/architecture.md for the design.
-// for the design and the reasoning behind each breaking change.
+// v2 is a clean-room redesign. See docs/architecture.md for the design and
+// the reasoning behind each breaking change.
 //
 // # The root facade
 //

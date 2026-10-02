@@ -381,8 +381,10 @@ func (t *ContractTx) WithFeeLimit(s tron.SUN) (*ContractTx, error)
 func (t *ContractTx) WithExpiration(d time.Duration) (*ContractTx, error)
 func (t *ContractTx) WithPermissionID(id int32) (*ContractTx, error)
 
-// Native and asset transfers: expiration and permission id only — they
-// consume no energy, so a fee limit is meaningless and is not offered.
+// Native and asset transfers: expiration and permission id only. They
+// consume no energy, so no fee-limit *option* is offered — but every builder
+// still stamps the DefaultFeeLimit default, and on these kinds the cap is
+// inert because there is no energy to purchase.
 func (t *NativeTx) WithExpiration(d time.Duration) (*NativeTx, error)
 func (t *NativeTx) WithPermissionID(id int32) (*NativeTx, error)
 func (t *AssetTx)  WithExpiration(d time.Duration) (*AssetTx, error)
@@ -414,8 +416,7 @@ failures keep their `tx.invalid_argument` treatment.
 
 | Option | Default | Rationale |
 |---|---|---|
-| `fee_limit` (contract) | `150_000_000` SUN (150 TRX) | v1's `DefaultBroadcastOptions` value (`broadcaster.go:42`); carried over deliberately rather than invented |
-| `fee_limit` (deploy) | same | deploy is the most expensive call a user makes |
+| `fee_limit` (all kinds) | `150_000_000` SUN (150 TRX) | stamped by every builder; only the contract-shaped kinds can override it (native and asset transfers carry it inert, since they consume no energy) |
 | expiration | head + 60 s | protocol default |
 | `permission_id` | `0` (owner) | protocol default; multi-sig under active permissions needs 2–9 |
 
@@ -492,9 +493,9 @@ type Estimate struct {
 }
 
 type EnergyEstimate struct {
-    Energy  int64   // total required, penalty included
-    Base    int64   // pre-TIP-491
-    Penalty int64   // the dynamic-model surcharge portion
+    Energy  int64   // total required, penalty inclusive — the only field the
+                    // EstimateEnergy RPC exposes; a Base/Penalty split would
+                    // be fabricated (use Estimate.Penalty from Simulate)
 }
 
 func (e *Estimate) HasResult() bool
@@ -803,7 +804,7 @@ func (c *Client) Events(ctx, txid string) ([]event.Log, error)
 
 **Aliases, not wrappers.** `type Address = tron.Address` makes a `tron.Address` and a `tronlib.Address` the same type, so facade and subpackage calls interoperate with zero conversion. This is only possible because v2 is a single module (C1); the decision is coupled to it.
 
-**`Dial` performs one round trip** (`GetChainParams`) unless `WithLazyDial()` is passed. Validating URL *shape* is not validating reachability: a `Dial` to a dead node returning `err == nil` sends the first `Account(addr).Balance` to `chain.connection → retry`, so the agent retries the wrong operation instead of switching endpoint.
+**`Dial` performs no network I/O.** It builds the connection factory and records the declared network, so `Dial` to a dead node returns `err == nil` and the failure surfaces on the first real call as `chain.connection → retry`. This is deliberate: reachability is proven by the first call, not by `Dial`, and there is no `WithLazyDial` option — laziness is the only behaviour. Validating URL *shape* is not validating reachability, so an agent that dials a dead endpoint retries the wrong operation instead of switching endpoint; the fix is to treat `chain.connection` as an endpoint problem.
 
 **Network identity is explicit configuration, not a derivation.** An earlier version of this spec claimed mainnet addresses use `0x41` and testnet addresses use `0x65`. That is **false** and has been removed: the 21-byte address prefix is `0x41` on Mainnet, Shasta **and** Nile; the only other documented value is `0xa0`, a legacy `net.type = testnet` config value no active network uses. (`0x65` appears nowhere in the protocol — it is almost certainly `0x41` read as the decimal 65.) Two consequences:
 
@@ -826,7 +827,7 @@ func (c *Client) Network() Network                    // the configured value, n
 func (c *Client) VerifyNetwork(ctx context.Context) error   // genesis-hash fingerprint
 ```
 
-`VerifyNetwork` compares `GetBlockByNum(0)`'s block id against a table of known genesis hashes and returns `chain.network_mismatch` when it disagrees with the configured value. It is **heuristic and must be documented as such** — a private chain matches no entry, and a future testnet redeploy changes its genesis. `Dial` calls it automatically unless `WithLazyDial()` or `Network == Private`.
+`VerifyNetwork` compares `GetBlockByNum(0)`'s block id against a table of known genesis hashes and returns `chain.network_mismatch` when it disagrees with the configured value. It is **heuristic and must be documented as such** — a private chain matches no entry, and a future testnet redeploy changes its genesis. It is an **explicit call**: `Dial` never verifies, and the undeclared zero value and `Private` return `nil` without a read. A caller that wants the check must call `Client.VerifyNetwork` after dialing.
 
 #### 10.1 Paginated reads
 
@@ -847,9 +848,6 @@ type Witness struct {
 ```
 
 `Limit == 0` delegating to the rpc default is a deliberate convenience, but it means a caller cannot express "give me everything" — that is the point of the `List` verb contract. Backing rpcs land in `rpc` as `ListWitnesses`, `GetPaginatedNowWitnessList`, and their Solidity counterparts, unchanged from the 1:1 projection.
-
-
-`VerifyNetwork` compares `GetBlockByNum(0)`'s block id against a table of known genesis hashes and returns `chain.network_mismatch` when it disagrees with the configured value. It is **heuristic and must be documented as such** — a private chain matches no entry, and a future testnet redeploy changes its genesis. `Dial` calls it automatically unless `WithLazyDial()` or `Network == Private`.
 
 **`Sign` is on the transaction, not the client** (§6.3), so it is absent from this list by design. `ParseAddress`, `MustAddress`, `KeyFromHex` and `KeyFromMnemonic` are thin re-exports of `tron` and `key` constructors; they are listed here because the happy path below must compile with a single import.
 

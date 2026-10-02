@@ -8,8 +8,10 @@ import (
 
 // NativeTx is a non-contract transaction (a TRX transfer built by
 // BuildTransfer; further native operations are added as new builders, not as
-// new kinds). It consumes no energy, so no fee-limit option is offered — a
-// fee limit is meaningless for it.
+// new kinds). It consumes no energy, so no fee-limit option is offered —
+// WithFeeLimit is contract-shaped only. The builder still stamps the
+// DefaultFeeLimit default like every other kind; on a native transfer the cap
+// is inert because there is no energy to purchase.
 type NativeTx struct{ baseTx }
 
 // txInternal seals Tx: only the kinds in this package implement it.
