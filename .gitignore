@@ -10,3 +10,4 @@ coverage.txt
 .agents/
 /eventtool
 /eventtool.exe
+skills-lock.json

@@ -189,7 +189,7 @@ Each rule states its real enforcement mechanism. Rules marked *review* are not m
 | **N3** | `Get*` forbidden as a zero-argument field accessor (`GetBalance()` → `Balance()`). **Permitted** when it takes a lookup key (`GetByID(id)`). **`rpc` is exempt entirely** — its names are a mechanical projection of the TRON gRPC service; the absolute ban would rename ~46% of it and destroy the 1:1 property that justifies the package. | lint (arity-based, package-scoped) |
 | **N4** | `ctx context.Context` is the first parameter of every function performing I/O. Never stored on a struct. Never `context.Background()` inside the library. | lint |
 | **N5** | Zero `any` / `interface{}` in exported parameter or result types. **Carve-out:** `any` inside a type-parameter constraint (`rpc.Call[T any]`) is permitted — it is not the same hazard. | lint |
-| **N6** | Nouns must be qualified when two distinct concepts could share them: `TronBalance` / `TokenBalance`, never a bare `Balance`. | review |
+| **N6** | Nouns must be qualified when two distinct concepts could share them: `account.Handle.Balance` / `token.Handle.BalanceOf`, never a bare `Balance` on both. | review |
 | **N7** | No `float32` / `float64` in any amount path. | lint (package-scoped, **not** name-scoped — v1's `ToWei`/`FromWei` would slip past a name-based rule) |
 | **N8** | Receiver names consistent per type across a package. Interfaces have no receiver entry. | lint |
 
@@ -631,10 +631,17 @@ type Error struct {
 func (e *Error) Error() string
 func (e *Error) Unwrap() error
 func (e *Error) Is(target error) bool
+func ErrorOf(err error) *Error
 func HasCode(err error, c Code) bool
 func (c Code) Action() Action
 func (c Code) Doc() string
 ```
+
+**Reading the fields.** `Error()` prints only `op: code`, so `ErrorOf` is the
+accessor for what it omits: `Op`, `Hint`, `TxID` and `Next`. It saves the
+`errors.As` type assertion at every call site. `HasCode` stays the verb for
+code matching, since comparing `ErrorOf(err).Code` would need a nil check each
+time.
 
 **No `Msg` field.** The message is a table lookup keyed on `Code`, generated from the same source as `Action()` and `Doc()`. v1's sentinels fuse fact and advice into one string (`"invalid address: check format and ensure it's a valid TRON address"`), which means a machine cannot get the fact without the advice and a human cannot change the advice without changing the message.
 
@@ -796,7 +803,7 @@ func (c *Client) Events(ctx, txid string) ([]event.Log, error)
 
 **Aliases, not wrappers.** `type Address = tron.Address` makes a `tron.Address` and a `tronlib.Address` the same type, so facade and subpackage calls interoperate with zero conversion. This is only possible because v2 is a single module (C1); the decision is coupled to it.
 
-**`Dial` performs one round trip** (`GetChainParams`) unless `WithLazyDial()` is passed. Validating URL *shape* is not validating reachability: a `Dial` to a dead node returning `err == nil` sends the first `TronBalance` to `chain.connection → retry`, so the agent retries the wrong operation instead of switching endpoint.
+**`Dial` performs one round trip** (`GetChainParams`) unless `WithLazyDial()` is passed. Validating URL *shape* is not validating reachability: a `Dial` to a dead node returning `err == nil` sends the first `Account(addr).Balance` to `chain.connection → retry`, so the agent retries the wrong operation instead of switching endpoint.
 
 **Network identity is explicit configuration, not a derivation.** An earlier version of this spec claimed mainnet addresses use `0x41` and testnet addresses use `0x65`. That is **false** and has been removed: the 21-byte address prefix is `0x41` on Mainnet, Shasta **and** Nile; the only other documented value is `0xa0`, a legacy `net.type = testnet` config value no active network uses. (`0x65` appears nowhere in the protocol — it is almost certainly `0x41` read as the decimal 65.) Two consequences:
 

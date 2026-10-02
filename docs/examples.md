@@ -14,6 +14,20 @@ if tron.HasCode(wrapped, tron.CodeAmountTooManyDecimals) {
 	fmt.Println("round to 6 decimal places")
 }<!-- /go:example -->
 
+<!-- go:example tron.ExampleErrorOf -->
+err := fmt.Errorf("submitting: %w", &tron.Error{
+	Code: tron.CodeChainTimeout,
+	Op:   "Broadcast",
+	Hint: "the node did not answer; poll Wait(txid) before resending",
+})
+
+fmt.Println("message:", err)
+
+if te := tron.ErrorOf(err); te != nil {
+	fmt.Println("hint:", te.Hint)
+	fmt.Println("next:", te.Action())
+}<!-- /go:example -->
+
 <!-- go:example tron.ExampleParseAddress -->
 a, err := tron.ParseAddress("TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwb")
 if err != nil {

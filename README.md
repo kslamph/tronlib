@@ -180,8 +180,11 @@ documentation serves each natively:
 - **Errors are machine-readable remediation.** Every failure is a
   `*tron.Error` with a stable `Code`, a `Hint` that names the fix, and a
   `Next` action (`retry`, `wait`, `fix_call`, `fix_transaction`, `fund`).
-  The [error table](docs/errors.md) is generated from the source by
-  `cmd/docgen`, so it cannot drift from the code it documents.
+  `Error()` prints only `op: code`, so read the rest with
+  `tron.ErrorOf(err)` — nil when the error is not from tronlib — and match
+  codes with `tron.HasCode(err, code)`. The [error table](docs/errors.md)
+  is generated from the source by `cmd/docgen`, so it cannot drift from
+  the code it documents.
 - **Examples are compiled and were executed.** Every example in
   [docs/examples.md](docs/examples.md) is a Go example compiled by `go test`,
   and the [verification ledger](docs/verification.md) records them running

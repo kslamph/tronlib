@@ -5,7 +5,7 @@
 
 ## Error codes
 
-Every error returned by tronlib v2 is `*tron.Error` carrying a `Code` (machine-readable), an `Op` (the failing operation), a `Hint` (remediation), and a `Next` action. The table below is generated from the package source — hand edits between the markers are reverted by CI.
+Every error returned by tronlib v2 is `*tron.Error` carrying a `Code` (machine-readable), an `Op` (the failing operation), a `Hint` (remediation), and a `Next` action. The table below is generated from the package source — hand edits between the markers are reverted by CI. `Error()` prints only `op: code`, so read the rest with `tron.ErrorOf(err)`, and match codes with `tron.HasCode(err, code)` rather than comparing messages.
 
 | Code | Action | Doc |
 |---|---|---|

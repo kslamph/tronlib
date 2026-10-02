@@ -29,6 +29,11 @@ Module: `github.com/kslamph/tronlib/v2`
 - TRC-20 (USDT & friends) goes through `cli.Token(ctx, addr)` with
   decimal-aware amounts. `Account(owner).TransferTRC10` is the legacy
   TRC-10 asset system, in raw asset units.
+- Errors are `*tron.Error`. `Error()` prints only `op: code`, so the
+  remediation is not in the message: read it with `tron.ErrorOf(err)` —
+  `.Code`, `.Op`, `.Hint`, and `.Action()` (the remedy: `retry` / `wait` /
+  `fix_call` / `fix_transaction` / `fund`). Match a code with
+  `tron.HasCode(err, tron.CodeX)`, never by comparing message strings.
 
 ## Read in this order
 
