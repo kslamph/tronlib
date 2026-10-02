@@ -12,21 +12,19 @@ import (
 )
 
 // Estimate is the result of a read-only dry run of a ContractTx against the
-// node (architecture §7.2). It deliberately has NO TxID field (the B5 fix): a
-// simulation never becomes a transaction, so any id it could carry would be
-// fabricated.
+// node. It deliberately has NO TxID field: a simulation never becomes a
+// transaction, so any id it could carry would be fabricated.
 //
-// live-verified: §7.5 — Estimate.Energy (TransactionExtention.EnergyUsed,
-// 13569 on the live run) matches the post-broadcast
-// ResourceReceipt.EnergyUsageTotal (13569) EXACTLY; it is the accurate
-// execution cost and therefore the source CostPreview uses for EnergyNeeded.
+// Estimate.Energy is the accurate execution cost — it matches the
+// post-broadcast ResourceReceipt.EnergyUsageTotal exactly — and is the
+// source CostPreview uses for EnergyNeeded.
 type Estimate struct {
 	// ConstantResult holds the returned ABI-encoded values of the constant
 	// call (one entry per returned value).
 	ConstantResult [][]byte
 	// Energy is the energy the call is estimated to consume
-	// (TransactionExtention.EnergyUsed) — live-verified to equal the actual
-	// post-broadcast EnergyUsageTotal exactly.
+	// (TransactionExtention.EnergyUsed) — the accurate execution cost, equal
+	// to the actual post-broadcast EnergyUsageTotal.
 	Energy int64
 	// Penalty is the TIP-491 dynamic-model energy surcharge the node already
 	// includes in Energy (TransactionExtention.EnergyPenalty, field 8).
@@ -42,17 +40,16 @@ type Estimate struct {
 	Code tron.Code
 }
 
-// EnergyEstimate is the result of the node's EstimateEnergy RPC (architecture §7.1):
-// the penalty-INCLUSIVE total energy the call is expected to consume. It has
+// EnergyEstimate is the result of the node's EstimateEnergy RPC: the
+// penalty-INCLUSIVE total energy the call is expected to consume. It has
 // a single field because that is all the RPC exposes
 // (api.EstimateEnergyMessage.EnergyRequired) — a Base/Penalty split here
 // would be fabricated; use ContractTx.Simulate (Estimate.Penalty) for the
 // split.
 //
-// live-verified: §7.5 — EstimateEnergy is the node's CONSERVATIVE fee-limit
-// calculator: on the live run it returned 20354 for a call whose actual
-// execution cost was 13569 (a 1.5× safety margin, sized so a fee limit set
-// from it never runs out of energy). It is the right answer for "what fee
+// EstimateEnergy is the node's CONSERVATIVE fee-limit calculator: it
+// returns about 1.5× the actual execution cost, sized so a fee limit set
+// from it never runs out of energy. It is the right answer for "what fee
 // limit guarantees success", NOT for "what will this cost" — use
 // ContractTx.Simulate (Estimate.Energy) for the accurate cost prediction;
 // CostPreview does exactly that.
@@ -62,7 +59,7 @@ type EnergyEstimate struct {
 }
 
 // HasResult reports whether the simulated call returned any ABI values. It
-// replaces the `len(e.ConstantResult) > 0` idiom (architecture §7.2) and is nil-safe.
+// replaces the `len(e.ConstantResult) > 0` idiom and is nil-safe.
 func (e *Estimate) HasResult() bool { return e != nil && len(e.ConstantResult) > 0 }
 
 // DeployEstimate is the result of a read-only dry run of a DeployTx
@@ -92,10 +89,8 @@ type DeployEstimate struct {
 }
 
 // Estimate dry-runs the deployment read-only via the node's deploy
-// estimation path and returns the full energy the broadcast will consume
-// (research 2026-09-28 — the "no simulation path" premise in architecture §6.1
-// is superseded: the path exists, it just takes bytecode instead of a
-// built call). It exists ONLY on *DeployTx. The request reuses the built
+// estimation path and returns the full energy the broadcast will consume.
+// It exists ONLY on *DeployTx. The request reuses the built
 // transaction's own owner, bytecode and call value, so what is estimated
 // is what will be broadcast. A node-level rejection is returned in
 // Code/Revert, not as an error; transport failures are *tron.Error.
@@ -184,7 +179,7 @@ func (e *Estimate) EffectiveFactor() (factor int64, ok bool) {
 // Simulate dry-runs the contract call read-only via the node's
 // TriggerConstantContract (no fee_limit is spent, nothing is broadcast) and
 // returns the decoded constant results, the energy/penalty split and any
-// revert message (architecture §7.2). It exists ONLY on *ContractTx (the F1 fix) —
+// revert message. It exists ONLY on *ContractTx —
 // calling it on any other kind is a compile error, pinned in
 // v2/internal/compilecheck. A node-level rejection is returned in
 // Estimate.Code/Revert, not as an error; transport failures are *tron.Error.
@@ -221,16 +216,15 @@ func (t *ContractTx) Simulate(ctx context.Context) (*Estimate, error) {
 }
 
 // EstimateEnergy asks the node's EstimateEnergy RPC for the penalty-inclusive
-// total energy of the call (architecture §7.1). Like Simulate it exists ONLY on
+// total energy of the call. Like Simulate it exists ONLY on
 // *ContractTx. A node-level rejection surfaces as a *tron.Error (the RPC's
 // Return mapped through the v2 table), unlike Simulate's in-band Code.
 //
-// NOTE (live-verified §7.5): the node's EstimateEnergy RPC returns a
-// CONSERVATIVE upper bound for fee-limit setting (1.5× actual on the live
-// run), NOT the accurate execution cost. Use it when you need a fee limit
-// that guarantees the call completes without OUT_OF_ENERGY; for an accurate
-// cost prediction use Simulate (Estimate.Energy), which is what CostPreview
-// does.
+// The result is a CONSERVATIVE upper bound (~1.5× the actual execution
+// cost) for fee-limit setting, NOT the accurate cost. Use it when you need
+// a fee limit that guarantees the call completes without OUT_OF_ENERGY;
+// for an accurate cost prediction use Simulate (Estimate.Energy), which is
+// what CostPreview does.
 func (t *ContractTx) EstimateEnergy(ctx context.Context) (*EnergyEstimate, error) {
 	const op = "tx.EstimateEnergy"
 	req, err := triggerParam(&t.baseTx, op)

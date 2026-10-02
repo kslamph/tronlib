@@ -39,8 +39,8 @@
 //     contract; signatures it does not define still resolve through the global
 //     registry, so zero-config decoding keeps working.
 //
-// The registry is global mutable state, preserving v1's eventdecoder
-// semantics: registrations are process-wide and built-in definitions never
+// The registry is global mutable state: registrations are process-wide and
+// built-in definitions never
 // overwrite an explicitly registered one. A package-level registry was chosen
 // over receiver-based decoders because log decoding is done opportunistically
 // (receipts, streams) where threading a decoder instance through every caller

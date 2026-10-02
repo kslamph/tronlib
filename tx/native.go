@@ -9,7 +9,7 @@ import (
 // NativeTx is a non-contract transaction (a TRX transfer built by
 // BuildTransfer; further native operations are added as new builders, not as
 // new kinds). It consumes no energy, so no fee-limit option is offered — a
-// fee limit is meaningless for it (architecture §6.4).
+// fee limit is meaningless for it.
 type NativeTx struct{ baseTx }
 
 // txInternal seals Tx: only the kinds in this package implement it.
@@ -19,7 +19,7 @@ func (*NativeTx) txInternal() {}
 func (t *NativeTx) clone() *NativeTx { return &NativeTx{baseTx: *t.cloneBase()} }
 
 // WithExpiration returns a COPY of t whose raw_data.expiration is moved to
-// now+d (milliseconds), the exact mutation of v1's utils.SetExpiration. Use
+// now+d (milliseconds). Use
 // it to circulate an unsigned transaction between signers for longer than the
 // node's head+60s build default. It must be called BEFORE Sign: the signature
 // covers raw_data, so signing first is tx.already_signed here rather than a
@@ -48,8 +48,8 @@ func (t *NativeTx) WithPermissionID(id int32) (*NativeTx, error) {
 }
 
 // Sign returns a COPY of t with a signature from each signer appended to the
-// pb transaction (v1's signer.SignTx mutation logic: sha256 of raw_data,
-// signer.Sign, append). Signatures accumulate, so multi-sig composes as
+// pb transaction (sha256 of raw_data, Sign, append). Signatures
+// accumulate, so multi-sig composes as
 // tx = tx.Sign(a).Sign(b); the receiver is left untouched and unsigned.
 func (t *NativeTx) Sign(signers ...key.Signer) (*NativeTx, error) {
 	b, err := signBase(&t.baseTx, signers)

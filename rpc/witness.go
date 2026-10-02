@@ -8,9 +8,9 @@ import (
 	"github.com/kslamph/tronlib/v2/tron"
 )
 
-// Voting and witness related gRPC calls (1:1 port of lowlevel/witness.go,
-// plus the v4.8.2 GetPaginatedNowWitnessList addition in both Wallet and
-// WalletSolidity variants — v1 has no wrapper for it).
+// Voting and witness related gRPC calls, including the v4.8.2
+// GetPaginatedNowWitnessList addition in both Wallet and WalletSolidity
+// variants.
 
 // VoteWitnessAccount2 votes for witnesses (v2 - preferred)
 func VoteWitnessAccount2(cp ConnProvider, ctx context.Context, req *core.VoteWitnessContract) (*api.TransactionExtention, error) {
@@ -85,11 +85,10 @@ func GetPaginatedNowWitnessListSolidity(cp ConnProvider, ctx context.Context, re
 }
 
 // Witnesses returns one page of the current witness list (the
-// GetPaginatedNowWitnessList wrapper, decoded onto the value shape the
-// facade's architecture §10.1 Witness declares: address, vote count, isJobs).
+// GetPaginatedNowWitnessList wrapper, decoded onto the Witness value
+// shape: address, vote count, isJobs).
 // offset/limit pass through to the node's PaginatedMessage unchanged;
 // limit 0 means the node's rpc default, never "all".
-// Facade-facing convenience; added for Task 9.
 func Witnesses(cp ConnProvider, ctx context.Context, offset, limit int64) ([]Witness, error) {
 	wl, err := GetPaginatedNowWitnessList(cp, ctx, &api.PaginatedMessage{Offset: offset, Limit: limit})
 	if err != nil {
@@ -108,7 +107,7 @@ func Witnesses(cp ConnProvider, ctx context.Context, offset, limit int64) ([]Wit
 }
 
 // Witness is one super-representative candidate as the facade's Witnesses
-// page returns it (architecture §10.1 shape; a decoded view of core.Witness).
+// page returns it (a decoded view of core.Witness).
 type Witness struct {
 	// Address is the witness's TRON address.
 	Address tron.Address

@@ -24,8 +24,8 @@
 // closed — the uint256 declaration stays for a different reason. Declared
 // uint256, the same wire word decodes through Result.BigInt() for BOTH the
 // standard uint8 form (a uint8 value fits a uint256 word exactly) and the
-// uint256-packed form some non-standard contracts emit (the case v1's
-// decimals_uint256_test.go pinned), and the malformed-metadata check
+// uint256-packed form some non-standard contracts emit, and the
+// malformed-metadata check
 // becomes an explicit range test instead of a decode failure. The same
 // asymmetry means BalanceOf needs no workaround: balanceOf is declared
 // uint256 and Result.BigInt() is its accessor.

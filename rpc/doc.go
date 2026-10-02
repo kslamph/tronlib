@@ -5,11 +5,11 @@
 // # Transport core
 //
 // Dial validates the endpoint scheme (grpc://host:port for plaintext,
-// grpcs://host:port for TLS) and returns a *Client. Dial is lazy like v1's
-// NewClient: it constructs the gRPC connection factory without network I/O,
+// grpcs://host:port for TLS) and returns a *Client. Dial is lazy:
+// it constructs the gRPC connection factory without network I/O,
 // so a dead node is discovered on the first call (as chain.connection), not
-// at dial time. (The architecture doc's reachability round trip at Dial time is the root
-// facade's concern and lands with the facade task, not here.)
+// at dial time. (The root facade's Dial performs the reachability round trip;
+// that is the facade's concern, not this package's.)
 //
 // # Connection pool
 //

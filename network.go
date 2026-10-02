@@ -13,7 +13,7 @@ import (
 // Network is a declared TRON network identity. It is explicit configuration,
 // never inferred: TRON has no chain ID, and the 21-byte address prefix is
 // 0x41 on Mainnet, Shasta and Nile alike, so an address byte cannot
-// discriminate a network (architecture §10).
+// discriminate a network.
 type Network string
 
 const (
@@ -24,8 +24,8 @@ const (
 )
 
 // genesisID is the recorded block-0 id of each public network, fetched from
-// the network's own getblockbynum (architecture §10: VerifyNetwork compares
-// against recorded data, it never derives identity). It is data, not a derivation.
+// the network's own getblockbynum. VerifyNetwork compares
+// against recorded data, it never derives identity — this is data, not a derivation.
 var genesisID = map[Network]string{
 	Mainnet: "00000000000000001ebf88508a03865c71d452e25f4d51194196a1d22b6653dc",
 	Nile:    "0000000000000000d698d4192c56cb6be724a558448e2684802de4d6cd8690dc",
@@ -34,7 +34,7 @@ var genesisID = map[Network]string{
 
 // WithNetwork declares the endpoint's network. The undeclared zero value and
 // Private skip verification; a public declaration opts into the
-// genesis-fingerprint check (architecture §10).
+// genesis-fingerprint check.
 func WithNetwork(n Network) DialOption { return DialOption{network: n} }
 
 // Network returns the network declared at Dial time. It is a pure accessor:
@@ -45,7 +45,7 @@ func (c *Client) Network() Network { return c.network }
 // table for the declared network and returns chain.network_mismatch when they
 // disagree. It is heuristic: a redeployed testnet changes its genesis and a
 // private chain matches nothing, so WithNetwork is the source of truth — this
-// only detects a mismatch, it never infers identity (architecture §10, risk R7).
+// only detects a mismatch, it never infers identity.
 //
 // The undeclared zero value and Private return nil without a read — there is
 // no declaration to contradict. A declared network absent from the table

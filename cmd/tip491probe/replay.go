@@ -1,10 +1,10 @@
 package main
 
-// Exact-replay verification for architecture §7.5 item 2 on penalized contracts.
+// Exact-replay verification for penalized contracts: the dry-run penalty
 //
 // The library's exactness contract is: Simulate.Energy and Simulate.Penalty
 // equal the broadcast receipt's EnergyUsageTotal and EnergyPenaltyTotal
-// EXACTLY — no tolerances — provided the broadcast lands in the same
+// exactly, with no tolerances, provided the broadcast lands in the same
 // maintenance cycle as the simulation (the factor is hoisted once per
 // execution from the cycle-caught-up state, so it cannot move mid-cycle).
 // The 2026-09-01 Nile run proved this for a penalty-free call (delta 0);
@@ -36,7 +36,7 @@ import (
 // extractTrigger pulls the TriggerSmartContract message out of a broadcast
 // transaction. The contract-type check before the unmarshal is the F1 rule:
 // unmarshalling an unchecked contract parameter as TriggerSmartContract is
-// the defect architecture §6 exists to eliminate.
+// the double-spend class of defect.
 func extractTrigger(btx *core.Transaction) (*core.TriggerSmartContract, error) {
 	const op = "tip491probe.extractTrigger"
 	contracts := btx.GetRawData().GetContract()
@@ -148,7 +148,7 @@ func runReplay(ctx context.Context, cli *tronlib.Client, txidHex string) int {
 	bwDetail, bwPass := replayBandwidth(ctx, cli, btx, rec)
 	fmt.Println(bwDetail)
 	if energyPass && bwPass {
-		fmt.Println("PASS: replay matches the broadcast receipt exactly (architecture §7.5 item 2)")
+		fmt.Println("PASS: replay matches the broadcast receipt exactly")
 		return 0
 	}
 	if !energyPass && !energyVoid {

@@ -13,15 +13,15 @@ import (
 
 // DeployParams carries the deployment inputs BuildDeploy validates and
 // forwards to the node's DeployContract build RPC. Constructor-argument
-// encoding is a contract-layer concern (tx must not import contract, spec
-// §3): callers pass the final bytecode (init code + encoded constructor
+// encoding is a contract-layer concern (tx must not import contract):
+// callers pass the final bytecode (init code + encoded constructor
 // arguments already appended).
 type DeployParams struct {
 	// Name is the on-chain contract name; it may be empty. It must contain
 	// only visible (non-control) characters.
 	Name string
-	// ABI is the parsed contract ABI; nil is allowed (v1 semantics) when no
-	// constructor decoding is needed.
+	// ABI is the parsed contract ABI; nil is allowed when no constructor
+	// decoding is needed.
 	ABI *core.SmartContract_ABI
 	// Bytecode is the contract creation bytecode; it must be non-empty.
 	Bytecode []byte
@@ -190,14 +190,13 @@ func reencodeParam(raw *core.TransactionRaw, op string, msg proto.Message) error
 }
 
 // setExpiration moves raw_data.expiration to now+d (milliseconds) — the
-// exact mutation of v1's utils.SetExpiration, ported as the With* mutation
-// primitive.
+// With* mutation primitive.
 func setExpiration(raw *core.TransactionRaw, d time.Duration) {
 	raw.Expiration = time.Now().Add(d).UnixMilli()
 }
 
-// setPermissionID sets Permission_id on the wrapped contract message —
-// v1's utils.SetPermissionID mutation (raw_data.contract[0].PermissionId).
+// setPermissionID sets Permission_id on the wrapped contract message
+// (raw_data.contract[0].PermissionId).
 // An empty contract list (escape-hatch corruption) is tx.invalid_argument,
 // not a panic.
 func setPermissionID(raw *core.TransactionRaw, op string, id int32) error {

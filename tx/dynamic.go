@@ -60,7 +60,7 @@ func (d *DynamicEnergy) HasPenalty() bool { return d != nil && d.Factor > 0 }
 //
 // This is a planning bound, not the estimator. The exact surcharge for a
 // specific call comes from Simulate (Estimate.Penalty), which runs the
-// node's own VM and matches the broadcast receipt exactly (architecture §7.5).
+// node's own VM and matches the broadcast receipt exactly.
 // Use PredictPenalty to budget calls you have not simulated — e.g. what
 // a larger call would cost under the current factor — never to second-
 // guess a simulation you already have.

@@ -163,7 +163,7 @@ type Client struct {
 // grpc://host:port (plaintext) or grpcs://host:port (TLS). Anything else
 // fails with chain.connection and a remediation Hint.
 //
-// Dial is lazy: like v1's NewClient it builds the connection factory without
+// Dial is lazy: it builds the connection factory without
 // network I/O, so reachability is proven by the first call, not by Dial.
 // Options: WithTimeout (default 30s), WithPool (default 1..5; sizes <= 0
 // fall back to the defaults).
@@ -202,7 +202,7 @@ func Dial(ctx context.Context, endpoint string, opts ...DialOption) (*Client, er
 		}
 	}
 
-	// Apply options with defaults (v1 semantics: sizes <= 0 fall back).
+	// Apply options with defaults (sizes <= 0 fall back).
 	co := &clientOptions{
 		timeout:         30 * time.Second,
 		initConnections: 1,
@@ -436,8 +436,8 @@ func (p *connPool) get(ctx context.Context) (*grpc.ClientConn, error) {
 	}
 }
 
-// healthyOrNew keeps v1's health check: a pooled connection that is not Ready
-// is closed and replaced by a fresh one from the factory.
+// healthyOrNew replaces a pooled connection that is not Ready
+// with a fresh one from the factory.
 func healthyOrNew(p *connPool, ctx context.Context, conn *grpc.ClientConn) (*grpc.ClientConn, error) {
 	if conn == nil {
 		// Only close(p.conns) yields a nil receive; the pool is closed.

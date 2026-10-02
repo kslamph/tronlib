@@ -1125,3 +1125,35 @@ methods. The v1→v2 guide's shape is unchanged; a caller of
 `cli.Account(from).TransferTRX(ctx, to, amt)`, and
 `cli.TronBalance(ctx, a)` becomes `cli.Account(a).Balance(ctx)`.
 
+
+## 18. Design notes retired from godoc (2026-10-02)
+
+These notes were moved out of doc comments now that v2 is published. They
+explain *why* the cost layer is shaped the way it is; the godoc keeps only
+the conclusions a caller needs.
+
+### 18.1 Energy estimator vs energy burn calculator (was: tx.CostPreview)
+
+The energy estimator (Simulate) returns the accurate energy units the call
+will consume. The burn calculator (EnergyPrice.CostOf) converts energy that
+must be purchased into SUN at the network's current SunPerEnergy ratio — a
+property of the TRON network's operating parameters, not of any specific
+contract or transaction (see §7.3: EnergyPrice.CostOf is the pure batching
+primitive).
+
+CostPreview combines both roles: it feeds the estimator's accurate
+EnergyNeeded through the burn calculator to produce TronToBurn.
+
+### 18.2 Verification ledger refs (was: tx/cost.go, tx/estimate.go)
+
+Live-node verification for §7.5 items 2–3: Simulate.Energy
+(TriggerConstantContract.EnergyUsed) matches the post-broadcast
+ResourceReceipt.EnergyUsageTotal exactly. CostPreview originally used the
+EstimateEnergy RPC and was corrected to the Simulate source; EstimateEnergy
+remains as the conservative fee-limit ceiling (1.5× actual, §7.5).
+
+### 18.3 Deploy simulation path (was: tx.DeployTx.Estimate)
+
+Researched 2026-09-28: the "no simulation path for deployments" premise in
+§6.1 is superseded — the node's deploy estimation path exists, it just takes
+bytecode instead of a built call. That is what DeployTx.Estimate uses.

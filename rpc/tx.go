@@ -10,8 +10,8 @@ import (
 )
 
 // returnCodeToCode maps the node's api.Return_* response codes onto the v2
-// code vocabulary (architecture §8.5: one table, the numeric NodeCode is preserved in
-// the error Cause so the Receipt layer can recover it later). Every mapped
+// code vocabulary; one table, with the numeric NodeCode preserved in
+// the error Cause so the Receipt layer can recover it later. Every mapped
 // code exists in v2/tron/codes_gen.go — no invented codes.
 var returnCodeToCode = map[api.ReturnResponseCode]tron.Code{
 	api.Return_SUCCESS:                         "", // handled before the lookup; listed for documentation

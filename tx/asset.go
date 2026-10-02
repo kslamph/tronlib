@@ -6,8 +6,8 @@ import (
 	"github.com/kslamph/tronlib/v2/key"
 )
 
-// AssetTx is a TransferAssetContract transaction (a TRC-10 transfer, spec
-// §6.1/§13). Like NativeTx it consumes no energy, so no fee-limit option is
+// AssetTx is a TransferAssetContract transaction (a TRC-10 transfer).
+// Like NativeTx it consumes no energy, so no fee-limit option is
 // offered.
 type AssetTx struct{ baseTx }
 

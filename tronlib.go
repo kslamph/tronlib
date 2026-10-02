@@ -1,11 +1,11 @@
 package tronlib
 
-// The root facade: ONE import for the happy path (architecture §10).
+// The root facade: ONE import for the happy path.
 //
 // The facade is an on-ramp, not a layer: aliases (type X = pkg.X) give
 // facade and subpackage code zero conversion tax, and every Client method
-// is a one-line delegation to the subpackage owner (architecture D7 — the facade
-// never reimplements). Anything beyond the happy path lives in the
+// is a one-line delegation to the subpackage owner — the facade
+// never reimplements. Anything beyond the happy path lives in the
 // subpackages: rpc for the full 1:1 gRPC surface, tx for builders/options,
 // contract for ABI-driven calls, key for message signing.
 
@@ -26,7 +26,7 @@ import (
 
 // Aliases, not wrappers: a tron.Address and a tronlib.Address are the same
 // type, so facade and subpackage calls interoperate with zero conversion.
-// This is only possible because v2 is a single module (architecture C1).
+// This is only possible because v2 is a single module.
 type (
 	Address    = tron.Address
 	SUN        = tron.SUN
@@ -227,7 +227,7 @@ func WithPool(initConnections, maxConnections int) DialOption {
 }
 
 // Client is the happy-path handle to one TRON node. It wraps *rpc.Client;
-// every method is a one-line delegation to the subpackage owner (architecture D7).
+// every method is a one-line delegation to the subpackage owner.
 // The declared network is explicit configuration recorded here by
 // WithNetwork; VerifyNetwork checks it against the endpoint's genesis. The
 // energy-price cache is one memoised read per maintenance period.
@@ -270,13 +270,13 @@ func (c *Client) Account(owner Address) *account.Handle {
 
 // Witnesses returns one page of the current witness list. page.Offset and
 // page.Limit pass through to the node; Limit 0 means the node's rpc
-// default, never "all" (architecture §10.1).
+// default, never "all".
 func (c *Client) Witnesses(ctx context.Context, page Page) ([]Witness, error) {
 	return rpc.Witnesses(c.inner, ctx, page.Offset, page.Limit)
 }
 
 // Page is one explicit pagination cursor: the cursor is a parameter, never
-// hidden client state (architecture §10.1). Limit 0 delegates to the rpc default —
+// hidden client state. Limit 0 delegates to the rpc default —
 // a caller cannot express "give me everything"; that is the point of the
 // List verb contract.
 type Page struct {
@@ -324,7 +324,7 @@ func (c *Client) WaitForSolid(ctx context.Context, txid string) (*Receipt, error
 
 // EnergyPrice returns the current energy unit price (the latest governance
 // "ts:price" entry). The unit price changes only via governance proposal, so
-// the read is cached for one maintenance period (architecture §7.3, risk G5): the
+// the read is cached for one maintenance period: the
 // cache is TTL-only, never keyed on the head block. A caller wanting a
 // guaranteed-fresh read calls tx.EnergyPriceOf(ctx, c.Raw()) directly.
 func (c *Client) EnergyPrice(ctx context.Context) (*tx.EnergyPrice, error) {

@@ -12,7 +12,7 @@ import (
 
 // ABI plumbing. The on-chain shape of a TRON ABI is the protobuf
 // SmartContract_ABI; the parsing/packing shape is go-ethereum's
-// accounts/abi (the v1 dependency, reused — not reimplemented). The bridge
+// accounts/abi. The bridge
 // is JSON: the pb entries render to a Solidity JSON ABI string, which
 // geth parses. The JSON string is also what ABI() reports and what
 // UseABI accepts, so every path funnels through one parser.
@@ -42,7 +42,7 @@ type jsonABIEntry struct {
 // Constant (field 2) bools — and it must survive the rendering: geth
 // rejects a "receive" entry without "stateMutability":"payable", which
 // would fail the lazy ABI load for every Solidity >=0.6 payable contract.
-// The mapping mirrors v1's pkg/utils/abi_parse.go. Fallback entries parse
+// Fallback entries parse
 // fine without a mutability, so none is invented for them.
 func pbABIToJSON(abi *core.SmartContract_ABI) (string, error) {
 	if abi == nil || len(abi.GetEntrys()) == 0 {
@@ -82,7 +82,7 @@ func pbABIToJSON(abi *core.SmartContract_ABI) (string, error) {
 }
 
 // mutabilityToJSON maps a pb entry's mutability to its Solidity JSON ABI
-// spelling (the inverse of v1's pkg/utils/abi_parse.go mapping: pure, view,
+// spelling (pure, view,
 // nonpayable, payable). When the enum is unset/Unknown the legacy
 // Payable/Constant bools take over: Payable -> payable, Constant -> view.
 // Anything else renders without a mutability (geth reads that as

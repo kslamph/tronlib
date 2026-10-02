@@ -13,7 +13,7 @@ import (
 // Receipt is the outcome of a broadcast or a Wait: everything the caller
 // needs after the node spoke about the transaction.
 //
-// There is no stored Success field (architecture §6.6): OK() derives from Code, so
+// There is no stored Success field: OK() derives from Code, so
 // the two cannot contradict. Code is the v2 code ("" when the transaction
 // succeeded); NodeCode preserves the raw node code — the api.Return_* name
 // on the broadcast path, the VM result name (REVERT, OUT_OF_ENERGY, …) on
@@ -32,7 +32,7 @@ type Receipt struct {
 	BlockNum uint64
 	// BlockTime is the inclusion block's timestamp.
 	BlockTime time.Time
-	// Cost is the actual post-execution cost (architecture §7.4).
+	// Cost is the actual post-execution cost.
 	Cost ActualCost
 	// Logs are the decoded event logs. Each log is decoded against the
 	// definitions registered for its emitting contract, falling back to the
@@ -57,10 +57,9 @@ func (r *Receipt) OK() bool { return r.Code == "" }
 // the finality semantic for custody and deposit-crediting use cases.
 func (r *Receipt) Solidified() bool { return r.solid }
 
-// ActualCost is the real post-execution cost from core.ResourceReceipt
-// (architecture §7.4). v1's BroadcastResult exposed only usage counts and discarded
-// the fee fields; v2 carries both — EnergyFee and NetFee are the actual SUN
-// burned — so a CostPreview→actual delta is directly observable.
+// ActualCost is the real post-execution cost from core.ResourceReceipt.
+// EnergyFee and NetFee are the actual SUN burned, so a
+// CostPreview→actual delta is directly observable.
 type ActualCost struct {
 	// EnergyFee is the real TRX burned on energy (SUN).
 	EnergyFee tron.SUN
@@ -126,7 +125,7 @@ func vmNodeCode(info *core.TransactionInfo) string {
 	return info.GetResult().String()
 }
 
-// actualCostFrom parses the resource receipt (architecture §7.4).
+// actualCostFrom parses the resource receipt.
 func actualCostFrom(rr *core.ResourceReceipt) ActualCost {
 	if rr == nil {
 		return ActualCost{}

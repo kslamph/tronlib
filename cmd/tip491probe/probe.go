@@ -90,7 +90,7 @@ func verifyFactor(dyn *tx.DynamicEnergy, est *tx.Estimate) factorVerdict {
 		if v.pass {
 			v.detail = fmt.Sprintf("stored factor, derived factor and penalty prediction agree (gaps: factor %d, penalty %d — per-opcode flooring)", dyn.Factor-simFactor, predicted-est.Penalty)
 		} else {
-			v.detail = "inconclusive: energy penalty is 0 and the stored factor is 0, so architecture §7.5 item 6 is NOT verified — " +
+			v.detail = "inconclusive: energy penalty is 0 and the stored factor is 0, so the TIP-491 prediction could NOT be verified against a live receipt — " +
 				"Nile's getDynamicEnergyThreshold = 5000000000 (5e9) energy per contract per maintenance period is unreachable at testnet traffic; " +
 				"use a Mainnet contract with a non-zero consumption factor, or a private chain with a lowered threshold"
 		}

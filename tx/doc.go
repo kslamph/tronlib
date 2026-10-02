@@ -1,6 +1,6 @@
 // Package tx is the v2 transaction pipeline: build → optionally simulate →
 // sign → broadcast, expressed as types so each stage's output is the next
-// stage's input and illegal transitions do not compile (architecture §6).
+// stage's input and illegal transitions do not compile.
 //
 // # The four kinds
 //
@@ -42,10 +42,10 @@
 // AttachSignature let a remote or hardware signer produce the signature
 // without the private key entering this process.
 //
-// # Defaults (architecture §6.4, stated so they are testable)
+// # Defaults, stated so they are testable
 //
-//   - fee_limit: 150_000_000 SUN (150 TRX) — v1's DefaultBroadcastOptions
-//     value, applied by every builder at build time unless a later
+//   - fee_limit: 150_000_000 SUN (150 TRX), applied by every builder at
+//     build time unless a later
 //     ContractTx.WithFeeLimit overrides it (a node response with fee_limit 0
 //     cannot purchase energy)
 //   - expiration: head + 60 s — set server-side by the build RPC; WithExpiration
@@ -70,7 +70,7 @@
 // stays valid after signing, but post-sign callers should prefer the
 // single all-in call.
 //
-// # The double-spend fix (architecture §6.4/§6.5)
+// # The double-spend rule
 //
 // Broadcast performs one reconciliation poll on an ambiguous timeout. A
 // timeout after the broadcast has landed returns chain.unconfirmed with the
@@ -80,17 +80,17 @@
 // txid — that is what spends twice. Never rebuild-and-resign until the
 // original txid's receipt is confirmed absent or failed.
 //
-// # Deviations from architecture §7.2/§7.3 (adjudicated)
+// # Deviations from the node's RPC surface
 //
 //   - EnergyEstimate carries only Energy: the EstimateEnergy RPC
-//     (api.EstimateEnergyMessage) exposes only the penalty-inclusive total, so
-//     the architecture doc's Base/Penalty split would be fabricated (architecture §7.1 says the
-//     node already applies the penalty). Use ContractTx.Simulate (Estimate
-//     .Energy/.Penalty) when the split matters.
+//     (api.EstimateEnergyMessage) exposes only the penalty-inclusive total (the
+//     node already applies the penalty), so a Base/Penalty split would be
+//     fabricated. Use ContractTx.Simulate (Estimate.Energy/.Penalty) when the
+//     split matters.
 //   - EstimateEnergy is the node's CONSERVATIVE fee-limit calculator, not the
-//     accurate cost: live-verified §7.5, it returns 1.5× the actual execution
-//     energy. CostPreview uses Simulate.Energy (TriggerConstantContract.Energy
-//     Used, the accurate dry-run cost, exact on the live run) as EnergyNeeded,
+//     accurate cost: it returns ~1.5× the actual execution energy. CostPreview
+//     uses Simulate.Energy (TriggerConstantContract.EnergyUsed, the accurate
+//     dry-run cost) as EnergyNeeded,
 //     and the energy→SUN conversion goes through EnergyPrice.CostOf — the pure
 //     burn calculator driven by the network's SunPerEnergy parameter, which is
 //     independent of any specific contract or transaction.

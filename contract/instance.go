@@ -132,8 +132,7 @@ func parseAndRegisterABI(addr tron.Address, abiJSON, op string) (*eABI.ABI, erro
 	return parsed, nil
 }
 
-// loadABI performs the lazy network load. Ported from v1
-// smartcontract.NewInstance's network path: GetContract returns the
+// loadABI performs the lazy network load: GetContract returns the
 // SmartContract; no contract at the address is contract.not_found, a
 // missing/empty ABI is contract.no_abi, and an unparseable one is
 // contract.bad_abi. Failures are NOT cached — a transient transport error
@@ -201,8 +200,8 @@ func (i *Instance) ABI() string {
 	return i.abiJSON
 }
 
-// Methods returns the loaded ABI's function names, sorted (architecture §9:
-// the call surface is enumerable, not an interface{} guess). Empty until an
+// Methods returns the loaded ABI's function names, sorted: the call
+// surface is enumerable, not an interface{} guess. Empty until an
 // ABI is loaded (UseABI, or the lazy fetch triggered by the first
 // Call/Invoke/Decode). It performs no I/O.
 func (i *Instance) Methods() []string {
@@ -288,7 +287,7 @@ func inputTypeNames(m *eABI.Method) []string {
 
 // nullOwner is the owner_address Call sends: the node's
 // triggerconstantcontract RPC requires the field, view calls spend
-// nothing, and architecture §9's Call signature has no owner. See the package doc.
+// nothing, and Call's signature has no owner. See the package doc.
 var nullOwner = func() tron.Address {
 	b := make([]byte, 21) // 20 zero bytes
 	b[0] = 0x41           // the network prefix — the 0x41-prefixed null address
@@ -300,8 +299,7 @@ var nullOwner = func() tron.Address {
 }()
 
 // Call executes a view (constant) method end to end and returns the
-// decoded result (architecture §9, review G2: one step, not four). It is the
-// v1 Instance.Call shape: triggerconstantcontract, then decode the
+// decoded result in one step: triggerconstantcontract, then decode the
 // ConstantResult against the method's declared outputs. The call value is
 // always 0 — a read cannot spend.
 //
@@ -309,7 +307,7 @@ var nullOwner = func() tron.Address {
 // node-level rejection (including a contract revert) surfaces as a
 // *tron.Error classified through rpc's Return table; tx.Simulate's
 // in-band Code shape is a transaction-layer concern and is not repeated
-// here. live-verified: pending (architecture §7.5).
+// here.
 func (i *Instance) Call(ctx context.Context, method string, args ...Arg) (*Result, error) {
 	const op = "contract.Instance.Call"
 	data, err := i.encodeCall(ctx, method, args)
@@ -338,7 +336,7 @@ func (i *Instance) Call(ctx context.Context, method string, args ...Arg) (*Resul
 	return i.decodeResult(ctx, method, blob)
 }
 
-// CallAtBlock is the block-anchored read (architecture §9). The v4.8.2 Wallet API
+// CallAtBlock is the block-anchored read. The v4.8.2 Wallet API
 // has NO block anchor on triggerconstantcontract — the pb
 // TriggerSmartContract message carries owner/contract/value/data/token
 // fields only — so v2 refuses instead of silently calling at head, which
@@ -354,9 +352,9 @@ func (i *Instance) CallAtBlock(ctx context.Context, block uint64, method string,
 	}
 }
 
-// Invoke builds a state-changing call transaction (architecture §9): encode, then
+// Invoke builds a state-changing call transaction: encode, then
 // the tx builder's TriggerSmartContract. Returns *tx.ContractTx — the DAG
-// direction contract → tx (architecture §3). The ABI is loaded (and its events
+// direction contract → tx. The ABI is loaded (and its events
 // registered with the event package) before encoding, so the
 // transaction's eventual receipt decodes this contract's events.
 func (i *Instance) Invoke(ctx context.Context, owner tron.Address, value tron.SUN, method string, args ...Arg) (*tx.ContractTx, error) {
@@ -372,7 +370,7 @@ func (i *Instance) Invoke(ctx context.Context, owner tron.Address, value tron.SU
 }
 
 // Decode decodes a raw ABI return value for a known method into a typed
-// Result — the partner of tx.Estimate.ConstantResult (architecture §9), which tx
+// Result — the partner of tx.Estimate.ConstantResult, which tx
 // cannot decode itself (the DAG direction contract → tx forbids it).
 // If no ABI is loaded yet, the lazy network fetch runs against a
 // background context; use DecodeContext to bound that fetch, or load the

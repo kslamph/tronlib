@@ -10,16 +10,13 @@ import (
 )
 
 // DefaultFeeLimit is the fee limit every builder applies at build time
-// (150_000_000 SUN = 150 TRX, v1's DefaultBroadcastOptions value, carried
-// over deliberately rather than invented). A transaction broadcast with
+// (150_000_000 SUN = 150 TRX). A transaction broadcast with
 // fee_limit 0 cannot purchase energy and fails; the default is a floor, and
-// CostPreview compares it against the energy estimate before broadcast
-// (architecture §6.4).
+// CostPreview compares it against the energy estimate before broadcast.
 const DefaultFeeLimit = tron.SUN(150_000_000)
 
-// validateAddress errors on the unset (zero) address — v2's value-type
-// replacement for v1's nil-address rejection ("nil/zero addresses ->
-// address.invalid via IsZero").
+// validateAddress errors on the unset (zero) address via IsZero
+// (address.invalid).
 func validateAddress(op, field string, a tron.Address) error {
 	if a.IsZero() {
 		return &tron.Error{
@@ -52,7 +49,7 @@ func validateAmount(op string, amt tron.SUN) error {
 	return nil
 }
 
-// applyBuildDefaults enforces the documented default (architecture §6.4: "every
+// applyBuildDefaults enforces the documented default ("every
 // builder applies a documented default") on a fresh build response: the
 // node's CreateTransaction2-family responses may report fee_limit 0, which
 // cannot purchase energy, so the builder floors it at DefaultFeeLimit
@@ -114,7 +111,7 @@ func BuildTransfer(ctx context.Context, cp rpc.ConnProvider, from, to tron.Addre
 
 // BuildTriggerSmartContract builds a TriggerSmartContract transaction
 // (ContractTx) via the node's TriggerContract build RPC. data is the ABI
-// encoded selector + arguments (contract-layer concern, architecture §3); callValue
+// encoded selector + arguments (a contract-layer concern); callValue
 // is the SUN sent with the call and may be zero.
 func BuildTriggerSmartContract(ctx context.Context, cp rpc.ConnProvider, owner, contract tron.Address, data []byte, callValue tron.SUN) (*ContractTx, error) {
 	const op = "tx.BuildTriggerSmartContract"
@@ -144,8 +141,8 @@ func BuildTriggerSmartContract(ctx context.Context, cp rpc.ConnProvider, owner, 
 }
 
 // BuildDeploy builds a CreateSmartContract transaction (DeployTx) via the
-// node's DeployContract build RPC. It validates the DeployParams the way
-// v1's smartcontract.Manager.Deploy does (bytecode non-empty, resource
+// node's DeployContract build RPC. It validates the DeployParams
+// (bytecode non-empty, resource
 // percent 0–100, origin energy limit >= 0, call value >= 0, visible-character
 // contract name). ABI parsing is a contract-layer concern: p.ABI is the
 // already-parsed pb ABI, and p.Bytecode is the final bytecode (constructor
@@ -203,8 +200,7 @@ func BuildDeploy(ctx context.Context, cp rpc.ConnProvider, owner tron.Address, p
 // BuildAssetTransfer builds a TransferAssetContract transaction (AssetTx)
 // via the node's TransferAsset2 build RPC. assetName is the TRC-10 token
 // identifier (its id or name form as the node expects it) and must be
-// non-empty; qty must be positive; a self-transfer is rejected like v1's
-// TransferAsset2 does.
+// non-empty; qty must be positive; a self-transfer is rejected.
 func BuildAssetTransfer(ctx context.Context, cp rpc.ConnProvider, from, to tron.Address, assetName string, qty int64) (*AssetTx, error) {
 	const op = "tx.BuildAssetTransfer"
 	if err := validateAddress(op, "from", from); err != nil {

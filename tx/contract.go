@@ -9,7 +9,7 @@ import (
 
 // ContractTx is a TriggerSmartContract transaction — contract calls and all
 // TRC-20 operations. It is the only kind carrying Simulate and EstimateEnergy
-// (the F1 fix, architecture §6.2): the read-only paths take a TriggerSmartContract,
+// (the read-only paths take a TriggerSmartContract,
 // which no other kind wraps.
 type ContractTx struct{ baseTx }
 
@@ -35,7 +35,7 @@ func (t *ContractTx) WithFeeLimit(s tron.SUN) (*ContractTx, error) {
 }
 
 // WithExpiration returns a COPY of t whose raw_data.expiration is moved to
-// now+d (milliseconds), the exact mutation of v1's utils.SetExpiration. Use
+// now+d (milliseconds). Use
 // it to circulate an unsigned transaction between signers for longer than the
 // node's head+60s build default. Call it before Sign (tx.already_signed
 // otherwise).
@@ -65,8 +65,8 @@ func (t *ContractTx) WithPermissionID(id int32) (*ContractTx, error) {
 }
 
 // Sign returns a COPY of t with a signature from each signer appended to the
-// pb transaction (v1's signer.SignTx mutation logic: sha256 of raw_data,
-// signer.Sign, append). Signatures accumulate, so multi-sig composes as
+// pb transaction (sha256 of raw_data, Sign, append). Signatures
+// accumulate, so multi-sig composes as
 // tx = tx.Sign(a).Sign(b); the receiver is left untouched and unsigned.
 func (t *ContractTx) Sign(signers ...key.Signer) (*ContractTx, error) {
 	b, err := signBase(&t.baseTx, signers)

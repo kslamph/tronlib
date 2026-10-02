@@ -1,8 +1,7 @@
 package event
 
 // Simple ABI parser: converts a standard Solidity ABI JSON string into a
-// *core.SmartContract_ABI. Ported verbatim from v1's SimpleABIParser
-// (pkg/eventdecoder/decoder.go); RegisterABIJSON routes through it so both
+// *core.SmartContract_ABI. RegisterABIJSON routes through it so both
 // registration entry points share one code path.
 
 import (

@@ -19,24 +19,24 @@ const pollInterval = 500 * time.Millisecond
 
 // Broadcast submits a signed transaction to the node and returns a Receipt.
 //
-// Pre-flight checks (the port of v1's broadcast flow): exactly one contract
+// Pre-flight checks: exactly one contract
 // message (tx.invalid_argument), expiration in the future (tx.expired), and
 // at least one signature (tx.no_signer).
 //
 // The node's broadcast Return is preserved as a Receipt, not an error: a
 // node-level rejection (SIGERROR, DUP_TRANSACTION_ERROR, …) is an answer
 // about the transaction, mapped onto the v2 code with the raw api.Return_*
-// name in NodeCode (architecture §7.4 — the three codes have different remedies).
+// name in NodeCode — the three codes have different remedies.
 // r.OK() reports success. Transport failures still return *tron.Error.
 //
-// THE DOUBLE-SPEND FIX (architecture §6.4/§6.5): on an ambiguous chain.timeout from
-// the broadcast, Broadcast performs ONE reconciliation poll
-// (GetTransactionInfoById). If the transaction was found, the real receipt is
-// returned. If not, the error is chain.unconfirmed with the txid populated
-// and Next = ActionWait, with the rule the agent must learn in the Hint:
-// poll Wait(txid); do NOT rebuild and resign — resending identical bytes is
-// deduplicated (a txid is a pure function of raw_data), but rebuilding gets
-// a new TAPOS reference and a new txid, and THAT spends twice.
+// On an ambiguous chain.timeout from the broadcast, Broadcast performs ONE
+// reconciliation poll (GetTransactionInfoById). If the transaction was
+// found, the real receipt is returned. If not, the error is
+// chain.unconfirmed with the txid populated and Next = ActionWait, with the
+// rule the agent must learn in the Hint: poll Wait(txid); do NOT rebuild and
+// resign — resending identical bytes is deduplicated (a txid is a pure
+// function of raw_data), but rebuilding gets a new TAPOS reference and a new
+// txid, and THAT spends twice.
 func Broadcast(ctx context.Context, cp rpc.ConnProvider, t Tx) (*Receipt, error) {
 	const op = "tx.Broadcast"
 	if t == nil {
@@ -88,7 +88,7 @@ func Broadcast(ctx context.Context, cp rpc.ConnProvider, t Tx) (*Receipt, error)
 }
 
 // reconcileAfterBroadcast is Broadcast's single reconciliation poll after an
-// ambiguous timeout (architecture §6.4).
+// ambiguous timeout.
 func reconcileAfterBroadcast(ctx context.Context, cp rpc.ConnProvider, op, txid string) (*Receipt, error) {
 	id, _ := hex.DecodeString(txid)
 	info, err := rpc.GetTransactionInfoById(cp, ctx, &api.BytesMessage{Value: id})
@@ -112,7 +112,7 @@ func reconcileAfterBroadcast(ctx context.Context, cp rpc.ConnProvider, op, txid 
 // finality when a block is solidified (~a minute) — use WaitForSolid for
 // custody or deposit-crediting semantics. Receipt.Solidified() is false here.
 //
-// Poll errors are transient (v1 semantics): a failed poll is retried until
+// Poll errors are transient: a failed poll is retried until
 // the context is done, which surfaces as chain.timeout.
 func Wait(ctx context.Context, cp rpc.ConnProvider, txid string) (*Receipt, error) {
 	return pollReceipt(ctx, cp, "tx.Wait", txid, false)

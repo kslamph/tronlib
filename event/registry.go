@@ -78,12 +78,12 @@ var (
 //
 // A definition already registered under the same signature is replaced only
 // when it is identical (which makes re-registering the same ABI a no-op). A
-// DIFFERENT definition — same hashed signature, different indexed flags or
+// different definition — same hashed signature, different indexed flags or
 // parameter names — makes the signature ambiguous: it no longer decodes at
 // all, globally or through DecodeFor, until the emitting contract registers
-// its own ABI with RegisterABIJSONForAddress. Overwriting was v1's behavior
-// and the defect this replaces: last writer won, and the other contract's logs
-// decoded against the wrong layout.
+// its own ABI with RegisterABIJSONForAddress. Overwriting is not allowed:
+// last writer would win, and the other contract's logs would decode against
+// the wrong layout.
 func RegisterABIJSON(abiJSON string) error {
 	parsed, err := newSimpleABIParser().parseABI(abiJSON)
 	if err != nil {
@@ -146,8 +146,7 @@ func requireScopeAddress(op string, addr tron.Address) error {
 }
 
 // eventDefs converts ABI entries into definitions, ignoring entries that are
-// not events. Shared by every registration entry point; the event half of v1's
-// RegisterABIEntries.
+// not events. Shared by every registration entry point.
 func eventDefs(entries []*core.SmartContract_ABI_Entry) []*Definition {
 	var defs []*Definition
 	for _, entry := range entries {

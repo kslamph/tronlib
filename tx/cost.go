@@ -15,61 +15,22 @@ import (
 	"github.com/kslamph/tronlib/v2/tron"
 )
 
-// CostPreview predicts what broadcasting a ContractTx will cost the owner in
-// SUN, combining four read-only node answers (architecture §7.3):
+// CostPreview predicts what broadcasting a ContractTx will cost the owner
+// in SUN, from four read-only node answers: the dry-run Simulate (accurate
+// energy and revert check; its error is returned, a cost prediction for a
+// call that cannot run would be noise), the owner's GetAccountResource
+// (staked energy and bandwidth), and the current energy and bandwidth
+// prices. TronToBurn is max(0, EnergyNeeded−EnergyAvailable) converted at
+// SunPerEnergy; an overflow returns amount.overflow.
 //
-//  1. ContractTx.Simulate — the accurate ENERGY ESTIMATOR
-//     (TriggerConstantContract.EnergyUsed) AND the revert check.
-//     Simulate.Energy (Estimate.Energy) is the energy the call actually
-//     consumes during a deterministic dry run — live-verified to match the
-//     post-broadcast ResourceReceipt.EnergyUsageTotal exactly (architecture §7.5).
-//     If Simulate errors, CostPreview returns the error: a cost prediction
-//     for a call that cannot run would be noise.
-//     Simulate.Penalty supplies the TIP-491 penalty split (when > 0).
-//
-//  2. rpc.GetAccountResource (owner) — the owner's staked energy
-//     (EnergyLimit−EnergyUsed → EnergyAvailable) AND the staked/free
-//     bandwidth (Net/FreeNet limits minus usage → Bandwidth half), one read
-//     feeding both halves.
-//
-//  3. EnergyPriceOf — the current SunPerEnergy (the network governance
-//     parameter that sets the energy→SUN burn ratio, independent of any
-//     specific contract or transaction).
-//
-//  4. BandwidthPriceOf — the current SunPerByte (getTransactionFee's
-//     history), pricing the bandwidth shortfall the same way
-//     BandwidthCostOf prices it on a signed transaction.
-//
-// Energy estimator vs Energy burn calculator:
-//
-//	The energy estimator (Simulate) returns the accurate energy units the
-//	call will consume.  The burn calculator (EnergyPrice.CostOf) converts
-//	energy that must be purchased into SUN at the network's current
-//	SunPerEnergy ratio — a property of the TRON network's operating
-//	parameters, not of any specific contract or transaction (see the design
-//	separation in §7.3: EnergyPrice.CostOf is the pure batching primitive).
-//
-//	CostPreview combines both roles: it feeds the estimator's accurate
-//	EnergyNeeded through the burn calculator to produce TronToBurn.
-//
-// TronToBurn = max(0, EnergyNeeded − EnergyAvailable) converted to SUN at
-// the network's current SunPerEnergy price via the checked multiply in
-// EnergyPrice.CostOf.  An overflow returns amount.overflow.
-//
-// PricedAt timestamps the price read — the preview is a FLOOR, not a
-// ceiling: the price is a governance parameter and energy prices only ever
-// move in the caller's favor at the margins between preview and broadcast.
-//
-// Fee-limit floor-check (architecture §6.4): PreviewCost returns tx.fee_limit_too_low
-// when TronToBurn exceeds the transaction's fee_limit — the 150-TRX default
-// is a floor that is checked, not trusted.
-//
-// live-verified: §7.5 item 2-3 (energy matches actual receipt), corrected
-// from the prior EstimateEnergy RPC to the accurate Simulate.Energy source.
+// The preview is a FLOOR, not a ceiling: PricedAt timestamps the price read,
+// and both halves only move in the caller's favor between preview and
+// broadcast. It returns tx.fee_limit_too_low when TronToBurn exceeds the
+// transaction's fee_limit — the 150-TRX default is a floor that is checked,
+// not trusted.
 type CostPreview struct {
-	// EnergyNeeded is the total energy the call is expected to consume — the
-	// accurate dry-run EnergyUsed from TriggerConstantContract (Simulate.Energy),
-	// live-verified to match the post-execution EnergyUsageTotal exactly.
+	// EnergyNeeded is the total energy the call is expected to consume —
+	// the accurate dry-run EnergyUsed from TriggerConstantContract (Simulate.Energy).
 	EnergyNeeded int64
 	// EnergyBase is EnergyNeeded − EnergyPenalty: the call's own consumption.
 	EnergyBase int64
@@ -111,10 +72,7 @@ type CostPreview struct {
 
 // BandwidthEstimateNote is the CostPreview.BandwidthNote value: the preview
 // runs before signing, so its bandwidth is priced on a one-signature
-// estimate of the broadcast bytes. (Recipient activation is not a
-// CostPreview concern: a contract call's activation cost lands inside
-// Simulate's energy, and the transfer kinds that can create accounts take
-// BandwidthCostOf's creation branch instead.)
+// estimate of the broadcast bytes.
 const BandwidthEstimateNote = "bandwidth priced on a single-signature estimate; each extra signature adds ~67 bytes"
 
 // signatureBytes is the secp256k1 signature length a broadcast carries per
@@ -139,12 +97,8 @@ func (c *CostPreview) String() string {
 }
 
 // PreviewCost returns the predicted cost of broadcasting t (see CostPreview
-// for the read sequence). It returns tx.fee_limit_too_low when the computed
-// burn exceeds the transaction's fee limit — the §6.4 floor-check.
-// It is the free-function entry point the facade's
-// account.Handle.CostPreview wraps — the spec (§7.3) names the RESULT type
-// CostPreview and the Client method CostPreview, so a package-level function
-// of the same name cannot exist in Go; PreviewCost is that function.
+// for the read sequence and the fee-limit floor-check). It is the
+// free-function entry point the facade's account.Handle.CostPreview wraps.
 // t must have been built by BuildTriggerSmartContract; owner is the account
 // whose staked energy is counted.
 func PreviewCost(ctx context.Context, cp rpc.ConnProvider, t *ContractTx, owner tron.Address) (*CostPreview, error) {
@@ -185,7 +139,7 @@ func PreviewCost(ctx context.Context, cp rpc.ConnProvider, t *ContractTx, owner 
 			Hint: "EnergyToBuy × SunPerEnergy overflows SUN; the call cannot be priced in int64 SUN",
 		}
 	}
-	// §6.4 floor-check: the fee_limit caps the TRX burned on energy, so the
+	// The fee_limit caps the TRX burned on energy, so the
 	// computed burn must fit under it. The 150-TRX default is a floor that is
 	// checked, not trusted.
 	if t.FeeLimit() < burn {

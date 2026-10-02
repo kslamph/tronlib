@@ -24,8 +24,8 @@ const ResultSizePerContract = 64
 // BandwidthSize returns the bandwidth a signed transaction consumes, in
 // bytes: the protobuf size with ret cleared plus ResultSizePerContract per
 // contract (java-tron BandwidthProcessor.consume: clearRet().serializedSize
-// + 64 per non-shielded contract). Shielded contracts are out of scope
-// (architecture §13); every builder-produced kind counts its contracts.
+// + 64 per non-shielded contract). Shielded contracts are out of scope;
+// every builder-produced kind counts its contracts.
 //
 // Measure the EXACT bytes you will broadcast: the transaction must already
 // carry its signatures (~65 bytes each), so an unsigned transaction is
@@ -145,7 +145,7 @@ func badBandwidthMetadata(op, raw string) *tron.Error {
 }
 
 // BandwidthCost predicts what broadcasting a signed transaction will cost
-// the owner in bandwidth Libraries (architecture §7.3 limitation 1), following the
+// the owner in bandwidth, following the
 // node's charging order exactly (java-tron BandwidthProcessor.consume):
 //
 //  1. BytesNeeded = BandwidthSize of the signed transaction.

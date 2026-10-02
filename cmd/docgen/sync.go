@@ -16,8 +16,7 @@ import (
 // generateCodes emits into codes_gen.go (Code, Action, Doc), derived from
 // the parsed switch data — codes_gen.go text is never re-parsed for the
 // table. Rows follow AllCodes order, the same order the generated switch
-// uses, so the table, the generated source, and the architecture doc's code numbering
-// stay aligned. renderErrorList sorts by code string, so presentation order
+// uses, so the table and the generated source stay aligned. renderErrorList sorts by code string, so presentation order
 // is diff-stable regardless of AllCodes order.
 func codeTable(data codesData) []codeDoc {
 	rows := make([]codeDoc, 0, len(data.all))

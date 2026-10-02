@@ -33,9 +33,9 @@ func recoverSigners(raw *core.TransactionRaw, sigs [][]byte, op string) ([]tron.
 }
 
 // signBase is the shared Sign mutation for all four kinds. It returns a
-// cloned base carrying one appended signature per signer — the exact port of
-// v1's signer.SignTx (sha256 of proto-marshaled raw_data, signer.Sign on
-// that hash, append to the pb transaction's signature list). Signatures
+// cloned base carrying one appended signature per signer: sha256 of the
+// proto-marshaled raw_data, Sign on that hash, append to the pb
+// transaction's signature list. Signatures
 // accumulate: multi-sig composes as tx = tx.Sign(a).Sign(b). The receiver is
 // never modified.
 //

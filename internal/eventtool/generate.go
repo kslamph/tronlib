@@ -30,7 +30,7 @@ const DefaultGeneratedPath = "event/builtin_gen.go"
 
 // Generate renders event/builtin_gen.go from a verified corpus. Keys are 32-byte
 // array literals (sorted by sighash for stable diffs) and the source is run
-// through go/format, replacing v1's hand-rolled bufio emitter.
+// through go/format.
 func Generate(events []SavedEvent) ([]byte, error) {
 	sorted := append([]SavedEvent(nil), events...)
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i].Sighash < sorted[j].Sighash })

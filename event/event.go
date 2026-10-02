@@ -162,10 +162,9 @@ func DecodeEventSignature(sig []byte) (string, bool) {
 	return def.signature(), true
 }
 
-// decodeEvent decodes a matched event definition against raw topics/data.
-// Ported from v1 decodeEventInternal, with decoded ABI values instead of
-// display strings. Parameters are merged positionally rather than by name as
-// in v1 — a v2 fix, see the combine step below.
+// decodeEvent decodes a matched event definition against raw topics/data,
+// producing decoded ABI values rather than display strings. Parameters are
+// merged positionally rather than by name — see the combine step below.
 func decodeEvent(def *Definition, topics [][]byte, data []byte, op string) (*Log, error) {
 	var indexedParams, nonIndexedParams []ParamDef
 	for _, input := range def.Inputs {
@@ -189,8 +188,7 @@ func decodeEvent(def *Definition, topics [][]byte, data []byte, op string) (*Log
 	}
 
 	// Non-indexed parameters come from data. Empty data with declared
-	// non-indexed parameters is malformed, not decodable-to-nothing
-	// (v1 semantics).
+	// non-indexed parameters is malformed, not decodable-to-nothing.
 	if len(nonIndexedParams) > 0 && len(data) == 0 {
 		return nil, &tron.Error{Code: tron.CodeContractArgMismatch, Op: op, Hint: fmt.Sprintf("event %s: empty data for %d non-indexed parameters", def.Name, len(nonIndexedParams))}
 	}
@@ -242,10 +240,10 @@ func tronAddressFromEVM(b []byte) (tron.Address, error) {
 	return tron.AddressFromBytes(full)
 }
 
-// decodeTopicValue decodes an indexed parameter from its 32-byte topic.
-// Ported from v1 decodeTopicValue, returning decoded values instead of
-// strings. Signed int types are interpreted two's-complement — a v2 fix:
-// v1 used big.Int.SetBytes (unsigned), so a negative indexed int256 topic
+// decodeTopicValue decodes an indexed parameter from its 32-byte topic,
+// returning decoded values instead of strings. Signed int types are
+// interpreted two's-complement (NOT via big.Int.SetBytes, which is unsigned,
+// so a negative indexed int256 topic
 // decoded as a huge positive (see TestDecodeIndexedNegativeInt).
 func decodeTopicValue(topic []byte, paramType string) any {
 	switch paramType {
@@ -292,8 +290,7 @@ func decodeTopicValue(topic []byte, paramType string) any {
 }
 
 // decodeEventData decodes non-indexed parameters from the data blob via
-// standard ABI unpacking. Ported from v1 decodeEventData/formatEventValue,
-// returning decoded values instead of display strings.
+// standard ABI unpacking, returning decoded values instead of display strings.
 func decodeEventData(data []byte, params []ParamDef) ([]Param, error) {
 	args := make(eABI.Arguments, len(params))
 	for i, param := range params {

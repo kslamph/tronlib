@@ -24,7 +24,7 @@ import (
 // relative to bandwidth — 1 TRX and 100 TRX on Mainnet today — so a total
 // that omitted them would be wrong in the direction that hurts.
 //
-// Two-phase flow (the pipeline in §6 extended to cost):
+// Two-phase flow (the build pipeline extended to cost):
 //
 //	build → PreviewCost (energy, pre-sign OK, ContractTx only)
 //	      → Sign

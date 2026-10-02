@@ -5,7 +5,7 @@
 //
 // # The root facade
 //
-// This package is the facade: ONE import for the happy path (architecture §10).
+// This package is the facade: ONE import for the happy path.
 // The facade is an on-ramp — every data type is a type alias (zero
 // conversion tax between facade and subpackage code), every amount and
 // address constructor is a one-line re-export, and every Client method is a
@@ -15,7 +15,7 @@
 // builders/options, contract for ABI-driven calls, key for message
 // signing).
 //
-// The happy path (architecture §10):
+// The happy path:
 //
 //	cli, err := tronlib.Dial(ctx, "grpc://grpc.nile.trongrid.io:50051")
 //	defer cli.Close()
