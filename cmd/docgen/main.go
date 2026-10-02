@@ -224,7 +224,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintln(stderr, "sync-docs requires -pkg and at least one -docs")
 			return 2
 		}
-		if err := runSync(*pkgDir, examplePkgs, docs, *check); err != nil {
+		if err := runSync(*pkgDir, examplePkgs, docs, *check, stdout); err != nil {
 			fmt.Fprintf(stderr, "docgen: %v\n", err)
 			return 1
 		}

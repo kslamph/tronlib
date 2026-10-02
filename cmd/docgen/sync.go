@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go/parser"
 	"go/token"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -106,13 +107,15 @@ func packageNameOf(dir string) (string, error) {
 // It renders every docs file — filling the go:errors table from the parsed
 // package and every go:example block from the package's Example functions —
 // then either writes the result back (sync) or byte-compares it against the
-// file on disk and reports the first differing line (check).
+// file on disk and reports the first differing line (check). stdout receives
+// the per-file progress line in write mode; it is a parameter so run() can
+// route the CLI's output to the injected stream and tests can discard it.
 //
 // The example-coverage check (both marker directions) runs in -check mode
 // across all docs files before the byte comparison, so the CI gate fails
 // closed. Plain sync stays a permissive filler: it must be able to refresh
 // a single docs file (e.g. only errors.md) without the full docs set.
-func runSync(codesPkg string, examplePkgs []string, docsFiles []string, check bool) error {
+func runSync(codesPkg string, examplePkgs []string, docsFiles []string, check bool, stdout io.Writer) error {
 	data, err := parseCodesData(codesPkg)
 	if err != nil {
 		return fmt.Errorf("parsing %s: %w", codesPkg, err)
@@ -183,7 +186,7 @@ func runSync(codesPkg string, examplePkgs []string, docsFiles []string, check bo
 			if err := os.WriteFile(docPath, []byte(out), 0o644); err != nil {
 				return err
 			}
-			fmt.Printf("docgen: synced %s\n", docPath)
+			fmt.Fprintf(stdout, "docgen: synced %s\n", docPath)
 		}
 	}
 	return nil
