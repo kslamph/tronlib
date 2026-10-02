@@ -373,7 +373,7 @@ func (c *Client) Wait(ctx context.Context, txid string) (*Receipt, error)
 
 ### 6.4 Transaction options — fee limit, expiration, permission id
 
-These are **not** optional in the protocol sense, and their absence was a blocking defect in the first version of this spec: TRON requires `fee_limit` for contract calls, and a transaction broadcast with `fee_limit = 0` cannot purchase energy and fails. Every builder therefore applies a documented default, and every default is overridable.
+These are **not** optional in the protocol sense, and their absence was a blocking defect in the first version of this spec: TRON requires `fee_limit` for contract calls, and a transaction broadcast with `fee_limit = 0` cannot purchase energy and fails. The four core builders (`BuildTransfer`, `BuildTriggerSmartContract`, `BuildDeploy`, `BuildAssetTransfer`) therefore stamp a documented default, and every default they set is overridable. The twelve native-operation builders (`tx/vote.go`, `tx/resource.go`, `tx/permission.go`, `tx/manage.go`) make no energy purchase and do not touch `fee_limit` at all — they pass the node's value through unchanged. `TestFeeLimitDefaultCoverage` pins that split so it cannot drift silently.
 
 ```go
 // Contract-shaped transactions: fee limit, expiration and permission id.
@@ -417,7 +417,8 @@ failures keep their `tx.invalid_argument` treatment.
 
 | Option | Default | Rationale |
 |---|---|---|
-| `fee_limit` (all kinds) | `150_000_000` SUN (150 TRX) | stamped by every builder; only the contract-shaped kinds can override it. The ceiling exists to bound the energy purchase, which only contract-shaped kinds make, so on native and asset transfers the default is never the binding constraint — the largest native outlay this design documents is ~1.1 TRX of recipient activation (limitation 2 above), two orders of magnitude below the cap. It is not absent, though: an unbandwidth-covered transfer still burns TRX. |
+| `fee_limit` (transfer, trigger, deploy, asset) | `150_000_000` SUN (150 TRX) | v1's `DefaultBroadcastOptions` value (`broadcaster.go:42`), carried over deliberately rather than invented; stamped by the four builders above, and overridable only on the contract-shaped ones. On a native transfer the cap is not the binding constraint (the largest native outlay this design documents is ~1.1 TRX of recipient activation, limitation 2 above, two orders of magnitude below the cap) but it is not absent: an unbandwidth-covered transfer still burns TRX. |
+| `fee_limit` (vote, stake/unstake/delegation, permission update, manage) | node's value, untouched | these builders buy no energy, so there is nothing for a ceiling to bound; they neither stamp the default nor offer `WithFeeLimit`, and the node's own value (commonly 0) goes out unchanged |
 | expiration | head + 60 s | protocol default |
 | `permission_id` | `0` (owner) | protocol default; multi-sig under active permissions needs 2–9 |
 
