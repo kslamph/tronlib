@@ -71,7 +71,10 @@ func New(ctx context.Context, cp rpc.ConnProvider, address tron.Address) (*Handl
 	}
 	res, err := inst.Call(ctx, "decimals")
 	if err != nil {
-		return nil, err
+		// Same classification the read paths use: a contract that does not
+		// answer as TRC-20 declares is bad_metadata ("this is not a TRC-20"),
+		// while a transport failure or a revert passes through untouched.
+		return nil, metaErr(op, "decimals()", err)
 	}
 	raw, err := res.BigInt()
 	if err != nil {

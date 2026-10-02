@@ -60,6 +60,9 @@ var portableMagic = [4]byte{'T', 'L', 'T', 'X'}
 // package.
 func Encode(t Tx) ([]byte, error) {
 	const op = "tx.Encode"
+	if t == nil {
+		return nil, nilTx(op)
+	}
 	c, err := singleContract(t.Transaction(), op)
 	if err != nil {
 		return nil, err

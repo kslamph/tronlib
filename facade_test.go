@@ -58,6 +58,11 @@ func mustFacadeAddr(fill byte) tron.Address {
 // GetTransactionInfoById path) with per-test typed handlers over canned
 // success defaults; nil fields fall back to the defaults.
 type fakeFacadeServer struct {
+	// NoFeeChainParams makes GetChainParameters answer without the two fee
+	// parameters, so a node that cannot price a permission update can be
+	// exercised. Zero value (false) keeps the full canned answer.
+	NoFeeChainParams bool
+
 	api.UnimplementedWalletServer
 
 	CreateTx2       func(ctx context.Context, in *core.TransferContract) (*api.TransactionExtention, error)
