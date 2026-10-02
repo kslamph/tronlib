@@ -403,7 +403,7 @@ total floor 2.5038 TRX (energy + bandwidth; bandwidth priced on a single-signatu
 ### R14 — eventtool live capture against Envoy (mainnet, 2026-09-30)
 
 The v1 4-byte event remnants were replaced by the 32-byte `cmd/eventtool`
-pipeline (spec `docs/superpowers/specs/2026-09-30-eventtool-design.md`). Node
+pipeline (spec `.superpowers/specs/2026-09-30-eventtool-design.md`, local). Node
 access went through the local Envoy gRPC proxy `~/envoy` (listener
 `grpc://127.0.0.1:50051` → 19 mainnet full nodes, no rate limits):
 
@@ -435,6 +435,139 @@ Measured, live:
   (`TestTrackedCorpusVerifies`), and the regenerated table is consistent and
   distinct-keyed (`TestBuiltinTableCountAndKeys`).
 
+### R15 — event corpus coverage census + official-ecosystem map (mainnet, 2026-09-30)
+
+Two questions R14 left open: *what is the corpus actually made of*, and *how
+much chain activity does it fail to decode*. Both answered by reading the chain
+through Envoy (`grpc://127.0.0.1:50051`, 19 mainnet full nodes) at tip
+**86,698,614**. The probe was throwaway and is **not tracked** — the recipe is
+in §4 and a re-check means re-deriving it.
+
+**A. Corpus composition (902 entries, attributed by re-reading every ABI).**
+For each of the 100 snapshotted addresses: `GetContract`, derive
+`event.SignatureKey(name, types)` per named non-anonymous event, mark which
+corpus entries it explains (first claim wins; duplicates within one ABI deduped
+by sighash).
+
+- **204** of 902 entries are declared by a top-100 contract — that is the whole
+  reproducible contribution of the current pipeline (R14's 155 new + 49 already
+  present).
+- **698 of 902** are declared by *no* top-100 contract: they are inherited from
+  the v1 curated baseline, whose provenance no workflow in this tree
+  reproduces. **This is the corpus's real reproducibility hole** — an order of
+  magnitude larger than the emitter gap the harvest design targets.
+- Re-read found **0 declared-but-missing** across the top-100, confirming R14's
+  capture completeness. *Discrepancy to note:* this re-read has **69** addresses
+  yielding usable events where R14 recorded **77 with events**; ABI drift or a
+  transient `GetContract` failure are the candidates and it is unexplained —
+  treat R14's 77 as the capture-time figure.
+
+**B. Official-ecosystem coverage, per contract, declared events only.** Names
+from `GetContractInfo`; "source" = top-100 pipeline vs v1 baseline.
+
+| Contract | On-chain name | Declared | In corpus | Source |
+|---|---|---|---|---|
+| USDT | `TetherToken` | 12 | **12/12** | top-100 |
+| USDD | `USDD` | 4 | **4/4** | 2 top-100 + 2 v1 (`Deposit`, `Withdrawal`) |
+| USDD PSM | `UsddPsm` | 5 | **5/5** — `BuyGem`, `SellGem`, `File`, `Rely`, `Deny` | v1 baseline |
+| JST | `JST` | 6 | **6/6** | top-100 |
+| SUN | `SunToken` | 2 | **2/2** | top-100 |
+| WTRX | `WTRX` | 4 | **4/4** | 2 top-100 + 2 v1 |
+| WINK / BTT | `WINK`, `BTT` | 4 / 2 | **4/4, 2/2** | top-100 |
+| SR price oracle | `PriceOracle` | 8 | **8/8** — `PricePosted`, `CappedPricePosted`, `NewPendingAnchor`, `OracleFailure`, `Failure`, `SetPaused` | v1 baseline |
+| FiatTokenProxy | `FiatTokenProxy` | 19 unique (104 raw entries) | **19/19** | top-100 |
+| SmartExchangeRouter / Bridgers | — | 6 / 5 | **6/6, 5/5** | top-100 |
+| sTRX | `STRXProxy` (blueTag *JustLend DAO*) | **0** | **0** | undecodable — see §3 |
+| SunSwap v2 router A / B | `UniswapV2Router02` ×2 | **0** / **0** | — | proxy ABIs empty; pool-level events survive only via the v1 baseline |
+
+Lending- and staking-shaped v1 entries are also present and match the official
+ecosystem: `Borrow(address,uint256,uint256,uint256,uint256)`,
+`LiquidateBorrow(address,address,uint256,address,uint256)`,
+`RepayBorrow(address,address,uint256,uint256,uint256,uint256)`,
+`Redeem(address,uint256)`, `Mint(uint256)`, `Supply(uint256,uint256)`,
+`SetPaused(bool)`, plus **55** staking/governance events (`Staked`, `Unstaked`,
+`DelegatorRestaked`, `Restaked`, `RewardClaimed`, `AuditRewardPaid`, …).
+
+**C. Coverage census — 500 blocks (~25 min chain time), tip 86,698,614.**
+Walk `GetTransactionInfoByBlockNum` downward; tally per emitter normalized to
+21 bytes (`0x41` + the 20-byte `TransactionInfo_Log.address` — comparing raw
+makes every log look indirect); weight each signature by log count.
+
+- **59,489 logs · 186 distinct emitters · 128 distinct signatures · 74 unknown.**
+- **Log-weighted: 97.0% of emitted logs decode today (57,724); 3.0% do not
+  (1,765).** The "58% of signatures are unknown" framing is a long-tail
+  artifact, not a coverage statement — always quote the log-weighted figure.
+- USDT alone is **94%** of all log volume in the window and is 12/12 covered.
+
+**D. Harvest ceiling, measured (the number the emitter-harvest design lacked).**
+For the top 60 emitters (1,686 undecodable logs), asking each emitter's own
+on-chain ABI which of the sighashes *it actually emitted* that ABI explains:
+
+| Mechanism | Recovers | Share of 1,686 |
+|---|---|---|
+| Capture each emitter's own ABI | **118** | 7.0% |
+| + one-hop `proxy_implementation` (TronScan) | **+967** | → **1,085 = 64.4%** |
+| …of which **945 of the 967 is ONE contract** | `TFFAMQLZy…jF3U` `UpgradableProxy` (blueTag *GasFree*) → impl `TUGNUUoS…VJEJw` `GasFreeController`, 15 events → **945/945** | |
+
+- Only **6** emitters would contribute via their own ABI; **15** have empty
+  ABIs. Of the empty-ABI ones, **10 are `is_proxy: false`** factory clones named
+  `CreatedByContract` with **no implementation pointer at all** — a recursive
+  proxy follow cannot touch them.
+- Where a proxy *is* recorded, the hop is often just as empty: `MarketProxy`'s
+  implementation declares **0** events (288 unknown logs, 0 recovered); sTRX's
+  implementation `TUAV6ZSCX…bF4HtG` declares **0** (23 logs, 0 recovered). So
+  D3's yield is real but concentrated: its ceiling here is one hand-addable
+  address, not a subsystem.
+- Net: the full harvest would move **~0.3% of all emitted logs** (1,085 of
+  59,489), ~97% of which is that single GasFree implementation.
+
+**E. Local (no network) checks.** All 7 seed ABIs under
+`internal/eventdata/abi/` re-parsed: **16 event definitions, 16 already in the
+corpus, 0 missing** — D5 of the harvest design ("reference-only, duplicates
+the corpus") is confirmed, and they are read by no workflow.
+
+**Methodology notes (so a re-check does not repeat them).** Three defects in
+the throwaway probe produced wrong numbers before being fixed, each of them
+plausible in real tooling: (1) counting ABI entries without deduping by sighash
+reported "85 declared-but-missing" where the true figure is 0 —
+`FiatTokenProxy` declares 104 entries for 19 unique signatures; (2) first-claim
+attribution made shared signatures (`Transfer`, `Approval`) look missing on
+every contract after the first; (3) the worker pool both wrote a shared map
+outside the mutex (concurrent map write) and overwrote instead of accumulating
+per-emitter counts, understating log-weighted coverage by orders of magnitude.
+
+**Re-check:** no tracked artifact — see §4. The deterministic parts (A, B, E)
+need only `GetContract`/`GetContractInfo` for 100 addresses plus the tracked
+corpus; the census (C, D) is wall-clock dependent and differs per window.
+
+### R16 — WithdrawUnstaked positive proof, broadcast on Nile (2026-10-02)
+
+The last open §3 row, closed. Both 1 TRX unstakes pending since R10/R12
+(`1678a578…79fc` + R12's `65620750…83d6`) had matured — the spend-free
+run showed `withdrawable 2 TRX` — so the standard broadcast run withdrew
+them for real:
+
+```sh
+K1=... K2=...   # from v1-legacy:integration_test/test.env
+go run ./cmd/examplecheck -key "$K1" -payee TLibCZ2i2dFp6a9KZeKriSms5peeXSibks \
+  -payee-key "$K2" -token TWRvzd6FQcsyp7hwCtttjZGpU1kfvVEtNK -broadcast
+```
+
+- withdraw-unstaked `031406ceedd1d36ca2295f382debf139b29dad3384e6abd26792061a6fcf1047`
+  (block **71463200**): receipt `withdraw_expire_amount` **2000000** (= 2 TRX),
+  `net_usage` 253. The full-run log prints `2 TRX matured` before the step.
+- Rest of the run re-proven: 13 transactions (rebalance-in, approve,
+  transferFrom, transfer, stake, unstake, cancel-unstake, delegate/undelegate
+  unlocked + locked with the build-time refusal while locked, undelegate after
+  expiry, set-votes), owner 50.135726 → 43.363026 TRX (6.7727 spent: bought
+  energy + bandwidth), stakes 3 → 3, pending unstakes 2 → 0.
+- Harness verdict **57 OK / 4 notes / 1 FAILED** — the FAIL is the
+  position-restored assertion (`pending unstakes changed: 2 → 0`), an
+  artifact of withdrawing two pre-existing matured unstakes at the start of
+  the run, not a chain or SDK failure. Every broadcast landed; the run's own
+  fresh 1 TRX unstake was cancelled back to staked, ending at 0 pending.
+- Re-check: receipt fetch on `$NILE` for the txid above.
+
 ## 3. Negative records (what is NOT proven)
 
 - **Nile TIP-491**: factor 0 on Nile USDT (usage 7,506 vs 5e9 threshold);
@@ -443,16 +576,15 @@ Measured, live:
 - ~~**Staked-energy cost runs**~~ — resolved by R6 above (Nile, 2026-09-29).
 - ~~**`insufficient_bandwidth` live**~~ — resolved by R7 above.
 - ~~**UpdateSetting success path**~~ — resolved by R8 above.
-- **Broadcast-verified (R10, R12):** TRX transfer/rebalance, TRC-20 approve +
-  transferFrom + transfer, stake, unstake, cancel-unstake, delegate
+- **Broadcast-verified (R10, R12, R16):** TRX transfer/rebalance, TRC-20 approve +
+  transferFrom + transfer, stake, unstake, withdraw-unstaked (R16), cancel-unstake, delegate
   (unlocked and locked), undelegate, vote replace, reward claim, and the
   permission update (add active + verify + reverse, SignWeight-checked).
-- **`WithdrawUnstaked` has no positive on-chain evidence yet.** Every recorded
-  run had nothing matured: the cooldown is a chain parameter (1 day on Nile, 14
-  on Mainnet) and no run spans it. Two 1 TRX unstakes are now pending on key1
-  (the original `1678a578…79fc`, maturing 2026-10-01 08:30 (+08), plus the
-  R12 run's `65620750…83d6`); re-running `cmd/examplecheck -broadcast` after
-  a cooldown elapses calls `WithdrawUnstaked` for real and closes this row.
+- ~~**`WithdrawUnstaked` has no positive on-chain evidence yet.**~~ — resolved by R16
+  above (Nile, 2026-10-02): withdraw-unstaked `031406ce…cf1047`, receipt
+  `withdraw_expire_amount` 2000000 (= 2 TRX). No run spans the cooldown
+  (1 day on Nile, 14 on Mainnet); the proof came from unstakes left pending
+  by earlier runs.
 - ~~**The permission-update broadcast is not verified.**~~ — resolved by R12
   above (funded 200 TRX; add + on-chain verify + reverse, 2×100 TRX fees
   burnt; owner permission untouched throughout).
@@ -461,9 +593,40 @@ Measured, live:
   was removed with the v1-era docs in `302b0f5`; the constructors live in
   `contract/arg.go` and the accessor in `contract/result.go` — presence
   re-verified at the R11 audit).
+- **sTRX events are undecodable from any source available to us** (R15 §B/§D).
+  `STRXProxy`'s on-chain ABI declares 0 events and so does its TronScan-recorded
+  implementation `TUAV6ZSCX…bF4HtG`, while the proxy emits 7–12 distinct
+  signatures. This is the flagship "official ecosystem gap" and it is *not* a
+  harvesting defect: there is no ABI to capture. Fixing it needs an external ABI
+  source (verified source repo, verified-deployment registry), which is a
+  different decision from anything in the emitter-harvest design.
+- **698 of the 902 corpus entries have no reproducible provenance** (R15 §A).
+  They came from the v1 curated baseline; no workflow in this tree regenerates
+  them, and their source ABI set was not preserved. Do not cite the corpus as
+  reproducible until that set is either recovered or rebuilt.
+- **Coverage was never stated as a number before R15.** No prior record claims
+  what fraction of chain log volume the corpus decodes; the only coverage
+  claims were R14's per-contract capture completeness (still true: 0
+  declared-but-missing). The measured figure is 97.0% log-weighted over a
+  500-block mainnet window.
 
 ## 4. Reviewer toolbox (no setup)
 
+- Event-corpus composition (A), official-ecosystem coverage (B) and the
+  log-weighted decode rate (C) from R15 — read-only, no key: `Dial` the node,
+  `rpc.ChainTip`, then per address `rpc.GetContract` (ABI) and
+  `rpc.GetContractInfo` (on-chain name); membership is
+  `event.SignatureKey(name, types)` against
+  `internal/eventdata/events_registry.json`. The census needs a
+  `GetTransactionInfoByBlockNum` walk with `0x41`-prefixed log addresses. No
+  probe is tracked for this — it was a one-off.
+- **There is no programmatic source for the official-ecosystem contract list.**
+  TronScan's `/api/contract?contract=<addr>` returns rich classification
+  (`is_proxy`, `proxy_implementation`, `blueTag`, `publicTag`, `methodMap`) but
+  **no `abi`**, and `/api/contracts?blueTag=<tag>` **silently ignores the
+  filter**, returning the same unfiltered `trxCount` list every time. Recorded
+  here because a reviewer will try it: `methodMap` is function selectors only
+  and is useless for event decoding.
 - Energy + bandwidth for any historical txid: the probe replay command
   at the top (exact assertions, void-on-revert).
 - Factor + penalty cross-check for any contract: the R1 command with a

@@ -93,7 +93,7 @@ deliberately deferred.
 | `TRON_POWER` resource / new resource model | **Excluded**; `Resource` rejects it rather than silently mapping | architecture §17.6 |
 | Governance proposals, witness administration | **Excluded**; raw via `rpc` | architecture §17.6 |
 | `Client`-level chain-parameters read beyond `ChainParamsOf`'s priced subset | **Excluded** | architecture §17.6 |
-| `WithdrawUnstaked` positive on-chain proof | **Verification follow-up** — two 1 TRX unstakes pending, maturing 2026-10-01 08:30 / ≈12:05 (+08); the next `-broadcast` run closes it | verification.md §3, R12 |
+| `WithdrawUnstaked` positive on-chain proof | **Done (2026-10-02, R16)** — withdraw-unstaked `031406ce…cf1047` (block 71463200), receipt `withdraw_expire_amount` 2 TRX; the two pending unstakes from R10/R12 both withdrew | verification.md §3, R16 |
 
 Residual *design* risks (accepted trade-offs, not work items) remain in
 architecture §15 — they document why the design is shaped as it is.
