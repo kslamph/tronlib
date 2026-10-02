@@ -71,9 +71,30 @@ type fakeWalletServer struct {
 	gotCancel     *core.CancelAllUnfreezeV2Contract
 	gotDelegate   *core.DelegateResourceContract
 	gotUndelegate *core.UnDelegateResourceContract
+
+	// rpcErrors makes one named handler fail, so the error-propagation branch
+	// of each account method has a reachable trigger. Keyed by handler name.
+	rpcErrors map[string]error
+}
+
+// failWith makes the named handler return err.
+func (f *fakeWalletServer) failWith(method string, err error) {
+	if f.rpcErrors == nil {
+		f.rpcErrors = map[string]error{}
+	}
+	f.rpcErrors[method] = err
+}
+
+// injected returns the error queued for method, if any. Handlers call it first
+// so a test can make exactly one RPC fail and leave the rest working.
+func (f *fakeWalletServer) injected(method string) error {
+	return f.rpcErrors[method]
 }
 
 func (f *fakeWalletServer) GetAccount(_ context.Context, in *core.Account) (*core.Account, error) {
+	if err := f.injected("GetAccount"); err != nil {
+		return nil, err
+	}
 	if f.account != nil {
 		return f.account, nil
 	}
@@ -83,6 +104,9 @@ func (f *fakeWalletServer) GetAccount(_ context.Context, in *core.Account) (*cor
 }
 
 func (f *fakeWalletServer) GetAccountResource(_ context.Context, _ *core.Account) (*api.AccountResourceMessage, error) {
+	if err := f.injected("GetAccountResource"); err != nil {
+		return nil, err
+	}
 	if f.resources != nil {
 		return f.resources, nil
 	}
@@ -90,18 +114,30 @@ func (f *fakeWalletServer) GetAccountResource(_ context.Context, _ *core.Account
 }
 
 func (f *fakeWalletServer) GetCanDelegatedMaxSize(_ context.Context, _ *api.CanDelegatedMaxSizeRequestMessage) (*api.CanDelegatedMaxSizeResponseMessage, error) {
+	if err := f.injected("GetCanDelegatedMaxSize"); err != nil {
+		return nil, err
+	}
 	return &api.CanDelegatedMaxSizeResponseMessage{MaxSize: f.canDelegate}, nil
 }
 
 func (f *fakeWalletServer) GetAvailableUnfreezeCount(_ context.Context, _ *api.GetAvailableUnfreezeCountRequestMessage) (*api.GetAvailableUnfreezeCountResponseMessage, error) {
+	if err := f.injected("GetAvailableUnfreezeCount"); err != nil {
+		return nil, err
+	}
 	return &api.GetAvailableUnfreezeCountResponseMessage{Count: f.unfreezeCnt}, nil
 }
 
 func (f *fakeWalletServer) GetCanWithdrawUnfreezeAmount(_ context.Context, _ *api.CanWithdrawUnfreezeAmountRequestMessage) (*api.CanWithdrawUnfreezeAmountResponseMessage, error) {
+	if err := f.injected("GetCanWithdrawUnfreezeAmount"); err != nil {
+		return nil, err
+	}
 	return &api.CanWithdrawUnfreezeAmountResponseMessage{Amount: f.canWithdraw}, nil
 }
 
 func (f *fakeWalletServer) GetDelegatedResourceV2(_ context.Context, _ *api.DelegatedResourceMessage) (*api.DelegatedResourceList, error) {
+	if err := f.injected("GetDelegatedResourceV2"); err != nil {
+		return nil, err
+	}
 	if f.delegated != nil {
 		return f.delegated, nil
 	}
@@ -109,6 +145,9 @@ func (f *fakeWalletServer) GetDelegatedResourceV2(_ context.Context, _ *api.Dele
 }
 
 func (f *fakeWalletServer) GetDelegatedResourceAccountIndexV2(_ context.Context, _ *api.BytesMessage) (*core.DelegatedResourceAccountIndex, error) {
+	if err := f.injected("GetDelegatedResourceAccountIndexV2"); err != nil {
+		return nil, err
+	}
 	if f.delegIndex != nil {
 		return f.delegIndex, nil
 	}
@@ -116,14 +155,23 @@ func (f *fakeWalletServer) GetDelegatedResourceAccountIndexV2(_ context.Context,
 }
 
 func (f *fakeWalletServer) GetRewardInfo(_ context.Context, _ *api.BytesMessage) (*api.NumberMessage, error) {
+	if err := f.injected("GetRewardInfo"); err != nil {
+		return nil, err
+	}
 	return &api.NumberMessage{Num: 42}, nil
 }
 
 func (f *fakeWalletServer) GetNextMaintenanceTime(_ context.Context, _ *api.EmptyMessage) (*api.NumberMessage, error) {
+	if err := f.injected("GetNextMaintenanceTime"); err != nil {
+		return nil, err
+	}
 	return &api.NumberMessage{Num: f.nextMaint}, nil
 }
 
 func (f *fakeWalletServer) GetTransactionSignWeight(_ context.Context, _ *core.Transaction) (*api.TransactionSignWeight, error) {
+	if err := f.injected("GetTransactionSignWeight"); err != nil {
+		return nil, err
+	}
 	if f.signWeight != nil {
 		return f.signWeight, nil
 	}
@@ -131,6 +179,9 @@ func (f *fakeWalletServer) GetTransactionSignWeight(_ context.Context, _ *core.T
 }
 
 func (f *fakeWalletServer) GetTransactionApprovedList(_ context.Context, _ *core.Transaction) (*api.TransactionApprovedList, error) {
+	if err := f.injected("GetTransactionApprovedList"); err != nil {
+		return nil, err
+	}
 	if f.approved != nil {
 		return f.approved, nil
 	}
