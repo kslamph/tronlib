@@ -42,7 +42,18 @@ jobs:
         pkgs=$(go list ./... | grep -v '/pb/' \
           | grep -v 'cmd/examplecheck$' | grep -v 'cmd/tip491probe$' \
           | grep -v 'cmd/eventtool$')
-        go test -short -coverprofile=coverage.txt -covermode=atomic $pkgs
+        # -coverpkg makes every package's tests count towards every OTHER
+        # package's coverage. Without it a package is only measured by its own
+        # test binary, so a thin wrapper exercised only from its consumer reads
+        # 0% (rpc.GetTransactionInfoByIdSolidity did) while being fully covered.
+        # The report then matches what the module actually does.
+        #
+        # Note the separator: -coverpkg takes a COMMA-separated list. Passing
+        # it space- or newline-separated silently degrades to one bogus pattern
+        # ("no packages being tested depend on matches for pattern ...") and
+        # writes a profile containing nothing but its mode line.
+        cpkg=$(echo "$pkgs" | sed 's|github.com/kslamph/tronlib/v2|.|' | paste -sd,)
+        go test -short -coverprofile=coverage.txt -covermode=atomic -coverpkg="$cpkg" $pkgs
 
     - name: Enforce coverage floor (80%)
       run: |
