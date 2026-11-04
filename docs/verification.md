@@ -220,7 +220,7 @@ Observed at Nile block **71,399,777** — 34 steps OK, 4 notes, **0 failed**:
 | Simulate (success) | `approve`: energy 22506, decoded ABI result `true` |
 | CostPreview | 22506 needed, 8520 staked, buys 13986 @ 100 sun = **1.3986 TRX** |
 | TotalCostOf | 1.3985 TRX; for the permission update it reported the **100 TRX** `getUpdateAccountPermissionFee` — the V2 reversal, live (a bandwidth-only total would have said 0) |
-| Simulate (revert) | `transfer` from a 0-balance owner: `REVERT opcode executed`; decoding that payload fails with `contract.arg_mismatch` |
+| Simulate (revert) | `transfer` from a 0-balance owner: `Revert`/`REVERT opcode executed` is an in-band simulation result; callers must check it before `Decode`. A live `Instance.Call` on the same node marker now returns `contract.reverted` with the decoded reason in the Hint instead of a bogus `contract.arg_mismatch` |
 | Portable envelope | 215 bytes, kind `native`, signer recovered from the bytes after `Decode`, duplicate signer refused with `tx.already_signed` |
 | Remote signer | `SignHash` → `AttachSignature` verified the 65-byte signature against the stated address |
 | SignWeight | `PERMISSION_ERROR`, threshold 1, `enough=false` — a signature from a key outside the permission list does not authorize, which is the point of the step |

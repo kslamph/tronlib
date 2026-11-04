@@ -39,8 +39,10 @@ type Instance struct {
 // costs nothing. Supply the ABI up front with UseABI to skip the network
 // fetch; without it the first ABI-using call performs a GetContract RPC
 // and fails with contract.not_found (no contract at the address),
-// contract.no_abi (contract exists, publishes no ABI) or contract.bad_abi
-// (ABI present but unparseable).
+// contract.no_abi (contract exists, publishes no ABI and no family ABI is
+// registered) or contract.bad_abi (ABI present but unparseable). For
+// factory-deployed contracts, UseABIFamily can register one ABI for all
+// instances sharing the same code identity.
 func NewInstance(cp rpc.ConnProvider, address tron.Address) (*Instance, error) {
 	const op = "contract.NewInstance"
 	if cp == nil {
@@ -134,9 +136,10 @@ func parseAndRegisterABI(addr tron.Address, abiJSON, op string) (*eABI.ABI, erro
 
 // loadABI performs the lazy network load: GetContract returns the
 // SmartContract; no contract at the address is contract.not_found, a
-// missing/empty ABI is contract.no_abi, and an unparseable one is
-// contract.bad_abi. Failures are NOT cached — a transient transport error
-// (chain.connection) retries on the next use.
+// missing/empty ABI is looked up in the code-family registry before it is
+// reported as contract.no_abi, and an unparseable one is contract.bad_abi.
+// Failures are NOT cached — a transient transport error (chain.connection)
+// retries on the next use.
 func (i *Instance) loadABI(ctx context.Context) error {
 	const op = "contract.loadABI"
 	msg := &api.BytesMessage{Value: i.address.Bytes()}
@@ -144,7 +147,7 @@ func (i *Instance) loadABI(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if sc == nil || (len(sc.GetAbi().GetEntrys()) == 0 && len(sc.GetBytecode()) == 0) {
+	if sc == nil || (len(sc.GetAbi().GetEntrys()) == 0 && len(sc.GetBytecode()) == 0 && len(sc.GetCodeHash()) == 0) {
 		return &tron.Error{
 			Code: tron.CodeContractNotFound,
 			Op:   op,
@@ -152,10 +155,22 @@ func (i *Instance) loadABI(ctx context.Context) error {
 		}
 	}
 	if sc.GetAbi() == nil || len(sc.GetAbi().GetEntrys()) == 0 {
+		identity, identityErr := codeIdentity(sc)
+		if identityErr == nil {
+			if abiJSON, ok := lookupABIFamily(identity); ok {
+				parsed, perr := parseAndRegisterABI(i.address, abiJSON, op)
+				if perr == nil {
+					i.abiJSON = abiJSON
+					i.parsed = parsed
+					return nil
+				}
+				return perr
+			}
+		}
 		return &tron.Error{
 			Code: tron.CodeContractNoABI,
 			Op:   op,
-			Hint: "the contract publishes no ABI on-chain; supply it with UseABI(json)",
+			Hint: "the contract publishes no ABI on-chain; supply it with UseABI(json) or register a family ABI with UseABIFamily(ctx, json)",
 		}
 	}
 	abiJSON, err := pbABIToJSON(sc.GetAbi())
@@ -176,6 +191,35 @@ func (i *Instance) loadABI(ctx context.Context) error {
 		}
 		return err
 	}
+	return nil
+}
+
+// UseABIFamily validates abiJSON and registers it for this deployed
+// contract's code identity. Other Instances for the same code can then load
+// it lazily when their node response has no ABI entries. The current
+// instance also loads the ABI immediately and registers its events by address.
+func (i *Instance) UseABIFamily(ctx context.Context, abiJSON string) error {
+	const op = "contract.UseABIFamily"
+	sc, err := rpc.GetContract(i.cp, ctx, &api.BytesMessage{Value: i.address.Bytes()})
+	if err != nil {
+		return err
+	}
+	if sc == nil || (len(sc.GetAbi().GetEntrys()) == 0 && len(sc.GetBytecode()) == 0 && len(sc.GetCodeHash()) == 0) {
+		return &tron.Error{Code: tron.CodeContractNotFound, Op: op, Hint: "no contract exists at this address; check the address and network"}
+	}
+	identity, err := codeIdentity(sc)
+	if err != nil {
+		return &tron.Error{Code: tron.CodeContractNoABI, Op: op, Hint: "the node did not return a code hash or bytecode for this contract", Cause: err}
+	}
+	parsed, err := parseAndRegisterABI(i.address, abiJSON, op)
+	if err != nil {
+		return err
+	}
+	storeABIFamily(identity, abiJSON)
+	i.mu.Lock()
+	i.abiJSON = abiJSON
+	i.parsed = parsed
+	i.mu.Unlock()
 	return nil
 }
 
@@ -304,10 +348,11 @@ var nullOwner = func() tron.Address {
 // always 0 — a read cannot spend.
 //
 // The owner address is the null address (see the package doc). A
-// node-level rejection (including a contract revert) surfaces as a
-// *tron.Error classified through rpc's Return table; tx.Simulate's
-// in-band Code shape is a transaction-layer concern and is not repeated
-// here.
+// node-level rejection surfaces as a *tron.Error classified through
+// rpc's Return table; a reason-bearing contract revert (the node still
+// answers result=true) surfaces as contract.reverted with the decoded
+// Solidity reason in the Hint. tx.Simulate's in-band Code shape is a
+// transaction-layer concern and is not repeated here.
 func (i *Instance) Call(ctx context.Context, method string, args ...Arg) (*Result, error) {
 	const op = "contract.Instance.Call"
 	data, err := i.encodeCall(ctx, method, args)
@@ -333,6 +378,13 @@ func (i *Instance) Call(ctx context.Context, method string, args ...Arg) (*Resul
 	for _, r := range ext.GetConstantResult() {
 		blob = append(blob, r...)
 	}
+	// A reason-bearing revert answers with result=true and its payload in
+	// ConstantResult (see revert.go) — classify it before the decode turns
+	// it into a bogus arg_mismatch.
+	nodeReverted := strings.Contains(strings.ToLower(string(ext.GetResult().GetMessage())), "revert opcode executed")
+	if rv := classifyRevertBlob(op, nodeReverted, blob); rv != nil {
+		return nil, rv
+	}
 	return i.decodeResult(ctx, method, blob)
 }
 
@@ -340,8 +392,9 @@ func (i *Instance) Call(ctx context.Context, method string, args ...Arg) (*Resul
 // has NO block anchor on triggerconstantcontract — the pb
 // TriggerSmartContract message carries owner/contract/value/data/token
 // fields only — so v2 refuses instead of silently calling at head, which
-// would return the wrong block's state with no signal. Archive-node reads
-// need an upstream API addition.
+// would return the wrong block's state with no signal. Use Call in a
+// caller-controlled polling loop for client-side historical/TWAP samples;
+// archive-node reads need an upstream API addition.
 func (i *Instance) CallAtBlock(ctx context.Context, block uint64, method string, args ...Arg) (*Result, error) { //nolint:revive // unused-parameter: unimplemented stub — ctx belongs to the archive-node RPC this reserves a signature for
 	const op = "contract.Instance.CallAtBlock"
 	return nil, &tron.Error{

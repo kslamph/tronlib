@@ -31,9 +31,10 @@ Every error returned by tronlib v2 is `*tron.Error` carrying a `Code` (machine-r
 | `contract.bad_abi` | `fix_call` | the provided ABI could not be parsed |
 | `contract.bad_metadata` | `fix_call` | the contract's metadata violates the expected layout |
 | `contract.method_unknown` | `fix_call` | the method name is not present in the contract ABI |
-| `contract.no_abi` | `fix_call` | no ABI was provided for the contract |
+| `contract.no_abi` | `fix_call` | the contract publishes no ABI on-chain; supply one with UseABI(json) or register a code-family ABI with UseABIFamily(ctx, json) |
 | `contract.not_found` | `fix_call` | no contract exists at the given address |
 | `contract.result_type_mismatch` | `fix_call` | the result accessor does not match the ABI return type |
+| `contract.reverted` | `fix_call` | the contract reverted the call; the decoded Solidity revert reason (Error(string) or Panic(uint256) payload) is in the error's Hint |
 | `event.unknown` | `fix_call` | no registered event definition matches this log's signature, or two conflicting layouts are registered for it; register the emitting contract's ABI (event.RegisterABIJSONForAddress) before decoding |
 | `key.invalid` | `fix_call` | the private key is not a valid secp256k1 key |
 | `key.mnemonic_invalid` | `fix_call` | the mnemonic phrase is invalid |

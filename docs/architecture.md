@@ -738,7 +738,17 @@ func (i *Instance) Decode(method string, data []byte) (*Result, error)
 // agent operation after transfers is four calls plus raw-byte plumbing.
 func (i *Instance) Call(ctx context.Context, method string, args ...Arg) (*Result, error)
 func (i *Instance) CallAtBlock(ctx context.Context, block uint64, method string, args ...Arg) (*Result, error)
+```
 
+`CallAtBlock` is deliberately refused today: the Wallet gRPC's
+`TriggerSmartContract` request has no block anchor, so implementing it as a
+normal `Call` would silently return head state under a historical API name.
+Callers needing client-side TWAP samples should poll `Call`, recording the
+local timestamp and observed `ChainTip` beside each result. Those labels do not
+turn the reads into historical VM execution; a true block-anchored read needs
+an archive-node API that exposes one.
+
+```go
 // Arg is sealed: the unexported method cannot be satisfied outside this package,
 // so an agent cannot construct an invalid argument.
 type Arg interface{ argABI() string }

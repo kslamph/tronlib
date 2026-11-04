@@ -8,10 +8,11 @@
 // *tx.ContractTx), rpc, event and tron — never the reverse.
 //
 // The ABI is loaded once and cached: either explicitly with UseABI(json),
-// or lazily from the chain (GetContract) on first use — contract.no_abi if
-// the on-chain contract publishes none, contract.bad_abi if it cannot be
-// parsed. Loading also registers the ABI's event definitions with the
-// event package's registry, so event.Decode works for the instance's
+// by registering a reusable code-family ABI with UseABIFamily(ctx, json),
+// or lazily from the chain (GetContract) on first use. A no-ABI contract can
+// reuse a family ABI when its code hash (or bytecode fallback identity) was
+// registered first. Loading also registers the ABI's event definitions with
+// the event package's registry, so event.Decode works for the instance's
 // events without a second registration step.
 //
 // Address rule: AddressArg strips TRON's 0x41
@@ -38,6 +39,7 @@
 // until UseABI or the first ABI-using call triggers the lazy fetch).
 //
 // CallAtBlock: the node's Wallet API has no block-anchored constant call
-// (see its doc); the method returns a classified error rather than
-// faking head-state reads.
+// (see its doc); the method returns a classified error rather than faking
+// head-state reads. Historical/TWAP callers must poll Call themselves and
+// attach block/time samples on the client side; see docs/examples.md.
 package contract

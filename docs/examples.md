@@ -6,6 +6,33 @@ Every snippet below is extracted from a compiled `Example` function in the
 package's `_test.go` files — it is exactly what CI builds. To add one, write
 an `ExampleXxx` function; it appears here on the next sync.
 
+## Historical/TWAP-style contract reads
+
+The current Wallet gRPC has no block parameter on `TriggerSmartContract`, so
+`CallAtBlock` refuses rather than returning a current-head value under a
+historical name. For client-side sampling, call `ChainTip` and `Instance.Call`
+in a loop, recording the local timestamp and observed tip with each result:
+
+```go
+for {
+    block, err := cli.ChainTip(ctx)
+    if err != nil { return err }
+    at := time.Now()
+    value, err := pool.Call(ctx, "slot0")
+    if err != nil { return err }
+    samples = append(samples, Sample{At: at, Block: block, Value: value})
+    time.Sleep(interval)
+}
+```
+
+The block is an observation label, not an execution anchor. Aggregate samples
+according to the oracle's policy; do not claim they are historical VM reads.
+
+Factory-deployed contracts that publish no ABI can share a verified ABI by code
+identity: call `pool.UseABIFamily(ctx, verifiedABI)` once, then create other
+instances for the same deployed code and let their first call load the family
+ABI lazily. Event definitions are still registered per contract address.
+
 <!-- go:example tron.ExampleHasCode -->
 inner := &tron.Error{Code: tron.CodeAmountTooManyDecimals, Op: "example"}
 wrapped := fmt.Errorf("building transfer: %w", inner)

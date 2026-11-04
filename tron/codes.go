@@ -79,6 +79,7 @@ const (
 	CodeContractMethodUnknown      Code = "contract.method_unknown"
 	CodeContractArgMismatch        Code = "contract.arg_mismatch"
 	CodeContractResultTypeMismatch Code = "contract.result_type_mismatch"
+	CodeContractReverted           Code = "contract.reverted"
 
 	CodeAccountInsufficientBalance   Code = "account.insufficient_balance"
 	CodeAccountInsufficientEnergy    Code = "account.insufficient_energy"
@@ -141,6 +142,7 @@ var AllCodes = []Code{
 	CodeContractMethodUnknown,
 	CodeContractArgMismatch,
 	CodeContractResultTypeMismatch,
+	CodeContractReverted,
 
 	// account
 	CodeAccountInsufficientBalance,

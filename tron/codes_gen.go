@@ -83,6 +83,8 @@ func (c Code) Action() Action {
 		return ActionFixCall
 	case CodeContractResultTypeMismatch: // contract.result_type_mismatch
 		return ActionFixCall
+	case CodeContractReverted: // contract.reverted
+		return ActionFixCall
 	case CodeAccountInsufficientBalance: // account.insufficient_balance
 		return ActionFund
 	case CodeAccountInsufficientEnergy: // account.insufficient_energy
@@ -163,7 +165,7 @@ func (c Code) Doc() string {
 	case CodeContractNotFound: // contract.not_found
 		return `no contract exists at the given address`
 	case CodeContractNoABI: // contract.no_abi
-		return `no ABI was provided for the contract`
+		return `the contract publishes no ABI on-chain; supply one with UseABI(json) or register a code-family ABI with UseABIFamily(ctx, json)`
 	case CodeContractBadABI: // contract.bad_abi
 		return `the provided ABI could not be parsed`
 	case CodeContractBadMetadata: // contract.bad_metadata
@@ -174,6 +176,8 @@ func (c Code) Doc() string {
 		return `the arguments do not match the method's ABI signature`
 	case CodeContractResultTypeMismatch: // contract.result_type_mismatch
 		return `the result accessor does not match the ABI return type`
+	case CodeContractReverted: // contract.reverted
+		return `the contract reverted the call; the decoded Solidity revert reason (Error(string) or Panic(uint256) payload) is in the error's Hint`
 	case CodeAccountInsufficientBalance: // account.insufficient_balance
 		return `the account lacks the required balance`
 	case CodeAccountInsufficientEnergy: // account.insufficient_energy
