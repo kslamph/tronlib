@@ -327,55 +327,6 @@ func ExampleClient_Contract() {
 	fmt.Println("stored logs:", len(logs))
 }
 
-// contractHistoricalSamplingExample shows the supported workaround
-// for historical/TWAP-style reads. CallAtBlock cannot be implemented with
-// the current Wallet gRPC because TriggerSmartContract has no block field;
-// label each current-head sample with the observed tip and local timestamp.
-func contractHistoricalSamplingExample() {
-	ctx := context.Background()
-	cli, err := tronlib.Dial(ctx, "grpc://grpc.nile.trongrid.io:50051")
-	if err != nil {
-		return
-	}
-	defer cli.Close()
-
-	poolAddress, err := tronlib.ParseAddress("TSUUVjysXV8YqHytSNjfkNXnnB49QDvZpx")
-	if err != nil {
-		return
-	}
-	pool, err := cli.Contract(ctx, poolAddress)
-	if err != nil {
-		return
-	}
-	if err := pool.UseABI(`[{
-  "type":"function", "name":"slot0", "stateMutability":"view",
-  "inputs":[], "outputs":[{"name":"sqrtPriceX96","type":"uint160"}]
-}]`); err != nil {
-		return
-	}
-
-	type sample struct {
-		At    time.Time
-		Block uint64
-		Value *contract.Result
-	}
-	var samples []sample
-	for n := 0; n < 3; n++ {
-		block, err := cli.ChainTip(ctx)
-		if err != nil {
-			return
-		}
-		at := time.Now()
-		value, err := pool.Call(ctx, "slot0")
-		if err != nil {
-			return
-		}
-		samples = append(samples, sample{At: at, Block: block, Value: value})
-		time.Sleep(time.Second)
-	}
-	_ = samples // aggregate/weight samples according to the oracle's policy.
-}
-
 // ExampleClient_Token uses the TRC-20 handle, which owns the token's scale:
 // every Amount it mints carries the token's decimals, so "1.5" means 1.5
 // USDT and not 1.5 raw units.
