@@ -21,7 +21,7 @@ an issue to getting a PR merged.
 
 | Tool | Version |
 |---|---|
-| Go | 1.27.1+ (`go.mod` requires 1.27.1, and CI runs exactly 1.27.1) |
+| Go | 1.27.1+ (`go.mod` requires 1.27.1, and CI runs 1.27.3, the patch release that clears the reachable stdlib advisories) |
 | golangci-lint | v2.14.0 (pinned in CI) — install with `go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0`; the module targets go 1.27.1 and prebuilt release binaries lag the toolchain, so build it from source with your local Go |
 | protoc + plugins | only if changing `protos/` (see `scripts/proto-gen.sh`) |
 

@@ -128,8 +128,9 @@ tronlib's error contract is part of its public API.
 - The public dependency set is deliberately small (go-ethereum, grpc, protobuf,
   testify, base58, decimal, bip39-hdwallet). Adding a new module dependency is
   a design decision — open an issue first.
-- `go.mod` pins the minimum Go version (1.27.1 today); CI sets up exactly that
-  toolchain (`go-version: '1.27.1'`). Don't raise it casually.
+- `go.mod` pins the minimum Go version (1.27.1 today); CI runs a newer patch
+  toolchain (`go-version: '1.27.3'`) so the stdlib advisories fixed since 1.27.1
+  stay covered by `govulncheck`. Don't raise the `go.mod` minimum casually.
 - Generated code (`pb/`) changes only via `scripts/proto-gen.sh`. Never
   hand-edit `pb/`; regenerate and commit the result separately from logic
   changes.

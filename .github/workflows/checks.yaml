@@ -19,7 +19,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v7
       with:
-        go-version: '1.27.1'
+        go-version: '1.27.3'
 
     - name: Install dependencies
       run: go mod download
@@ -44,7 +44,7 @@ jobs:
       run: go run ./cmd/docgen sync-docs -pkg ./tron -example-pkg . -docs ./docs/errors.md -docs ./docs/examples.md -check
 
     # Vulnerability gate: fail on any advisory REACHABLE from the module.
-    # The Go patch version is pinned above (1.27.1) because the crypto/tls,
+    # The Go patch version is pinned above (1.27.3) because the crypto/tls,
     # x509, asn1 and net/textproto advisories are only fixed in the toolchain.
     - name: Install govulncheck
       run: go install golang.org/x/vuln/cmd/govulncheck@latest
